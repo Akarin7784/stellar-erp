@@ -61,7 +61,7 @@ erDiagram
 | 物理名 | 型 | NULL | 既定値 | 説明 |
 |---|---|---|---|---|
 | `id` | BIGINT | NOT NULL | アプリ採番 | 雪花 ID（PK） |
-| `tenant_id` | BIGINT | NOT NULL | 0 | 租户（首期 0） |
+| `tenant_id` | BIGINT | NOT NULL | 0 | 租户（RLS、[10-rls-and-db-roles.md](../00-common/10-rls-and-db-roles.md)（PR #43）を正とする） |
 | `company_id` | BIGINT | NOT NULL | 1 | 公司 ID |
 | `created_at` | TIMESTAMPTZ | NOT NULL | now() | 作成日時 |
 | `created_by` | BIGINT | NOT NULL | 0 | 作成者 |
@@ -172,6 +172,7 @@ CREATE TABLE mdm_material_category (
     material_type   SMALLINT     NULL,                 -- 默认物料类型
     default_uom_code VARCHAR(16) NULL,                 -- 默认基本单位
     over_receipt_tolerance_pct NUMERIC(7,4) NULL,      -- 過入荷容差%（分類既定。品目>分類>仕入先>会社の優先順、05 §2.4）
+    completion_over_rate NUMERIC(5,4) NULL,            -- 完工超収容差（比率 0.05=5%。受注行>物料>分類>会社の優先順）
     attribute_template JSONB     NULL,                 -- 分类属性模板（扩展字段定义）
     is_leaf         BOOLEAN      NOT NULL DEFAULT FALSE, -- 是否末级
     sort_no         INT          NOT NULL DEFAULT 0,   -- 显示顺序
@@ -188,7 +189,7 @@ CREATE TABLE mdm_material_category (
     CONSTRAINT fk_mdm_material_category_parent FOREIGN KEY (parent_id) REFERENCES mdm_material_category (id)
 );
 CREATE UNIQUE INDEX uk_mdm_material_category_code ON mdm_material_category (company_id, category_code) WHERE deleted = FALSE;
-CREATE INDEX idx_mdm_material_category_parent ON mdm_material_category (parent_id);
+CREATE INDEX idx_mdm_material_category_parent ON mdm_material_category (company_id, parent_id);
 CREATE INDEX gin_mdm_material_category_name ON mdm_material_category USING gin (category_name gin_trgm_ops);
 ```
 
@@ -247,6 +248,7 @@ CREATE TABLE mdm_material (
     sales_lead_time_days  INT          NULL,           -- 可销售天数
     return_limit_days     INT          NULL,           -- 退货期限（日）
     is_sales_stopped      BOOLEAN      NOT NULL DEFAULT FALSE, -- 销售停止
+    ship_over_rate        NUMERIC(5,4) NULL,           -- 出荷超過容差（比率。受注行>物料>会社既定 0）
     -- 库存视图
     default_warehouse_id  BIGINT       NULL,           -- 默认仓库
     default_bin_id        BIGINT       NULL,           -- 默认库位
@@ -277,14 +279,15 @@ CREATE TABLE mdm_material (
     mrp_type              SMALLINT     NULL,           -- 10MTS/20MTO
     planning_policy       SMALLINT     NULL,           -- 10MRP/20ROP/30手动
     manufacturing_lead_time_days INT    NULL,          -- 制造提前期（日）
+    completion_over_rate  NUMERIC(5,4) NULL,           -- 完工超収容差（比率 0.05=5%。受注行>物料>分類>会社既定）
     -- 财务视图
     inventory_account_code VARCHAR(32) NULL,           -- 存货科目
     revenue_account_code  VARCHAR(32)  NULL,           -- 收入科目
     cogs_account_code     VARCHAR(32)  NULL,           -- 销售成本科目
     cost_category         SMALLINT     NULL,           -- 成本分类
     cost_method           SMALLINT     NOT NULL DEFAULT 1, -- 成本核算方法 1品种法/2分批法（FIN直接参照）
-    valuation_method      SMALLINT     NULL,           -- 10移动平均/20标准成本
-    standard_cost         NUMERIC(18,6) NULL,          -- 标准成本
+    valuation_method      SMALLINT     NOT NULL,       -- 10移动平均/20标准成本（R1：MTS 自制品 20、MTO 产品・外购料 10。既定値なし）
+    standard_cost         NUMERIC(18,6) NULL,          -- 标准成本（参照のみ。正は fin_standard_cost の当期有効版。直接更新禁止、§4.1.2 注記）
     standard_price        NUMERIC(18,6) NULL,          -- 标准销售价（参考）
     tax_classification_code VARCHAR(32) NULL,          -- 税收分类编码
     -- 质量视图
@@ -313,16 +316,30 @@ CREATE TABLE mdm_material (
     CONSTRAINT fk_mdm_material_category FOREIGN KEY (category_id) REFERENCES mdm_material_category (id),
     CONSTRAINT ck_mdm_material_stage CHECK (inspection_stage IN (0,10,20,30,40)),
     CONSTRAINT ck_mdm_material_cost_method CHECK (cost_method IN (1,2)),
+    CONSTRAINT ck_mdm_material_valuation_method CHECK (valuation_method IN (10,20)),
+    CONSTRAINT ck_mdm_material_completion_over_rate CHECK (completion_over_rate IS NULL OR completion_over_rate >= 0),
+    CONSTRAINT ck_mdm_material_ship_over_rate CHECK (ship_over_rate IS NULL OR ship_over_rate >= 0),
     CONSTRAINT ck_mdm_material_status CHECK (status IN (0,1))
 );
 CREATE UNIQUE INDEX uk_mdm_material_company_code ON mdm_material (company_id, material_code) WHERE deleted = FALSE;
-CREATE INDEX idx_mdm_material_category ON mdm_material (category_id);
-CREATE INDEX idx_mdm_material_type_status ON mdm_material (material_type, status);
-CREATE INDEX idx_mdm_material_batch ON mdm_material (is_batch_managed, status);
+CREATE INDEX idx_mdm_material_category ON mdm_material (company_id, category_id);
+CREATE INDEX idx_mdm_material_type_status ON mdm_material (company_id, material_type, status);
+CREATE INDEX idx_mdm_material_batch ON mdm_material (company_id, is_batch_managed, status);
 CREATE INDEX gin_mdm_material_name ON mdm_material USING gin (material_name gin_trgm_ops);
 CREATE INDEX gin_mdm_material_spec ON mdm_material USING gin (spec gin_trgm_ops);
 CREATE INDEX gin_mdm_material_ext ON mdm_material USING gin (ext_data jsonb_path_ops);
 ```
+
+**T1 確定事項（2026-10-20 決定、G2-18 前提）**：
+
+- **容差は比率**（`NUMERIC(5,4)`、`0.05` = 5%）。
+  - 完工超収：受注行 > 物料（`completion_over_rate`）> 物料分類（`mdm_material_category.completion_over_rate`）> 会社既定（`sys_param` の `production.completion.over_rate`、既定 `0.05`、[01-system 90 §3.15](../01-system/90-db-design.md)）。
+  - 出荷超過：受注行 > 物料（`ship_over_rate`）> 会社既定 0。
+  - 購買受入（`over_receipt_tolerance_pct`）は別系統で従来どおり 物料 > 分類 > 仕入先 > 会社（05 §2.4）。TODO：この列は % 表記（`NUMERIC(7,4)`、5.0000=5%）のままで比率表記と単位が異なる。統一は購買ドメインの PR で決める。
+- **数量は基本単位**。`allowed_qty = floor(ordered_qty × (1 + rate))`（基本単位の精度 `mdm_uom.decimal_places` で切捨て）。受注行確定時にスナップショットし、承認済み受注変更・超産承認の時のみ再計算（詳細は販売・生産ドメイン）。
+- **検査フラグ**：`mdm_material` に `inspection_required` 列は**作らない**。入庫明細の `inspection_flag` は `inspection_stage` から導出し、明細にスナップショットとして書き込む（導出規則は 05-inventory 文書で確定）。
+- **標準原価**：唯一の正は `fin_standard_cost`（版管理・有効期間付き、DDL は 07-finance で定義。TODO：07-finance 側の DDL が未作成）。`mdm_material.standard_cost` は当期有効版を参照するための列で、直接 `UPDATE` は禁止（トリガーで拒否するか、ビュー列に置き換える。方式は 07-finance の PR で決める）。工单下达時は `prd_work_order.standard_cost` にスナップショットする（Refs #32、#8）。
+- `valuation_method` は `NOT NULL`、既定値なし（R1：MTS 自制品 20、MTO 产品・外购料 10）。
 
 **项目定义补足（01 との対応）**：各列の論理名・必須・入力チェックは [01-material-master.md](01-material-master.md) 2.5.1〜2.5.7 を正とする。DB では `material_type`=10〜80、`inspection_stage`=0〜40、`approval_status`=10/20/25/90/95、`status`=0/1。`default_bom_code`/`default_routing_code`/`inspection_standard_id` は PRD 域のマスタをコード/ID 参照（FK は張らない）。
 
@@ -336,8 +353,8 @@ CREATE INDEX gin_mdm_material_ext ON mdm_material USING gin (ext_data jsonb_path
 | 40 | 外购件 | 4001000001 6205-2RS、4002000001 GB/T 5782 螺栓、4005000001 风扇 |
 | 50 | 包装材料 | 5001000001 木托盘、5002000001 瓦楞纸箱 |
 | 60 | 低值易耗品 | 6002000001 冲片模具 |
-| 70 | 委外加工件 | Phase 2 委外件（Phase 1 按外购件管理） |
-| 80 | 服务 | Phase 2 加工/维修服务 |
+| 70 | 委外加工件 | 委外件（第一版） |
+| 80 | 服务 | 加工/维修服务（第一版） |
 
 > 注意：物料分類碼（06 §11：10/20/30/40/50/60/70/90）と `material_type`（10〜80）は別次元。分類は調達・材質の区分、類型は製造/販売/在庫の扱いを表す。
 
@@ -596,8 +613,8 @@ CREATE TABLE mdm_customer (
 );
 CREATE UNIQUE INDEX uk_mdm_customer_code ON mdm_customer (company_id, customer_code) WHERE deleted = FALSE;
 CREATE UNIQUE INDEX uk_mdm_customer_tax_no ON mdm_customer (company_id, tax_no) WHERE deleted = FALSE;
-CREATE INDEX idx_mdm_customer_owner ON mdm_customer (owner_user_id, status);
-CREATE INDEX idx_mdm_customer_credit ON mdm_customer (credit_status);
+CREATE INDEX idx_mdm_customer_owner ON mdm_customer (company_id, owner_user_id, status);
+CREATE INDEX idx_mdm_customer_credit ON mdm_customer (company_id, credit_status);
 CREATE INDEX gin_mdm_customer_name ON mdm_customer USING gin (customer_name gin_trgm_ops);
 ```
 
@@ -682,7 +699,7 @@ CREATE TABLE mdm_supplier (
     tax_code VARCHAR(32) NULL,                         -- 默认税码（进项）
     ap_account_code VARCHAR(32) NULL,                  -- 应付账款科目
     advance_payment_allowed BOOLEAN NOT NULL DEFAULT FALSE, -- 允许预付款
-    vmi_flag BOOLEAN NOT NULL DEFAULT FALSE,           -- VMI对象（Phase2）
+    vmi_flag BOOLEAN NOT NULL DEFAULT FALSE,           -- VMI对象
     status SMALLINT NOT NULL DEFAULT 0,                -- 1有效/0停止
     approval_status SMALLINT NOT NULL DEFAULT 10,
     submitted_at TIMESTAMPTZ NULL, approved_at TIMESTAMPTZ NULL, approved_by BIGINT NULL,
@@ -856,7 +873,7 @@ CREATE TABLE mdm_warehouse (
     factory_id BIGINT NOT NULL,                        -- 工厂ID
     address VARCHAR(200) NULL, manager_user_id BIGINT NULL, phone VARCHAR(32) NULL,
     is_physical BOOLEAN NOT NULL DEFAULT TRUE,         -- 物理仓库
-    is_consignment BOOLEAN NOT NULL DEFAULT FALSE,     -- 寄售（Phase2）
+    is_consignment BOOLEAN NOT NULL DEFAULT FALSE,     -- 寄售
     allow_negative_stock BOOLEAN NOT NULL DEFAULT FALSE,
     storage_condition VARCHAR(32) NULL,                -- 保管条件
     default_receiving_bin_id BIGINT NULL,              -- 默认入库库位
@@ -931,7 +948,7 @@ CREATE TABLE mdm_uom (
     CONSTRAINT pk_mdm_uom PRIMARY KEY (id)
 );
 CREATE UNIQUE INDEX uk_mdm_uom_code ON mdm_uom (company_id, uom_code) WHERE deleted = FALSE;
-CREATE UNIQUE INDEX uk_mdm_uom_base ON mdm_uom (conversion_group) WHERE is_base_uom = TRUE AND deleted = FALSE;
+CREATE UNIQUE INDEX uk_mdm_uom_base ON mdm_uom (company_id, conversion_group) WHERE is_base_uom = TRUE AND deleted = FALSE;
 
 CREATE TABLE mdm_uom_conversion (
     id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT 0, company_id BIGINT NOT NULL DEFAULT 1,
@@ -1432,7 +1449,7 @@ CREATE UNIQUE INDEX uk_mdm_data_scope_policy ON mdm_data_scope_policy (company_i
 | 17 | `idx_mdm_supplier_qual_expiry` | mdm_supplier_qualification | B-Tree | (valid_to) WHERE deleted=FALSE | 期限切れ警告 |
 
 - 索引は 1 テーブル 5 本以内を目安（[04 第 7 章](../00-common/04-common-db-spec.md)）。追加時は想定 SQL を本文に書く。
-- `pg_trgm` 拡張を有効化する（`CREATE EXTENSION IF NOT EXISTS pg_trgm;`）。Phase 1 の初期マイグレーションに含める。
+- `pg_trgm` 拡張を有効化する（`CREATE EXTENSION IF NOT EXISTS pg_trgm;`）。当面の初期マイグレーションに含める。
 
 ## 6. 制約・整合性
 
@@ -1461,7 +1478,7 @@ CREATE UNIQUE INDEX uk_mdm_data_scope_policy ON mdm_data_scope_policy (company_i
 | 物料・分類・工厂視図 | 24,300 | 3,020 | 39,400 | 無期限 | — |
 | 客户・供应商・子表 | 10,700 | 1,050 | 16,950 | 無期限 | 個人情報は 5 年でマスク |
 | 価格・報価 | 76,500 | 145,000 | 800,000 | 10 年 | 過去価格は参照用に保持 |
-| 変更・履歴 | 0 | 280,000 | 1,400,000 | 10 年（会計関連 30 年） | パーティションは Phase 2 |
+| 変更・履歴 | 0 | 280,000 | 1,400,000 | 10 年（会計関連 30 年） | パーティション要否は TODO（未設計） |
 | 評価・品質問題 | 0 | 160,000 | 800,000 | 10 年 | 月次でアーカイブ検討 |
 | 合計 | 約 11 万 | 約 59 万/年 | 約 305 万 | — | 単一 DB で十分 |
 
@@ -1484,7 +1501,7 @@ CREATE UNIQUE INDEX uk_mdm_data_scope_policy ON mdm_data_scope_policy (company_i
 ## 9. 実装上の注意・未決事項
 
 1. **Flyway**：`V{yyyyMMdd}{NN}__mdm_{description}.sql`。初期作成は 01〜05（基準マスタ）→ 06〜15（物料・取引先）→ 16〜25（価格・結算）→ 26〜30（信用・評価）→ 31〜35（治理）の順。`pg_trgm` は最初のスクリプトで有効化する。
-2. **口座番号の暗号化**：`mdm_partner_bank_account.account_no` は AES-256 で暗号化保存（鍵は環境変数）。検索は下 4 桁のハッシュ列（`account_no_hash`）を追加するか、アプリ側で復号比較とする。Phase 1 は暗号化 + 下 4 桁のみ表示。
+2. **口座番号の暗号化**：`mdm_partner_bank_account.account_no` は AES-256 で暗号化保存（鍵は環境変数）。検索は下 4 桁のハッシュ列（`account_no_hash`）を追加するか、アプリ側で復号比較とする。設計確定までは暗号化 + 下 4 桁のみ表示。
 3. **JSONB の容量**：`mdm_material_his.before_data/after_data` は全列 JSON のため 1 行最大 8KB 程度。年間 5 万行で 400MB 以内。
 4. **未決事項**：批次/序列号規則の実体（#6）は DB 設計に影響するため、決定後に本節を更新する。工厂テーブル帰属（00-overview #3）は Lead 裁定済み（MDM 所有・`mdm_factory` 維持）、信用占用の保有域（#4）は Lead 裁定済み（MDM 非保有）で本節に反映済み。
 5. **初期データ**：`90-data/material-master.csv`（54 件）、`90-data/code-lists/mdm-tax-code.csv`（業務税码の全件・件数は同 CSV を正とする）、`06-code-list.md` の通貨・単位・税码・決済条件を `R__seed_mdm_*.sql` で投入する（[04 第 10.2 節](../00-common/04-common-db-spec.md)）。
@@ -1494,5 +1511,6 @@ CREATE UNIQUE INDEX uk_mdm_data_scope_policy ON mdm_data_scope_policy (company_i
 | 版数 | 日付 | 変更内容 | 変更者 |
 |---|---|---|---|
 | v1.0 | 2026-10-20 | 初版：53 テーブル定義（DDL・索引・制約・容量・更新タイミング）、共通列セット A/B/C、ER 図。同日追記：Lead 裁定により工厂主数据を MDM 所有（F-MDM-025）へ変更、単位換算グループを uom.csv の 11 群へ整合、`mdm_material.cost_method`（1品種法/2分批法、既定1）と CHECK 制約を追加。第 2 次追記（红队第 2 轮）：`mdm_supplier_material` に `moq`/`purchase_lead_time_days`、`mdm_material_category`/`mdm_supplier` に `over_receipt_tolerance_pct` を追加、`mdm_bank` の行別コード・銀行類別の区別を明記、`invoice_type` に 50 紅字発票を追加、税码件数を CSV 正とし、初期データ件数を 54 件に修正 | mdm-designer |
+| v1.1 | 2026-10-20 | 第一版全量範囲（分期表記削除）。T1 確定：容差を比率 `NUMERIC(5,4)` で追加（完工・出荷）、`valuation_method` NOT NULL + CHECK、`standard_cost` は `fin_standard_cost` 参照、`inspection_required` 列を作らない、T1 表の索引先頭を `company_id` に | 业务分析 |
 
 

@@ -24,7 +24,7 @@
 | 利用シーン | 新製品 YE3/YVF 系列投産前建碼；外購原材料（硅鋼片・漆包線・軸承・鑄件・標準件）導入；設計変更時の代替料登録；工場ごとの安全在庫・購買提前期調整 |
 | 優先度 | P0（F-MDM-001/002/003）、P1（F-MDM-021） |
 | 画面 ID | SCR-MDM-001〜006 |
-| 関連 IF | IF-MDM-004（PLM 物料同期、Phase 2） |
+| 関連 IF | IF-MDM-004（PLM 物料同期） |
 
 ## 2. 業務要件・業務ルール
 
@@ -49,7 +49,7 @@
 | BR-MDM-04 | 批次・序列号・保質期・质检の各フラグは在庫・生產・质量域の動作を決める。登録後の変更は「关键項目变更」として審批必須 | 08 第 6 章、09 第 8 章 | `is_batch_managed`、`is_serial_managed`、`shelf_life_days`、`inspection_stage` |
 | BR-MDM-05 | 倒冲（`is_backflush`）は「製造品かつ BOM 必須」の品目のみ設定可。倒冲倉庫は必須 | プル型生産の業務慣行 | `is_backflush`、`backflush_warehouse_id` |
 | BR-MDM-06 | 安全在庫・再訂貨点・最大在庫は 0 以上。`safety_stock_qty <= reorder_point_qty <= max_stock_qty` を満たすこと（0 は未設定扱い） | INV 補充発注の運用 | `safety_stock_qty` 等 |
-| BR-MDM-07 | 標準原価（`standard_cost`）は財務が費用計上に使う参考値。移動平均法運用中は原価計算に使用しない（Phase 2 標準原価法で使用） | 08 第 6 章 | `valuation_method`、`standard_cost` |
+| BR-MDM-07 | 標準原価（`standard_cost`）は財務が費用計上に使う参考値。移動平均法運用中は原価計算に使用しない。標準原価の正は `fin_standard_cost`（版管理・有効期間付き、07-finance）で、本列は当期有効版の参照のみ（直接更新不可） | 08 第 6 章 | `valuation_method`、`standard_cost` |
 | BR-MDM-08 | 采购・销售・库存の各「使用停止」フラグ（`is_purchase_stopped` 等）は業務停止のみ。マスタ全体の使用停止は `status=0`（承認必須） | 08 第 11 章 | `status`、`is_*_stopped` |
 | BR-MDM-09 | 使用中の物料は論理削除不可。参照チェック（未完了伝票・在庫残・BOM 使用・価格表行）で 1 件でも参照があれば `status=0`（使用停止）を案内する | 01 共通項目定義 11.2、[04 DB 共通規格](../00-common/04-common-db-spec.md) 第 6 章 | `status` |
 | BR-MDM-10 | 物料名称・規格・材質・品牌・執行標準は技術部の図面・標準に一致すること。材料牌号（例 50W470、HT200、45#）は GB/JB 標準の表記をそのまま使用する | 国家標準表記の慣行 | `material_grade`、`standard_code` |
@@ -121,8 +121,8 @@ stateDiagram-v2
 | 40 | 外购件 | 外购件 | 6205-2RS 轴承 `4001000001`、GB/T 5782 六角螺栓 `4002000001`、风扇 `4005000001`（4005 其他电机配件） |
 | 50 | 包装材料 | 包装材料 | 木托盘 `5001000001`、瓦楞纸箱 `5002000001`、铭牌 `5004000001` |
 | 60 | 低值易耗品 | 低值易耗品 | 定转子冲片模具 `6002000001` |
-| 70 | 委外加工件 | （Phase 2） | 委外加工的定子扣片等（Phase 1 按外购件管理） |
-| 80 | 服务 | （未在 CSV） | 加工服务・修理服务（Phase 2） |
+| 70 | 委外加工件 | | 委外加工的定子扣片等 |
+| 80 | 服务 | （未在 CSV） | 加工服务・修理服务 |
 
 > **2 つの次元を混同しない**：`material_type`（上表、10〜80）は物料の業務類型であり、物料分類コード（06 §11、大分類 10/20/30/40/50/60/70/90）とは別の軸である。分類は「何から作られているか/どう調達するか」、類型は「製造・販売・在庫の扱い」を表す。両者は通常一致するが、例外（例：外注加工品を Phase 1 では外購件として管理）は備考に明記する。
 | B05 | `category_id` | 物料分類 | BIGINT | NN | ○ | 呼出元 | 末級・有効（`is_leaf=TRUE`） | マスタ | 採番・属性・会計 | 変更時は編碼不整合注意 |
@@ -218,8 +218,8 @@ stateDiagram-v2
 | F02 | `revenue_account_code` | 売上（収入）科目 | VARCHAR(32) | NULL | △ | NULL | FIN 科目存在・末級 | FIN 照会 | FIN 売上計上 | 例 6001 |
 | F03 | `cogs_account_code` | 売上原価科目 | VARCHAR(32) | NULL | △ | NULL | FIN 科目存在・末級 | FIN 照会 | FIN 原価計上 | 例 6401 |
 | F04 | `cost_category` | 成本分類 | SMALLINT | NULL | △ | 10 | 10 直接材料/20 直接人工/30 製造間接費/40 期間費用 | 入力 | FIN 原価集計 | — |
-| F05 | `valuation_method` | 評価方法 | SMALLINT | NULL | △ | 10 | 10 移動平均/20 標準原価 | 入力 | INV/FIN 原価 | 会社政策と矛盾不可 |
-| F06 | `standard_cost` | 標準原価 | NUMERIC(18,6) | NULL | — | 0 | ≥ 0 | 入力 | FIN 参考原価 | Phase 2 標準原価法 |
+| F05 | `valuation_method` | 評価方法 | SMALLINT | NN | ○ | なし | 10 移動平均/20 標準原価 | 入力 | INV/FIN 原価 | 会社政策と矛盾不可 |
+| F06 | `standard_cost` | 標準原価 | NUMERIC(18,6) | NULL | — | 0 | ≥ 0 | 入力 | FIN 参考原価 | `fin_standard_cost` 当期有効版の参照（読取専用） |
 | F07 | `tax_classification_code` | 税収分類編碼 | VARCHAR(32) | NULL | △ | NULL | 有効分類（税） | マスタ | FIN/INT 発票 | 商品和服务税收分类编码 |
 | F08 | `cost_method` | 成本核算方法 | SMALLINT | NN | ○ | 1 | 1 品種法/2 分批法（1 のみ/2 のみ） | 入力 | FIN 原価計算（直接参照） | 標準機（MTS）は 1、MTO・非標は 2 可 |
 
@@ -444,7 +444,7 @@ stateDiagram-v2
 | 69 | 财务 | `cogs_account_code` | 売上原価科目 | 選択 | △ | 空 | FIN 科目存在・末級 | 同上 | 例 6401 |
 | 70 | 财务 | `cost_category` | 成本分類 | 選択 | △ | 直接材料 | 10 直接材料/20 直接人工/30 製造間接費/40 期間費用 | 同上 | 原価集計 |
 | 71 | 财务 | `cost_method` | 成本核算方法 | 選択 | ○ | 1 品種法 | 1 品種法/2 分批法 | 同上 | FIN 原価計算が参照。MTO は 2 可 |
-| 72 | 财务 | `valuation_method` | 評価方法 | 選択 | △ | 10 移動平均 | 10 移動平均/20 標準原価（Phase2） | 同上 | 会社政策と矛盾不可 |
+| 72 | 财务 | `valuation_method` | 評価方法 | 選択 | △ | 10 移動平均 | 10 移動平均/20 標準原価 | 同上 | 会社政策と矛盾不可 |
 | 73 | 财务 | `standard_cost` | 標準原価 | 数値 | — | 0 | ≥ 0、小数 6 桁 | 同上 | 参考値 |
 | 74 | 财务 | `tax_classification_code` | 税収分類編碼 | 選択 | △ | 空 | 有効分類（FIN/税） | 同上 | 例：1090101 等 |
 | 75 | 質量/附属 | `inspection_stage` | 検査段階 | 選択 | ○ | 00 免検 | 00/10 IQC/20 IPQC/30 FQC/40 全工程 | `mdm:material:update` | PRD 品質管理が参照 |
