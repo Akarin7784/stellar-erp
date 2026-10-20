@@ -137,7 +137,7 @@
 
 **処理手順**：
 1. 配信対象を 100 件取得し `FOR UPDATE SKIP LOCKED` でロックする。
-2. イベントエンベロープを構築し、Spring Modulith イベントバス（Phase 2 は RabbitMQ）へ配信する。
+2. イベントエンベロープを構築し、Spring Modulith イベントバス（RabbitMQ 外部化も第一版対象）へ配信する。
 3. 成功時 `status=1`・`published_at=now()`、失敗時 `retry_count+1`・`next_retry_at` 設定（1 分/5 分/30 分/2 時間/6 時間）。
 4. 10 回失敗で `status=9`（DEAD_LETTER）とし、運用担当へ通知する。
 5. 配信済みで 3 か月超の行をアーカイブ/削除する。
@@ -157,7 +157,7 @@
 
 ### 4.4 BAT-SYS-006 監査日志アーカイブ / BAT-SYS-007 清理
 
-- BAT-SYS-006：3 年超の `sys_audit_log`・`sys_login_log` を月次で `sys_audit_log_archive`（Phase 2）へ移管する。Phase 1 は「アーカイブ対象件数の記録」のみ行い、削除しない。
+- BAT-SYS-006：3 年超の `sys_audit_log`・`sys_login_log` を月次で `sys_audit_log_archive` へ移管する（TODO：アーカイブ表の DDL が未作成。作成までは対象件数の記録のみで削除しない）。
 - BAT-SYS-007：`sys_import_export_job WHERE expire_at < now()` の結果ファイル（`sys_attachment` の一時ファイル）と `sys_idempotency WHERE expires_at < now()` を削除する。1 回 10,000 件ずつ。
 
 ### 4.5 BAT-SYS-009 定时任务監視・補償

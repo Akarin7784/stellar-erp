@@ -227,7 +227,7 @@ stateDiagram-v2
 3. `before_data`/`after_data` は DTO の差分から生成し、機密項目（password/token/bank_account/id_card）を除去、携帯・メールをマスキングする。
 4. **重要操作（POST/REVERSE/APPROVE/CLOSE/DELETE 等の更新・状態操作）は、業務トランザクションと同一 TX で `sys_audit_log` へ同期 INSERT する**。INSERT 失敗時は業務トランザクション全体をロールバックし、`MSG-SYS-091` を返す（監査証跡なしの業務完了を禁止。REV-006 対応）。
 5. 参照系・非重要操作のみ非同期キュー（`BlockingQueue`、容量 10,000）へ投入し、ライターが 100 件 or 1 秒ごとにバッチ INSERT する。**キュー飽和時は同期 INSERT に切替え、破棄しない**。同期 INSERT も失敗した場合はローカルファイル（`audit-spool/{yyyyMMdd}.jsonl`）へ退避してアラート（`MSG-SYS-092`）を送信し、起動時のリカバリ処理（`AuditSpoolRecovery`。未投入スプールを検出して再 INSERT）で再投入する。
-6. アーカイブ対象（3 年超）は BAT-SYS-006 が `sys_audit_log_archive`（Phase 2）へ移管する。Phase 1 は削除せず保持する。
+6. アーカイブ対象（3 年超）は BAT-SYS-006 が `sys_audit_log_archive` へ移管する（TODO：アーカイブ表の DDL が未作成。作成まで削除せず保持）。
 
 **PRC-SYS-010-01 添付アップロード**
 
@@ -235,10 +235,10 @@ stateDiagram-v2
 2. `Content-Length` と実サイズで 20MB 以下を検証する。ストリーム処理でメモリに全展開しない。
 3. 拡張子・MIME を検証する。実行ファイル（exe/dll/bat/sh 等）は拒否する。
 4. `sha256` を計算し、同一 `biz_type`/`biz_id` に同一ファイルが既にある場合は紐付けのみ行う（重複排除）。
-5. `StorageService.store()` で実体を保存する（Phase 1: `{base}/{yyyy}/{MM}/{uuid}.{ext}`）。
+5. `StorageService.store()` で実体を保存する（ローカル: `{base}/{yyyy}/{MM}/{uuid}.{ext}`）。
 6. `sys_attachment` にメタ情報を INSERT し、`sys_attachment_biz` に紐付けを INSERT する（トランザクション）。
 7. DB 失敗時は実体ファイルを削除する（補償）。
-8. ウイルススキャン（Phase 2、IF-SYS-006）を非同期で実行し、結果を `virus_scan_status` に反映する。
+8. ウイルススキャン（IF-SYS-006）を非同期で実行し、結果を `virus_scan_status` に反映する。
 9. 監査ログ（`CREATE`, resource=attachment）を記録し、メタ情報を返す。
 
 **PRC-SYS-010-02 添付ダウンロード**
@@ -246,7 +246,7 @@ stateDiagram-v2
 1. `sys_attachment` と `sys_attachment_biz` から対象を取得し、紐付け先の参照権限を確認する（業務域の公開 API で権限判定）。
 2. `storage_path` から実体を取得する。存在しない場合は MSG-SYS-070。
 3. `Content-Disposition: attachment; filename*=UTF-8''{encoded}` で返す（ファイル名は UTF-8 エンコード）。
-4. `download_count+1` に更新し、監査ログ（`PRINT`ではなく`EXPORT`? → `operation_type=DOWNLOAD` を追加できないため `EXPORT` を使用し、`resource=attachment` で識別）。Phase 1 は専用の `DOWNLOAD` 種別を追加提案（未決 #3）。
+4. `download_count+1` に更新し、監査ログ（`PRINT`ではなく`EXPORT`? → `operation_type=DOWNLOAD` を追加できないため `EXPORT` を使用し、`resource=attachment` で識別）。専用の `DOWNLOAD` 種別を追加提案（未決 #3）。
 
 **PRC-SYS-011-01 通知作成・配信**
 
@@ -379,7 +379,7 @@ bizType=SALES_ORDER&bizId=1845000000000002001&fileCategory=CONTRACT&file=@contra
 | 項目権限 | 監査ログの before/after は権限者のみ。通知本文は受信者のみ |
 | データ範囲 | 監査ログは「全社」のみ（部門经理には自部門操作のみ許可する設定可）。通知は本人のみ |
 | 監査ログ | 監査ログの閲覧自体もログに記録（`operation_type=EXPORT`, resource=audit_log） |
-| ファイル | アップロードは拡張子・MIME・サイズ検証。ダウンロードは権限 + 署名 URL（Phase 2）。ウイルススキャン（Phase 2） |
+| ファイル | アップロードは拡張子・MIME・サイズ検証。ダウンロードは権限 + 署名 URL。ウイルススキャン（IF-SYS-006） |
 | 個人情報 | 通知本文・監査ログの携帯・メールはマスキング。銀行口座は下 4 桁のみ |
 
 ## 11. 性能・非機能
@@ -419,11 +419,11 @@ bizType=SALES_ORDER&bizId=1845000000000002001&fileCategory=CONTRACT&file=@contra
 
 | # | 事項 | 理由 | 暫定仕様 | 担当 | 期限 |
 |---|---|---|---|---|---|
-| 1 | 監査ログのアーカイブ先 | 別スキーマ/別 DB の選定 | Phase 1 は削除せず保持。Phase 2 でアーカイブスキーマ | 运维担当 | 2026-12-01 |
-| 2 | ウイルススキャン導入 | ClamAV の運用コスト | Phase 1 は拡張子・サイズ検査のみ（IF-SYS-006 は Phase 2） | Lead | 2027-03-31 |
+| 1 | 監査ログのアーカイブ先 | 別スキーマ/別 DB の選定 | 第一版でアーカイブスキーマ（TODO：選定・DDL 未作成） | 运维担当 | 2026-12-01 |
+| 2 | ウイルススキャン導入 | ClamAV の運用コスト | 第一版で IF-SYS-006 を対応（拡張子・サイズ検査も併用） | Lead | 2027-03-31 |
 | 3 | ダウンロード操作の監査種別 `DOWNLOAD` 追加 | 01 共通項目定義の `operation_type` に DOWNLOAD がない | 暫定 `EXPORT` + `resource=attachment` で記録。共通定義への追加を Lead に提案 | Lead | 2026-10-27 |
-| 4 | 通知チャネルの拡張（企微/钉钉） | 客户利用ツール未確定 | Phase 2（IF-SYS-003） | Lead | 2027-03-31 |
-| 5 | 通知テンプレートの多言語対応 | Phase 2 | Phase 1 は中国語のみ | Lead | 2027-06-30 |
+| 4 | 通知チャネルの拡張（企微/钉钉） | 客户利用ツール未確定 | 第一版対応（IF-SYS-003。TODO：設計が未作成） | Lead | 2027-03-31 |
+| 5 | 通知テンプレートの多言語対応 | 第一版対象 | TODO：多言語テンプレートの設計が未作成 | Lead | 2027-06-30 |
 
 ## 14. 改訂履歴
 

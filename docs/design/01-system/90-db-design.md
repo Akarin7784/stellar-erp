@@ -79,7 +79,7 @@ erDiagram
 | D-04 | セッション（Sa-Token）は Redis に保持し、DB にはログイン履歴のみ残す | 高頻度アクセスのため DB を経由しない。監査は `sys_login_log` |
 | D-05 | 監査ログはアプリ層で非同期書込み（キュー）とし、業務トランザクションをブロックしない | 応答性能。消失防止のため書込み失敗時はアプリログに退避 |
 | D-06 | Outbox・冪等・採番テーブルは SYS が提供し、全業務域が共通モジュール経由で利用 | 09 第 10 章の契約を 1 箇所で実装する |
-| D-07 | 添付実体は StorageService（Phase 1 ローカル、Phase 2 S3）に置き、DB はメタ情報のみ | 大容量バイナリを DB に置かない（04 共通规格） |
+| D-07 | 添付実体は StorageService（ローカル / S3 を設定で切替）に置き、DB はメタ情報のみ | 大容量バイナリを DB に置かない（04 共通规格） |
 | D-08 | 通知は「通知本体（`sys_notification`）+ 受信者（`sys_notification_receiver`）」に分離 | 一斉通知・既読管理・送信チャネル分岐のため |
 
 ## 2. テーブル一覧
@@ -137,7 +137,7 @@ erDiagram
 | データ量見積 | 初期 1 件 / 年間 +0〜1 / 5 年後 1〜5 件 |
 | 保存期間 | 無期限 |
 
-**概要**：会計主体（法人）を表す。伝票・マスタは必ず `company_id` を保持するが、首期は 1 社固定（`id=1`）。多公司対応（Phase 2）でも本テーブルが正。
+**概要**：会計主体（法人）を表す。伝票・マスタは必ず `company_id` を保持するが、第一版で多公司対応し、本テーブルが正。
 
 ```sql
 CREATE TABLE sys_company (
@@ -204,7 +204,7 @@ COMMENT ON TABLE sys_factory_setting IS '工厂组织设置（工厂主数据は
 | uk_sys_factory_setting | UNIQUE | (factory_id) | WHERE deleted=FALSE | 工厂×設定一意 |
 | idx_sys_factory_setting_default | B-Tree | (company_id, is_default) | WHERE is_default AND deleted=FALSE | 既定工厂一意 |
 
-**更新仕様**：F-SYS-014 のみ。`is_default=true` は会社ごとに 1 件（アプリで保証、部分一意インデックス）。`factory_id` の有効性は MDM の公開 Service（`FactoryService.exists`）で検証する。MDM 側で工場が無効化された場合は本設定も `is_enabled=false` に更新する（Phase 1 は起動時の整合性検査 BAT-SYS-010 で検出）。
+**更新仕様**：F-SYS-014 のみ。`is_default=true` は会社ごとに 1 件（アプリで保証、部分一意インデックス）。`factory_id` の有効性は MDM の公開 Service（`FactoryService.exists`）で検証する。MDM 側で工場が無効化された場合は本設定も `is_enabled=false` に更新する（起動時の整合性検査 BAT-SYS-010 で検出）。
 
 ### 3.3 sys_tenant 租户（予約）
 
@@ -213,10 +213,10 @@ COMMENT ON TABLE sys_factory_setting IS '工厂组织设置（工厂主数据は
 | テーブル物理名 | sys_tenant |
 | 種別 | マスタ（M セット、`company_id` は持たない） |
 | 更新元機能 | F-SYS-017（P2） |
-| データ量見積 | 首期 1 件（`id=0` はシステムテナント）/ Phase 3 で増加 |
+| データ量見積 | `id=0` はシステムテナント。テナント数に応じて増加 |
 | 保存期間 | 無期限 |
 
-**概要**：マルチテナントの契約単位。首期は単租户（`tenant_id=0` 固定）のため画面・API は参照のみ。Phase 3 で RLS（`tenant_id = current_setting('app.tenant_id')`）を有効化する際の親テーブルとなる。
+**概要**：マルチテナントの契約単位。画面・API は参照のみ。第一版から RLS（`tenant_id = current_setting('app.tenant_id')::bigint`）を有効化しており、その親テーブルとなる（[04 §14](../00-common/04-common-db-spec.md)）。
 
 ```sql
 CREATE TABLE sys_tenant (
@@ -229,7 +229,7 @@ CREATE TABLE sys_tenant (
     expire_date         DATE,                             -- 契約満了日
     status              SMALLINT      NOT NULL DEFAULT 1  -- 状态：1 有效 / 0 无效
 );
-COMMENT ON TABLE sys_tenant IS '租户（マルチテナント契約単位、首期予約）';
+COMMENT ON TABLE sys_tenant IS '租户（マルチテナント契約単位）';
 ```
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
@@ -886,7 +886,7 @@ COMMENT ON TABLE sys_user_password_history IS '密码历史（再利用禁止判
 | データ量見積 | 20 万/年（メタのみ） |
 | 保存期間 | 紐付け先業務データの保存期間に準拠 |
 
-**概要**：ファイル実体のメタ情報。実体は StorageService（Phase 1 ローカルディスク、Phase 2 S3/MinIO）。`sha256` で完全性を検証する。
+**概要**：ファイル実体のメタ情報。実体は StorageService（ローカルディスク / S3・MinIO を設定で切替）。`sha256` で完全性を検証する。
 
 ```sql
 CREATE TABLE sys_attachment (
@@ -1218,7 +1218,7 @@ COMMENT ON TABLE sys_import_template IS '导入模板（Excel テンプレート
 | データ量見積 | 100 件 |
 | 保存期間 | 無期限 |
 
-**概要**：帳票（PRT-xxx）のレイアウトテンプレート。Phase 1 は HTML テンプレート（変数 `${...}`）+ PDF 変換（IF-SYS-007）。業務種別ごとに既定テンプレートを 1 件指定する。
+**概要**：帳票（PRT-xxx）のレイアウトテンプレート。HTML テンプレート（変数 `${...}`）+ PDF 変換（IF-SYS-007）。業務種別ごとに既定テンプレートを 1 件指定する。
 
 ```sql
 CREATE TABLE sys_print_template (

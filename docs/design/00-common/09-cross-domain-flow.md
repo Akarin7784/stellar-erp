@@ -25,7 +25,7 @@
 |---|---|---|---|
 | 同期参照（Query） | マスタ・権限・在庫可用量・期間状態の照会 | 受注登録時の与信参照、引当可能量照会 | モジュール公開インタフェース（根包の Service）+ 内部 REST 呼出（同一プロセス） |
 | 同期コマンド（Command） | 即時性が求められ、同一トランザクション内で完結する処理 | 採番（SYS）、権限判定（SYS） | 公開 Service 呼出 |
-| 非同期イベント（Event） | 業務状態の確定通知。送信側のトランザクションをブロックしない | 受注承認→在庫引当、出荷確定→売上計上 | Spring Modulith `@ApplicationModuleListener` + Outbox。Phase 2 で RabbitMQ 外部化 |
+| 非同期イベント（Event） | 業務状態の確定通知。送信側のトランザクションをブロックしない | 受注承認→在庫引当、出荷確定→売上計上 | Spring Modulith `@ApplicationModuleListener` + Outbox。RabbitMQ 外部化も第一版対象（TODO：外部化の構成設計が未作成） |
 | 非同期ジョブ（Job） | 大量処理・定期処理 | MRP、在庫月結、原価計算、月次締め | スケジューラ + ジョブ実行テーブル |
 
 ### 2.2 連携原則
@@ -84,7 +84,7 @@
 | E10 | `sales.delivery.confirmed` | 出荷確定（出庫確定） | SAL | INV/FIN | deliveryId, deliveryNo, orderId, customerId, lines[{materialId, qty, uom, warehouseId, batchNo, serialNos[], unitPrice, taxRate, amount, taxAmount, costAmount?}], amount, taxAmount, deliveryDate | 在庫出庫、売上・売掛計上 |
 | E11 | `sales.return.confirmed` | 返品受入・検品完了 | SAL | INV/FIN | returnId, returnNo, orderId, originalDeliveryId, customerId, lines[{materialId, qty, inventoryStatus, unitPrice, taxRate, amount, taxAmount, costAmount}], amount, taxAmount, returnDate | 在庫戻入、赤伝売上・売掛（J23） |
 | E12 | `sales.invoice.issued` | 売上請求書（発票）発行 | SAL | FIN | invoiceId, invoiceNo, invoiceCode, invoiceKind, customerId, orderId, deliveryIds[], amount, taxAmount, taxRate, totalAmount, invoiceType, issuedAt | 売掛金・売上の確定（出荷時未計上の場合）、銷項台帳 |
-| E13 | `purchase.order.approved` | 発注の最終承認 | PUR | INT（Phase 2  supplier portal） | orderId, orderNo, supplierId, lines[{materialId, qty, price, deliveryDate}], amount | 仕入先送信（Phase 2）、納期管理 |
+| E13 | `purchase.order.approved` | 発注の最終承認 | PUR | INT（supplier portal） | orderId, orderNo, supplierId, lines[{materialId, qty, price, deliveryDate}], amount | 仕入先送信、納期管理 |
 | E14 | `purchase.receipt.posted` | 入荷確定（受入登録） | PUR | INV/PRD/FIN | receiptId, receiptNo, orderId, supplierId, lines[{materialId, receivedQty, uom, warehouseId, batchNo, unitPrice, amount}], amount, receivedAt | 在庫待検入庫、IQC 起票、仕入暫估計上 |
 | E15 | `quality.inspection.completed` | 来料・工程・最終検査の判定確定 | PRD | PUR/INV | inspectionId, inspectionNo, inspectionType(IQC/IPQC/FQC/OQC), sourceType, sourceId, sourceNo, warehouseId, result(PASS/CONCESSION/REJECT), resultCode(10未検査/20合格/30特採/40不合格/50廃棄), lines[{materialId, batchNo, sampleQty, defectQty, resultCode}], inspectedAt | 在庫ステータス変換、返品/再検査の起動 |
 | E16 | `purchase.return.confirmed` | 仕入返品の出庫確定 | PUR | INV/FIN | returnId, returnNo, receiptId, lines[{materialId, qty, warehouseId, unitPrice, taxRate, amount, taxAmount, reason}], amount, taxAmount, returnDate | 在庫出庫、赤伝仕入・買掛（J04） |
@@ -114,7 +114,7 @@
 | E40 | `mdm.tax-code.changed` | 税码・税率の有効化/改定 | MDM | SAL/PUR/FIN | taxCode, taxRateCode, taxRate, taxType, isTaxIncluded, validFrom, validTo | 取税キャッシュ更新（既存伝票は登録時税率を保持） |
 | E41 | `mdm.exchange-rate.changed` | 為替レートの確定/更新 | MDM | FIN | currencyCode, rateType, rate, effectiveDate | 換算レートキャッシュ更新、為替評価再計算の起動 |
 | E42 | `mdm.credit-limit.changed` | 与信限度・与信状態の変更確定 | MDM | SAL/FIN | customerId, creditLimit, creditStatus, validFrom, reason | 与信チェックキャッシュ更新、与信超過の再判定 |
-| E43 | `sales.forecast.updated` | 売上予測の確定（Phase 2） | SAL | PRD | forecastId, periodCode, lines[{materialId, forecastDate, qty}], version | MRP 需要源への取込（Phase 2） |
+| E43 | `sales.forecast.updated` | 売上予測の確定 | SAL | PRD | forecastId, periodCode, lines[{materialId, forecastDate, qty}], version | MRP 需要源への取込 |
 
 > イベント名は**過去形**（確定事実）とする。将来の命令（`reserve.stock` 等）はイベントにしない。購読側は `eventId` で重複排除し、`aggregateVersion` が古いイベントは無視する。
 >
@@ -255,7 +255,7 @@ sequenceDiagram
 | 価格差異（顧客主張 vs 登録） | 受注・請求 | 承認済価格のみ有効。変更は受注変更 + 再承認 | SAL |
 | 出荷後返品 | 返品受付 | 返品期限（例 30 日）内。検品後、在庫戻入（可用/不良）+ 赤伝売上・売掛 | SAL / INV / FIN |
 | 入金不足・過入金 | 消込 | 部分消込 or 前受金（過入金）として繰越。差額理由を記録 | FIN |
-| 売掛回収遅延 | バッチ | 帳齢レポート、督促通知。貸倒処理は Phase 2（引当金） | FIN |
+| 売掛回収遅延 | バッチ | 帳齢レポート、督促通知。貸倒処理（引当金）も第一版対象 | FIN |
 | 発票取消・赤伝 | 発票誤り | 数電票の赤伝発行（INT）→ AR 調整。元発票との紐付けを保持 | SAL / FIN / INT |
 
 ## 6. P2M：計画→生産→原価（Plan to Manufacture）
@@ -376,7 +376,7 @@ sequenceDiagram
 | J22 | 销售退货（销售戻し） | 主营业务收入 `6001`、应交税费-销项税额 `2221` | 应收账款 `1122` | 赤伝 | 「销售退货 {退货单号}」 | E11 |
 | J23 | 销售退货（在庫戻し） | 库存商品 `1405` | 主营业务成本 `6401` | 戻入原価 | 「退货成本戻し {退货单号}」 | E11 |
 | J24 | 计提工资 | 生产成本/制造费用/管理费用/销售费用 | 应付职工薪酬 `2211` | 給与計算額 | 「计提工资 {期间}」 | 月結 |
-| J25 | 计提折旧（Phase 2） | 制造费用 `5101` / 管理费用 `6602` | 累计折旧 `1602` | 減価償却額 | 「计提折旧 {期间}」 | 月結 |
+| J25 | 计提折旧 | 制造费用 `5101` / 管理费用 `6602` | 累计折旧 `1602` | 減価償却額 | 「计提折旧 {期间}」 | 月結 |
 | J26 | 计提附加税费 | 税金及附加 `6403` | 应交税费-城建税/教育费附加 | 税額 | 「计提附加税 {期间}」 | 月結 |
 | J27 | 企业所得税 | 所得税费用 `6801` | 应交税费-应交所得税 `2221` | 税額 | 「计提所得税 {期间}」 | 月結 |
 | J28 | 期间损益结转 | 主营业务收入 `6001` 等 | 本年利润 `4103` | 当期収益 | 「期末结转 {期间}」 | 月結 |
@@ -389,8 +389,8 @@ sequenceDiagram
 
 | 案 | 売上計上時点 | 採用 |
 |---|---|---|
-| 出荷基準 | 出荷確定（E10）時に売上・売掛計上 | **採用（Phase 1）**。請求書は AR との紐付け・発票管理 |
-| 検収基準 | 顧客検収時 | 特殊契約のみ個別対応（Phase 2） |
+| 出荷基準 | 出荷確定（E10）時に売上・売掛計上 | **採用**。請求書は AR との紐付け・発票管理 |
+| 検収基準 | 顧客検収時 | 特殊契約のみ個別対応 |
 | 請求基準 | 請求書発行時 | 不採用（月跨ぎの売上ずれが生じるため） |
 
 - 出荷基準のため、発票未発行でも AR は計上される。発票発行時は AR に発票番号を紐付ける（金額は変更しない）。
@@ -407,7 +407,7 @@ sequenceDiagram
 
 - 検査基準（`prd_inspection_standard`）は品目・工程・顧客別に定義。検査項目・規格・サンプリング（全数/抜取）・判定基準を持つ。
 - **判定コード対応**：PRD 内部コード `resultCode` 10=未検査 / 20=合格 / 30=特採 / 40=不合格 / 50=廃棄。イベント E15 では `resultCode` と 3 値 `result`（20→PASS、30→CONCESSION、40/50→REJECT、10 はイベント発行しない）を併記する。
-- **受入・完工の在庫状態**：受入は E14 で待検計上 → E15（IQC 合格）で可用化。完工は E24 で**必ず `stockStatus=10 待検` で計上** → E15（FQC 合格）で `20 可用` へ変換する。E24 が E15 より先に到着する前提とし、順序逆転時はイベントを保留して E24 到着後に E15 を適用する。保留テーブルの正本は **`sys_event_wait`（SYS 提供の共通基盤）** とし、INV が暫定実装する `inv_event_wait` は Phase 1 内で `sys_event_wait` へ移管する（物理名の最終正本は SYS）。
+- **受入・完工の在庫状態**：受入は E14 で待検計上 → E15（IQC 合格）で可用化。完工は E24 で**必ず `stockStatus=10 待検` で計上** → E15（FQC 合格）で `20 可用` へ変換する。E24 が E15 より先に到着する前提とし、順序逆転時はイベントを保留して E24 到着後に E15 を適用する。保留テーブルの正本は **`sys_event_wait`（SYS 提供の共通基盤）** とし、INV が暫定実装する `inv_event_wait` は第一版内で `sys_event_wait` へ移管する（物理名の最終正本は SYS）。
 - 検査結果は `prd_inspection` / `prd_inspection_line` に記録。不合格は `prd_ncr`（不適合品報告）を起票し、処置（返工/特採/廃棄/返品）を承認する。
 - ロットトレーサビリティ：受入ロット → 製造指図 → 完成品ロット → 出荷先をリンクし、いつでも逆引きできる。
 

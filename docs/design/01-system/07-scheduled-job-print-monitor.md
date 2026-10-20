@@ -389,10 +389,10 @@ stateDiagram-v2
 
 | # | 事項 | 理由 | 暫定仕様 | 担当 | 期限 |
 |---|---|---|---|---|---|
-| 1 | 帳票エンジンの選定 | HTML+Puppeteer か JasperReports か | Phase 1 は HTML + Puppeteer（IF-SYS-007）。Jasper は Phase 2 | Lead | 2026-11-10 |
-| 2 | ジョブ実行基盤 | アプリ内スケジューラか Quartz/外部ジョブか | Phase 1 は Spring `ThreadPoolTaskScheduler` + DB 定義。分散実行は Phase 2 | Lead | 2026-11-17 |
-| 3 | データ修正機能の提供範囲 | 手動修正の統制が未確定 | Phase 1 は「整合性検査」と「キャッシュ再構築」のみ。データ修正は Phase 2 | 系统管理员 | 2026-12-01 |
-| 4 | 帳票テンプレートのエディタ方式 | コードエディタ/ドラッグ&ドロップ | Phase 1 は HTML コードエディタ + プレビュー。WYSIWYG は Phase 2 | Lead | 2027-03-31 |
+| 1 | 帳票エンジンの選定 | HTML+Puppeteer か JasperReports か | HTML + Puppeteer（IF-SYS-007）。Jasper 要否は検討中 | Lead | 2026-11-10 |
+| 2 | ジョブ実行基盤 | アプリ内スケジューラか Quartz/外部ジョブか | Spring `ThreadPoolTaskScheduler` + DB 定義。分散実行も第一版対象（TODO：設計が未作成） | Lead | 2026-11-17 |
+| 3 | データ修正機能の提供範囲 | 手動修正の統制が未確定 | 「整合性検査」「キャッシュ再構築」に加え、データ修正も第一版対象（TODO：統制・承認の設計が未作成） | 系统管理员 | 2026-12-01 |
+| 4 | 帳票テンプレートのエディタ方式 | コードエディタ/ドラッグ&ドロップ | HTML コードエディタ + プレビュー。WYSIWYG も第一版対象（TODO：設計が未作成） | Lead | 2027-03-31 |
 
 ## 14. 改訂履歴
 

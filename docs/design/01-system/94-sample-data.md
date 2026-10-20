@@ -121,7 +121,7 @@
 |---|---|---|
 | `TAX_CODE` | `VAT13`: 增值税 13% / `VAT9`: 9% / `VAT6`: 6% / `VAT0`: 0% / `VAT3`: 征收率 3% / `VAT1`: 征收率 1% | 【実データ】[06-code-list.md](../00-common/06-code-list.md) §7 |
 | `UNIT_TYPE` | `KGM`: 千克 / `PCE`: 件 / `MTR`: 米 / `MTK`: 平方米 / `MTQ`: 立方米 / `HUR`: 小时 / `SET`: 套 / `BOX`: 箱 / `ROL`: 卷 | 【実データ】同 §6 |
-| `CURRENCY` | `CNY`: 人民币 / `USD`: 美元 / `EUR`: 欧元（Phase 2） | 【実データ】同 §3、ISO 4217 |
+| `CURRENCY` | `CNY`: 人民币 / `USD`: 美元 / `EUR`: 欧元 | 【実データ】同 §3、ISO 4217 |
 | `SETTLEMENT_METHOD` | 10 種（BANK_TRANSFER 等） | 【実データ】同 §8.1 |
 | `PAYMENT_TERM` | 8 種（NET30 等） | 【実データ】同 §8.2 |
 | `CUSTOMER_GRADE` | A 战略客户 / B 重点客户 / C 一般客户 / D 潜在客户 | 【示例値】 |
@@ -197,7 +197,7 @@
 | 1 | 08 §9.1 にないロール（销售总监・分管副总・HR/内审/运维）の扱い | 承認マトリクス・SYS 運用で必要だが 08 §9.1 未記載 | SYS の `ROLE-*` として初期投入し、08 §9.1 への追記を Lead に提案 | Lead / system-workflow | 2026-10-27 |
 | 2 | ロールコード体系（`ROLE-*` vs `SYSTEM_ADMIN` 形式） | approval-matrix.md は `ROLE-*`、08 §9.1 はロール名のみ | `ROLE-*` を正とし、SYS 初期データに採用。全社規約として Lead 承認待ち | Lead | 2026-10-27 |
 | 3 | 初期管理者の初期パスワード配布方式 | セキュリティ要件未確定 | 初回起動時に自動生成し WARN ログへ一度だけ出力、変更強制 | 系统管理员 | 2026-11-10 |
-| 4 | 会社コード `HDJM` の採番 | README は公司を `1` と表記（ID）、コード体系は未定義 | `id=1`、`company_code='HDJM'`（示例値）。全社コード規則は Phase 2 で確定 | Lead | 2026-11-17 |
+| 4 | 会社コード `HDJM` の採番 | README は公司を `1` と表記（ID）、コード体系は未定義 | `id=1`、`company_code='HDJM'`（示例値）。全社コード規則は第一版で確定（TODO） | Lead | 2026-11-17 |
 
 ## 6. 改訂履歴
 

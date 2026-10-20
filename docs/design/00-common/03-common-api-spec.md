@@ -68,7 +68,7 @@
 | ユーザ情報 | `GET /api/system/auth/me`（ユーザ・ロール・権限コード一覧・データ範囲・メニュー） |
 | 失効 | `401` + `code=2001`「ログインの有効期限が切れました」。フロントはログイン画面へ遷移 |
 | パスワード | BCrypt ハッシュ。初回ログイン時変更必須・有効期限・履歴 5 世代（SYS 設計書） |
-| 多要素認証 | Phase 2（TOTP/短信）。API は項目追加で対応可能な形にしておく |
+| 多要素認証 | 第一版（TOTP/短信。TODO：MFA 登録・検証フローと保存テーブルの設計が未作成）。API は項目追加で対応可能な形にしておく |
 
 ## 4. 認可（権限）
 
@@ -147,7 +147,7 @@
 }
 ```
 
-> **実装メモ**：現行の `GlobalExceptionHandler` は `fieldErrors` を返さない。Phase 1 実装時に `Result` の拡張（`data` に `fieldErrors` を格納）または専用 DTO を追加する。設計は本仕様を正とする。
+> **実装メモ**：現行の `GlobalExceptionHandler` は `fieldErrors` を返さない。第一版実装時に `Result` の拡張（`data` に `fieldErrors` を格納）または専用 DTO を追加する。設計は本仕様を正とする。
 
 ## 6. 業務エラーコード体系
 
@@ -257,6 +257,7 @@
 - 更新系リクエストに `version`（int）を含める。サーバは `WHERE id=? AND version=?` で更新し、0 件なら `409` + `code=4003`「他のユーザが更新しました。最新情報を再取得してください」。
 - 一括更新は全件成功 or 全件失敗（デフォルト）。部分成功を許す場合は設計書に明記し、失敗行一覧を返す。
 - 状態操作（承認・取消）も `version` を要求する（画面で保持した version を送信）。
+- 楽観排他は**画面編集**に限る。在庫・完工数等の数量を累加する過帳パスは行ロック（`FOR UPDATE`）で直列化し、`version` 検査・409 は行わない（ロック順序は [04 DB 規格 §11.1](04-common-db-spec.md)）。
 
 ## 11. 伝票操作 API の共通パターン
 
@@ -323,13 +324,13 @@ POST /api/sales/sales-orders/batch-approve
 | アプリログ | SLF4J。リクエスト ID・ユーザ ID・処理時間を MDC で出力。個人情報・パスワードは出力しない |
 | エラーログ | 500 系はスタックトレースをサーバログのみに記録。クライアントには `trace_id` を返す |
 | マスキング | 銀行口座・電話・メールはログでもマスク（01 共通项目定义 第 15 章） |
-| 監視 | Actuator `/actuator/health`、メトリクス（Phase 2 Prometheus） |
+| 監視 | Actuator `/actuator/health`、メトリクス（Prometheus） |
 
 ## 14. 外部公開 API（`/api/open/v1`）
 
 | 項目 | 仕様 |
 |---|---|
-| 認証 | OAuth2 Client Credentials（Phase 2）または API Key + HMAC 署名（Phase 1 は API Key） |
+| 認証 | OAuth2 Client Credentials または API Key + HMAC 署名（第一版で両方対応。TODO：OAuth2 クライアント登録の設計が未作成） |
 | 利用登録 | `sys_api_client`（client_id、secret（ハッシュ）、scope、許可 IP、レート制限） |
 | レート制限 | 既定 600 req/分/client（バースト 100）。超過 429 + `code=5002`（5001 は保守停止専用、混用禁止） |
 | スコープ | `mdm.read`、`sales.order.write` 等、リソース単位 |
@@ -357,7 +358,7 @@ POST /api/sales/sales-orders/batch-approve
 | CSRF | Cookie を使わないため不要（Authorization ヘッダ方式） |
 | 機密 | パスワード・API secret はハッシュ/暗号化。レスポンスに返さない |
 | 権限昇格 | ロール・データ範囲の変更は監査ログ + 管理者権限 |
-| 依存 | 脆弱性スキャン（OWASP Dependency-Check）を CI に組み込む（Phase 2） |
+| 依存 | 脆弱性スキャン（OWASP Dependency-Check）を CI に組み込む |
 
 ## 17. API 一覧の記述形式（各域 `91-api-design.md` で使用）
 
@@ -371,11 +372,11 @@ POST /api/sales/sales-orders/batch-approve
 
 | # | 事項 | 現状 | 設計（本仕様） | 対応時期 |
 |---|---|---|---|---|
-| 1 | バリデーションエラーの `fieldErrors` | `GlobalExceptionHandler` は message のみ | `data.fieldErrors[]` を返す | Phase 1 実装時 |
-| 2 | API パス接頭辞 `/api` | フロント `baseURL=/api`、バックエンド未実装 | `/api/{module}/...` | Phase 1 |
-| 3 | レスポンスの日時形式 | 未定 | ISO 8601（+08:00） | Phase 1 |
-| 4 | Idempotency-Key | 未実装 | 登録・状態操作に必須 | Phase 1 |
-| 5 | 外部公開 API | 未実装 | `/api/open/v1`（API Key → OAuth2） | Phase 2 |
+| 1 | バリデーションエラーの `fieldErrors` | `GlobalExceptionHandler` は message のみ | `data.fieldErrors[]` を返す | 第一版実装時 |
+| 2 | API パス接頭辞 `/api` | フロント `baseURL=/api`、バックエンド未実装 | `/api/{module}/...` | 第一版 |
+| 3 | レスポンスの日時形式 | 未定 | ISO 8601（+08:00） | 第一版 |
+| 4 | Idempotency-Key | 未実装 | 登録・状態操作に必須 | 第一版 |
+| 5 | 外部公開 API | 未実装 | `/api/open/v1`（API Key / OAuth2） | 第一版 |
 
 ## 19. 改訂履歴
 

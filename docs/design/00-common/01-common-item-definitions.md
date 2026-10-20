@@ -25,7 +25,7 @@
 |---|---|---|---|---|---|---|
 | 1 | `id` | 主キー | `BIGINT` | NOT NULL | アプリ生成 | 雪花 ID（MyBatis-Plus `ASSIGN_ID`）。API・画面では文字列で表現 |
 | 2 | `tenant_id` | 租户 ID | `BIGINT` | NOT NULL | `current_setting('app.tenant_id')::bigint` | 租户＝部署客户。RLS の隔離キー（ENABLE+FORCE、USING/WITH CHECK）。`DEFAULT 0` 禁止、上下文なしの INSERT は失敗。アプリ側 `TenantContext` に既定租户はなく、未設定なら例外。詳細は [10](10-rls-and-db-roles.md) |
-| 3 | `company_id` | 公司 ID | `BIGINT` | NOT NULL | `1` | 会計主体・組織単位。Phase 2 で多公司対応 |
+| 3 | `company_id` | 公司 ID | `BIGINT` | NOT NULL | —（既定値なし） | 会計主体・組織単位。第一版で多公司対応（TODO：会社間取引・会社別採番の詳細設計が未作成）。`DEFAULT 1` 禁止 |
 | 4 | `created_at` | 作成日時 | `TIMESTAMPTZ` | NOT NULL | `now()` | サーバ時刻（Asia/Shanghai 表現） |
 | 5 | `created_by` | 作成者 ID | `BIGINT` | NOT NULL | `0` | システム処理は `0`。ユーザは `sys_user.id` |
 | 6 | `updated_at` | 更新日時 | `TIMESTAMPTZ` | NOT NULL | `now()` | 更新の都度アプリ層で更新 |
@@ -183,7 +183,7 @@ CONSTRAINT pk_{table} PRIMARY KEY (id)
 | 有効期間 | `valid_from`/`valid_to`（DATE）。期間外のコードは新規選択不可、既存データの表示は可 |
 | 使用停止 | マスタの `status=0`（無効）または `deleted=true`。使用中コードの物理削除禁止 |
 | 参照整合 | コード項目の値は参照先マスタに存在すること（入力チェック「コード存在」）。削除済みコードへの新規参照は不可 |
-| 多言語 | Phase 2 対応。名称は `name`（中文）を正とし、`name_en` 等は拡張項目または専用列で管理 |
+| 多言語 | 第一版対応（TODO：`name_en` 等の列/翻訳テーブルの設計が未作成）。名称は `name`（中文）を正とし、`name_en` 等は拡張項目または専用列で管理 |
 | 標準コード | 通貨・単位・国・地域・税区分・勘定科目等は [06-code-list.md](06-code-list.md) の実データを使用する |
 
 ## 9. 添付ファイル
@@ -193,8 +193,8 @@ CONSTRAINT pk_{table} PRIMARY KEY (id)
 | 関連付け | `biz_type`（業務種別コード、例 `SALES_ORDER`）+ `biz_id`（対象 ID）+ `attachment_id`。1 業務に複数添付可 |
 | 制限 | 1 ファイル 20MB 以下、1 業務 20 ファイル以下、合計 100MB 以下（`sys_param` で変更可） |
 | 許可形式 | pdf, jpg, jpeg, png, xlsx, xls, docx, doc, csv, txt, zip（zip は展开後の総量検査）。実行ファイル禁止 |
-| 保存 | `StorageService` 抽象（Phase 1 ローカル、Phase 2 S3/MinIO）。DB にはメタ情報のみ。`sha256` で完全性検査 |
-| セキュリティ | アップロード時にウイルススキャン（ClamAV 等、Phase 1 は拡張子/サイズ検査のみ可）、ダウンロードは権限検査 + 署名 URL |
+| 保存 | `StorageService` 抽象（ローカル / S3・MinIO を設定で切替、第一版で両方対応）。DB にはメタ情報のみ。`sha256` で完全性検査 |
+| セキュリティ | アップロード時にウイルススキャン（ClamAV 等、第一版対応。拡張子/サイズ検査も併用）、ダウンロードは権限検査 + 署名 URL |
 | 監査 | アップロード/ダウンロード/削除を `sys_audit_log` に記録 |
 | 保存期間 | 会計関連は会計帳簿の保存期間に準拠（[08 共通业务规则](08-common-business-rules.md) 第 12 章） |
 

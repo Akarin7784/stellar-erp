@@ -475,7 +475,7 @@ stateDiagram-v2
 | # | 事項 | 理由 | 暫定仕様 | 担当 | 期限 |
 |---|---|---|---|---|---|
 | 1 | ユーザ・権限申請の WF 承認フロー詳細 | WF 域の設計と整合が必要 | 業務類型 `SYS_USER_CHANGE` で 部門经理→人事→系统管理员の順送 | Lead / system-workflow | 2026-10-27 |
-| 2 | 項目権限の保持場所 | `sys_menu.ext_data` に置く暫定。専用テーブル `sys_field_permission` の要否 | Phase 1 は `ext_data`。項目数増加時に専用テーブルへ昇格 | system-workflow | 2026-11-17 |
+| 2 | 項目権限の保持場所 | `sys_menu.ext_data` に置く暫定。専用テーブル `sys_field_permission` の要否 | 当面 `ext_data`。項目数増加時に専用テーブルへ昇格 | system-workflow | 2026-11-17 |
 | 3 | 権限キャッシュの pub/sub 実装 | Redis pub/sub か TTL のみか | Redis pub/sub + 60 秒 TTL の二重防御 | 运维担当 | 2026-11-10 |
 | 4 | 権限棚卸しの自動化範囲 | 四半期棚卸しの運用未確定 | BAT-SYS-010 でレポート出力まで。是正は手動 | 内审员 | 2026-12-01 |
 | 5 | SoD 競合ペアの初期定義 | 客户の職務分掌規程が未確定 | 08 共通業務規則 9.2 の 8 ペアを `sys_param` に初期投入 | Lead | 2026-11-10 |
