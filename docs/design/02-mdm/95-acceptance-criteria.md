@@ -58,6 +58,7 @@
 - W：`erp_app` で `UPDATE mdm_material SET standard_cost = ...`。T：権限エラー（列権限なし）。
 - W：`erp_app` で `set_config('app.cost_publish','on',true)` 等のフラグを設定してから同じ UPDATE。T：やはり拒否される（フラグは判定に使わない）。
 - W：`SELECT has_column_privilege('erp_app','mdm_material','standard_cost','UPDATE')`。T：`false`。
+- W：`SELECT has_table_privilege('erp_app','mdm_material','UPDATE')`。T：`false`。
 
 ## AC1-10 検査フラグの導出
 

@@ -343,7 +343,7 @@ CREATE INDEX gin_mdm_material_ext ON mdm_material USING gin (ext_data jsonb_path
   - 専用の NOLOGIN ロール `erp_cost_publisher` が `SECURITY DEFINER` 関数 `fin_publish_standard_cost` を所有する。関数は `search_path` を固定し、最初に `set_config('app.tenant_id', 対象 tenant, true)` を設定する（FORCE RLS が適用される）。
   - `erp_cost_publisher` には `mdm_material` の列単位 `UPDATE (standard_cost)` に加え、WHERE 句と RLS ポリシーで使う列の列単位 `SELECT`（少なくとも `id`、`tenant_id`、`company_id`）を付与する。さらに `fin_standard_cost` の `SELECT` を付与する（列 SELECT が無いと `UPDATE ... WHERE id = ?` は権限エラーになる）。
   - トリガーは `standard_cost` の変更を `current_user = 'erp_cost_publisher'` の場合のみ許可し、それ以外は拒否する。`app.cost_publish` 等のセッションフラグは使わない。
-  - `erp_app` には `mdm_material` の表単位 `UPDATE` を付与しない。`standard_cost` 以外の全列に列単位 `UPDATE` を付与する。`ALTER DEFAULT PRIVILEGES` による一括 UPDATE 付与から本表を除外する（または付与後に REVOKE して列単位付与を再適用する）。
+  - `erp_app` の権限は次の手順で設定する：まず `REVOKE UPDATE ON mdm_material FROM erp_app` で表単位 UPDATE（`ALTER DEFAULT PRIVILEGES` による一括付与分を含む）を取り消し、次に `standard_cost` 以外の全列に列単位 `GRANT UPDATE (...) ON mdm_material TO erp_app` を付与する。
 - `valuation_method` は `NOT NULL`、既定値なし（R1：MTS 自制品 20、MTO 产品・外购料 10）。
 
 **项目定义补足（01 との対応）**：各列の論理名・必須・入力チェックは [01-material-master.md](01-material-master.md) 2.5.1〜2.5.7 を正とする。DB では `material_type`=10〜80、`inspection_stage`=0〜40、`approval_status`=10/20/25/90/95、`status`=0/1。`default_bom_code`/`default_routing_code`/`inspection_standard_id` は PRD 域のマスタをコード/ID 参照（FK は張らない）。
