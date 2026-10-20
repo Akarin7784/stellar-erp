@@ -49,7 +49,7 @@
 | BR-06 | 岗位は職位制度に基づき、`position_level` で序列を表す。承認エスカレーションの上位者判定に使用する（F-WF-008） | 承認ルール | `position_level` |
 | BR-07 | 公司は会計主体。`unified_social_credit_code` は GB 32100-2015 の 18 桁（【実データ】形式仕様） | 法令 | `unified_social_credit_code` |
 | BR-08 | 工厂は生産・在庫拠点。**工厂主データは MDM（`mdm_factory`）が管理**し、SYS は工厂の有効化・既定割当・責任者（`sys_factory_setting`）のみ管理する。伝票の `factory_id` は原則ログインユーザの既定工厂だが、権限者は切替可能 | [共通項目定義](../00-common/01-common-item-definitions.md) 第 4 章 / [02-mdm](../02-mdm/90-db-design.md) | `factory_id` |
-| BR-09 | 多組織のデータ分離は `company_id`（必須）+ `factory_id`（拠点）で行い、`tenant_id` はセッションの `app.tenant_id`（RLS、第一版） | [DB 共通規格](../00-common/04-common-db-spec.md) 第 14 章 | `tenant_id` |
+| BR-09 | 多組織のデータ分離は `company_id`（必須）+ `factory_id`（拠点）で行い、`tenant_id` はセッションの `app.tenant_id`（RLS、第一版）。RLS は `tenant_id` のみで分離し、同一テナント内の会社間分離はアプリ層で行う（決定：#10、[10-rls-and-db-roles.md](../00-common/10-rls-and-db-roles.md)） | [DB 共通規格](../00-common/04-common-db-spec.md) 第 14 章 | `tenant_id` |
 | BR-10 | 租户分離（RLS）は第一版（首批業務テーブルと同時）。テーブル・API は `tenant_id` を全件保持し、後付け不要とする | 第一版 | `tenant_id` |
 | BR-11 | 会社・工厂・部門・岗位の変更は監査ログに before/after を記録 | 内部統制 | `sys_audit_log` |
 

@@ -24,7 +24,7 @@
 ## #10 tenant_id と company_id の関係（Refs #10）
 
 - G：ADR の定義「tenant = 導入顧客、company = 法人、tenant ⊇ company」（**待確認**）。W：会話のテナントと異なる tenant の `sys_company` を INSERT。T：拒否（RLS WITH CHECK）。
-- W：同一 tenant 内で他 company のデータを照会。T：company を RLS 対象にするかは **待確認**。対象とする場合は `app.company_id` で絞り込む。
+- 決定（#10、[10-rls-and-db-roles.md](10-rls-and-db-roles.md)）：RLS は `tenant_id` のみで分離する。同一テナント内の会社間分離はアプリ層（データ範囲・`company_id` 条件）で行う。G：同一 tenant に company 1・2 のデータ。W：`erp_app` で照会（company 条件なし）。T：RLS では両社の行が見える（company はポリシー条件に含まれない）。W：company 1 のユーザが API で照会。T：アプリ層で company 1 のみ返る。
 - 文書：定義は ADR のみを正とし、[04 §14](04-common-db-spec.md) は ADR を参照する。
 
 ## #11 迁移文件命名规则（Refs #11）
