@@ -839,7 +839,7 @@ CREATE TABLE fin_receivable_line (
     CONSTRAINT pk_fin_receivable_line PRIMARY KEY (id),
     CONSTRAINT fk_fin_receivable_line_head FOREIGN KEY (receivable_id) REFERENCES fin_receivable (id)
 );
-CREATE UNIQUE INDEX uk_fin_receivable_line ON fin_receivable_line (receivable_id, line_no);
+CREATE UNIQUE INDEX uk_fin_receivable_line ON fin_receivable_line (tenant_id, company_id, receivable_id, line_no);
 COMMENT ON TABLE fin_receivable_line IS '应收单明细（E10 明細行のスナップショット）';
 ```
 
@@ -1848,7 +1848,7 @@ COMMENT ON TABLE fin_cash_plan IS '资金计划（実装順 P2）';
 - 業務一意索引（`uk_`）は DDL 本文・§3／§7 一覧とも `(tenant_id, company_id, 業務キー)` で始める。
 - `tenant_id` は `NOT NULL DEFAULT current_setting('app.tenant_id')::bigint`（字面量默认租户禁止）。`company_id` は `NOT NULL`・既定値なし。
 - **例外（親 ID 先頭。親行が tenant/company を保証するため、親 ID 単独で一意範囲が確定する）**：
-  - 明細行番号：`uk_fin_voucher_line`（`voucher_id`）、`uk_fin_voucher_template_line`（`template_id`）、`uk_fin_receivable_line`（`receivable_id`）、`uk_fin_invoice_line`（`invoice_id`）、`uk_fin_payment_request_line`（`request_id`）、`uk_fin_write_off_line`（`write_off_id`）、`uk_fin_bank_statement_line`（`statement_id`）、`uk_fin_vat_return_line`（`return_id`）、`uk_fin_expense_claim_line`（`claim_id`）、`uk_fin_cash_plan_line`（`plan_id`）。
+  - 明細行番号：`uk_fin_voucher_line`（`voucher_id`）、`uk_fin_voucher_template_line`（`template_id`）、`uk_fin_invoice_line`（`invoice_id`）、`uk_fin_payment_request_line`（`request_id`）、`uk_fin_write_off_line`（`write_off_id`）、`uk_fin_bank_statement_line`（`statement_id`）、`uk_fin_vat_return_line`（`return_id`）、`uk_fin_expense_claim_line`（`claim_id`）、`uk_fin_cash_plan_line`（`plan_id`）。
   - 子設定：`uk_fin_account_aux`（`account_id`：科目行が tenant/company を保証）。
   - 自己参照：`uk_fin_voucher_reversal`（`reversal_of_voucher_id`：1 凭证に有効な冲销凭证は 1 件。元凭证が tenant/company を保証）。
   - イベント ID：`uk_fin_auto_voucher_log_event`（`event_id`：Outbox の eventId は UUID で全体一意、[09 §10](../00-common/09-cross-domain-flow.md)）。
@@ -1904,3 +1904,4 @@ COMMENT ON TABLE fin_cash_plan IS '资金计划（実装順 P2）';
 | v1.3 | 2026-10-21 | `fin_standard_cost.period_from/to` を月初 DATE 化、`ex_fin_standard_cost_period`（EXCLUDE gist、btree_gist 前提）、発行時の自動打切りと MSG-FIN-134 | 业务分析 |
 | v1.4 | 2026-10-21 | 発行の並行制御（`mdm_material` 行 `FOR NO KEY UPDATE`、ロック後に有効版取得）、`23P01`→MSG-FIN-134（422） | 业务分析 |
 | v1.5 | 2026-10-21 | `mdm_material.standard_cost` は当月有効版のみ反映、将来月開始版は期間開帳時に刷新（蓝色大肥鱼決定、#14） | 业务分析 |
+| v1.6 | 2026-10-21 | `uk_fin_receivable_line` を `(tenant_id, company_id, receivable_id, line_no)` 先頭に変更し §7.1 例外一覧から削除 | 业务分析 |
