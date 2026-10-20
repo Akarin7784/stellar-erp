@@ -232,7 +232,7 @@ CONSTRAINT pk_{table} PRIMARY KEY (id)
 
 ```sql
 CREATE UNIQUE INDEX uk_mdm_material_company_code
-  ON mdm_material (company_id, material_code)
+  ON mdm_material (tenant_id, company_id, material_code)
   WHERE deleted = FALSE;
 ```
 
@@ -335,3 +335,4 @@ CREATE UNIQUE INDEX uk_mdm_material_company_code
 | 版数 | 日付 | 変更内容 | 変更者 |
 |---|---|---|---|
 | v1.0 | 2026-10-20 | 初版：共通カラム、精度、状態、コード、添付、拡張項目、排他、監査ログ、帳票・画面共通項目、マスキング | Lead |
+| v1.1 | 2026-10-21 | 一意索引例を `(tenant_id, company_id, …)` 先頭に修正 | 业务分析 |
