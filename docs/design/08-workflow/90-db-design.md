@@ -40,6 +40,8 @@ SYS 域 90 章 1.2 と同一の 3 セット（M/T/L）を適用する（[共通�
 | T（取引・設定） | wf_business_process、wf_task、wf_cc、wf_variable |
 | L（追記ログ） | wf_task_operation（+company_id）、wf_timeout_record（+company_id）、wf_process_stat（統計は更新ありのため `updated_at` のみ追加） |
 
+**RLS**：全 `wf_*` テーブルは `ENABLE ROW LEVEL SECURITY` + `FORCE ROW LEVEL SECURITY` とし、ポリシーは `tenant_id = current_setting('app.tenant_id')::bigint` のみで判定する（`company_id` は RLS に含めずアプリ層で制御。[00-common 10](../00-common/10-rls-and-db-roles.md)）。Flowable 引擎表（`ACT_*`／`FLW_*`、schema `flowable`）は `tenant_id` を持たず RLS の対象外とする（[04 共通 DB 規約](../00-common/04-common-db-spec.md) 末節「Flowable 引擎表の schema 分離」）。代わりに Flowable 引擎の `tenantId` に `tenant_id` を設定してデプロイ・起動し、業務 API は必ず RLS 対象の `wf_*` テーブル（`wf_business_process`／`wf_task` 等）を経由して `ACT_*` を関連取得する。`taskId`／`processInstanceId` を直接指定して `ACT_*` を参照してはならない。
+
 ### 1.3 テーブル関連（ER 図）
 
 ```mermaid
@@ -50,6 +52,7 @@ erDiagram
     wf_business_type ||--o{ wf_business_process : "business_type"
     wf_business_process ||--o{ wf_task : "process_instance_id"
     wf_task ||--o{ wf_task_operation : "1:N"
+    wf_task ||--o{ wf_task : "parent_task_id（加签）"
     wf_business_process ||--o{ wf_cc : "1:N"
     wf_business_process ||--o{ wf_variable : "1:N"
     wf_delegation }o--|| ACT_ID_USER : "delegator/delegate"
@@ -118,14 +121,16 @@ CREATE TABLE wf_process_definition_ext (
     is_active           BOOLEAN       NOT NULL DEFAULT TRUE,  -- 有効（新規開始対象）
     is_default          BOOLEAN       NOT NULL DEFAULT FALSE, -- 同キーの既定版
     description         VARCHAR(500),                     -- 说明
-    status              SMALLINT      NOT NULL DEFAULT 1  -- 状态：1 有效 / 0 无效
+    status              SMALLINT      NOT NULL DEFAULT 1, -- 状态：1 有效 / 0 无效
+    CONSTRAINT ck_wf_proc_def_ext_type CHECK (process_type IN (1,2,3)),
+    CONSTRAINT ck_wf_proc_def_ext_status CHECK (status IN (0,1))
 );
 COMMENT ON TABLE wf_process_definition_ext IS '流程定义扩展（BPMN 定義の業務属性）';
 ```
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_wf_proc_def_ext | UNIQUE | (proc_def_id) | WHERE deleted=FALSE | 定義 ID 一意 |
+| uk_wf_proc_def_ext | UNIQUE | (tenant_id, company_id, proc_def_id) | WHERE deleted=FALSE | 定義 ID 一意 |
 | idx_wf_proc_def_ext_key | B-Tree | (proc_def_key, proc_def_version DESC) | — | 最新版取得 |
 | idx_wf_proc_def_ext_active | B-Tree | (process_category, is_active) | — | 有効定義一覧 |
 
@@ -155,14 +160,15 @@ CREATE TABLE wf_business_type (
     status              SMALLINT      NOT NULL DEFAULT 1, -- 状态：1 有效 / 0 无效
     sort_no             INT           NOT NULL DEFAULT 0, -- 表示顺
     description         VARCHAR(500),                     -- 说明
-    owner_domain        VARCHAR(32)   NOT NULL            -- 責任域（更新責任）
+    owner_domain        VARCHAR(32)   NOT NULL,           -- 責任域（更新責任）
+    CONSTRAINT ck_wf_business_type_status CHECK (status IN (0,1))
 );
 COMMENT ON TABLE wf_business_type IS '业务类型（承認対象の業務種別）';
 ```
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_wf_business_type | UNIQUE | (business_type) | WHERE deleted=FALSE | 業務類型一意 |
+| uk_wf_business_type | UNIQUE | (tenant_id, company_id, business_type) | WHERE deleted=FALSE | 業務類型一意 |
 | idx_wf_business_type_module | B-Tree | (module_code, status) | — | モジュール別一覧 |
 
 **制約**：使用中（マッピング・進行中プロセスあり）の削除禁止。`business_type` は作成後変更不可（業務域コードとの整合）。
@@ -191,14 +197,15 @@ CREATE TABLE wf_process_mapping (
     effective_to        DATE,                             -- 適用終了日
     is_active           BOOLEAN       NOT NULL DEFAULT TRUE, -- 有効
     description         VARCHAR(500),                     -- 说明
-    status              SMALLINT      NOT NULL DEFAULT 1  -- 状态：1 有效 / 0 无效
+    status              SMALLINT      NOT NULL DEFAULT 1, -- 状态：1 有效 / 0 无效
+    CONSTRAINT ck_wf_process_mapping_status CHECK (status IN (0,1))
 );
 COMMENT ON TABLE wf_process_mapping IS '流程映射（業務類型→流程定義+条件）';
 ```
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_wf_process_mapping_code | UNIQUE | (mapping_code) | WHERE deleted=FALSE | マッピングコード一意 |
+| uk_wf_process_mapping_code | UNIQUE | (tenant_id, company_id, mapping_code) | WHERE deleted=FALSE | マッピングコード一意 |
 | idx_wf_process_mapping_bt | B-Tree | (business_type, is_active, priority) | — | 開始時のマッピング解決 |
 | idx_wf_process_mapping_matrix | B-Tree | (approval_matrix_id) | — | マトリクス逆引き |
 
@@ -231,14 +238,16 @@ CREATE TABLE wf_approval_matrix (
     effective_to        DATE,                             -- 適用終了日
     is_active           BOOLEAN       NOT NULL DEFAULT TRUE, -- 有効
     description         VARCHAR(500),                     -- 说明
-    status              SMALLINT      NOT NULL DEFAULT 1  -- 状态：1 有效 / 0 无效
+    status              SMALLINT      NOT NULL DEFAULT 1, -- 状态：1 有效 / 0 无效
+    CONSTRAINT ck_wf_approval_matrix_cond CHECK (condition_type IN (1,2,3,4)),
+    CONSTRAINT ck_wf_approval_matrix_status CHECK (status IN (0,1))
 );
 COMMENT ON TABLE wf_approval_matrix IS '承认マトリクス（金額・条件別の承認経路定義）';
 ```
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_wf_approval_matrix_code | UNIQUE | (matrix_code) | WHERE deleted=FALSE | マトリクスコード一意 |
+| uk_wf_approval_matrix_code | UNIQUE | (tenant_id, company_id, matrix_code) | WHERE deleted=FALSE | マトリクスコード一意 |
 | idx_wf_approval_matrix_bt | B-Tree | (business_type, is_active, priority) | — | 条件評価 |
 
 **制約**：`amount_min <= amount_max`。同一 `business_type` 内で金額範囲が重複する有効行は警告（`MSG-WF-053`）。金額境界は「下限含む・上限含まず」で評価し、最上位は `amount_max=NULL`（無限）。
@@ -264,14 +273,16 @@ CREATE TABLE wf_approval_matrix_line (
     min_approver_count  SMALLINT      NOT NULL DEFAULT 1, -- 会签時の最低承認者数（0=全員）
     allow_delegate      BOOLEAN       NOT NULL DEFAULT TRUE, -- 代理許可
     timeout_hours       INT,                              -- 個別タイムアウト（NULL=既定）
-    description         VARCHAR(500)                      -- 说明
+    description         VARCHAR(500),                     -- 说明
+    CONSTRAINT ck_wf_approval_matrix_line_approver CHECK (approver_type IN (1,2,3,4,5,6)),
+    CONSTRAINT ck_wf_approval_matrix_line_sign CHECK (sign_type IN (1,2,3))
 );
 COMMENT ON TABLE wf_approval_matrix_line IS '承认マトリクス明細（経路の各承認ノード）';
 ```
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_wf_approval_matrix_line | UNIQUE | (matrix_id, line_no) | WHERE deleted=FALSE | 行番号一意 |
+| uk_wf_approval_matrix_line | UNIQUE | (tenant_id, company_id, matrix_id, line_no) | WHERE deleted=FALSE | 行番号一意 |
 | idx_wf_approval_matrix_line_matrix | B-Tree | (matrix_id) | — | 経路取得 |
 
 **制約**：`approver_type=1/2/3/6` は `approver_ref` 必須。`node_name` は経路図・履歴に表示する。承認者が解決できない場合、プロセス開始は失敗し `MSG-WF-004`（承認者未設定）。
@@ -296,10 +307,9 @@ CREATE TABLE wf_business_process (
     process_instance_id VARCHAR(64)   NOT NULL,           -- Flowable プロセスインスタンス ID
     proc_def_id         VARCHAR(64),                      -- プロセス定義 ID
     proc_def_key        VARCHAR(100),                     -- プロセス定義キー
-    process_status      SMALLINT      NOT NULL DEFAULT 10, -- 10 草稿 / 20 承認中 / 25 承認済 / 95 却下 / 90 取消
+    process_status      SMALLINT      NOT NULL DEFAULT 10, -- 10 草稿 / 20 承認中 / 21 挂起 / 25 承認済 / 95 却下 / 90 取消
     applicant_id        BIGINT        NOT NULL,           -- 申請者
     applicant_dept_id   BIGINT,                           -- 申請部門
-    company_id          BIGINT        NOT NULL DEFAULT 1, -- 会計主体
     factory_id          BIGINT,                           -- 拠点
     amount              NUMERIC(18,2),                    -- 申請金額（税込）
     currency_code       VARCHAR(3)    NOT NULL DEFAULT 'CNY', -- 通貨
@@ -311,14 +321,17 @@ CREATE TABLE wf_business_process (
     completed_at        TIMESTAMPTZ,                      -- 完了日時
     final_result        SMALLINT,                         -- 最終結果：1 承認 / 2 却下 / 3 撤回 / 4 取消 / 5 強制終了
     urgent_flag         BOOLEAN       NOT NULL DEFAULT FALSE, -- 緊急フラグ
-    status              SMALLINT      NOT NULL DEFAULT 20 -- 状態：1 有効 / 0 無効（再提出で更新）
+    status              SMALLINT      NOT NULL DEFAULT 20, -- 伝票状態：10 草稿 / 20 承認中 / 30 承認済 / 40 却下 / 90 撤回（再提出で更新）
+    CONSTRAINT ck_wf_business_process_status CHECK (process_status IN (10,20,21,25,90,95)),
+    CONSTRAINT ck_wf_business_process_doc_status CHECK (status IN (10,20,30,40,90)),
+    CONSTRAINT ck_wf_business_process_result CHECK (final_result IS NULL OR final_result IN (1,2,3,4,5))
 );
 COMMENT ON TABLE wf_business_process IS '業務流程関連（業務伝票とプロセスインスタンスの紐付け）';
 ```
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_wf_business_process | UNIQUE | (business_type, business_id) | WHERE deleted=FALSE | 業務×プロセス一意 |
+| uk_wf_business_process | UNIQUE | (tenant_id, company_id, business_type, business_id) | — | 業務×プロセス一意 |
 | idx_wf_business_process_pi | B-Tree | (process_instance_id) | — | プロセス逆引き |
 | idx_wf_business_process_status | B-Tree | (process_status, submit_at DESC) | — | 状態別一覧 |
 | idx_wf_business_process_applicant | B-Tree | (applicant_id, submit_at DESC) | — | 我发起的 |
@@ -364,14 +377,23 @@ CREATE TABLE wf_task (
     claim_at            TIMESTAMPTZ,                      -- 引受日時
     complete_at         TIMESTAMPTZ,                      -- 完了日時
     cc_flag             BOOLEAN       NOT NULL DEFAULT FALSE, -- 主管抄送要否
-    status              SMALLINT      NOT NULL DEFAULT 1   -- 状態：1 有効 / 0 無効
+    status              SMALLINT      NOT NULL DEFAULT 1,  -- 状態：1 有効 / 0 無効
+    parent_task_id      BIGINT,                           -- 親タスク（wf_task.id、加签の子タスク時。通常 NULL）
+    task_type           SMALLINT      NOT NULL DEFAULT 10, -- タスク種別：10 通常 / 20 加签 / 30 转办
+    CONSTRAINT uk_wf_task_tenant_id UNIQUE (tenant_id, id),
+    CONSTRAINT fk_wf_task_parent FOREIGN KEY (tenant_id, parent_task_id) REFERENCES wf_task (tenant_id, id),
+    CONSTRAINT ck_wf_task_status CHECK (task_status IN (20,25,90,95)),
+    CONSTRAINT ck_wf_task_delegation CHECK (delegation_type IS NULL OR delegation_type IN (1,2)),
+    CONSTRAINT ck_wf_task_urgency CHECK (urgency IN (0,1,2)),
+    CONSTRAINT ck_wf_task_row_status CHECK (status IN (0,1)),
+    CONSTRAINT ck_wf_task_type CHECK (task_type IN (10,20,30))
 );
 COMMENT ON TABLE wf_task IS '承认タスク拡張（待办一覧の検索用属性）';
 ```
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_wf_task | UNIQUE | (task_id) | WHERE deleted=FALSE | タスク ID 一意 |
+| uk_wf_task | UNIQUE | (tenant_id, company_id, task_id) | — | タスク ID 一意 |
 | idx_wf_task_assignee | B-Tree | (assignee_id, task_status, create_at DESC) | WHERE task_status=20 | 待办一覧 |
 | idx_wf_task_pi | B-Tree | (process_instance_id) | — | プロセス別タスク |
 | idx_wf_task_due | B-Tree | (task_status, due_at) | WHERE task_status=20 | 超時検出 |
@@ -409,7 +431,8 @@ CREATE TABLE wf_task_operation (
     deadline_extended   BOOLEAN       NOT NULL DEFAULT FALSE, -- 期限延長の有無
     occurred_at         TIMESTAMPTZ   NOT NULL DEFAULT now(), -- 操作日時
     ip_address          VARCHAR(45),                      -- 操作 IP
-    trace_id            VARCHAR(64)                       -- 追跡 ID
+    trace_id            VARCHAR(64),                      -- 追跡 ID
+    CONSTRAINT ck_wf_task_operation_type CHECK (operation_type IN (1,2,3,4,5,6,7,8,9))
 );
 COMMENT ON TABLE wf_task_operation IS '承认操作履歴（タイムライン・監査）';
 ```
@@ -445,14 +468,16 @@ CREATE TABLE wf_cc (
     cc_type             SMALLINT      NOT NULL DEFAULT 1, -- 種別：1 自動抄送 / 2 手動抄送
     read_flag           BOOLEAN       NOT NULL DEFAULT FALSE, -- 既読
     read_at             TIMESTAMPTZ,                      -- 既読日時
-    status              SMALLINT      NOT NULL DEFAULT 0  -- 状態：0 未読 / 1 既読 / 2 削除
+    status              SMALLINT      NOT NULL DEFAULT 0, -- 状態：0 未読 / 1 既読 / 2 削除
+    CONSTRAINT ck_wf_cc_type CHECK (cc_type IN (1,2)),
+    CONSTRAINT ck_wf_cc_status CHECK (status IN (0,1,2))
 );
 COMMENT ON TABLE wf_cc IS '抄送（参照通知・既読管理）';
 ```
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_wf_cc | UNIQUE | (process_instance_id, cc_user_id) | WHERE deleted=FALSE | 抄送重複防止 |
+| uk_wf_cc | UNIQUE | (tenant_id, company_id, process_instance_id, cc_user_id) | — | 抄送重複防止 |
 | idx_wf_cc_user | B-Tree | (cc_user_id, status, created_at DESC) | — | 抄送我的一覧 |
 
 ### 3.10 wf_delegation 代理委托
@@ -478,7 +503,9 @@ CREATE TABLE wf_delegation (
     reason              VARCHAR(500)  NOT NULL,           -- 理由（必須）
     approved_by         BIGINT,                           -- 承認者（高権限委任時）
     approved_at         TIMESTAMPTZ,                      -- 承認日時
-    status              SMALLINT      NOT NULL DEFAULT 1  -- 状態：1 有効 / 0 解除 / 2 期限切れ
+    status              SMALLINT      NOT NULL DEFAULT 1, -- 状態：1 有効 / 0 解除 / 2 期限切れ
+    CONSTRAINT ck_wf_delegation_type CHECK (delegation_type IN (1,2)),
+    CONSTRAINT ck_wf_delegation_status CHECK (status IN (0,1,2))
 );
 COMMENT ON TABLE wf_delegation IS '代理委托（期間指定の代理承認）';
 ```
@@ -521,14 +548,16 @@ CREATE TABLE wf_timeout_rule (
     effective_from      DATE,                             -- 適用開始日
     effective_to        DATE,                             -- 適用終了日
     status              SMALLINT      NOT NULL DEFAULT 1, -- 状態：1 有效 / 0 无效
-    description         VARCHAR(500)                      -- 说明
+    description         VARCHAR(500),                     -- 说明
+    CONSTRAINT ck_wf_timeout_rule_escalate CHECK (escalate_to_type IS NULL OR escalate_to_type IN (1,2,3,4)),
+    CONSTRAINT ck_wf_timeout_rule_status CHECK (status IN (0,1))
 );
 COMMENT ON TABLE wf_timeout_rule IS '超时规则（リマインダ・エスカレーション・自動承認）';
 ```
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_wf_timeout_rule_code | UNIQUE | (rule_code) | WHERE deleted=FALSE | ルールコード一意 |
+| uk_wf_timeout_rule_code | UNIQUE | (tenant_id, company_id, rule_code) | WHERE deleted=FALSE | ルールコード一意 |
 | idx_wf_timeout_rule_bt | B-Tree | (business_type, node_name, priority) | — | 規則解決 |
 
 **制約**：`reminder_hours < escalate_hours`。`auto_approve=true` の場合は `auto_approve_hours` と `auto_approve_max_amount` 必須。自動承認は「最終承認ノード以外」または「金額上限内」の条件を両方満たす場合のみ実行（安全弁）。
@@ -556,7 +585,9 @@ CREATE TABLE wf_timeout_record (
     rule_id             BIGINT,                           -- 適用ルール ID
     result              SMALLINT      NOT NULL DEFAULT 1, -- 1 成功 / 0 失敗
     error_message       VARCHAR(500),                     -- 失敗理由
-    occurred_at         TIMESTAMPTZ   NOT NULL DEFAULT now() -- 実行日時
+    occurred_at         TIMESTAMPTZ   NOT NULL DEFAULT now(),-- 実行日時
+    CONSTRAINT ck_wf_timeout_record_type CHECK (record_type IN (1,2,3,4)),
+    CONSTRAINT ck_wf_timeout_record_result CHECK (result IN (0,1))
 );
 COMMENT ON TABLE wf_timeout_record IS '超时记录（リマインダ・エスカレーション・自動承認履歴）';
 ```
@@ -589,14 +620,15 @@ CREATE TABLE wf_form_field_permission (
     apply_role_code     VARCHAR(64),                      -- 適用ロール（NULL=全ロール）
     required_flag       BOOLEAN       NOT NULL DEFAULT FALSE, -- 編集时必须
     sort_no             INT           NOT NULL DEFAULT 0, -- 表示顺
-    description         VARCHAR(500)                      -- 说明
+    description         VARCHAR(500),                     -- 说明
+    CONSTRAINT ck_wf_form_field_perm_type CHECK (permission_type IN (1,2,3))
 );
 COMMENT ON TABLE wf_form_field_permission IS '表单字段权限（ノード別項目権限）';
 ```
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_wf_form_field_perm | UNIQUE | (proc_def_key, node_def_key, field_key, apply_role_code) | WHERE deleted=FALSE | ノード×項目×ロール一意 |
+| uk_wf_form_field_perm | UNIQUE | (tenant_id, company_id, proc_def_key, node_def_key, field_key, apply_role_code) | WHERE deleted=FALSE | ノード×項目×ロール一意 |
 | idx_wf_form_field_perm_node | B-Tree | (proc_def_key, node_def_key) | — | 承認画面の権限解決 |
 
 **制約**：`permission_type=3`（非表示）は API レスポンスからも項目を除外する（フロント制御のみに依存しない）。`field_key` は業務域の DTO 項目名と一致させる（[跨域流程](../00-common/09-cross-domain-flow.md) 9.1 の `formSnapshot` 項目）。
@@ -613,6 +645,7 @@ COMMENT ON TABLE wf_form_field_permission IS '表单字段权限（ノード別�
 ```sql
 CREATE TABLE wf_process_stat (
     -- [共通カラム L + updated_at]
+    company_id          BIGINT        NOT NULL,           -- 会社 ID（既定値なし）
     stat_date           DATE          NOT NULL,           -- 統計日（月末は月次）
     stat_type           SMALLINT      NOT NULL DEFAULT 1, -- 1 日次 / 2 月次
     business_type       VARCHAR(64)   NOT NULL DEFAULT '*', -- 業務類型（'*'=全体）
@@ -625,14 +658,15 @@ CREATE TABLE wf_process_stat (
     max_approval_hours  NUMERIC(12,2),                    -- 最大承認時間
     overdue_count       INT           NOT NULL DEFAULT 0, -- 超時件数
     pending_count       INT           NOT NULL DEFAULT 0, -- 期末滞留件数
-    updated_at          TIMESTAMPTZ   NOT NULL DEFAULT now()
+    updated_at          TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    CONSTRAINT ck_wf_process_stat_type CHECK (stat_type IN (1,2))
 );
 COMMENT ON TABLE wf_process_stat IS '流程统计（KPI スナップショット）';
 ```
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_wf_process_stat | UNIQUE | (stat_date, stat_type, business_type, department_id) | — | 統計単位一意 |
+| uk_wf_process_stat | UNIQUE | (tenant_id, company_id, stat_date, stat_type, business_type, department_id) | NULLS NOT DISTINCT（`department_id` NULL=全体の重複防止） | 統計単位一意 |
 | idx_wf_process_stat_date | B-Tree | (stat_date DESC, stat_type) | — | 期間別参照 |
 
 ### 3.15 wf_variable 流程変数
@@ -661,7 +695,7 @@ COMMENT ON TABLE wf_variable IS '流程変数（業務変数スナップショ�
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_wf_variable | UNIQUE | (process_instance_id) | WHERE deleted=FALSE | プロセス単位一意 |
+| uk_wf_variable | UNIQUE | (tenant_id, company_id, process_instance_id) | — | プロセス単位一意 |
 | idx_wf_variable_business | B-Tree | (business_type, business_id) | — | 業務から変数参照 |
 | gin_wf_variable_ext | GIN | (variables jsonb_path_ops) | — | 変数条件検索（監査・分析） |
 
@@ -700,4 +734,7 @@ COMMENT ON TABLE wf_variable IS '流程変数（業務変数スナップショ�
 | 版数 | 日付 | 変更内容 | 変更者 |
 |---|---|---|---|
 | v1.0 | 2026-10-20 | 初版：設計方針、ER 図、15 テーブル定義（DDL・索引・制約・更新仕様）、容量、更新タイミング | system-workflow |
-| v1.1 | 2026-10-21 | 明細 `wf_timeout_record` に `company_id` を付与（L セット + company_id） | 业务分析 |
+| v1.1 | 2026-10-21 | DDL 整備（建迁移前）：唯一索引 12 件を `tenant_id` 先頭（`(tenant_id[, company_id], …)`、`wf_approval_matrix` は `(tenant_id, …)`、L セットの `wf_process_stat` は `(tenant_id, …)`）、T セット（`deleted` なし）の `uk_wf_business_process`/`uk_wf_task`/`uk_wf_cc`/`uk_wf_variable` から `WHERE deleted=FALSE` を削除、`wf_business_process` の重複 `company_id … DEFAULT 1` を削除、RLS 方針を追記（Flowable `ACT_*`/`FLW_*` は対象外）、既存の枚挙注釈どおり CHECK を追加、`wf_task.parent_task_id`（加签の親タスク、域内自己参照 FK）を追加（蓝色大肥鱼 決定） | 业务分析 |
+| v1.2 | 2026-10-21 | `wf_business_process.status` の注釈を伝票状態（10 草稿 / 20 承認中 / 30 承認済 / 40 却下 / 90 撤回、DEFAULT 20 維持）に修正し CHECK `ck_wf_business_process_doc_status` を追加、`wf_task.task_type`（10 通常 / 20 加签 / 30 转办、DEFAULT 10）と CHECK `ck_wf_task_type` を追加（蓝色大肥鱼 決定） | 业务分析 |
+| v1.3 | 2026-10-21 | 評審指摘対応：`wf_task` に `uk_wf_task_tenant_id UNIQUE (tenant_id, id)` を追加し `fk_wf_task_parent` を `(tenant_id, parent_task_id)` 複合 FK に変更、`process_status` に 21 挂起を追加（03 と整合）、Flowable 租户隔離（引擎 `tenantId`、`wf_*` 経由のみ `ACT_*` 参照）を追記、`uk_wf_approval_matrix_code`／`uk_wf_approval_matrix_line` を `(tenant_id, company_id, …)` に、`wf_process_stat` に `company_id` を追加し唯一键を `(tenant_id, company_id, …)` + NULLS NOT DISTINCT に変更 | 业务分析 |
+| v1.4 | 2026-10-21 | 明細 `wf_timeout_record` に `company_id` を付与（L セット + company_id） | 业务分析 |
