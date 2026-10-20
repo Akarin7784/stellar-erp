@@ -32,13 +32,13 @@
 
 | 項目 | 決定 | 根拠 |
 |---|---|---|
-| 计价方法 | 移动加权平均法（Phase 1 唯一） | [08 §6.1](../00-common/08-common-business-rules.md) |
+| 计价方法 | 移动加权平均法（第一版 唯一） | [08 §6.1](../00-common/08-common-business-rules.md) |
 | **原価計算単位（cost group）** | **倉庫 × 物料 × 批次**（非批次管理物料は 倉庫 × 物料、`batch_id=0`） | [08 §6.1](../00-common/08-common-business-rules.md) の「`inv_stock_balance`（倉庫×物料×批次）に残高・金額・平均単価を保持」に従う。E19 の `batchNo` 項目とも整合 |
 | 数量精度 | `NUMERIC(18,4)`（基本単位） | [01 §6.1](../00-common/01-common-item-definitions.md) |
 | 金額精度 | `NUMERIC(18,2)`（CNY） | 同上 |
 | 平均単価精度 | `NUMERIC(18,6)`（四捨五入 HALF_UP） | 同上 |
-| 標準原価 | Phase 2（標準原価法・差異分析）。Phase 1 は移動平均のみ | [README](../README.md) 2.3 |
-| 外貨 | Phase 1 は CNY のみ。外貨は Phase 2（レートは登録時スナップショット） | [06-code-list §3](../00-common/06-code-list.md) |
+| 標準原価 | 第一版（標準原価法・差異分析）。当面は移動平均のみ | [README](../README.md) 2.3 |
+| 外貨 | 当面は CNY のみ。外貨は 第一版（レートは登録時スナップショット） | [06-code-list §3](../00-common/06-code-list.md) |
 
 > **設計判断の記録**：原価計算単位を「倉庫×物料×批次」としたため、同一物料でも倉庫・批次が異なれば平均単価は独立する。これは ①批次別の原価把握（ロット原価）が製造業の要求であること、②E19 が `batchNo` を運ぶこと、③[08 §6.1] の残高定義と一致することを根拠とする。倉庫間・批次間の原価は移動平均の対象外であり、調撥は `TR_IN` で単価を引き継ぐ（[03](03-transfer-count.md) BR-TR-04）。
 
@@ -580,7 +580,7 @@ stateDiagram-v2
 | cost group 照会（100 件） | 2 秒以内 | `inv_stock_balance` 索引 |
 | 入出庫時の原価計算 | 入出庫 TX の +50ms 以内 | cost group の集計は索引 + 残高行ロック内 |
 | 成本調整の過账（1 明細） | 500ms 以内 | — |
-| 期間再計算（10 万取引） | 10 分以内（非同期） | 期間内取引を順次走査。Phase 2 で並列化 |
+| 期間再計算（10 万取引） | 10 分以内（非同期） | 期間内取引を順次走査。第一版 で並列化 |
 | 日次対账（BAT-INV-002） | 5 分以内 | 集計 SQL + 索引 |
 
 ---
@@ -613,8 +613,8 @@ stateDiagram-v2
 | 1 | （**已裁决**：倉庫×物料×批次）原価計算単位 | Lead 裁決（2026-10-20）：08 §6.1 と本設計どおり **倉庫×物料×批次** を維持。批次級原価が追溯・採購批価差異を支え、FIN 自動仕訳は E18 の `unitCost/amount` を受けるため再定義不要 | 実施済：05 §1.2 のとおり。FIN へは Lead が同期 | Lead / finance-designer / inventory-designer | 完了 2026-10-20 |
 | 2 | （**已追補 08 §8.1**）成本調整の承認閾値 | [08 §8.1](../00-common/08-common-business-rules.md) に 2026-10-20 追補済（差異 < 1,000 元：財務经理（或签）／≥ 1,000 元：財務经理 → 財務総監（順送）） | 本表 2.5・画面 SCR-INV-023 の承認判定に反映済（50,000 元の暫定値は廃止） | Lead / finance-designer | 完了 2026-10-20 |
 | 3 | 期間再計算の許容範囲 | 再計算を許可する状況（暫估確定・按分基準変更）をどこまで認めるか | ①暫估→確定、②運費・関税の按分基準変更、③入力誤りの訂正（冲销後の再計算）に限定 | inventory-designer / finance-designer | 2026-11-15 |
-| 4 | 標準原価法・差異分析 | Phase 2 で標準原価を導入する場合、コスト層の構造を拡張する必要がある | Phase 1 は移動平均のみ。Phase 2 で `inv_cost_layer` に標準単価・差異列を追加する案を保留 | inventory-designer / finance-designer | 2027-06-30 |
-| 5 | 外貨建て入庫の原価換算 | Phase 2 の多通貨対応時に、入庫時レートと支払時レートの差額処理が必要 | Phase 1 は CNY のみ。Phase 2 で `exchange_rate` と為替差損益の連携を設計 | inventory-designer / finance-designer | 2027-03-31 |
+| 4 | 標準原価法・差異分析 | 第一版 で標準原価を導入する場合、コスト層の構造を拡張する必要がある | 当面は移動平均のみ。第一版 で `inv_cost_layer` に標準単価・差異列を追加する案を保留 | inventory-designer / finance-designer | 2027-06-30 |
+| 5 | 外貨建て入庫の原価換算 | 第一版 の多通貨対応時に、入庫時レートと支払時レートの差額処理が必要 | 当面は CNY のみ。第一版 で `exchange_rate` と為替差損益の連携を設計 | inventory-designer / finance-designer | 2027-03-31 |
 
 ---
 

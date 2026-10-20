@@ -31,7 +31,7 @@
 | 项目 | 内容 |
 |---|---|
 | 対象会社・拠点 | 华东精密电机股份有限公司 / 常州总装厂（工厂 1）・无锡零部件厂（工厂 2） |
-| 対象倉庫 | WH01 原料仓（无锡零部件厂 WX01 内）・WH02 半成品仓（常州总装厂 CZ01 内）・WH03 成品仓（CZ01 内）；WX01 的半成品暂存区以 WH01 内库区/库位管理（Phase 2 增设独立仓）（[90-data/demo-company.md](../90-data/demo-company.md) §3） |
+| 対象倉庫 | WH01 原料仓（无锡零部件厂 WX01 内）・WH02 半成品仓（常州总装厂 CZ01 内）・WH03 成品仓（CZ01 内）；WX01 的半成品暂存区以 WH01 内库区/库位管理（第一版 增设独立仓）（[90-data/demo-company.md](../90-data/demo-company.md) §3） |
 | 対象機能範囲 | 库存查询、入出库（采购/销售/生产/委外/其他）、调拨、盘点、批次/序列号、库存状态、成本计算与调整、预留、条码/PDA、月结、库存报表 |
 | 対象外 | 采购收货单（GR）与来料检验（IQC）的检验判定 → PUR/PRD 域；销售发货通知（DN）与销售确认 → SAL 域；工单、领料申请、报工 → PRD 域；会计凭证生成与总账 → FIN 域；仓库主数据与条码规则定义 → MDM 域；经营分析看板与跨域 KPI → RPT 域 |
 | 前提 | MDM 的物料（批次/序列号/保质期/安全库存标志）、仓库/库位、计量单位、条码规则已启用；SYS 的采番、权限、参数、期间功能可用；FIN 的会计期间已建立 |
@@ -97,7 +97,7 @@
 规则：
 
 1. 库存状态是**余额行的一部分**，状态间转换不改变「现存总量」，只改变可用量（`ST_OUT` + `ST_IN` 成对事务，见 2.4）。
-2. 采购入库（`PI`）默认进入 `10` 待检；`mdm_material.inspection_stage = 0（免检）` 的物料可直接进入 `20`（参数控制 `inv_receipt_default_status`）。
+2. 采购入库（`PI`）默认进入 `10` 待检（`inspection_flag=true`）；`inspection_stage = 0（免检）`→`inspection_flag=false` 的物料可直接进入 `20`（参数控制 `inv_receipt_default_status`）。
 3. 生产完工入库（`FGI`）は [09 §8](../00-common/09-cross-domain-flow.md) に従い**必ず `10` 待检で計上**し、E15（FQC 合格）で `20` 可用へ変換する（E24 の `stockStatus` が `20` の場合は免检品のみ許可）。不合格は `40`。
 4. 销售退货入库（`RT_IN`）：可用品进入 `20`，不良品进入 `40`（不得进入可用）。
 5. 冻结/解冻、不合格→可用必须走 `F-INV-014` 状态转换并记录理由、审批（解除冻结需 `inventory:status:change` 权限 + 审计日志）。
@@ -114,7 +114,7 @@
 | **报废待处理量** | Σ`qty_on_hand` WHERE `stock_status = 50` |
 | **可用量**（`available_qty`） | 见下式 |
 | **在途量** | 跨仓调拨单已出库未入库的数量 + 采购在途（PO 未收货数量，仅报表用，不进入余额） |
-| **安全库存** | `mdm_material.safety_stock_qty`（按物料+仓库覆盖。`mdm_material_warehouse` は MDM Phase 2 予約、本期は未提供）；仅用于预警，不占用库存 |
+| **安全库存** | `mdm_material.safety_stock_qty`（按物料+仓库覆盖。`mdm_material_warehouse` は MDM 第一版 予約、本期は未提供）；仅用于预警，不占用库存 |
 | **再订货点** | 安全库存 + 采购提前期内的平均日耗 × 提前期天数（参数化，见 [07-reports](07-reports.md) 第 4 章） |
 
 **可用量公式（P0 唯一算式，禁止在其他文書出现不同写法）**：
@@ -172,7 +172,7 @@
 
 | 項目 | 定義 | 詳細 |
 |---|---|---|
-| 计价方法 | 移动加权平均法（Phase 1 唯一方法） | [08 共通业务规则](../00-common/08-common-business-rules.md) 第 6 章 |
+| 计价方法 | 移动加权平均法（第一版 唯一方法） | [08 共通业务规则](../00-common/08-common-business-rules.md) 第 6 章 |
 | 成本计算单位 | **仓库 × 物料 × 批次**（非批次管理物料为 仓库 × 物料，`batch_id=0`） | [05-costing](05-costing.md) 第 2 章 |
 | 入库成本构成 | 采购单价（税抜）+ 运费分摊 + 关税 + 其他可直接归属费用 | 若为制造品：完工成本（FIN 计算，`FGI` 引用） |
 | 平均单价 | 同一成本计算单位的所有状态行共享一个 `avg_unit_cost`；计算式 `(Σ旧金额 + 入库金额) ÷ (Σ旧数量 + 入库数量)`，6 位小数四舍五入 | 见 05-costing 第 3 章 |
@@ -364,10 +364,10 @@ flowchart LR
 | F-INV-019 | 库存预留/锁定 | 受注/工单引当、释放、消耗、过期自动释放 | SCR-INV-024 | 登録 | P0 | 設計済 | [06-reservation-barcode-close.md](06-reservation-barcode-close.md) |
 | F-INV-020 | 库存期间月结/关账 | 月结检查、收发存汇总、期间关账/重开 | SCR-INV-025 | バッチ | P0 | 設計済 | [06-reservation-barcode-close.md](06-reservation-barcode-close.md) |
 | F-INV-021 | 库存报表 | 收发存汇总、明细账、库龄、周转、流水、追溯报告 | SCR-INV-020、003 | 帳票 | P0 | 設計済 | [07-reports.md](07-reports.md) |
-| F-INV-022 | 组装拆卸 | 组装/拆卸业务的库存处理（Phase 2 概要） | — | 登録 | P2 | 概要設計 | [07-reports.md](07-reports.md) |
-| F-INV-023 | 寄售库存 | 供应商寄售/客户寄售库存（Phase 2 概要） | — | 登録 | P2 | 概要設計 | [07-reports.md](07-reports.md) |
+| F-INV-022 | 组装拆卸 | 组装/拆卸业务的库存处理（第一版対象。TODO：設計が未作成） | — | 登録 | P2 | 概要設計 | [07-reports.md](07-reports.md) |
+| F-INV-023 | 寄售库存 | 供应商寄售/客户寄售库存（第一版対象。TODO：設計が未作成） | — | 登録 | P2 | 概要設計 | [07-reports.md](07-reports.md) |
 
-> 状態：未設計/設計中/設計済/レビュー済/承認済。優先度：P0（Phase 1 MVP）/P1（Phase 1.5）/P2（Phase 2）。
+> 状態：未設計/設計中/設計済/レビュー済/承認済。優先度：P0（第一版 MVP）/P1（第一版.5）/P2。
 
 ---
 
@@ -442,7 +442,7 @@ flowchart LR
 | BAT-INV-006 | 预留过期自动释放 | 日次/時次 | 毎時 00 分 | 释放超过 `expire_date` 的预留，发 E09 | 再実行可 |
 | BAT-INV-007 | 事件补偿・差异检测 | 日次 | 毎日 05:00 | 检测「事件已发未处理」「事务已过账未发 E18」「来源单据已确认未过账」，自动重试/告警 | 再実行可 |
 | BAT-INV-008 | 库存周转率统计 | 月次 | 月结后 | 计算期间/年化周转率，写 `rpt`（只读引用）或 `inv_stock_summary` 扩展列 | 再実行可 |
-| BAT-INV-009 | 历史数据归档 | 月次（Phase 2） | 月初 06:00 | 将超过 10 年的事务归档至历史库（概要设计） | 条件付き |
+| BAT-INV-009 | 历史数据归档 | 月次 | 月初 06:00 | 将超过 10 年的事务归档至历史库（概要设计） | 条件付き |
 
 ---
 
@@ -486,7 +486,7 @@ flowchart LR
 |---|---|---|---|---|---|
 | IF-INT-010 | 条码/PDA 接口 | PDA 手持终端 | 受信 | REST/离线补传 | 业务 API 提供方（F-INV-018） |
 | IF-INT-003 | MES 接口 | MES | 双方向 | REST/消息 | 工单领料/完工入库的库存侧（F-INV-004、005） |
-| IF-INT-005 | WMS 接口（Phase 2） | 外部 WMS | 双方向 | REST | 库存同步（Phase 2） |
+| IF-INT-005 | WMS 接口 | 外部 WMS | 双方向 | REST | 库存同步 |
 | IF-INT-012 | 数据同步监控 | 内部 | — | — | 事件监控（E18/E19/E20） |
 
 > 域内事件（E09/E18/E19/E20 及購読イベント）は**外部 IF ではなく領域事件**として扱い、IF ID を付与しない（[00 设计方针](../00-common/00-design-principles.md) 第 6.4 节）。
@@ -589,9 +589,9 @@ flowchart LR
 | 1 | 90-data の出典 URL の一部が【要確認】 | data-researcher の 90-data は 2026-10-20 に全量受領済（material-master 54 件・warehouse-location・batch-number-rule・accounting-subjects 86 件・bom/routing・approval-matrix）。ただし `sources.md` の一部 URL（GB/T 12904 等）は【要確認】のまま | 本域の引用（GB/T 18347/12904/18284、GB/T 2521.1-2016、GB/T 6099.5-2025、GB 18613-2020、GB/T 28575-2020、CAS 科目）は 06-code-list と 90-data に整合済。URL 確定後に sources.md を正とする | data-researcher / inventory-designer | 2026-10-27 |
 | 2 | （**已裁决・08 §2.1 追補済**）GRI/SDO/MII/MIR/FGI/OSI/OSR 单据归属 | Lead 裁決 2026-10-20：INV が在庫側伝票を**単一所有・採番**（[08 §2.1:70](../00-common/08-common-business-rules.md)）。PRD は要求/実績のみ | 02 §2.7 に `stockDocId/stockDocNo` 返却を明記済。PRD 側の重複採番は第 2 轮で除去 | Lead / inventory-designer | 完了 2026-10-20 |
 | 3 | （**已追補 08 §8.1**）调拨・成本调整・状態変換・其他入出库の承認阈值 | Lead が [08 §8.1](../00-common/08-common-business-rules.md) に 2026-10-20 追補済（跨倉調撥 10,000 元、成本調整 1,000 元、状態変換 待検→不合格/報廃、其他入出庫 ≥10,000 元） | 本表 3.1 と各文書の BR に反映済（本域で追加対応不要） | Lead / inventory-designer | 完了 2026-10-20 |
-| 4 | `inv_stock_txn` 月次分区化 | [04 DB 共通规格](../00-common/04-common-db-spec.md) 第 8 章列为 Phase 2，但年 500 万行增长快 | Phase 1 单表 + `txn_date` 索引，预留按 `txn_date` 分区迁移方案（90-db 第 8 章） | inventory-designer | 2026-11-15 |
+| 4 | `inv_stock_txn` 月次分区化 | [04 DB 共通规格](../00-common/04-common-db-spec.md) 第 8 章列为 第一版，但年 500 万行增长快 | 第一版 单表 + `txn_date` 索引，预留按 `txn_date` 分区迁移方案（90-db 第 8 章） | inventory-designer | 2026-11-15 |
 | 5 | 与 10-analytics 的报表边界 | 任务要求「不冲突」；RPT 的库存分析 KPI 与本域报表可能重叠 | 本域只做**操作报表**（明细账/收发存/库龄明细/流水/盘点表/追溯），跨域汇总与看板归 RPT；RPT 只读引用本域 `inv_stock_summary`/`inv_age_snapshot` | Lead / inventory-designer / RPT 担当 | 2026-10-25 |
-| 6 | `allow_negative_stock` 的 Phase 2 支持 | 08 §6.1 明确 P0 禁止；客户可能要求允许负库存 | P0 不实现（DB CHECK 硬约束）；Phase 2 若需允许，需新增迁移去除 CHECK 并改为应用层校验 + 告警 | Lead / inventory-designer | 2026-12-31 |
+| 6 | `allow_negative_stock` 的 第一版 支持 | 08 §6.1 明确 P0 禁止；客户可能要求允许负库存 | P0 不实现（DB CHECK 硬约束）；第一版 若需允许，需新增迁移去除 CHECK 并改为应用层校验 + 告警 | Lead / inventory-designer | 2026-12-31 |
 | 7 | 关税税率/HS 编码引用 | 真实税率与 HS 编码由 INT/FIN 域按 90-data `hs-code.csv` 维护；本域成本构成只引用金额，不定义税率 | 入库成本构成的关税金额由采购/FIN 提供；示例税率标【示例值，非真实税率】 | inventory-designer / data-researcher | 2026-10-25 |
 | 8 | `inv_event_wait` の物理名（09 は `sys_event_wait`） | 09 §8 は `sys_event_wait` と記載するが、[04 DB 規格](../00-common/04-common-db-spec.md) のプレフィックス規約では SYS 所有。INV 実装のため暫定 | 暫定 `inv_event_wait`（INV 所有）。SYS 共通基盤提供時に移管（02 §13 #6） | Lead / system-workflow / inventory-designer | 2026-10-25 |
 | 9 | 09 §3 E18 への追加項目反映 | INV は E18 に `stockDocId/stockDocNo/totalQty/totalAmount/sourceEventAt` を追加する（[02](02-inbound-outbound.md) §2.7）。09 本文の E18 行は「主な項目」のみで未記載 | Lead が 09 §3 E18 の備考に追加項目を追記する | Lead / inventory-designer | 2026-10-25 |

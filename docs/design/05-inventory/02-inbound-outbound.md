@@ -60,7 +60,7 @@
 | BR-01 | **19 種の事務類型のみ**使用する。新類型・別名の追加禁止（Lead 2026-10-20 裁決） | [09 §7.1](../00-common/09-cross-domain-flow.md) | `txn_type` |
 | BR-02 | 入庫は「入库成本 = 采购价（税抜）+ 运费分摊 + 关税 + 其他归属费用」で成本層を形成する。費用の按分基準（金額/数量/重量）はパラメータ `inv_freight_alloc_base`（既定 `AMOUNT`） | [08 §6.1](../00-common/08-common-business-rules.md) | `purchase_amount/freight_amount/duty_amount` |
 | BR-03 | 出庫原価は**出庫直前の移動平均単価**（同一 倉庫×物料×批次 の全状態行の Σ金額 ÷ Σ数量、6 桁丸め）× 出庫数量（2 桁丸め） | [08 §6.2](../00-common/08-common-business-rules.md) | `unit_cost/amount` |
-| BR-04 | 采购入库直後の在庫は原則 `10 待检`。`mdm_material.inspection_stage = 0（免检）` の物料は `20 可用` に直入（パラメータ `inv_receipt_default_status`） | [00-overview](00-overview.md) 2.2 | `stock_status` |
+| BR-04 | 采购入库直後の在庫は原則 `10 待检`（`inspection_flag=true`）。`inspection_stage = 0（免检）`→`inspection_flag=false` の物料は `20 可用` に直入（パラメータ `inv_receipt_default_status`） | [00-overview](00-overview.md) 2.2 | `stock_status` |
 | BR-05 | 出庫時に**予約（引当）を消費**する。予約がある場合は `qty_reserved` を減算し、予約数量を超える出庫は「予約外出庫」として警告（`MSG-INV-047`） | [06-reservation](06-reservation-barcode-close.md) | `qty_reserved` |
 | BR-06 | 批次管理物料の出庫は**FEFO（有効期限順）→ FIFO（入庫日順）→ 手動指定**の優先順。指定批次が使用不可（期限切れ/凍結/引当済）の場合は拒否 | [00-overview](00-overview.md) 2.2、[04](04-batch-serial-status.md) | `batch_no` |
 | BR-07 | 序列号管理物料は**1 明細行 = 1 序列号 = 数量 1**。数量と序列号数の不一致は拒否 | [04](04-batch-serial-status.md) | `serial_no` |
@@ -154,13 +154,23 @@ stateDiagram-v2
 | 生成単位 | `receiptNo` ごとに 1 事務。明細は GR 明細行と 1:1（部分入庫は GR 側で分割） |
 | 倉庫 | E14 の `warehouseId` を優先。未指定は `mdm_material.default_warehouse_id`、それも無ければエラー（`MSG-INV-055`） |
 | 批次 | E14 の `batchNo`（供應商批号または GR 採番済み）を採用。空で批次管理物料の場合は**批号規則で自動採番**（`{YYMMDD}P{3 桁}`、[04](04-batch-serial-status.md) 第 3 章）。`supplier_batch_no` に元の供应商批号を保持 |
-| 状態 | 既定 `10 待检`。`inspection_required=false` は `20 可用` |
+| 状態 | 既定 `10 待检`。`inspection_flag=false`（免检、`inspection_stage=0`）は `20 可用`。`inspection_flag=true` は必ず `10` |
 | 原価 | `unitPrice`（税抜）× 数量 + 運費按分 + 関税按分。運費・関税は E14 に含まれないため、**暫定 0** で過账し、後日 `inv_cost_adjustment`（F-INV-017）で調整する（[05](05-costing.md) 第 6 章） |
 | 数量検証 | `receivedQty > 0`。単位変換（`uom` → 基本単位）。単価は 6 桁。金额検算（CALC-06） |
 | 重複防止 | `source_type='PURCHASE_RECEIPT'` + `source_id=receiptId` + `txn_type='PI'` の過账済が存在すればスキップ（冪等） |
 | 仕訳 | J01 借方 `1403 原材料` / 貸方 `2202 应付账款-暂估`。FIN が E18 を受けて起票 |
 | 伝票所有 | `PI`（GRI）は INV が採番（[08 §2.1:70](../00-common/08-common-business-rules.md)）。PUR の `receiptId` は要求 ID（`source_type=PURCHASE_RECEIPT`、`source_id=receiptId`）であり、伝票番号ではない |
 | 取消（E35） | `purchase.receipt.cancelled` 受信時は待検（10）在庫のみ反向で取消（`is_reversal=true`）。IQC 完了・引当/出庫・照合済は取消不可（`MSG-INV-066`、PRC-INV-002-08） |
+
+### 2.6.1a 入庫検査フラグ・検査種別・合格後状態（2026-10-20 確定）
+
+| 項目 | 規則 |
+|---|---|
+| 導出 | `mdm_material` に `inspection_required` 列は**置かない**（検査要否は `inspection_stage` から導出し明細 `inspection_flag` にスナップショット）（[02-mdm](../02-mdm/90-db-design.md)）。入庫時に `inspection_flag = (inspection_stage ≠ 0)` を**明細へ NOT NULL スナップショット**する。マスタ変更後も当該入庫行は不変。 |
+| ON / OFF → 状態 | **`inspection_flag=true`（ON）→ `stock_status=10` 待检**；**`false`（OFF／免检）→ `20` 可用**。画面・API・E14/E24/E26 過账は同一規則（:157 と整合。旧「ON→20」は誤記）。 |
+| 入庫検査種別 | `PI`／`OSR` → **IQC**（来料）；`FGI` → **FQC**（完工）。免检（`inspection_flag=false`）は検査起票なしで直入 `20`。 |
+| 合格後 | IQC/FQC 合格または特採（E15 `resultCode` 20/30）で **`10→20`**（`ST_OUT(10)`+`ST_IN(20)`、`pair_key`）。不合格は `10→40`（§2.8）。 |
+| FGI 特例 | 検査必須品は E24 の `stockStatus` が `10` 以外なら `MSG-INV-065`。免检のみ入庫時 `20` 可。 |
 
 #### 2.6.2 SI 销售出库（F-INV-003）
 
@@ -210,7 +220,7 @@ stateDiagram-v2
 | OSI 生成単位 | `issueId` ごとに 1 事務。来源 `OUTSOURCING_ORDER`。発料先は委外先（仕入先）だが在庫は当社倉庫から出庫（委託加工物資へ振替） |
 | OSR 発生源 | E26 `production.outsourcing.received`：`outsourcingOrderId, receiptId, lines[{materialId, qty, unitCost, amount}], amount, processingFee, receivedAt` |
 | OSR 原価 | `材料成本（E26 lines.unitCost × qty 合計）+ 加工費（processingFee 按分）`。加工費の按分基準は金額比（`inv_processing_fee_alloc_base`） |
-| OSR 状態 | 既定 `10 待检`（委外品は IQC 対象）。`inspection_required=false` は `20 可用` |
+| OSR 状態 | 既定 `10 待检`（委外品は IQC 対象）。`inspection_flag=false` は `20 可用`。`true` は `10` |
 | 仕訳 | OSI＝J17（借方 `1408 委托加工物资` / 貸方 `1403 原材料`）、OSR＝J18（借方 `1405/1403`・`2221 进项` / 貸方 `1408`・`2202`） |
 | 伝票所有 | `OSI`/`OSR` は INV が採番（[08 §2.1:70](../00-common/08-common-business-rules.md)）。PRD の `issueId`/`receiptId` は要求 ID（`source_id`）、E18 の `stockDocNo` で返却する |
 
@@ -357,10 +367,10 @@ stateDiagram-v2
 | 6 | `supplierId` | 仕入先 | ヘッダ | マスタ選択 | BIGINT | ○ | E14 `supplierId` | コード存在 | `mdm_supplier` | `partner_id` | 編集可（例外時） | 名称はスナップショット |
 | 7 | `supplierName` | 仕入先名 | ヘッダ | テキスト | VARCHAR(200) | ○ | マスタ名称 | — | スナップショット | `partner_name` | 参照のみ | マスタ変更の影響を受けない |
 | 8 | `receivedDate` | 受入日 | ヘッダ | 日付 | DATE | ○ | E14 `receivedAt` | 実在日付 | — | `received_date` | 編集可 | — |
-| 9 | `inspectionFlag` | 検査要否 | ヘッダ | チェック | BOOLEAN | ○ | 物料 `inspection_required` | — | `mdm_material` | `inspection_flag` | 編集可 | ON で状態 20 |
+| 9 | `inspectionFlag` | 検査要否 | ヘッダ | チェック | BOOLEAN | ○ | `inspection_stage≠0` から導出スナップショット | — | `mdm_material.inspection_stage` | `inspection_flag` | 参照のみ（過账後不変） | **ON（true）→入庫 `stock_status=10` 待检；OFF（false／免检）→`20` 可用**（§2.6.1 / 本節と :157 と同一。旧「ON で状態 20」は誤記） |
 | 10 | `txnStatus` | 状態 | ヘッダ | 表示 | SMALLINT | ○ | 10 | — | 固定値 | `txn_status` | 参照のみ | バッジ表示 |
 | 11 | `remark` | 備考 | ヘッダ | テキスト | VARCHAR(500) | — | 空 | 500 文字以内 | — | `remark` | 編集可 | — |
-| 12 | `currencyCode` | 通貨 | ヘッダ | 表示 | VARCHAR(3) | ○ | CNY | — | 固定値 | `currency_code` | 参照のみ | Phase 1 は CNY 固定 |
+| 12 | `currencyCode` | 通貨 | ヘッダ | 表示 | VARCHAR(3) | ○ | CNY | — | 固定値 | `currency_code` | 参照のみ | 当面は CNY 固定 |
 | 13 | `totalQty` | 合計数量 | フッタ | 数値 | NUMERIC(18,4) | — | 自動 | — | 計算 | `total_qty` | 参照のみ | CALC-06 |
 | 14 | `totalAmount` | 合計金額 | フッタ | 数値 | NUMERIC(18,2) | — | 自動 | — | 計算 | `total_amount` | 参照のみ | 権限なしは非表示 |
 
@@ -651,7 +661,7 @@ void assertAvailable(BalanceRow row, BigDecimal qty) {
 | S6 | 沖销と新規出庫の同時実行 | T1: PI 沖销、T2: SI | 残高行ロックで直列化。T1 後の在庫で T2 が判定される。不足なら `MSG-INV-001` |
 | S7 | ロック待ちタイムアウト | 他ユーザが長時間ロック保持 | 3 秒で `MSG-INV-026`（`code=50026`）。ユーザは再実行 |
 | S8 | デッドロック発生（想定外） | アプリ外の SQL 等 | `40P01` 捕捉 → 最大 3 回再試行 → 失敗時 `MSG-INV-026` + アラート |
-| S9 | ホットロウ（同一物料に高頻度出庫） | 50 並列で同一物料を出庫 | 行ロックで直列化。TPS 上限は 1/ロック保持時間。緩和策：トランザクション短縮（5 秒以内）、明細集約、批次分散。Phase 2 で `SELECT FOR UPDATE SKIP LOCKED` 等の検討余地（[未決](#13-未決事項)） |
+| S9 | ホットロウ（同一物料に高頻度出庫） | 50 並列で同一物料を出庫 | 行ロックで直列化。TPS 上限は 1/ロック保持時間。緩和策：トランザクション短縮（5 秒以内）、明細集約、批次分散。第一版 で `SELECT FOR UPDATE SKIP LOCKED` 等の検討余地（[未決](#13-未決事項)） |
 | S10 | 過账中の例外（数量検証失敗） | 3 行目で在庫不足 | 全行ロールバック。伝票は `10 草稿` のまま、在庫・コスト層・イベントは一切更新されない |
 | S11 | E15 が E24 より先着 | E24 未過账の状態で E15（FQC 合格）を受信 | E15 は `inv_event_wait` に保留。E24 過账 TX 内で E15 を適用し、`10 待检`→`20 可用`。二重変換なし |
 | S12 | E15 と E24 の同時到着 | E24 と E15 が並行して処理される | `inv_event_wait.event_id` 一意 + `(source_type, source_id, txn_type)` 一意で直列化。どちらが先でも最終状態は `20 可用`（または `40 不合格`）に収束 |
@@ -967,7 +977,7 @@ SELECT 1
 | 1 | 生产退料（MIR）のイベント契約（**已裁决**） | [09 §3](../00-common/09-cross-domain-flow.md) に E36 `production.material.returned` が追加された（2026-10-20 Lead 追補） | **已裁决：E36 により PRD が退料を発行、INV が購読して MIR を登録**（payload：workOrderId, returnId, returnNo, lines[{materialId, qty, batchNo, unitCost}], returnReason, returnedAt）。PRD 未導入時のみ手動登録を許容 | Lead / production-designer / inventory-designer | 完了（2026-10-20） |
 | 2 | `SC_IN` の運用要否 | 09 §7.1 に `SC_IN` が定義されているが、状態移動は `ST_OUT`+`ST_IN` の対で実現でき、重複する | 「報廃決定＝`ST_OUT(→50)`+`ST_IN`」「物理除却＝`SC_OUT`」で運用し、`SC_IN` はコード予約（未使用）。使用する場合は Lead 承認 | Lead / inventory-designer | 2026-10-25 |
 | 3 | （**已追補 08 §8.1**）其他入出庫・报废の承認閾値 | [08 §8.1](../00-common/08-common-business-rules.md) に 2026-10-20 追補済（AOI/AOO ≥ 10,000 元は 倉庫主管 → 財務経理） | BR-12 と 2.6.6/2.6.7 に反映済。SC_OUT 全件承認は本域運用として継続 | Lead / inventory-designer | 完了 2026-10-20 |
-| 4 | ホットロウ対策 | 同一物料・同一倉庫への高頻度出庫で行ロック競合が発生し得る | Phase 1 は行ロック + トランザクション短縮 + 明細集約で運用。Phase 2 でロット別分散・非同期化を検討 | inventory-designer | 2027-03-31 |
+| 4 | ホットロウ対策 | 同一物料・同一倉庫への高頻度出庫で行ロック競合が発生し得る | 当面は行ロック + トランザクション短縮 + 明細集約で運用。第一版 でロット別分散・非同期化を検討 | inventory-designer | 2027-03-31 |
 | 5 | 運費・関税の按分基準 | 現状 `AMOUNT` 基準を既定としたが、重量基準が適切な品目もある | パラメータ `inv_freight_alloc_base`（AMOUNT/QTY/WEIGHT）で切替可。既定 AMOUNT | inventory-designer / purchase-designer | 2026-11-15 |
 | 6 | `inv_event_wait` と `sys_event_wait` の物理名 | [09 §8](../00-common/09-cross-domain-flow.md) は `sys_event_wait` と記載するが、[04 DB 共通規格](../00-common/04-common-db-spec.md) のプレフィックス規約では SYS 域所有となる。INV 域実装のため暫定 `inv_event_wait` とする | 暫定 `inv_event_wait`（INV 所有）。SYS 共通基盤が提供される場合は移管する | Lead / system-workflow / inventory-designer | 2026-10-25 |
 | 7 | E15 と E24 の同時受信時の順序保証 | イベントバスは順序を保証しない。`inv_event_wait` で吸収するが、再送・逆順の組合せテストが必要 | 実装時に S11/S12 のテストを必須化 | inventory-designer | 2026-11-15 |

@@ -693,8 +693,8 @@ E15（品質判定）が E14（入荷）／E24（完工）より先に到着し�
 |---|---|---|---|---|---|
 | 1 | 期間再开時のイベント（**已裁决**） | [09 §3](../00-common/09-cross-domain-flow.md) に E37 `inventory.period.reopened` が追加された（2026-10-20 Lead 追補） | **已裁决：E37 で通知（FIN 承認後に発行）**。payload：periodCode, reason, approvedBy, reopenedAt。FIN/SAL/PUR/PRD は E37 で期間ロック解除を認識し、再開後の取引を受け付ける | Lead / inventory-designer | 完了（2026-10-20） |
 | 2 | 引当有効期限の既定値（15 日） | 受注の納期遅延・先日付受注の扱いが未確定 | `sys_param.inv_reservation_valid_days=15`【示例値】。納期＋15 日 | 営業 / inventory-designer | 2026-11-15 |
-| 3 | 入庫時自動引当の既定 ON/OFF | 欠品補充を自動化すると引当の公平性（先着 vs 優先顧客）が問題になる | 既定 ON（`inv_auto_allocate_on_receipt=true`）。優先順位ルールは Phase 2 | 営業 / 計画 / inventory-designer | 2026-11-30 |
-| 4 | PDA オフライン範囲 | オフラインで過账まで許すか、実績収集のみか | 実績収集のみ（過账はオンライン必須）。Phase 2 で完全オフラインを検討 | inventory-designer / INT 担当 | 2027-03-31 |
+| 3 | 入庫時自動引当の既定 ON/OFF | 欠品補充を自動化すると引当の公平性（先着 vs 優先顧客）が問題になる | 既定 ON（`inv_auto_allocate_on_receipt=true`）。優先順位ルールは 第一版 | 営業 / 計画 / inventory-designer | 2026-11-30 |
+| 4 | PDA オフライン範囲 | オフラインで過账まで許すか、実績収集のみか | 実績収集のみ（過账はオンライン必須）。第一版 で完全オフラインを検討 | inventory-designer / INT 担当 | 2027-03-31 |
 | 5 | 月结中の在庫取引ブロック方式 | Advisory Lock のみか、期間フラグ + API 拒否か | `inv_period.recalc_lock` + 過账時チェックで拒否。月结は 30 分以内に完了する想定 | inventory-designer | 2026-11-15 |
 
 ---
