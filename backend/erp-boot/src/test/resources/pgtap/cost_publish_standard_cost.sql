@@ -4,12 +4,9 @@
 --   * 不使用 app.cost_publish 标记；
 --   * erp_app 对 mdm_material 无表级 UPDATE，按列授权且不含 standard_cost。
 -- T1（#55）已合：角色 / 触发器 / 列权限可实跑。
--- 07-finance 未合：fin_publish_standard_cost / fin_standard_cost 相关用例继续 skip。
+-- 07-finance fin/V202610210703 已建 fin_standard_cost / fin_publish_standard_cost：C1、C10 已启用。
 BEGIN;
 SELECT plan(10);
-
--- C1 正例：fin_publish_standard_cost（07-finance）
-SELECT skip('07-finance fin_publish_standard_cost 未合入', 1);
 
 -- 准备：owner 写测试物料（超户绕过 FORCE RLS；显式 tenant_id）
 INSERT INTO mdm_material_category (
@@ -25,8 +22,20 @@ INSERT INTO mdm_material (
     'spec', 'PCE', 20, 10.000000, 1
 );
 
+INSERT INTO fin_standard_cost (
+    id, tenant_id, company_id, material_id, material_code, cost_version, period_from, cost_method,
+    material_unit_cost, labor_unit_cost, overhead_unit_cost, outsourcing_unit_cost, total_unit_cost
+) VALUES (
+    990001, 101, 1, 990001, '99TAP00001', '2026A', DATE '2026-01-01', 2, 659.95, 53.75, 64.50, 0, 778.20
+);
+
 SET ROLE erp_app;
 SELECT set_config('app.tenant_id', '101', true);
+
+-- C1 正例：经 fin_publish_standard_cost 发布 → standard_cost 为发布版合计
+SELECT fin_publish_standard_cost(990001, 0);
+SELECT is((SELECT standard_cost FROM mdm_material WHERE id = 990001), 778.200000::numeric(18,6),
+          'C1 fin_publish_standard_cost 写入 standard_cost');
 
 -- C2 erp_app 直接改 standard_cost → 42501（列权限或触发器）
 SELECT throws_ok(
@@ -71,8 +80,9 @@ SELECT ok(
     'C9 erp_cost_publisher SELECT id/tenant_id/company_id'
 );
 
--- C10 fin_standard_cost SELECT（07-finance）
-SELECT skip('07-finance fin_standard_cost 未合入', 1);
+-- C10 发布角色可读 fin_standard_cost
+SELECT ok(has_table_privilege('erp_cost_publisher', 'fin_standard_cost', 'SELECT'),
+          'C10 erp_cost_publisher SELECT fin_standard_cost');
 
 SELECT * FROM finish();
 ROLLBACK;
