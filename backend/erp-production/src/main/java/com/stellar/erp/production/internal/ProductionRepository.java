@@ -198,8 +198,12 @@ public class ProductionRepository {
                 .query(BigDecimal.class).optional();
     }
 
-    /** 25→30。standard_cost はここで一度だけスナップショット（NULL 可）。 */
-    public int markReleased(long companyId, long workOrderId, long userId, BigDecimal standardCost,
+    /**
+     * 25→30。standard_cost はここで一度だけスナップショット（NULL 可）。
+     * 乐观锁：WHERE 同时带 company / status / version（00-common：UPDATE 必须带 version 与 company 条件），
+     * 0 行时由调用方映射为 4003。
+     */
+    public int markReleased(long companyId, long workOrderId, int version, long userId, BigDecimal standardCost,
                             BigDecimal allowedQty, boolean copyAllowedQty) {
         return jdbc.sql("""
                         UPDATE prd_work_order
@@ -208,10 +212,11 @@ public class ProductionRepository {
                                allowed_qty = CASE WHEN :copy THEN :allowed ELSE allowed_qty END,
                                version = version + 1, updated_by = :user, updated_at = now()
                          WHERE id = :id AND company_id = :company AND order_status = 25
+                           AND version = :version
                         """)
                 .param("user", userId).param("cost", standardCost)
                 .param("copy", copyAllowedQty).param("allowed", allowedQty)
-                .param("id", workOrderId).param("company", companyId)
+                .param("id", workOrderId).param("company", companyId).param("version", version)
                 .update();
     }
 

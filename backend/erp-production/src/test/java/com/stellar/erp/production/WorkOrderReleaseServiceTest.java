@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -57,7 +58,7 @@ class WorkOrderReleaseServiceTest {
     void stubWo(WorkOrderForRelease w) {
         when(repo.findWorkOrderForRelease(CO, WO)).thenReturn(Optional.of(w));
         when(repo.lockWorkOrderForRelease(CO, WO)).thenReturn(Optional.of(w));
-        when(repo.markReleased(anyLong(), anyLong(), anyLong(), any(), any(), anyBoolean())).thenReturn(1);
+        when(repo.markReleased(anyLong(), anyLong(), anyInt(), anyLong(), any(), any(), anyBoolean())).thenReturn(1);
     }
 
     @Test
@@ -72,7 +73,7 @@ class WorkOrderReleaseServiceTest {
         InOrder order = inOrder(lines, repo);
         order.verify(lines).lockForUpdate(CO, LINE);
         order.verify(repo).lockWorkOrderForRelease(CO, WO);
-        order.verify(repo).markReleased(CO, WO, USER, new BigDecimal("778.2"), new BigDecimal("105"), true);
+        order.verify(repo).markReleased(CO, WO, 3, USER, new BigDecimal("778.2"), new BigDecimal("105"), true);
         assertThat(r.orderStatus()).isEqualTo((short) 30);
         assertThat(r.releaseDate()).isEqualTo(LocalDate.of(2026, 11, 1));
         assertThat(r.warnings()).isEmpty();
@@ -86,7 +87,7 @@ class WorkOrderReleaseServiceTest {
 
         WorkOrderReleased r = service.release(WO, new WorkOrderReleaseCommand(0));
 
-        verify(repo).markReleased(eq(CO), eq(WO), eq(USER), isNull(), isNull(), eq(false));
+        verify(repo).markReleased(eq(CO), eq(WO), eq(0), eq(USER), isNull(), isNull(), eq(false));
         verify(lines, never()).lockForUpdate(anyLong(), anyLong());
         assertThat(r.standardCost()).isNull();
         assertThat(r.warnings()).singleElement().satisfies(w -> {
@@ -103,7 +104,7 @@ class WorkOrderReleaseServiceTest {
                     assertThat(e.getCode()).isEqualTo(4002);
                     assertThat(e.getMsgId()).isEqualTo("MSG-COM-034");
                 });
-        verify(repo, never()).markReleased(anyLong(), anyLong(), anyLong(), any(), any(), anyBoolean());
+        verify(repo, never()).markReleased(anyLong(), anyLong(), anyInt(), anyLong(), any(), any(), anyBoolean());
     }
 
     @Test
@@ -111,6 +112,17 @@ class WorkOrderReleaseServiceTest {
         stubWo(wo(null, (short) 25, false, 2));
         assertThatThrownBy(() -> service.release(WO, new WorkOrderReleaseCommand(1)))
                 .isInstanceOfSatisfying(BizException.class, e -> assertThat(e.getCode()).isEqualTo(4003));
+    }
+
+    @Test
+    void zeroRowsUpdatedIs4003() {
+        stubWo(wo(null, (short) 25, false, 0));
+        when(repo.markReleased(anyLong(), anyLong(), anyInt(), anyLong(), any(), any(), anyBoolean())).thenReturn(0);
+        assertThatThrownBy(() -> service.release(WO, new WorkOrderReleaseCommand(0)))
+                .isInstanceOfSatisfying(BizException.class, e -> {
+                    assertThat(e.getCode()).isEqualTo(4003);
+                    assertThat(e.getMsgId()).isEqualTo("MSG-COM-033");
+                });
     }
 
     @Test

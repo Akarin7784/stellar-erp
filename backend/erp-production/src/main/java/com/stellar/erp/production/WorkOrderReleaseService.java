@@ -59,6 +59,9 @@ public class WorkOrderReleaseService {
         LoginContext.LoginUser login = LoginContext.require();
         long company = login.companyId();
 
+        // 不加锁预读：只为取得 sales_order_line_id，以便按锁序（04 §11.1）先锁受注行、再锁工单。
+        // 若这里就对工单 FOR UPDATE，会变成「工单→受注行」的逆序加锁，与完工上报等路径形成死锁。
+        // 预读结果不参与任何判定：加锁后重新读取，并校验受注行关联未被改动（见下方 Objects.equals）。
         WorkOrderForRelease peek = repo.findWorkOrderForRelease(company, workOrderId)
                 .orElseThrow(WorkOrderReleaseService::notFound);
 
@@ -79,8 +82,7 @@ public class WorkOrderReleaseService {
             throw stateConflict();
         }
         if (cmd == null || cmd.version() == null || cmd.version() != wo.version()) {
-            throw new BizException(ProductionErrorCode.VERSION_CONFLICT, ProductionErrorCode.MSG_VERSION_CONFLICT,
-                    "数据已被其他用户更新，请重新获取最新信息后再操作。");
+            throw versionConflict();
         }
         if (wo.hold()) {
             throw new BizException(ProductionErrorCode.WO_ON_HOLD, ProductionErrorCode.MSG_WO_ON_HOLD,
@@ -96,10 +98,10 @@ public class WorkOrderReleaseService {
                 releaseDate.withDayOfMonth(1));
         BigDecimal standardCost = cost.orElse(null);
 
-        int updated = repo.markReleased(company, wo.id(), login.userId(), standardCost,
+        int updated = repo.markReleased(company, wo.id(), cmd.version(), login.userId(), standardCost,
                 line != null ? line.allowedQty() : null, line != null);
         if (updated != 1) {
-            throw stateConflict();
+            throw versionConflict();
         }
 
         List<WorkOrderReleased.Warning> warnings = standardCost == null
@@ -112,6 +114,11 @@ public class WorkOrderReleaseService {
 
     private static BizException notFound() {
         return new BizException(ProductionErrorCode.NOT_FOUND, "工单不存在");
+    }
+
+    private static BizException versionConflict() {
+        return new BizException(ProductionErrorCode.VERSION_CONFLICT, ProductionErrorCode.MSG_VERSION_CONFLICT,
+                "数据已被其他用户更新，请重新获取最新信息后再操作。");
     }
 
     private static BizException stateConflict() {

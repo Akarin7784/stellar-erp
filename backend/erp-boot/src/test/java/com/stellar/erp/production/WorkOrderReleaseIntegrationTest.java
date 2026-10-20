@@ -9,7 +9,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 import org.junit.jupiter.api.AfterEach;
@@ -171,5 +180,43 @@ class WorkOrderReleaseIntegrationTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value(4002))
                 .andExpect(jsonPath("$.msgId").value("MSG-COM-034"));
+    }
+
+    @Test
+    void concurrentReleaseOnlyOneWinsAndVersionIncrementsOnce() throws Exception {
+        publish(994204, month, "100");
+        int before = ((Number) row(WO).get("version")).intValue();
+        CyclicBarrier barrier = new CyclicBarrier(2);
+        Callable<WorkOrderReleased> task = () -> {
+            barrier.await(10, TimeUnit.SECONDS);
+            return asUser(() -> releases.release(WO, new WorkOrderReleaseCommand(before)));
+        };
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        List<Future<WorkOrderReleased>> futures;
+        try {
+            futures = List.of(pool.submit(task), pool.submit(task));
+            pool.shutdown();
+            assertThat(pool.awaitTermination(30, TimeUnit.SECONDS)).isTrue();
+        } finally {
+            pool.shutdownNow();
+        }
+
+        int ok = 0;
+        List<Integer> failures = new ArrayList<>();
+        for (Future<WorkOrderReleased> f : futures) {
+            try {
+                f.get();
+                ok++;
+            } catch (ExecutionException e) {
+                assertThat(e.getCause()).isInstanceOf(BizException.class);
+                failures.add(((BizException) e.getCause()).getCode());
+            }
+        }
+        assertThat(ok).isEqualTo(1);
+        assertThat(failures).singleElement().satisfies(c -> assertThat(c).isIn(4002, 4003));
+
+        Map<String, Object> w = row(WO);
+        assertThat(w.get("order_status")).isEqualTo(30);
+        assertThat(((Number) w.get("version")).intValue()).isEqualTo(before + 1);
     }
 }
