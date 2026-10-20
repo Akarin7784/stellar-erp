@@ -8,6 +8,7 @@ CLEAN_PATHS=(
   docs/design/00-common
   docs/design/_template
   docs/design/00-common/09-cross-domain-flow.md
+  docs/design/01-system
   docs/design/03-sales
   docs/design/04-purchase
   docs/design/05-inventory

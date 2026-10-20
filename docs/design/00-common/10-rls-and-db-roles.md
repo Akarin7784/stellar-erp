@@ -26,7 +26,7 @@
 
 ## 3. 租户上下文
 
-1. `com.stellar.erp.common.TenantContext`（ThreadLocal）保存当前租户；首期未设置时为 `0`。
+1. `com.stellar.erp.common.TenantContext`（ThreadLocal）保存当前租户；未设置时 `currentTenantId()` 抛出 `IllegalStateException`，不回落为 `0`。
 2. `TenantAwareTransactionManager` 在**每个事务开始时**执行 `SELECT set_config('app.tenant_id', ?, true)`（事务级，等价 `SET LOCAL`）。提交/回滚后自动失效，连接池中不会残留租户。
 3. 事务之外（自动提交）执行的 SQL **不设置** `app.tenant_id`：访问 RLS 表时 `current_setting('app.tenant_id')` 报错（未设置或为空字符串都无法转换为 bigint），**不会返回全部行**。因此访问业务表的代码必须在 `@Transactional` / `TransactionTemplate` 内。
 4. 后续接入登录后，由请求过滤器从会话写入 `TenantContext` 并在请求结束时 `clear()`。
