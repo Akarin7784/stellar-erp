@@ -162,10 +162,10 @@
 | 100 | GET | /api/finance/costs/wip | finance:cost:view | 在制品一覧 | — |
 | 101 | GET | /api/finance/costs/variance | finance:cost:view | 成本差異分析 | — |
 | 126 | GET | /api/finance/standard-costs | finance:standard-cost:view | 標準原価版一覧（`materialId,status,period`） | — |
-| 127 | GET | /api/finance/standard-costs/{id} | finance:standard-cost:view | 標準原価版詳細 | 70404 |
+| 127 | GET | /api/finance/standard-costs/{id} | finance:standard-cost:view | 標準原価版詳細 | 4001 |
 | 128 | POST | /api/finance/standard-costs | finance:standard-cost:register | 草稿登録（`status=10`） | 70136 |
 | 129 | PUT | /api/finance/standard-costs/{id} | finance:standard-cost:register | 草稿更新（`version` 楽観ロック） | 70135,70136 |
-| 130 | POST | /api/finance/standard-costs/{id}/publish | finance:standard-cost:publish | 発行（`fin_publish_standard_cost` 呼出、旧版自動打切り） | 70134,70135 |
+| 130 | POST | /api/finance/standard-costs/{id}/publish | finance:standard-cost:publish | 発行（`fin_publish_standard_cost` 呼出、advisory lock で同一物料を直列化、旧版自動打切り。`23P01` も 70134 に変換） | 70134,70135 |
 
 ### 2.7 期末・報表（F-FIN-035～039）
 
@@ -201,7 +201,7 @@
 | 124 | GET/POST | /api/finance/cash-plans | finance:fund-report:view | 資金計画 |
 | 125 | GET | /api/finance/cash-plans/shortage | finance:fund-report:view | 資金不足警告 |
 
-> 合計 **125 API**（P2 含む）。各 API の詳細節は本設計の第 5 章に主要 12 件を記載し、残りは「一覧＋共通仕様」で実装可能な粒度とする（リクエスト項目は DB 項目定義と 1:1 対応）。
+> 合計 **130 API**（P2 含む）。各 API の詳細節は本設計の第 5 章に主要 12 件を記載し、残りは「一覧＋共通仕様」で実装可能な粒度とする（リクエスト項目は DB 項目定義と 1:1 対応）。
 
 ---
 
@@ -574,3 +574,4 @@
 | v1.0 | 2026-10-20 | 初版：API 125 件（P2 含む）、DTO、エラーコード対応（70001–70133）、主要 12 API の JSON、権限マトリクス、非同期ジョブ | finance-designer |
 | v1.1 | 2026-10-20 | 红队修复：唯一シナリオの数値（BS 297,328,297.80、增值税 8,666,666.67/6,536,666.67）へ更新。`statements/{type}` に SCE（所有者权益变动表）を追加 | finance-designer |
 | v1.3 | 2026-10-21 | 標準原価 API（#126〜130、§4.9a）、70134〜70136、権限マトリクスに standard-costs | 业务分析 |
+| v1.4 | 2026-10-21 | 合計 130 API、#127 の 404 を共通 4001 に修正、#130 の並行発行時 70134 | 业务分析 |

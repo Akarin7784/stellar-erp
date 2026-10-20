@@ -60,7 +60,7 @@
 | F-FIN-044 | 多币种与汇兑损益 | 外币凭证、期末汇兑调整（第一版・実装順 P2、概要設計） | SCR-FIN-059 | P2 | 設計中 | 07 | FIN | 07-finance/00-overview.md |
 | F-FIN-045 | 资金计划与付款排程 | 资金计划编制、付款排程、资金缺口预警（第一版・実装順 P2、概要設計） | SCR-FIN-060 | P2 | 設計中 | 07 | FIN | 07-finance/00-overview.md |
 | F-FIN-046 | 财务报表分析 | 同比/环比、结构分析、指标计算（第一版・実装順 P2、概要設計） | SCR-FIN-061 | P2 | 設計中 | 07 | FIN | 07-finance/00-overview.md |
-| F-FIN-047 | 标准成本维护 | 标准成本版本登记（物料×版本×适用期间、材料/人工/制造费用/委外）、提交、发布（自动截止旧版） | SCR-FIN-062 | P1 | 設計済 | 06 | FIN | 07-finance/00-overview.md |
+| F-FIN-047 | 标准成本维护 | 标准成本版本登记（物料×版本×适用期间、材料/人工/制造费用/委外）草稿登记、发布（自动截止旧版） | SCR-FIN-062 | P1 | 設計済 | 06 | FIN | 07-finance/00-overview.md |
 | F-INT-001 | 接口配置管理 | 相手先・エンドポイント・認証・マッピング・タイムアウト・リトライの登録と有効化 | SCR-INT-001〜003 | P0 | 設計済 | 01-integration-config.md | INT | 09-integration/00-overview.md |
 | F-INT-002 | 数电票开具与交付 | 蓝票/红票开具、交付状态取得、票面查询、赤伝 | SCR-INT-008、009 | P1（Phase 2 本格） | 設計済 | 02-tax-bank-interface.md | INT | 09-integration/00-overview.md |
 | F-INT-003 | 进项发票查验 | 发票查验、用途确认、异常发票提醒 | SCR-INT-010 | P1 | 設計済 | 02-tax-bank-interface.md | INT | 09-integration/00-overview.md |
