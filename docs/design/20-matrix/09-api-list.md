@@ -143,7 +143,7 @@
 | GET | /api/finance/standard-costs/{id} | 標準原価版詳細 | finance:standard-cost:view | FIN | 07-finance/91-api-design.md |
 | PUT | /api/finance/standard-costs/{id} | 草稿更新（version 楽観ロック） | finance:standard-cost:register | FIN | 07-finance/91-api-design.md |
 | POST | /api/finance/standard-costs/{id}/publish | 発行（旧版自動打切り） | finance:standard-cost:publish | FIN | 07-finance/06-auto-voucher-costing.md |
-| POST | /api/finance/standard-costs/{id}/publish | 発行（fin_publish_standard_cost 呼出、advisory lock で同一物料を直列化、旧版自動打切り。23P01 も 70134 に変換） | finance:standard-cost:publish | FIN | 07-finance/91-api-design.md |
+| POST | /api/finance/standard-costs/{id}/publish | 発行（fin_publish_standard_cost 呼出、mdm_material 行ロックで同一物料を直列化、旧版自動打切り。23P01 も 70134 に変換） | finance:standard-cost:publish | FIN | 07-finance/91-api-design.md |
 | POST/PUT | /api/finance/standard-costs[/{id}] | 草稿登録・更新 | finance:standard-cost:register | FIN | 07-finance/06-auto-voucher-costing.md |
 | GET | /api/finance/statement-formulas | 取数公式一覧（保守） | finance:statement:view | FIN | 07-finance/07-period-reporting.md |
 | GET | /api/finance/statement-formulas | 取数公式一覧 | finance:statement:view | FIN | 07-finance/91-api-design.md |
