@@ -664,7 +664,7 @@ COMMENT ON TABLE sys_dict_item IS '数据字典项目';
 ```sql
 CREATE TABLE sys_param (
     -- [共通カラム M]
-    param_key           VARCHAR(100)  NOT NULL,           -- 参数键（一意、group.key 形式）
+    param_key           VARCHAR(100)  NOT NULL,           -- 参数键（テナント・会社内で一意、group.key 形式）
     param_name          VARCHAR(100)  NOT NULL,           -- 参数名称
     param_group         VARCHAR(64)   NOT NULL,           -- 分组（auth/file/notify/workflow/report/…）
     param_value         TEXT,                             -- 参数值（加密対象は AES-256 暗号文）
@@ -684,7 +684,7 @@ COMMENT ON TABLE sys_param IS '系统参数';
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_sys_param_key | UNIQUE | (param_key) | WHERE deleted=FALSE | パラメータキー一意 |
+| uk_sys_param_key | UNIQUE | (tenant_id, company_id, param_key) | WHERE deleted=FALSE | テナント×会社×パラメータキー一意（迁移 `sys/V202610210103__sys_t1_core_tables.sql` と一致） |
 | idx_sys_param_group | B-Tree | (param_group, sort_no) | — | グループ別一覧 |
 
 **業務パラメータ（2026-10-20 決定）**：
@@ -1599,3 +1599,4 @@ COMMENT ON TABLE sys_data_maintenance_log IS '数据维护历史（初期化・�
 | v1.0 | 2026-10-20 | 初版：設計方針、ER 図、38 テーブル定義（DDL・索引・制約・更新仕様）、容量・保存期間、更新タイミング | system-workflow |
 | v1.1 | 2026-10-20 | Lead 裁决に伴う修正：承認マトリクスは `wf_approval_matrix`（WF 所有）に統一（本域は保存しない）。工厂主データを MDM（`mdm_factory`）へ移管し、SYS は `sys_factory` を `sys_factory_setting`（工厂组织设置）に変更。ER・テーブル一覧・コメントを更新 | system-workflow |
 | v1.2 | 2026-10-20 | 红队第 2 轮修复：REV-005（データ範囲に工場/倉庫次元 `factory_ids`/`warehouse_ids`、scope_type 6/7、GIN 索引、ER 追加）、REV-006（監査ログは重要操作を同一 TX で同期 INSERT・破棄禁止・ローカル退避+アラート）、REV-026（`sys_sequence` DDL を 04-common §5 に一致）、Outbox DDL 正本を本ファイルと明記し `event_version` 追加 | system-workflow |
+| v1.3 | 2026-10-21 | §3.15 `uk_sys_param_key` を `(tenant_id, company_id, param_key) WHERE deleted=FALSE` に修正（迁移 V202610210103 に一致）、`param_key` 注釈を「テナント・会社内で一意」に | 业务分析 |
