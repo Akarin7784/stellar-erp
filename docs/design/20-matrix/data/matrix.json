@@ -15004,7 +15004,7 @@
       "id": "MSG-PRD-020",
       "type": "E",
       "body": "有効な BOM がありません。BOM を登録・承認してください。",
-      "condition": "BOM なし",
+      "condition": "BOM なし。工单登録・草稿保存・承認提出では警告（warnings[]、処理続行）、下达で材料明細 0 行時はエラー（422／60020）（蓝色大肥鱼 2026-10-21 PR #37 決定）",
       "action": "BOM 登録",
       "domain": "PRD",
       "source": "06-production/93-messages.md"
