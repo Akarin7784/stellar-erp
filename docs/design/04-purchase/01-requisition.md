@@ -386,7 +386,7 @@ stateDiagram-v2
 3. 転単グループ（`supplier_id` + `warehouse_id` + `required_date`）を決定する。供应商未指定行は転単不可（`MSG-PUR-003`）。
 4. 供应商准入状態（`mdm_supplier.status=APPROVED`、`supply_scope` に物料が含まれる）を検証する。未承認は警告、範囲外は `MSG-PUR-003`。
 5. MOQ チェック：転単数量 < `mdm_supplier_material.moq`（未登録時は `mdm_material.min_order_qty`/`mdm_purchase_price.moq` へフォールバック）の場合、`MSG-PUR-026`（W）を返し、数量を MOQ に切り上げるか行除外を利用者に選択させる。切り上げ時は `converted_qty` も切上げ後の数量で更新する。
-6. グループごとに PO を採番（`PO{YYMMDD}{4桁}`）し、`pur_purchase_order`（`po_status=10`、`source_type=REQUISITION`、`source_id=PR id`）と `pur_purchase_order_line`（`pr_line_id`、`rfq_quotation_line_id=NULL`）を INSERT する。PO 単価は CALC-08 の取价、`price_source_type` に取得元を記録する。
+6. グループごとに PO を採番（`PO{YYMMDD}{4桁}`）し、`pur_purchase_order`（`po_status=10`、`source_type=REQUISITION`、`source_id=PR id`）と `pur_purchase_order_line`（`purchase_requisition_line_id`、`rfq_quotation_line_id=NULL`）を INSERT する。PO 単価は CALC-08 の取价、`price_source_type` に取得元を記録する。
 7. PR 明細の `converted_qty` を加算し、行状态を再計算する（残 0 → 40、一部 → 35、未転単 → 10）。
 8. PR ヘッダ状态を再計算する（全行 40 → 40、一部 30/35 混在 → 35、全行未転単 → 25）。
 9. 監査ログ（CREATE/UPDATE）と PR 变更履历を記録し、生成 PO 一覧を返却する。
@@ -394,7 +394,7 @@ stateDiagram-v2
 
 **PRC-PUR-003-02 転単数量戻し**
 
-1. 転单取消/却下された PO の明細から `pr_line_id` と数量を取得する。
+1. 転单取消/却下された PO の明細から `purchase_requisition_line_id` と数量を取得する。
 2. 対応する PR 明細を `FOR UPDATE` でロックし、`converted_qty` から当該 PO 明細数量を減算する（負にならないことを検証、異常時は `MSG-PUR-025` でアラート）。
 3. PR 明細・ヘッダ状态を再計算する（PR が 40 → 35/30/25 に戻る）。
 4. PO が承認済（25 以降）の場合は戻さない（BR-11）。承認前（10/20）または却下（95）の場合のみ戻す。
@@ -580,7 +580,7 @@ stateDiagram-v2
 | `pur_purchase_requisition` | UPDATE | `pr_status=30/35/40/90`、`closed_at`、`close_reason`、`cancel_reason` | 転単・取消・关闭 | PRC-PUR-001-05/06、003-01 |
 | `pur_purchase_requisition_line` | INSERT/UPDATE | 明細項目、`converted_qty`、`line_status` | 保存・転単・戻し | PRC-PUR-001/003 |
 | `pur_purchase_order` | INSERT | 全項目（`po_status=10`） | 転単 | PRC-PUR-003-01 |
-| `pur_purchase_order_line` | INSERT | 全項目（`pr_line_id` 設定） | 転単 | PRC-PUR-003-01 |
+| `pur_purchase_order_line` | INSERT | 全項目（`purchase_requisition_line_id` 設定） | 転単 | PRC-PUR-003-01 |
 | `pur_purchase_order` | UPDATE | `po_status=90`、`cancel_reason` | 転単取消 | PRC-PUR-003-02 |
 | `sys_audit_log` | INSERT | 操作ログ | 全操作 | 各 PRC |
 | `sys_outbox_event` | INSERT | `workflow` 提出要求（必要時） | 提出 | PRC-PUR-001-03 |
@@ -682,3 +682,4 @@ stateDiagram-v2
 |---|---|---|---|
 | v1.0 | 2026-10-20 | 初版：F-PUR-001～003（请购登録・承認・転単）、状態遷移、画面項目定義、処理詳細、API、テスト観点 | purchase-designer |
 | v1.1 | 2026-10-20 | 红队第 2 轮修复：MOQ 参照を mdm_supplier_material 第一・material/purchase_price フォールバックに変更、PR 理由を唯一シナリオ（120 PCE）へ整合 | purchase-designer |
+| v1.2 | 2026-10-21 | `pr_line_id`→`purchase_requisition_line_id`（90 DDL に統一） | 业务分析 |

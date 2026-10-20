@@ -2,6 +2,7 @@ package com.stellar.erp.production.web;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -10,6 +11,9 @@ import org.springframework.web.bind.annotation.RestController;
 import com.stellar.erp.common.Result;
 import com.stellar.erp.production.WorkOrderCreateCommand;
 import com.stellar.erp.production.WorkOrderCreated;
+import com.stellar.erp.production.WorkOrderReleaseCommand;
+import com.stellar.erp.production.WorkOrderReleaseService;
+import com.stellar.erp.production.WorkOrderReleased;
 import com.stellar.erp.production.WorkOrderService;
 
 import jakarta.validation.Valid;
@@ -20,13 +24,21 @@ import jakarta.validation.Valid;
 public class WorkOrderController {
 
     private final WorkOrderService service;
+    private final WorkOrderReleaseService releaseService;
 
-    public WorkOrderController(WorkOrderService service) {
+    public WorkOrderController(WorkOrderService service, WorkOrderReleaseService releaseService) {
         this.service = service;
+        this.releaseService = releaseService;
     }
 
     @PostMapping
     public ResponseEntity<Result<WorkOrderCreated>> create(@Valid @RequestBody WorkOrderCreateCommand body) {
         return ResponseEntity.status(HttpStatus.CREATED).body(Result.ok(service.create(body)));
+    }
+
+    /** 下达（91 #29 / §3.2）：200。标准成本未设定时 data.warnings[] 含 MSG-FIN-117。 */
+    @PostMapping("/{id}/release")
+    public Result<WorkOrderReleased> release(@PathVariable long id, @Valid @RequestBody WorkOrderReleaseCommand body) {
+        return Result.ok(releaseService.release(id, body));
     }
 }

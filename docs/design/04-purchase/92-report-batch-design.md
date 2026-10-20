@@ -402,8 +402,8 @@
 
 | No | 項目 | 型/桁 | 必須 | 説明 | 対応先項目 |
 |---|---|---|---|---|---|
-| 1 | `planOrderId` | BIGINT（文字列） | ○ | 計画オーダー ID | `prd_planned_order.id` |
-| 2 | `planOrderNo` | VARCHAR(32) | ○ | 計画オーダー番号 | `prd_planned_order.plan_no` |
+| 1 | `planOrderId` | BIGINT（文字列） | ○ | 計画オーダー ID | `prd_mrp_plan_order.id` |
+| 2 | `planOrderNo` | VARCHAR(32) | ○ | 計画オーダー番号 | `prd_mrp_plan_order.plan_order_no` |
 | 3 | `materialId` | BIGINT | ○ | 物料 ID | `pur_purchase_requisition_line.material_id` |
 | 4 | `materialCode` | VARCHAR(20) | ○ | 物料编码 | スナップショット |
 | 5 | `requiredQty` | NUMERIC(18,4) | ○ | 推奨発注数量 | `quantity` |
@@ -468,3 +468,4 @@
 | 版数 | 日付 | 変更内容 | 変更者 |
 |---|---|---|---|
 | v1.0 | 2026-10-20 | 初版：帳票 14（請購/比価/発注/入荷/返品/対账/未入荷/採購額/価格趨勢/交付/暫估/差異/績效/発票簿）、バッチ 11、IF 11 の定義・印字項目・処理手順・異常処理 | purchase-designer |
+| v1.1 | 2026-10-21 | `prd_planned_order`→`prd_mrp_plan_order`（`plan_no`→`plan_order_no`） | 业务分析 |
