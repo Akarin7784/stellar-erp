@@ -65,6 +65,19 @@ BEGIN
     RAISE EXCEPTION '%', p_code USING ERRCODE = 'P0001', DETAIL = p_detail;
 END $$;
 
+-- 公司上下文：取 current_setting('app.company_id', true)，缺失/空 → 5000（设定不备）
+-- 注意：RLS 只按 tenant_id；company_id 仅作业务过滤条件
+CREATE OR REPLACE FUNCTION g2_18_assert_company() RETURNS bigint
+LANGUAGE plpgsql SECURITY INVOKER AS $$
+DECLARE
+    v_company text := current_setting('app.company_id', true);
+BEGIN
+    IF v_company IS NULL OR v_company = '' THEN
+        PERFORM g2_18_raise(5000, 'company context missing (app.company_id)');
+    END IF;
+    RETURN v_company::bigint;
+END $$;
+
 -- ---------------------------------------------------------------------
 -- 1. 容许率解析（受注行确认时调用一次，结果快照到受注行）
 --    受注行指定 > 物料设定 > 公司默认 0.05
@@ -203,8 +216,10 @@ DECLARE
     v_line_status   smallint;
     v_line_material bigint;
     v_wo            record;
+    v_company       bigint;
 BEGIN
     PERFORM g2_18_assert_tenant();
+    v_company := g2_18_assert_company();
     IF p_qty IS NULL OR p_qty <= 0 THEN
         PERFORM g2_18_raise(1003, 'qty must be > 0');   -- 入参值域错误，HTTP 400
     END IF;
@@ -268,13 +283,17 @@ BEGIN
     -- AC-PRD-07（#56 群内 2026-10-21）：MTO 未批超产 → 60100；硬超 allowed_qty → 60040
     IF v_line_id IS NOT NULL THEN
         IF v_line_done + p_qty < 0 OR v_line_done + p_qty > v_line_allowed THEN
-            -- TODO(待超产审批表定稿): 查该受注行是否已有有效超产审批且额度未用尽。
-            --       未批 / 审批无效或已驳回 → 优先 60100 / MSG-PRD-100；
-            --       已批但仍超过新 allowed_qty（额度用尽）→ 60040 / MSG-PRD-040。
-            --       当前无审批表可读：MTO 超限一律按「未批」处理（60100）；
-            --       下方 60040 为硬超落点（审批表落地后：已批仍超才走到这里）。
-            -- stub: treat as NOT approved until over-prod approval DDL lands
-            IF TRUE /* NOT v_over_prod_approved */ THEN
+            -- #58 prd_overproduction_approval（90-db-design §3.19.1）：
+            --   approval_status=30（承認済）且对象为本受注行（work_order_id 为 NULL=整行，或=本工单）
+            --   → 已批：allowed_qty 已在审批通过时调高，仍超即额度用尽 → 60040
+            --   → 无已批记录（含 20 待批 / 40 驳回 / 90 取消）→ 优先 60100
+            IF NOT EXISTS (
+                SELECT 1 FROM prd_overproduction_approval a
+                 WHERE a.company_id = v_company
+                   AND a.sales_order_line_id = v_line_id
+                   AND (a.work_order_id IS NULL OR a.work_order_id = p_work_order_id)
+                   AND a.approval_status = 30
+            ) THEN
                 PERFORM g2_18_raise(60100, format(
                     'sales_order_line %s: over-production approval required (%s + %s > allowed %s)',
                     v_line_id, v_line_done, p_qty, v_line_allowed));   -- MSG-PRD-100 / HTTP 422
@@ -361,6 +380,7 @@ END $$;
 -- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION g2_18_raise_allowed_qty(
     p_sales_order_line_id bigint,
+    p_work_order_id       bigint,    -- 审批对象工单；NULL = 受注行全体（prd_overproduction_approval.work_order_id）
     p_new_allowed_qty     numeric,
     p_approval_no         varchar,   -- 超产审批单号
     p_approver_id         bigint,
@@ -374,13 +394,18 @@ DECLARE
     v_new     numeric;
 BEGIN
     PERFORM g2_18_assert_tenant();
+    v_company := g2_18_assert_company();
     PERFORM g2_18_lock_line_and_work_orders(p_sales_order_line_id);
 
-    SELECT l.allowed_qty, h.company_id, l.material_id     -- TODO(待T2/T3定稿) allowed_qty
-      INTO v_old, v_company, v_material
+    SELECT l.allowed_qty, l.material_id     -- TODO(待T2/T3定稿) allowed_qty
+      INTO v_old, v_material
       FROM sal_sales_order_line l
       JOIN sal_sales_order h ON h.id = l.sales_order_id
-     WHERE l.id = p_sales_order_line_id;
+     WHERE l.id = p_sales_order_line_id
+       AND h.company_id = v_company;
+    IF NOT FOUND THEN
+        PERFORM g2_18_raise(4001, 'sales_order_line not found in company: ' || p_sales_order_line_id);
+    END IF;
 
     -- 同一规则：批准值按基本单位精度向下取整（rate 传 0）
     v_new := g2_18_calc_allowed_qty(p_new_allowed_qty, 0, v_material);
@@ -394,8 +419,14 @@ BEGIN
            version = version + 1, updated_at = now(), updated_by = p_approver_id
      WHERE id = p_sales_order_line_id;
 
-    -- TODO(待T2/T3定稿) 超产审批单独建表（审批单号、申请数量、批准 allowed_qty、审批人、审批时间），
-    --                   经 Flowable 审批通过后由回调在同一事务调用本函数；表名/列名未定，届时在此 INSERT 审批记录
+    -- 关联工单 allowed_qty 同步（90 §3.19.1：承認時に受注行・関連工单の allowed_qty を更新）
+    -- 行锁已由 g2_18_lock_line_and_work_orders 按 id 升序取得
+    UPDATE prd_work_order w
+       SET allowed_qty = v_new,
+           version = version + 1, updated_at = now(), updated_by = p_approver_id
+     WHERE w.sales_order_line_id = p_sales_order_line_id
+       AND (p_work_order_id IS NULL OR w.id = p_work_order_id);
+
     -- 审计：审批单号、原值、新值、审批人、时间
     -- TODO(待T2/T3定稿) sys_audit_log 的 module_code/resource_code 取值待定
     -- tenant_id 不显式写入，由列默认值 current_setting('app.tenant_id') 取得（#43）
@@ -410,6 +441,64 @@ BEGIN
         jsonb_build_object('allowed_qty', v_new, 'requested_allowed_qty', p_new_allowed_qty, 'approval_no', p_approval_no),
         1, now(), p_approver_id
     );
+END $$;
+
+-- ---------------------------------------------------------------------
+-- 4b. 超产审批通过（Flowable 回调，同一事务）：20 → 30，并调用 g2_18_raise_allowed_qty
+--     锁序：受注行 → 工单(id 升序) → 审批单（审批单不属于跨表锁序规定对象，最后锁）
+--     驳回(40)/取消(90) 不改 allowed_qty，由应用层直接更新状态
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION g2_18_approve_overproduction(
+    p_approval_id bigint,
+    p_approver_id bigint,
+    p_audit_id    bigint
+) RETURNS numeric
+LANGUAGE plpgsql SECURITY INVOKER AS $$
+DECLARE
+    v_company bigint;
+    v_line_id bigint;
+    v_a       record;
+    v_new     numeric;
+BEGIN
+    PERFORM g2_18_assert_tenant();
+    v_company := g2_18_assert_company();
+
+    -- 先无锁读出受注行 ID（不能先锁审批单/工单）
+    SELECT a.sales_order_line_id INTO v_line_id
+      FROM prd_overproduction_approval a
+     WHERE a.id = p_approval_id AND a.company_id = v_company;
+    IF NOT FOUND THEN
+        PERFORM g2_18_raise(4001, 'overproduction approval not found: ' || p_approval_id);
+    END IF;
+
+    PERFORM g2_18_lock_line_and_work_orders(v_line_id);
+
+    SELECT a.approval_no, a.sales_order_line_id, a.work_order_id, a.material_id,
+           a.request_qty, a.approval_status
+      INTO v_a
+      FROM prd_overproduction_approval a
+     WHERE a.id = p_approval_id
+       FOR UPDATE;
+    IF v_a.sales_order_line_id IS DISTINCT FROM v_line_id THEN
+        PERFORM g2_18_raise(4002, 'approval sales_order_line_id changed concurrently');
+    END IF;
+    IF v_a.approval_status <> 20 THEN       -- 只有承認待ち可通过：真状态冲突 → 4002 / HTTP 409
+        PERFORM g2_18_raise(4002, 'approval status ' || v_a.approval_status);
+    END IF;
+
+    PERFORM g2_18_raise_allowed_qty(v_line_id, v_a.work_order_id, v_a.request_qty,
+                                    v_a.approval_no, p_approver_id, p_audit_id);
+
+    SELECT l.allowed_qty INTO v_new FROM sal_sales_order_line l WHERE l.id = v_line_id;  -- TODO(待T2/T3定稿)
+
+    UPDATE prd_overproduction_approval
+       SET approval_status      = 30,
+           approved_allowed_qty = v_new,
+           approved_by          = p_approver_id,
+           approved_at          = now(),
+           version = version + 1, updated_at = now(), updated_by = p_approver_id
+     WHERE id = p_approval_id;
+    RETURN v_new;
 END $$;
 
 -- ---------------------------------------------------------------------
