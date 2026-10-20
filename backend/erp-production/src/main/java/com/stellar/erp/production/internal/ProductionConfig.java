@@ -18,8 +18,20 @@ class ProductionConfig {
     @Bean
     @ConditionalOnMissingBean(SalesOrderLineLookup.class)
     SalesOrderLineLookup unavailableSalesOrderLineLookup() {
-        return (companyId, salesOrderLineId) -> {
-            throw new BizException(ProductionErrorCode.CONFIG_MISSING, "受注域（SAL）尚未提供受注行数据");
+        return new SalesOrderLineLookup() {
+            @Override
+            public java.util.Optional<SalesOrderLine> find(long companyId, long salesOrderLineId) {
+                throw unavailable();
+            }
+
+            @Override
+            public java.util.Optional<SalesOrderLine> lockForUpdate(long companyId, long salesOrderLineId) {
+                throw unavailable();
+            }
+
+            private BizException unavailable() {
+                return new BizException(ProductionErrorCode.CONFIG_MISSING, "受注域（SAL）尚未提供受注行数据");
+            }
         };
     }
 

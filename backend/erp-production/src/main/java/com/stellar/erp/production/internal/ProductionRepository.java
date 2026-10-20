@@ -155,6 +155,71 @@ public class ProductionRepository {
                 .update();
     }
 
+    /** 下达用：工单行（FOR UPDATE 后读取）。 */
+    public record WorkOrderForRelease(long id, String workOrderNo, long materialId, Long salesOrderLineId,
+                                      short orderStatus, boolean hold, int version) {
+    }
+
+    /** 不加锁读取工单的受注行 ID（用于决定是否需要先锁受注行）。 */
+    public Optional<WorkOrderForRelease> findWorkOrderForRelease(long companyId, long workOrderId) {
+        return selectForRelease(companyId, workOrderId, "");
+    }
+
+    /** {@code FOR UPDATE} 锁工单（lock_timeout 3 秒，91 §3.2「工单行ロック（FOR UPDATE、3 秒待ち）」）。 */
+    public Optional<WorkOrderForRelease> lockWorkOrderForRelease(long companyId, long workOrderId) {
+        jdbc.sql("SELECT set_config('lock_timeout', '3s', true)").query(String.class).single();
+        return selectForRelease(companyId, workOrderId, " FOR UPDATE");
+    }
+
+    private Optional<WorkOrderForRelease> selectForRelease(long companyId, long workOrderId, String lock) {
+        return jdbc.sql("""
+                        SELECT id, work_order_no, material_id, sales_order_line_id, order_status, is_hold, version
+                          FROM prd_work_order WHERE id = :id AND company_id = :company
+                        """ + lock)
+                .param("id", workOrderId).param("company", companyId)
+                .query((rs, i) -> new WorkOrderForRelease(rs.getLong("id"), rs.getString("work_order_no"),
+                        rs.getLong("material_id"), (Long) rs.getObject("sales_order_line_id", Long.class),
+                        rs.getShort("order_status"), rs.getBoolean("is_hold"), rs.getInt("version")))
+                .optional();
+    }
+
+    /**
+     * 下达日の期間に有効な発行済み標準原価（02-work-order §6.4 第 4 項）：
+     * {@code status = 40} かつ {@code period_from ≤ 期間 ≤ COALESCE(period_to, ∞)}。期間は月初日。
+     * 発行済み版の期間重複は ex_fin_standard_cost_period（EXCLUDE）で禁止されているため最大 1 行。
+     */
+    public Optional<BigDecimal> findEffectiveStandardCost(long companyId, long materialId, LocalDate periodMonth) {
+        return jdbc.sql("""
+                        SELECT total_unit_cost FROM fin_standard_cost
+                         WHERE company_id = :company AND material_id = :material AND status = 40
+                           AND period_from <= :month AND (period_to IS NULL OR period_to >= :month)
+                        """)
+                .param("company", companyId).param("material", materialId).param("month", periodMonth)
+                .query(BigDecimal.class).optional();
+    }
+
+    /**
+     * 25→30。standard_cost はここで一度だけスナップショット（NULL 可）。
+     * 乐观锁：WHERE 同时带 company / status / version（00-common：UPDATE 必须带 version 与 company 条件），
+     * 0 行时由调用方映射为 4003。
+     */
+    public int markReleased(long companyId, long workOrderId, int version, long userId, BigDecimal standardCost,
+                            BigDecimal allowedQty, boolean copyAllowedQty) {
+        return jdbc.sql("""
+                        UPDATE prd_work_order
+                           SET order_status = 30, released_by = :user, released_at = now(),
+                               standard_cost = :cost,
+                               allowed_qty = CASE WHEN :copy THEN :allowed ELSE allowed_qty END,
+                               version = version + 1, updated_by = :user, updated_at = now()
+                         WHERE id = :id AND company_id = :company AND order_status = 25
+                           AND version = :version
+                        """)
+                .param("user", userId).param("cost", standardCost)
+                .param("copy", copyAllowedQty).param("allowed", allowedQty)
+                .param("id", workOrderId).param("company", companyId).param("version", version)
+                .update();
+    }
+
     /** 工单（超产申请校验用）。 */
     public record WorkOrderRef(long id, long materialId, Long salesOrderLineId) {
     }

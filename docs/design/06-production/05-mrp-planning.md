@@ -521,7 +521,7 @@ private void explodeToChildren(MrpRun run, PlanningItem parent, MrpPlanOrder po,
 |---|---|---|---|
 | 工单（F-PRD-005） | `material_id/code/name`、`order_qty`、`due_date`、`start_date` | `prd_work_order` の同名項目 | `order_qty` → `order_qty`。`source_type=10`、`source_id=plan_order_id` |
 | 工单 | `parent_plan_order_id` | `parent_work_order_id`（転送順に解決） | 低层码昇順で転送すれば親が先に存在 |
-| 请购（PUR） | `material_id`、`order_qty`、`start_date` | `pur_requisition_line` | 希望納期 = `start_date`。`source_type=MRP_PLAN_ORDER` |
+| 请购（PUR） | `material_id`、`order_qty`、`start_date` | `pur_purchase_requisition_line` | 希望納期 = `start_date`。`source_type=MRP_PLAN_ORDER` |
 | 委外订单（F-PRD-009） | `material_id`、`order_qty`、`due_date` | `prd_outsourcing_order_line` | 加工単価は MDM 購買価格から取得（未設定なら 0 で警告） |
 | 全共通 | `mrp_run_id`、`plan_order_no` | `ext_data.mrp_*` または `source_no` | 追溯用に保持 |
 
@@ -657,3 +657,4 @@ private void explodeToChildren(MrpRun run, PlanningItem parent, MrpPlanOrder po,
 
 
 | v1.1 | 2026-10-20 | 红队修复第2轮（REV-001/002/003/004/012 等）：INV 単一採番への整合（MII/MIR/FGI/OSI/OSR は INV 所有、PRD は request_no＋stock_doc_id/stock_doc_no 参照）、E15 resultCode/batchNo/warehouseId、E24 stockStatus=10 待検→E15 合格で 20 可用、原価サンプル 120 PCE／材料 79,187.55（標準 79,194.00・価格差異 −6.45）／人工 6,450.00／費用 7,740.00／93,377.55（778.15）、工单結案を 40＋closed_at に統一（45 廃止）、INV API 参照・工费率所有権 | production-designer |
+| v1.2 | 2026-10-21 | PUR 連携先テーブル `pur_requisition_line`→`pur_purchase_requisition_line` | 业务分析 |

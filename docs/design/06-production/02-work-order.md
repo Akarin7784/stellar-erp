@@ -226,7 +226,8 @@ stateDiagram-v2
 | 20 | create_child_wo | 子工单作成 | ヘッダ | チェック | BOOLEAN | — | false | — | — | （`prd_work_order_relation`） | 編集可 | 多阶製造時 |
 | 21 | progress_rate | 進捗率 | ヘッダ | 数値 | NUMERIC(7,4) | — | 0 | — | — | `progress_rate` | 参照のみ | バー表示 |
 | 22 | order_status | 状態 | ヘッダ | バッジ | SMALLINT | — | 10 | — | — | `order_status` | 参照のみ | 色付きバッジ |
-| 23 | remark | 備考 | ヘッダ | テキスト | VARCHAR(500) | — | 空 | 500 桁 | — | `remark` | 編集可 | — |
+| 23 | over_receipt_rate | 完工超収容差 | ヘッダ | 数値 | NUMERIC(5,4) | — | チェーン解決値 | — | 受注行→物料→分類→会社 `sys_param` `prd.completion_over_rate`（登録時に解決） | `over_receipt_rate` | 参照のみ | % 表示・小数 2 桁（比率 NUMERIC(5,4) で保存）。前端は送信しない（[90-db-design.md](90-db-design.md) `prd_work_order.over_receipt_rate`） |
+| 24 | remark | 備考 | ヘッダ | テキスト | VARCHAR(500) | — | 空 | 500 桁 | — | `remark` | 編集可 | — |
 
 **材料明細（タブ）項目定義**
 
@@ -312,7 +313,7 @@ stateDiagram-v2
 |---|---|---|---|---|---|---|---|
 | W1 | mode | 処理モード | 1 | ラジオ | ○ | 10 下达 / 20 拆分 / 30 合并 | 選択した工单状態で実行可否を判定 |
 | W2 | target_ids | 対象工单 | 1 | 一覧選択 | ○ | 1 件以上、状態条件一致 | 下达：25 / 拆分：30・35 / 合并：10・25 |
-| W3 | release_date | 下达日 | 1 | 日付 | ○ | 未来日可 | 既定：当日 |
+| W3 | release_date | 下达日 | 1 | 日付 | ○ | 未来日可、過去日不可（上海時間当日基準。違反は 60104／`MSG-PRD-104`（422））（蓝色大肥鱼 2026-10-21） | 既定：当日 |
 | W4 | reservation_mode | 引当方式 | 2 | ラジオ | ○ | 10 全量引当 / 20 部分引当（不足許容） | 既定：20 |
 | W5 | shortage_action | 不足時処理 | 2 | ラジオ | △ | 10 補充請購建議 / 20 何もしない | 不足がある場合のみ |
 | W6 | split_type | 拆分方式 | 2 | ラジオ | △ | 10 数量拆分 / 20 工序拆分 | 拆分モードのみ |
@@ -386,7 +387,7 @@ stateDiagram-v2
 1. `order_status=25` を確認。MTO は先に受注行を `FOR UPDATE`、続けて工单を id 昇順で `FOR UPDATE`（[04 §11.1](../00-common/04-common-db-spec.md)）。`material_id`＝受注行物料を検証（不一致 `MSG-PRD-056`/`60056`）。`allowed_qty` を受注行からスナップショット。
 2. 保留中（`is_hold=true`）は下达不可（`MSG-PRD-047`）。
 3. 材料行の引当依頼データを作成する：`lines[] = {materialId, requiredQty（total_required_qty − 既引当）, uom, warehouseId}`。
-4. 標準原価スナップショット：`material_id` と下达日の期間で `fin_standard_cost`（`status=40`、`period_from ≤ 期間 ≤ COALESCE(period_to, ∞)`）を検索し、`total_unit_cost` を `standard_cost` に設定する。発行版がなければ `standard_cost=NULL` のまま下达を続行し、`MSG-FIN-117`（警告「未设定标准成本，本期不进行成本差异分析。」）を返す。下达後は再スナップショットしない（PR #8 決定 2（蓝色大肥鱼 2026-10-21））。
+4. 標準原価スナップショット：`material_id` と下达日の期間で（下达日はリクエストの `releaseDate`（未指定時は Asia/Shanghai 当日）で、その月で検索。蓝色大肥鱼 2026-10-21） `fin_standard_cost`（`status=40`、`period_from ≤ 期間 ≤ COALESCE(period_to, ∞)`）を検索し、`total_unit_cost` を `standard_cost` に設定する。発行版がなければ `standard_cost=NULL` のまま下达を続行し、`MSG-FIN-117`（警告「未设定标准成本，本期不进行成本差异分析。」）を返す。下达後は再スナップショットしない（PR #8 決定 2（蓝色大肥鱼 2026-10-21））。
 5. 工单を `order_status=30`、`released_by/at` に更新し、Outbox に E21 `production.workorder.released` を記録する（同一トランザクション）。
 6. INV が引当を実行し、E09 `inventory.reservation.updated` を返す。本域は PRC-PRD-002-05 で材料行の `reserved_qty`/`shortage_qty` を更新する。
 7. 引当不足がある場合：`shortage_action=10` なら補充請購建議（PUR の請購 API を非同期で起動、または動作消息）を生成。`MSG-PRD-045`（警告）を返す。
@@ -678,3 +679,5 @@ stateDiagram-v2
 | v1.1 | 2026-10-20 | 红队修复第2轮（REV-001/002/003/004/012 等）：INV 単一採番への整合（MII/MIR/FGI/OSI/OSR は INV 所有、PRD は request_no＋stock_doc_id/stock_doc_no 参照）、E15 resultCode/batchNo/warehouseId、E24 stockStatus=10 待検→E15 合格で 20 可用、原価サンプル 120 PCE／材料 79,187.55（標準 79,194.00・価格差異 −6.45）／人工 6,450.00／費用 7,740.00／93,377.55（778.15）、工单結案を 40＋closed_at に統一（45 廃止）、INV API 参照・工费率所有権 | production-designer |
 | v1.2 | 2026-10-21 | `prd_work_order.standard_cost` を既定値なし・NULL 可に変更、下达時に `fin_standard_cost` 発行版をスナップショット、なしは NULL＋`MSG-FIN-117`・差異スキップ・画面「未設定」（PR #8 決定 2（蓝色大肥鱼 2026-10-21））。※旧版では v1.3 と誤記（v1.2 欠番。git 履歴上 v1.2 の改訂は存在しないため改号） | 业务分析 |
 | v1.3 | 2026-10-21 | CHK-PRD-002-01／前提条件 1 を `prd_material_planning.material_type ∈ {20,30}`（品目×工厂）で判定と明記（`mdm_material.material_type` ではない）、計画行なしも `MSG-PRD-001`（422 / `60001`）（#18 決定 6（蓝色大肥鱼 2026-10-21）） | 业务分析 |
+| v1.4 | 2026-10-21 | §4.4 に No.23 `over_receipt_rate`（参照のみ・% 表示）を追加、W3 下达日に過去日不可（上海時間当日基準）、標準原価スナップショットの期間を `releaseDate`（未指定時 Asia/Shanghai 当日）の月と明記（蓝色大肥鱼 2026-10-21） | 业务分析 |
+| v1.5 | 2026-10-21 | W3 下达日の過去日エラーを 60104／`MSG-PRD-104`（422）に確定（蓝色大肥鱼 2026-10-21 承認）。§4.4 `remark` の No. 重複（23）を 24 に修正 | 业务分析 |

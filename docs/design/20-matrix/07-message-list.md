@@ -8,114 +8,148 @@
 | 作成日 | 2026-10-20 |
 | 作成者 | Lead（生成工具 gen_matrix.py） |
 | 状態 | ドラフト（自动生成・最終レビュー前） |
-| 備考 | 全 832 件。メッセージID/種別/本文/発生条件/対処/域/提取元 |
+| 備考 | 全 910 件。メッセージID/種別/本文/発生条件/対処/域/提取元 |
 
 > 本文件由 `20-matrix/tools/gen_matrix.py` 从各域设计书中自动提取生成。修改设计书后重新运行即可更新。
 
 | メッセージ ID | 種別 | 本文 | 発生条件 | 対処 | 域 | 提取元 |
 |---|---|---|---|---|---|---|
-| MSG-FIN-001 | E | 借方合计与贷方合计不一致，无法保存。 | 借贷不平衡 | 差额行を確認し修正 | FIN | 07-finance/01-accounting-subjects.md |
-| MSG-FIN-002 | E | 科目代码格式不正确（应为 4 位一级科目，明细以点号分隔）。 | 代码形式错误 | 例 6602.12 で再入力 | FIN | 07-finance/01-accounting-subjects.md |
-| MSG-FIN-003 |  |  |  |  | FIN | 07-finance/01-accounting-subjects.md |
-| MSG-FIN-004 |  |  |  |  | FIN | 07-finance/01-accounting-subjects.md |
-| MSG-FIN-005 |  |  |  |  | FIN | 07-finance/01-accounting-subjects.md |
-| MSG-FIN-006 | E | 科目「{0}」已被使用，不能删除。请使用「停用」。 | 削除時使用中 | 停用に切替 | FIN | 07-finance/01-accounting-subjects.md |
-| MSG-FIN-007 |  |  |  |  | FIN | 07-finance/01-accounting-subjects.md |
-| MSG-FIN-008 |  |  |  |  | FIN | 07-finance/01-accounting-subjects.md |
-| MSG-FIN-009 | E | 该科目未绑定辅助核算维度「{0}」，不能录入该维度。 | 未綁定维度入力 | 科目設定を確認 | FIN | 07-finance/01-accounting-subjects.md |
-| MSG-FIN-011 | 権限 |  |  |  | FIN | 07-finance/02-voucher-ledger.md |
-| MSG-FIN-012 | E | 记账人与制单人/审核人不能为同一人（参数：记账分离=有效）。 | SoD 違反（记账） | 別の记账人を指定 / 参数確認 | FIN | 07-finance/02-voucher-ledger.md |
-| MSG-FIN-013 |  |  |  |  | FIN | 07-finance/02-voucher-ledger.md |
-| MSG-FIN-014 | 業務 |  |  |  | FIN | 07-finance/02-voucher-ledger.md |
-| MSG-FIN-015 | E | 科目「{0}」不存在或已停用。 | 科目不存在 | 科目を選択し直す | FIN | 07-finance/02-voucher-ledger.md |
-| MSG-FIN-016 | 必須 |  |  |  | FIN | 07-finance/02-voucher-ledger.md |
-| MSG-FIN-017 | 成功 |  |  |  | FIN | 07-finance/02-voucher-ledger.md |
-| MSG-FIN-018 | 業務 |  |  |  | FIN | 07-finance/02-voucher-ledger.md |
-| MSG-FIN-019 | 業務 |  |  |  | FIN | 07-finance/02-voucher-ledger.md |
-| MSG-FIN-020 | 業務 |  |  |  | FIN | 07-finance/02-voucher-ledger.md |
-| MSG-FIN-021 |  |  |  |  | FIN | 07-finance/02-voucher-ledger.md |
-| MSG-FIN-025 | 業務 |  |  |  | FIN | 07-finance/02-voucher-ledger.md |
-| MSG-FIN-026 | 業務 |  |  |  | FIN | 07-finance/02-voucher-ledger.md |
-| MSG-FIN-027 | 業務 |  |  |  | FIN | 07-finance/02-voucher-ledger.md |
-| MSG-FIN-029 |  |  |  |  | FIN | 07-finance/02-voucher-ledger.md |
-| MSG-FIN-032 | E | 该凭证尚未记账，不能冲销。 | 冲销条件不成立 | 记账後に冲销 | FIN | 07-finance/02-voucher-ledger.md |
-| MSG-FIN-033 | E | 该凭证已被冲销，不能重复冲销。 | 重複冲销 | 既存冲销凭证を確認 | FIN | 07-finance/02-voucher-ledger.md |
-| MSG-FIN-034 | 相関 |  |  |  | FIN | 07-finance/02-voucher-ledger.md |
-| MSG-FIN-037 | I | 凭证已审核。 | 审核成功 | — | FIN | 07-finance/02-voucher-ledger.md |
-| MSG-FIN-038 | I | 凭证已记账。 | 记账成功 | — | FIN | 07-finance/02-voucher-ledger.md |
-| MSG-FIN-040 | E | 该应付单已存在有效凭证，不能重复确认。 | 二重確認 | 既存凭证を確認 | FIN | 07-finance/03-ap-payment.md |
-| MSG-FIN-041 | E | 暂估应付单尚未冲回，不能直接结转。 | 冲回漏れ | 冲回後に処理 | FIN | 07-finance/03-ap-payment.md |
-| MSG-FIN-042 | 一意 |  |  |  | FIN | 07-finance/03-ap-payment.md |
-| MSG-FIN-043 | 業務 |  |  |  | FIN | 07-finance/03-ap-payment.md |
-| MSG-FIN-044 | 業務 |  |  |  | FIN | 07-finance/03-ap-payment.md |
-| MSG-FIN-045 | 相関 |  |  |  | FIN | 07-finance/03-ap-payment.md |
-| MSG-FIN-046 | 業務 |  |  |  | FIN | 07-finance/03-ap-payment.md |
-| MSG-FIN-050 | I | 应付单已确认。 | 確認成功 | — | FIN | 07-finance/03-ap-payment.md |
-| MSG-FIN-051 | E | 该应付单已有核销记录，不能直接作废。请先反核销。 | 作废条件不成立 | 反核销後に作废 | FIN | 07-finance/03-ap-payment.md |
-| MSG-FIN-052 | I | 核销完成（核销金额 {0}，剩余 {1}）。 | 核销成功 | — | FIN | 07-finance/03-ap-payment.md |
-| MSG-FIN-053 | E | 反核销失败：该期间已结账或付款已作废。 | 反核销条件不成立 | 期間・付款状態を確認 | FIN | 07-finance/03-ap-payment.md |
-| MSG-FIN-054 | 業務 |  |  |  | FIN | 07-finance/03-ap-payment.md |
-| MSG-FIN-055 | 業務 |  |  |  | FIN | 07-finance/03-ap-payment.md |
-| MSG-FIN-056 | 業務 |  |  |  | FIN | 07-finance/03-ap-payment.md |
-| MSG-FIN-057 | 業務 |  |  |  | FIN | 07-finance/03-ap-payment.md |
-| MSG-FIN-058 |  |  |  |  | FIN | 07-finance/03-ap-payment.md |
-| MSG-FIN-059 | W | 付款后银行账户预计余额为负（余额 {0}），请确认。 | 残高不足 | 口座・金額確認 | FIN | 07-finance/03-ap-payment.md |
-| MSG-FIN-060 | E | 该应收单已存在有效凭证，不能重复确认。 | 二重確認 | 既存凭证を確認 | FIN | 07-finance/04-ar-receipt.md |
-| MSG-FIN-061 | E | 应收金额与出荷明細合计不一致（出荷 {0} / 明细 {1}）。 | E10 不整合 | SAL へ確認、保留 | FIN | 07-finance/04-ar-receipt.md |
-| MSG-FIN-062 | 業務 |  |  |  | FIN | 07-finance/04-ar-receipt.md |
-| MSG-FIN-063 | 業務 |  |  |  | FIN | 07-finance/04-ar-receipt.md |
-| MSG-FIN-064 | 一意 |  |  |  | FIN | 07-finance/04-ar-receipt.md |
-| MSG-FIN-065 | 業務 |  |  |  | FIN | 07-finance/04-ar-receipt.md |
-| MSG-FIN-066 | 業務 |  |  |  | FIN | 07-finance/04-ar-receipt.md |
-| MSG-FIN-067 | 期間 |  |  |  | FIN | 07-finance/04-ar-receipt.md |
-| MSG-FIN-068 |  |  |  |  | FIN | 07-finance/04-ar-receipt.md |
-| MSG-FIN-069 |  |  |  |  | FIN | 07-finance/04-ar-receipt.md |
-| MSG-FIN-070 | I | 收款已确认，核销完成（未核销 {0} 转为预收）。 | 確認成功 | — | FIN | 07-finance/04-ar-receipt.md |
-| MSG-FIN-071 | W | 该客户应收余额已超过信用额度（额度 {0} / 使用 {1}），请销售确认。 | 与信超過 | SAL へ連絡 | FIN | 07-finance/04-ar-receipt.md |
-| MSG-FIN-080 | 業務 |  |  |  | FIN | 07-finance/05-cashier-tax.md |
-| MSG-FIN-081 | 業務 |  |  |  | FIN | 07-finance/05-cashier-tax.md |
-| MSG-FIN-082 | 業務 |  |  |  | FIN | 07-finance/05-cashier-tax.md |
-| MSG-FIN-083 |  |  |  |  | FIN | 07-finance/05-cashier-tax.md |
-| MSG-FIN-084 | 業務 |  |  |  | FIN | 07-finance/05-cashier-tax.md |
-| MSG-FIN-085 |  |  |  |  | FIN | 07-finance/05-cashier-tax.md |
-| MSG-FIN-086 | 状態 |  |  |  | FIN | 07-finance/05-cashier-tax.md |
-| MSG-FIN-087 | 業務 |  |  |  | FIN | 07-finance/05-cashier-tax.md |
-| MSG-FIN-088 | 業務 |  |  |  | FIN | 07-finance/05-cashier-tax.md |
-| MSG-FIN-089 |  |  |  |  | FIN | 07-finance/05-cashier-tax.md |
-| MSG-FIN-090 | I | 银行对账完成：自动匹配 {0} 件，未达 {1} 件。 | 対账完了 | — | FIN | 07-finance/05-cashier-tax.md |
-| MSG-FIN-091 | I | 增值税申报辅助表已生成（应纳税额 {0}，留抵 {1}）。 | 生成完了 | — | FIN | 07-finance/05-cashier-tax.md |
-| MSG-FIN-100 | E | 自动凭证模板代码「{0}」已存在。 | 重複 | 別コード | FIN | 07-finance/06-auto-voucher-costing.md |
-| MSG-FIN-101 | I | 自动凭证已生成（{0} 张）。 | 生成成功 | — | FIN | 07-finance/06-auto-voucher-costing.md |
-| MSG-FIN-102 |  |  |  |  | FIN | 07-finance/06-auto-voucher-costing.md |
-| MSG-FIN-103 | E | 自动凭证处理连续失败 10 次，已转入死信队列。 | DEAD_LETTER | ログ確認、手動再処理 | FIN | 07-finance/06-auto-voucher-costing.md |
-| MSG-FIN-104 |  |  |  |  | FIN | 07-finance/06-auto-voucher-costing.md |
-| MSG-FIN-105 | E | 模板「{0}」的借贷合计不一致（借 {1} / 贷 {2}）。 | テンプレート検証 | 行を修正 | FIN | 07-finance/06-auto-voucher-costing.md |
-| MSG-FIN-106 |  |  |  |  | FIN | 07-finance/06-auto-voucher-costing.md |
-| MSG-FIN-108 | E | 事件「{0}」的目标期间已结账，已暂停处理。 | 期間 CLOSED | 期間確認、翌期処理 | FIN | 07-finance/06-auto-voucher-costing.md |
-| MSG-FIN-110 | I | 制造费用分配完成：分配率 {0}，生成凭证 {1}。 | 分配成功 | — | FIN | 07-finance/06-auto-voucher-costing.md |
-| MSG-FIN-111 | I | 成本计算完成：完工产品 {0} 件，在制品 {1} 件。 | 計算成功 | — | FIN | 07-finance/06-auto-voucher-costing.md |
-| MSG-FIN-112 |  |  |  |  | FIN | 07-finance/06-auto-voucher-costing.md |
-| MSG-FIN-113 |  |  |  |  | FIN | 07-finance/06-auto-voucher-costing.md |
-| MSG-FIN-114 |  |  |  |  | FIN | 07-finance/06-auto-voucher-costing.md |
-| MSG-FIN-115 |  |  |  |  | FIN | 07-finance/06-auto-voucher-costing.md |
-| MSG-FIN-116 | E | 在库月结（E20）未完成，不能执行成本计算。 | 前提未成立 | 在庫月結を先に実行 | FIN | 07-finance/06-auto-voucher-costing.md |
-| MSG-FIN-120 | 状態 |  |  |  | FIN | 07-finance/07-period-reporting.md |
-| MSG-FIN-121 | I | 会计期间 {0} 已开账。 | 開帳成功 | — | FIN | 07-finance/07-period-reporting.md |
-| MSG-FIN-122 | 業務 |  |  |  | FIN | 07-finance/07-period-reporting.md |
-| MSG-FIN-123 | I | 会计期间 {0} 已结账，下一期间 {1} 已开账。 | 月結成功 | — | FIN | 07-finance/07-period-reporting.md |
-| MSG-FIN-124 | E | 期间 {0} 已重新开启，所有后续报表需重新生成。 | 再開 | 理由記録・再計算 | FIN | 07-finance/07-period-reporting.md |
-| MSG-FIN-125 | 状態 |  |  |  | FIN | 07-finance/07-period-reporting.md |
-| MSG-FIN-126 | 業務 |  |  |  | FIN | 07-finance/07-period-reporting.md |
-| MSG-FIN-127 | E | 该期间已执行损益结转，不能重复执行。 | 二重転記 | 期間再開後に再実行 | FIN | 07-finance/07-period-reporting.md |
-| MSG-FIN-128 | 業務 |  |  |  | FIN | 07-finance/07-period-reporting.md |
-| MSG-FIN-129 | 状態 |  |  |  | FIN | 07-finance/07-period-reporting.md |
-| MSG-FIN-130 | 業務 |  |  |  | FIN | 07-finance/07-period-reporting.md |
-| MSG-FIN-131 | E | 该期间已重新开启，报表快照已失效，请重新生成。 | 再開後の快照 | 再生成 | FIN | 07-finance/07-period-reporting.md |
-| MSG-FIN-132 | W | 现金流量表与现金科目余额变动不一致（差异 {0}），请检查现金流量项目标记。 | CF 不一致 | CF 項目を確認 | FIN | 07-finance/07-period-reporting.md |
-| MSG-FIN-133 | I | 年结完成：本年利润 {0} 转入未分配利润，下一会计年度已开账。 | 年結成功 | — | FIN | 07-finance/07-period-reporting.md |
-| MSG-FIN-134 |  |  |  |  | FIN | 07-finance/91-api-design.md |
-| MSG-FIN-135 |  |  |  |  | FIN | 07-finance/91-api-design.md |
-| MSG-FIN-136 |  |  |  |  | FIN | 07-finance/91-api-design.md |
+| MSG-FIN-001 | E | 借方合计与贷方合计不一致（差额 {0}），无法保存。 | 借贷不平衡 | 差額行を修正（F-FIN-003/005/006） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-002 | E | 科目代码格式不正确（应为 4 位一级科目，明细以点号分隔，如 6602.12）。 | コード形式不正 | 形式修正（F-FIN-001） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-003 | E | 期初余额借贷不平衡（借方 {0} / 贷方 {1}，差额 {2}）。 | 期初试算不平衡 | 差额修正後に確定（F-FIN-002） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-004 | E | 科目代码「{0}」已存在。 | コード重複 | 別コードを採番（F-FIN-001） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-005 | E | 科目「{0}」已有余额或未记账凭证，不能停用或改变余额方向。 | 使用中科目変更 | 先に処理/振替（F-FIN-001） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-006 | E | 科目「{0}」已被使用，不能删除。请使用「停用」。 | 削除時使用中 | 停用に切替（F-FIN-001） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-007 | E | 科目层级不正确：父科目必须为非末级科目且层级不超过 4 级。 | 階層不正 | 親科目修正（F-FIN-001） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-008 | W | 统制科目「{0}」余额与子台账不一致（账面 {1} / 子台账 {2}），请确认。 | 統制科目照合差 | 原因確認・調整（F-FIN-002/035） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-009 | E | 该科目未绑定辅助核算维度「{0}」，不能录入该维度。 | 未綁定维度入力 | 科目設定確認（F-FIN-003） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-010 | E | 该科目余额方向与期初录入方向相反，请确认。 | 残高方向不一致 | 方向修正（F-FIN-002） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-011 | E | 制单人与审核人不能为同一人（职务分离要求）。 | SoD 違反（审核） | 別の审核者を指定（F-FIN-005） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-012 | E | 记账人与制单人/审核人不能为同一人（参数：记账分离=有效）。 | SoD 違反（記帳） | 別の記帳者を指定（F-FIN-006） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-013 | E | 当前凭证状态不允许该操作。 | 状態不整合 | 状態確認（共通 MSG-COM-034 優先可） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-014 | E | 科目「{0}」不是末级科目或已停用，不能使用。 | 科目不正 | 末级有効科目選択（F-FIN-003） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-015 | E | 科目「{0}」不存在或已停用。 | 科目不存在 | 科目再選択（F-FIN-003） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-016 | E | 摘要不能为空，且不能仅包含符号。 | 摘要不正 | 摘要入力（F-FIN-003） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-017 | E | 同一行不能同时录入借方和贷方金额，且金额不能为 0。 | 行金額不正 | 借/贷いずれか入力（F-FIN-003） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-018 | E | 凭证至少需要 2 行分录。 | 行数不足 | 行追加（F-FIN-003） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-019 | E | 红字冲销只能针对已记账且未冲销的凭证。 | 冲销条件不成立 | 原凭证確認（F-FIN-008） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-020 | E | 反记账只能在当前开放期间执行。 | 期間条件不成立 | 期間状態確認（F-FIN-007） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-021 | E | 反记账必须填写理由（1～500 字）。 | 理由なし | 理由入力（F-FIN-007） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-022 | E | 该分录已被后续业务引用，不能修改。 | 被引用 | 赤伝訂正（F-FIN-003） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-023 | E | 凭证模板无效或已停用。 | テンプレート無効 | テンプレート確認（F-FIN-004） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-024 | E | 辅助核算档案「{0}」已停用或不存在。 | 補助档案不正 | 有効な档案選択（F-FIN-003） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-025 | E | 凭证日期超出允许范围（所属期间 {0}）。 | 日付範囲外 | 日付修正（F-FIN-003） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-026 | E | 数量核算科目必须录入数量与单价，且数量×单价应等于金额。 | 数量核算不正 | 数量・単価修正（F-FIN-003） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-027 | E | 现金/银行存款科目必须选择现金流量项目。 | CF 項目なし | CF 項目選択（F-FIN-003） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-028 | E | 附件张数不能超过 {0} 张，或附件大小超过限制。 | 添付上限超過 | 添付削減（F-FIN-009） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-029 | E | 凭证字号已超过 9999 号，请调整期间或联系管理员。 | 採番枯渇 | 管理者連絡（F-FIN-003） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-030 | E | 所属会计期间未开放，不能录入凭证。 | 期間 FUTURE | 期間開帳待ち（F-FIN-003） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-031 | E | 试算平衡校验失败（借方 {0} / 贷方 {1}，差额 {2}）。 | 試算不平衡 | 原因調査（F-FIN-011） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-032 | E | 该凭证尚未记账，不能冲销。 | 冲销条件不成立 | 記帳後に冲销（F-FIN-008） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-033 | E | 该凭证已被冲销，不能重复冲销。 | 重複冲销 | 既存冲销凭证確認（F-FIN-008） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-034 | E | 凭证字与科目/日期不一致（收/付/转规则或期间不一致）。 | 凭证字制約/期間不一致 | 凭证字または科目修正（F-FIN-003） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-035 | E | 已审核的凭证不能直接修改，请先取消审核。 | 状態不整合 | 取消审核（F-FIN-005） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-036 | E | 已记账的凭证不能修改或删除，请使用红字冲销。 | 状態不整合 | 赤伝（F-FIN-008） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-037 | I | 凭证已审核。 | 审核成功 | — | FIN | 07-finance/93-messages.md |
+| MSG-FIN-038 | I | 凭证已记账。 | 記帳成功 | — | FIN | 07-finance/93-messages.md |
+| MSG-FIN-039 | E | 该凭证已作废，不能进行操作。 | 作废済 | 状態確認（F-FIN-003） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-040 | E | 该应付单已存在有效凭证，不能重复确认。 | 二重確認 | 既存凭证確認（F-FIN-012） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-041 | E | 暂估应付单尚未冲回，不能直接结转。 | 冲回漏れ | 冲回後に処理（F-FIN-014） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-042 | E | 发票号码「{0}」已登记，不能重复登记。 | 发票重複 | 既存发票照会（F-FIN-013/026） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-043 | E | 三单差异超过容差（差异 {0} / 容差 {1}），必须填写差异理由并审批。 | 容差超 | 理由入力・承認（F-FIN-013） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-044 | E | 发票数量超过收货数量（收货 {0} / 发票 {1}），超额部分不能确认应付。 | 数量差異 | 数量修正/保留（F-FIN-013） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-045 | E | 发票金额校验失败：税抜额 {0} + 税额 {1} ≠ 价税合计 {2}。 | 金額不整合 | 票面確認（F-FIN-013） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-046 | E | 所选税码不是进项税码（tax_type=11），不能用于采购发票。 | 税码不正 | 進項税码選択（F-FIN-013/026） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-047 | E | 该发票已认证，不能修改关键字段。 | 認証済変更 | 赤伝・再登録（F-FIN-026） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-048 | E | 供应商付款条件未設定，无法计算到期日。 | 付款条件なし | MDM 設定（F-FIN-012） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-049 | E | 当前付款申请状态不允许该操作。 | 状態不整合 | 状態確認（F-FIN-015） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-050 | I | 应付单已确认。 | 確認成功 | — | FIN | 07-finance/93-messages.md |
+| MSG-FIN-051 | E | 该应付单已有核销记录，不能直接作废。请先反核销。 | 作废条件不成立 | 反核销後に作废（F-FIN-012） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-052 | I | 核销完成（核销金额 {0}，剩余 {1}）。 | 核销成功 | — | FIN | 07-finance/93-messages.md |
+| MSG-FIN-053 | E | 反核销失败：该期间已结账或付款已作废。 | 反核销条件不成立 | 期間・状態確認（F-FIN-017） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-054 | E | 申请金额超过可付上限（可付 {0} / 申请 {1}）。 | 申請超過 | 金額修正（F-FIN-015） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-055 | E | 付款金额超过申请剩余可付金额（可付 {0} / 付款 {1}）。 | 付款超過 | 金額修正（F-FIN-016） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-056 | E | 核销金额超过未核销余额（余额 {0} / 核销 {1}）。 | 核销超過 | 金額修正（F-FIN-017） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-057 | E | 反核销只能在开放期间执行，且需付款/应付未结账。 | 条件不成立 | 期間確認（F-FIN-017） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-058 | E | 银行付款指令发送失败：{0}。请稍后重试或联系银行。 | 銀企連携失敗 | 再実行/銀行確認（F-FIN-016） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-059 | W | 付款后银行账户预计余额为负（余额 {0}），请确认。 | 残高不足 | 口座・金額確認（F-FIN-016） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-060 | E | 该应收单已存在有效凭证，不能重复确认。 | 二重確認 | 既存凭证確認（F-FIN-019） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-061 | E | 应收金额与出荷明細合计不一致（出荷 {0} / 明细 {1}）。 | E10 不整合 | SAL 確認・保留（F-FIN-019） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-062 | E | 出荷事件的金额与明细合计不一致，已转入待处理。 | E10 不整合 | 出荷データ修正（F-FIN-019） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-063 | E | 税率不正确（应为 0～100 的有效税率）。 | 税率不正 | 税码確認（F-FIN-019） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-064 | E | 银行流水号「{0}」已存在，不能重复登记。 | 流水重複 | 既存收款照会（F-FIN-020） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-065 | E | 核销金额超过应收未收余额（可核销 {0} / 本次 {1}）。 | 核销超過 | 金額修正（F-FIN-021） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-066 | E | 核销合计超过收款未核销金额（可核销 {0} / 本次 {1}）。 | 核销超過 | 金額修正（F-FIN-021） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-067 | E | 反核销失败：期间已结账或收款已作废。 | 条件不成立 | 期間・状態確認（F-FIN-021） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-068 | E | 开票金额超过应收金额（应收 {0} / 累计开票 {1} / 本次 {2}）。 | 開票超過 | SAL 確認（F-FIN-019） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-069 | E | 该收款单已有核销记录，不能直接作废，请先反核销。 | 作废条件不成立 | 反核销後作废（F-FIN-020） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-070 | I | 收款已确认，核销完成（未核销 {0} 转为预收）。 | 確認成功 | — | FIN | 07-finance/93-messages.md |
+| MSG-FIN-071 | W | 该客户应收余额已超过信用额度（额度 {0} / 使用 {1}），请销售确认。 | 与信超過 | SAL 連絡（F-FIN-022） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-072 | E | 预收账款与应收单的客户不一致，不能核销。 | 取引先不一致 | 取引先確認（F-FIN-021） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-073 | E | 收款方式与银行账户不匹配（银行转账必须选择账户）。 | 口座不備 | 口座選択（F-FIN-020） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-074 | W | 客户对账单存在未核对差异 {0}，请与客户确认。 | 対账差異 | 差異調査（F-FIN-021） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-075 | E | 该客户坏账准备已计提，不能重复计提。 | P2 二重計提 | 既存計提確認（F-FIN-022） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-076 | E | 应收票据管理尚未启用，请使用银行收款。 | 未実装機能 | 実装順 P2 対応（F-FIN-020） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-077 | E | 该客户信用状态为冻结，不能登记新的应收。 | 与信凍結 | SAL/財務確認（F-FIN-019） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-078 | E | 收款日期不能早于应收单的业务日期。 | 日付不整合 | 日付修正（F-FIN-020） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-079 | E | 核销对象已结清，不能再次核销。 | 結清済 | 対象再選択（F-FIN-021） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-080 | E | 现金日记账金额无效（借贷方向与金额不一致）。 | 金額不整合 | 修正（F-FIN-023） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-081 | E | 现金盘点差异必须填写原因（差异 {0}）。 | 盤点差理由なし | 原因入力（F-FIN-023） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-082 | E | 该银行账户的 {0} 期间对账单已导入，不能重复导入。 | 重複取込 | 既存批次確認（F-FIN-024） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-083 | E | 银行账户未设置或已停用，请联系管理员。 | 口座不備 | 口座設定（F-FIN-024） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-084 | E | 余额调节表不平衡（调节后企业 {0} / 调节后银行 {1}，差额 {2}）。 | 調節表不一致 | 未達事項確認（F-FIN-024） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-085 | W | 申报辅助表与总账应交税费发生额存在差异 {0}，请确认。 | 照合差 | 差異理由記録（F-FIN-027） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-086 | E | 该期间的申报辅助表已确认，不能重新生成；如需修正请先取消确认。 | 確認済再生成 | 取消確認（F-FIN-027） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-087 | W | 当期应纳税额小于 0（留抵），附加税费计税依据按 0 计算。 | 留抵 | 情報表示（F-FIN-028） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-088 | W | 当期利润总额小于 0（亏损），所得税计提金额按 0 处理。 | 亏损 | 情報表示（F-FIN-028） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-089 | E | 该期间同一税种已计提，不能重复计提。 | 計提重複 | 既存計提赤伝訂正（F-FIN-028） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-090 | I | 银行对账完成：自动匹配 {0} 件，未达 {1} 件。 | 対账完了 | — | FIN | 07-finance/93-messages.md |
+| MSG-FIN-091 | I | 增值税申报辅助表已生成（应纳税额 {0}，留抵 {1}）。 | 生成完了 | — | FIN | 07-finance/93-messages.md |
+| MSG-FIN-092 | E | 对账单列映射不完整，缺少必需列：{0}。 | 列マッピング不足 | マッピング修正（F-FIN-024） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-093 | E | 对账单文件解析失败，请使用银行提供的标准格式。 | ファイル不正 | ファイル確認（F-FIN-024） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-094 | W | 银行账户余额不足（余额 {0} / 付款 {1}），请确认资金。 | 残高不足 | 入金/口座変更（F-FIN-016） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-095 | E | 进项发票勾选状态更新失败：{0}。 | 認証 IF 失敗 | 再実行（F-FIN-026） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-096 | W | 附加税计税依据为 0，本期不计提附加税费。 | 応納税額 0 | 情報表示（F-FIN-028） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-097 | I | 资金日报正在生成，请稍后刷新。 | 非同期処理中 | 再表示（F-FIN-025） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-098 | E | 该账户期间尚未导入对账单，不能进行对账。 | 対账单なし | 取込（F-FIN-024） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-099 | E | 余额调节表尚未复核，不能结账。 | 未復核 | 復核依頼（F-FIN-024） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-100 | E | 自动凭证模板代码「{0}」已存在。 | 重複 | 別コード（F-FIN-029） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-101 | I | 自动凭证已生成（{0} 张）。 | 生成成功 | — | FIN | 07-finance/93-messages.md |
+| MSG-FIN-102 | E | 自动凭证生成失败：借贷不平衡或金额计算异常（事件 {0}）。 | 計算失敗 | テンプレート/payload 確認（F-FIN-030） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-103 | E | 自动凭证处理连续失败 10 次，已转入死信队列。 | DEAD_LETTER | ログ確認・手動再処理（F-FIN-030） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-104 | E | 未找到适用于事件「{0}」的自动凭证模板，请检查模板配置。 | テンプレート無 | テンプレート登録（F-FIN-029） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-105 | E | 模板「{0}」的借贷合计不一致（借 {1} / 贷 {2}）。 | テンプレート検証 | 行修正（F-FIN-029） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-106 | E | 税种「{0}」没有对应的科目映射，请检查科目表。 | 税種マップ無 | 科目マッピング（F-FIN-029） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-107 | E | 金额表达式计算异常（模板 {0}，行 {1}）：{2}。 | DSL 評価失敗 | 式修正（F-FIN-029） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-108 | E | 事件「{0}」的目标期间已结账，已暂停处理。 | 期間 CLOSED | 期間確認・翌期処理（F-FIN-030） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-109 | I | 该事件已处理，已跳过（幂等）。 | 重複イベント | — | FIN | 07-finance/93-messages.md |
+| MSG-FIN-110 | I | 制造费用分配完成：分配率 {0}，生成凭证 {1}。 | 分配成功 | — | FIN | 07-finance/93-messages.md |
+| MSG-FIN-111 | I | 成本计算完成：完工产品 {0} 件，在制品 {1} 件。 | 計算成功 | — | FIN | 07-finance/93-messages.md |
+| MSG-FIN-112 | W | 以下成本对象存在异常（负库存/无报工/无BOM）：{0}，未参与计算。 | 異常対象 | マスタ・実績修正後に再実行（F-FIN-031） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-113 | E | 生产成本科目余额与在制品合计不一致（科目 {0} / WIP {1}），不能确认成本。 | 照合差 | 原因調査（F-FIN-033） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-114 | E | 制造费用科目期末仍有余额 {0}，分配未完成。 | 分配漏れ | 分配再実行（F-FIN-032） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-115 | E | 该期间成本已确认，如需重算请先由财务总监取消确认。 | 再計算 | 取消→再計算（F-FIN-031） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-116 | E | 在库月结（E20）未完成，不能执行成本计算。 | 前提未成立 | 在庫月結を先に実行（F-FIN-031） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-117 | W | 未设定标准成本，本期不进行成本差异分析。 | 標準原価なし | 標準原価設定（第一版） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-118 | E | 成本计算结果为空，请检查成本对象与归集数据。 | 結果 0 件 | 対象確認（F-FIN-031） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-119 | E | 制造费用分配基准合计为 0，无法计算分配率。 | 基準 0 | 基準データ確認（F-FIN-032） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-120 | E | 该期间存在未记账凭证（{0} 张），不能结账。 | 未記帳あり | 审核・記帳完了（F-FIN-035） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-121 | I | 会计期间 {0} 已开账。 | 開帳成功 | — | FIN | 07-finance/93-messages.md |
+| MSG-FIN-122 | E | 月结检查未通过（{0} 项 NG），不能结账；如需强制结账请由财务总监批准。 | チェック NG | NG 解消（F-FIN-035） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-123 | I | 会计期间 {0} 已结账，下一期间 {1} 已开账。 | 月結成功 | — | FIN | 07-finance/93-messages.md |
+| MSG-FIN-124 | W | 期间 {0} 已重新开启，所有后续报表需重新生成。 | 再開 | 理由記録・再計算（F-FIN-035） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-125 | E | 年结失败：12 月未结账或年结检查未通过（{0}）。 | 年結条件不成立 | 12 月月結・検査（F-FIN-037） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-126 | E | 损益结转后损益类科目仍有余额（{0}），请检查结转范围。 | 転記検証 | 科目範囲確認（F-FIN-036） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-127 | E | 该期间已执行损益结转，不能重复执行。 | 二重転記 | 期間再開後に再実行（F-FIN-036） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-128 | E | 资产负债表不平衡（资产 {0} / 负债和所有者权益 {1}，差额 {2}），请检查科目余额。 | BS 不一致 | 原因調査（F-FIN-038） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-129 | E | 该期间尚未结账，法定报表只能预览，不能正式输出。 | 未 CLOSED | 月結完了（F-FIN-038） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-130 | E | 科目余额表借贷合计不一致（借 {0} / 贷 {1}），请检查余额数据。 | 試算不平衡 | 原因調査（F-FIN-039） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-131 | W | 该期间已重新开启，报表快照已失效，请重新生成。 | 再開後の快照 | 再生成（F-FIN-038） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-132 | W | 现金流量表与现金科目余额变动不一致（差异 {0}），请检查现金流量项目标记。 | CF 不一致 | CF 項目確認（F-FIN-038） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-133 | I | 年结完成：本年利润 {0} 转入未分配利润，下一会计年度已开账。 | 年結成功 | — | FIN | 07-finance/93-messages.md |
+| MSG-FIN-134 | E | 标准成本发布失败：适用开始期间 {0} 不晚于当前有效版本的开始期间 {1}，或该期间成本已结账。 | 発行期間不正 | 開始期間を有効版より後かつ未結帳期間に変更（F-FIN-047） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-135 | E | 标准成本版本「{0}」不是草稿状态，不能编辑或发布。 | 状態不正（発行関数を経ずに直接変更する場合も含む） | 新版本を登録（F-FIN-047） | FIN | 07-finance/93-messages.md |
+| MSG-FIN-136 | E | 物料「{0}」的标准成本版本「{1}」已存在。 | 版本重複 | 別版本コード（F-FIN-047） | FIN | 07-finance/93-messages.md |
 | MSG-INT-001 | E | 接口代码格式不正确（应为 IF-INT-三位数字）。 | 形式違反 | 修正 | INT | 09-integration/01-integration-config.md |
 | MSG-INT-002 | E | 接口代码已存在，请勿重复登记。 | 一意違反 | 既存を編集 | INT | 09-integration/01-integration-config.md |
 | MSG-INT-003 | E | 连接测试失败：{0}。请检查地址、证书与网络。 | テスト失敗 | 設定・NW 確認 | INT | 09-integration/01-integration-config.md |
@@ -344,63 +378,107 @@
 | MSG-MDM-190 | I | 品質問題を担当者に割り当てました。 | 割当 | — | MDM | 02-mdm/07-substitute-barcode-governance.md |
 | MSG-MDM-191 | 上限 |  |  |  | MDM | 02-mdm/07-substitute-barcode-governance.md |
 | MSG-MDM-195 |  |  |  |  | MDM | 02-mdm/07-substitute-barcode-governance.md |
-| MSG-PRD-001 | 業務 |  |  |  | PRD | 06-production/02-work-order.md |
-| MSG-PRD-002 | 業務 |  |  |  | PRD | 06-production/02-work-order.md |
-| MSG-PRD-003 | 業務 |  |  |  | PRD | 06-production/02-work-order.md |
-| MSG-PRD-004 | 業務 |  |  |  | PRD | 06-production/02-work-order.md |
-| MSG-PRD-005 | 権限 |  |  |  | PRD | 06-production/02-work-order.md |
-| MSG-PRD-010 | 必須 |  |  |  | PRD | 06-production/01-bom-routing-workcenter.md |
-| MSG-PRD-011 | 相関 |  |  |  | PRD | 06-production/01-bom-routing-workcenter.md |
-| MSG-PRD-013 | 範囲 |  |  |  | PRD | 06-production/01-bom-routing-workcenter.md |
-| MSG-PRD-014 | 業務 |  |  |  | PRD | 06-production/01-bom-routing-workcenter.md |
-| MSG-PRD-015 | 一意 |  |  |  | PRD | 06-production/01-bom-routing-workcenter.md |
-| MSG-PRD-020 | 業務 |  |  |  | PRD | 06-production/02-work-order.md |
-| MSG-PRD-021 | 業務 |  |  |  | PRD | 06-production/02-work-order.md |
-| MSG-PRD-022 | 業務 |  |  |  | PRD | 06-production/01-bom-routing-workcenter.md |
-| MSG-PRD-025 | 範囲 |  |  |  | PRD | 06-production/05-mrp-planning.md |
-| MSG-PRD-026 | 相関 |  |  |  | PRD | 06-production/05-mrp-planning.md |
-| MSG-PRD-027 | 状態 |  |  |  | PRD | 06-production/05-mrp-planning.md |
-| MSG-PRD-029 | 排他 |  |  |  | PRD | 06-production/05-mrp-planning.md |
-| MSG-PRD-030 | 範囲 |  |  |  | PRD | 06-production/03-material-issue-reporting.md |
-| MSG-PRD-031 | E | 領料の確定に失敗しました。在庫の引当状況を確認してください。 | E22 発行/INV 連携失敗 | 再実行 | PRD | 06-production/03-material-issue-reporting.md |
-| MSG-PRD-032 | 相関 |  |  |  | PRD | 06-production/03-material-issue-reporting.md |
-| MSG-PRD-033 | E | 在庫出庫済のため取消できません。先に在庫の逆出庫を行ってください。 | 取消不可 | 赤伝処理 | PRD | 06-production/03-material-issue-reporting.md |
-| MSG-PRD-034 | 範囲 |  |  |  | PRD | 06-production/03-material-issue-reporting.md |
-| MSG-PRD-035 | W | 倒冲対象の在庫が不足しています。不足分は手動で領料してください。 | 倒冲不足 | 手動領料 | PRD | 06-production/03-material-issue-reporting.md |
-| MSG-PRD-036 | E | 確定後 24 時間を超えた報工は取消できません。赤伝で処理してください。 | 期限超過 | 赤伝 | PRD | 06-production/03-material-issue-reporting.md |
-| MSG-PRD-037 | E | 指定した批次の在庫がありません。批次を再選択してください。 | 批次なし | 再選択 | PRD | 06-production/03-material-issue-reporting.md |
-| MSG-PRD-038 | 業務 |  |  |  | PRD | 06-production/01-bom-routing-workcenter.md |
-| MSG-PRD-039 | 相関 |  |  |  | PRD | 06-production/03-material-issue-reporting.md |
-| MSG-PRD-040 | E | 完工数量が許容上限（allowed_qty）を超えています。 | ハード超過 | 数量修正 | PRD | 06-production/02-work-order.md |
-| MSG-PRD-041 | 範囲 |  |  |  | PRD | 06-production/03-material-issue-reporting.md |
-| MSG-PRD-042 | 業務 |  |  |  | PRD | 06-production/03-material-issue-reporting.md |
-| MSG-PRD-044 |  |  |  |  | PRD | 06-production/02-work-order.md |
-| MSG-PRD-045 |  |  |  |  | PRD | 06-production/02-work-order.md |
-| MSG-PRD-046 | E | 実績のある工单は取消できません。先に領料・報工・入庫を取消してください。 | 実績あり | 実績取消 | PRD | 06-production/02-work-order.md |
-| MSG-PRD-047 | E | 保留中の工单は下达・報工・入庫できません。 | 保留中 | 保留解除 | PRD | 06-production/02-work-order.md |
-| MSG-PRD-048 | 相関 |  |  |  | PRD | 06-production/02-work-order.md |
-| MSG-PRD-049 | 業務 |  |  |  | PRD | 06-production/02-work-order.md |
-| MSG-PRD-051 |  |  |  |  | PRD | 06-production/02-work-order.md |
-| MSG-PRD-060 | 業務 |  |  |  | PRD | 06-production/03-material-issue-reporting.md |
-| MSG-PRD-061 | 業務 |  |  |  | PRD | 06-production/06-quality-management.md |
-| MSG-PRD-062 | 業務 |  |  |  | PRD | 06-production/03-material-issue-reporting.md |
-| MSG-PRD-063 | 相関 |  |  |  | PRD | 06-production/06-quality-management.md |
-| MSG-PRD-064 | 権限 |  |  |  | PRD | 06-production/06-quality-management.md |
-| MSG-PRD-065 | 相関 |  |  |  | PRD | 06-production/06-quality-management.md |
-| MSG-PRD-066 | E | 判定確定後の検査単は取消できません（管理者のみ取消可）。 | 権限なし取消 | 管理者へ依頼 | PRD | 06-production/06-quality-management.md |
-| MSG-PRD-067 | 範囲 |  |  |  | PRD | 06-production/06-quality-management.md |
-| MSG-PRD-068 | E | 未完了の処置があるため NCR を完了できません。 | 処置未完了 | 処置完了 | PRD | 06-production/06-quality-management.md |
-| MSG-PRD-069 | 業務 |  |  |  | PRD | 06-production/06-quality-management.md |
-| MSG-PRD-070 | W | 該当する追溯データがありません。 | 追溯 0 件 | キー確認 | PRD | 06-production/06-quality-management.md |
-| MSG-PRD-075 |  |  |  |  | PRD | 06-production/02-work-order.md |
-| MSG-PRD-080 | 範囲 |  |  |  | PRD | 06-production/04-outsourcing.md |
-| MSG-PRD-081 | 範囲 |  |  |  | PRD | 06-production/04-outsourcing.md |
-| MSG-PRD-082 | E | 実績のある委外訂单は取消できません。先に発料・受入を取消してください。 | 実績あり | 実績取消 | PRD | 06-production/04-outsourcing.md |
-| MSG-PRD-083 | 業務 |  |  |  | PRD | 06-production/04-outsourcing.md |
-| MSG-PRD-084 | 業務 |  |  |  | PRD | 06-production/04-outsourcing.md |
-| MSG-PRD-085 | 相関 |  |  |  | PRD | 06-production/04-outsourcing.md |
-| MSG-PRD-086 | E | 支給材料の在庫が不足しています。発料できません。 | 在庫不足 | 補充手配 | PRD | 06-production/04-outsourcing.md |
-| MSG-PRD-100 | 範囲 |  |  |  | PRD | 06-production/03-material-issue-reporting.md |
+| MSG-PRD-001 | E | 指定した品目は製造品ではありません。製造品または委外品を選択してください。 | 品目区分不一致 | 品目を変更 | PRD | 06-production/93-messages.md |
+| MSG-PRD-002 | E | 承認前の受注からは工单を作成できません。 | 受注状態 < 25 | 受注承認後に再実行 | PRD | 06-production/93-messages.md |
+| MSG-PRD-003 | E | 変更後の数量が既入庫数量を下回っています。 | 数量減が入庫実績未満 | 数量を確認 | PRD | 06-production/93-messages.md |
+| MSG-PRD-004 | W | 計画着手日が過去日です。このまま登録しますか？ | 過去日指定 | 確認 | PRD | 06-production/93-messages.md |
+| MSG-PRD-005 | E | 起案者と承認者が同一のため承認できません。 | 自己承認 | 別の承認者へ | PRD | 06-production/93-messages.md |
+| MSG-PRD-006 | E | 使用中のため削除できません。使用停止を検討してください。 | マスタ参照中 | 使用停止 | PRD | 06-production/93-messages.md |
+| MSG-PRD-007 | E | 工单で参照済みの BOM 明細は削除できません。BOM を廃止してください。 | 参照済み明細削除 | 版数更新で廃止 | PRD | 06-production/93-messages.md |
+| MSG-PRD-008 | E | BOM の変更には承認が必要です。承認申請してください。 | 未承認の変更確定 | 承認申請 | PRD | 06-production/93-messages.md |
+| MSG-PRD-009 | I | 保存しました。 | 登録・更新成功 | — | PRD | 06-production/93-messages.md |
+| MSG-PRD-010 | E | BOM に循環参照があります。親子関係を確認してください。 | 自己参照・間接循環 | BOM 修正 | PRD | 06-production/93-messages.md |
+| MSG-PRD-011 | E | 同一品目・同一期間に有効な BOM が既に存在します。有効期間を確認してください。 | 期間重複 | 期間修正 | PRD | 06-production/93-messages.md |
+| MSG-PRD-012 | E | 承認済以降の BOM は直接編集できません。新版本を登録してください。 | 承認済編集 | 新版本登録 | PRD | 06-production/93-messages.md |
+| MSG-PRD-013 | E | 损耗率は 0 以上 0.95 未満で入力してください。 | 範囲外 | 修正 | PRD | 06-production/93-messages.md |
+| MSG-PRD-014 | E | 工作中心が工場と一致しないか、無効です。 | 工作中心不整合 | 再選択 | PRD | 06-production/93-messages.md |
+| MSG-PRD-015 | E | 工序 SEQ が重複しています。 | SEQ 重複 | 修正 | PRD | 06-production/93-messages.md |
+| MSG-PRD-016 | W | BOM の有効期間が切れています。新版を登録してください。 | 有効期間外参照 | 新版登録 | PRD | 06-production/93-messages.md |
+| MSG-PRD-017 | E | 基準数量は 0 より大きい値を入力してください。 | 基準数量 ≤ 0 | 修正 | PRD | 06-production/93-messages.md |
+| MSG-PRD-018 | E | 子品目の単位が基本単位と換算できません。 | 単位換算不可 | 単位修正 | PRD | 06-production/93-messages.md |
+| MSG-PRD-019 | W | 標準原価が未設定です。成本卷算を実行してください。 | 標準単価なし | 卷算実行 | PRD | 06-production/93-messages.md |
+| MSG-PRD-020 | E | 有効な BOM がありません。BOM を登録・承認してください。 | BOM なし | BOM 登録 | PRD | 06-production/93-messages.md |
+| MSG-PRD-021 | E | 有効な工艺路线がありません。工艺路线を登録してください。 | 工艺なし | 工艺登録 | PRD | 06-production/93-messages.md |
+| MSG-PRD-022 | E | BOM の単位と物料の基本単位が一致しません。 | 単位不整合 | BOM 修正 | PRD | 06-production/93-messages.md |
+| MSG-PRD-023 | E | MRP の対象品目がありません。計画パラメータを確認してください。 | 対象 0 件 | パラメータ確認 | PRD | 06-production/93-messages.md |
+| MSG-PRD-024 | W | 在庫データに不整合があります。在庫を確認してください。 | マイナス在庫等 | 在庫確認 | PRD | 06-production/93-messages.md |
+| MSG-PRD-025 | E | 実行日は過去 30 日以内の日付を指定してください。 | 実行日範囲外 | 日付修正 | PRD | 06-production/93-messages.md |
+| MSG-PRD-026 | E | 発注数量が最小起订量・発注倍数を満たしていません。 | ロット規則違反 | 数量修正 | PRD | 06-production/93-messages.md |
+| MSG-PRD-027 | E | この計画订单は既に転送済み、または取消済みです。 | 二重転送 | 最新状態確認 | PRD | 06-production/93-messages.md |
+| MSG-PRD-028 | E | 計画订单の転送に失敗しました。再実行してください。 | 転送失敗 | 再実行 | PRD | 06-production/93-messages.md |
+| MSG-PRD-029 | E | 他の MRP が実行中です。完了後に再実行してください。 | 二重実行 | 完了待ち | PRD | 06-production/93-messages.md |
+| MSG-PRD-030 | E | 工单の材料明細にない物料、または領料数量が上限を超えています。 | 材料不一致/超領 | 材料・数量確認（超領は承認） | PRD | 06-production/93-messages.md |
+| MSG-PRD-031 | E | 領料の確定に失敗しました。在庫の引当状況を確認してください。 | E22/INV 連携失敗 | 再実行 | PRD | 06-production/93-messages.md |
+| MSG-PRD-032 | E | 投入数量と良品・不良・报废の合計が一致しません。 | 数量不整合 | 数量修正 | PRD | 06-production/93-messages.md |
+| MSG-PRD-033 | E | 在庫出庫済のため取消できません。先に在庫の逆出庫を行ってください。 | 取消不可 | 赤伝処理 | PRD | 06-production/93-messages.md |
+| MSG-PRD-034 | E | 退料数量が領料数量を超えています。 | 過剰退料 | 数量修正 | PRD | 06-production/93-messages.md |
+| MSG-PRD-035 | W | 倒冲対象の在庫が不足しています。不足分は手動で領料してください。 | 倒冲不足 | 手動領料 | PRD | 06-production/93-messages.md |
+| MSG-PRD-036 | E | 確定後 24 時間を超えた報工は取消できません。赤伝で処理してください。 | 取消期限超過 | 赤伝 | PRD | 06-production/93-messages.md |
+| MSG-PRD-037 | E | 指定した批次の在庫がありません。批次を再選択してください。 | 批次なし | 再選択 | PRD | 06-production/93-messages.md |
+| MSG-PRD-038 | E | 指定した物料は当該 BOM の替代料ではありません。 | 替代不許可 | 替代料確認 | PRD | 06-production/93-messages.md |
+| MSG-PRD-039 | E | 不良明細の数量合計が不良数量と一致しません。 | 明細不一致 | 明細修正 | PRD | 06-production/93-messages.md |
+| MSG-PRD-040 | E | 完工数量が許容上限（allowed_qty）を超えています。 | completed_qty 累計 > allowed_qty（MTS、または超産承認後も超過） | 数量修正 | PRD | 06-production/93-messages.md |
+| MSG-PRD-041 | E | 工数の合計が作業者別工数の合計と一致しません。 | 工数不一致 | 工数修正 | PRD | 06-production/93-messages.md |
+| MSG-PRD-042 | E | 报废を登録するには NCR を起票してください。 | 报废時 NCR なし | NCR 起票 | PRD | 06-production/93-messages.md |
+| MSG-PRD-043 | E | 同一工单・工程・日付・シフトの報工が既に存在します。重複登録できません。 | 重複報工 | 既存報工を確認 | PRD | 06-production/93-messages.md |
+| MSG-PRD-044 | E | 下达に失敗しました。時間をおいて再実行してください。 | E21 発行失敗 | 再実行 | PRD | 06-production/93-messages.md |
+| MSG-PRD-045 | W | 一部材料の引当が不足しています。不足分は補充手配が必要です。 | 引当不足 | 補充請購 | PRD | 06-production/93-messages.md |
+| MSG-PRD-046 | E | 実績のある工单は取消できません。先に領料・報工・入庫を取消してください。 | 実績あり取消 | 実績取消 | PRD | 06-production/93-messages.md |
+| MSG-PRD-047 | E | 保留中の工单は下达・報工・入庫できません。 | 保留中 | 保留解除 | PRD | 06-production/93-messages.md |
+| MSG-PRD-048 | E | 拆分明細の数量合計が元工单数量と一致しません。 | 拆分合計不一致 | 数量修正 | PRD | 06-production/93-messages.md |
+| MSG-PRD-049 | E | 合并条件（品目・工場・BOM/工艺・納期）が一致しない工单は合并できません。 | 合并条件不一致 | 対象見直し | PRD | 06-production/93-messages.md |
+| MSG-PRD-050 | W | 工作中心の能力を超過しています。日程調整を検討してください。 | 負荷率 > 1.0 | 日程調整・外注 | PRD | 06-production/93-messages.md |
+| MSG-PRD-051 | E | 子工单の作成に失敗しました。処理をロールバックしました。 | 多阶作成失敗 | 再実行 | PRD | 06-production/93-messages.md |
+| MSG-PRD-052 | W | 計画订单の必要日が過去のため即時発注として扱います。 | 着手日 < 実行日 | 即時発注 | PRD | 06-production/93-messages.md |
+| MSG-PRD-053 | E | MPS の期間が重複しています。 | MPS 重複 | 期間修正 | PRD | 06-production/93-messages.md |
+| MSG-PRD-054 | E | 受注数量が予測数量を超えています。需要の二重計上を確認してください。 | 予測消費設定の不整合 | 設定確認 | PRD | 06-production/93-messages.md |
+| MSG-PRD-055 | W | 選択した工单の一部は状態が異なるため処理できません。 | 一括処理の状態混在 | 対象確認 | PRD | 06-production/93-messages.md |
+| MSG-PRD-056 | E | 工单品目与销售订单行品目不一致。 | 工单 material_id ≠ 受注行 material_id（G2-18） | 品目を受注行に合わせる | PRD | 06-production/93-messages.md |
+| MSG-PRD-060 | E | 検査未合格の工序は次工程へ進めません。 | IPQC 未合格 | 検査完了・特采承認 | PRD | 06-production/93-messages.md |
+| MSG-PRD-061 | W | 適用可能な検査標準がありません。手動で検査項目を入力してください。 | 標準未設定 | 標準登録 | PRD | 06-production/93-messages.md |
+| MSG-PRD-062 | E | 完成品検査（FQC）が合格していないため入庫できません。 | FQC 未合格 | 検査完了/特采 | PRD | 06-production/93-messages.md |
+| MSG-PRD-063 | E | 指定した検査標準は有効期間外または未承認です。 | 標準期間外 | 標準確認 | PRD | 06-production/93-messages.md |
+| MSG-PRD-064 | E | この判定には質量主管の承認が必要です。 | 特采・报废の無承認 | 承認申請 | PRD | 06-production/93-messages.md |
+| MSG-PRD-065 | E | 処置数量の合計が不合格数量と一致しません。 | 処置数量不一致 | 数量修正 | PRD | 06-production/93-messages.md |
+| MSG-PRD-066 | E | 判定確定後の検査単は取消できません（管理者のみ取消可）。 | 権限なし取消 | 管理者へ依頼 | PRD | 06-production/93-messages.md |
+| MSG-PRD-067 | E | 実測値と判定が整合していません。再確認してください。 | 判定不整合 | 値・判定修正 | PRD | 06-production/93-messages.md |
+| MSG-PRD-068 | E | 未完了の処置があるため NCR を完了できません。 | 処置未完了 | 処置完了 | PRD | 06-production/93-messages.md |
+| MSG-PRD-069 | E | 返品が起票されていません。購買の返品処理を先に実行してください。 | 返品未起票 | PUR で返品起票 | PRD | 06-production/93-messages.md |
+| MSG-PRD-070 | W | 該当する追溯データがありません。 | 追溯 0 件 | キー確認 | PRD | 06-production/93-messages.md |
+| MSG-PRD-071 | E | 検査の判定が未完了のため入庫できません。 | 検査未判定 | 判定完了 | PRD | 06-production/93-messages.md |
+| MSG-PRD-072 | W | 検査単の起票時に標準が見つからず、手動項目で作成しました。 | 起票時の標準なし | 標準登録 | PRD | 06-production/93-messages.md |
+| MSG-PRD-073 | E | 同一項目の判定が未入力です。 | 項目未判定 | 判定入力 | PRD | 06-production/93-messages.md |
+| MSG-PRD-074 | E | NCR の承認が完了していないため処置を実行できません。 | NCR 未承認 | 承認待ち | PRD | 06-production/93-messages.md |
+| MSG-PRD-075 | E | 結案条件を満たしていません。{0} | 結案条件未達 | 条件を解消 | PRD | 06-production/93-messages.md |
+| MSG-PRD-076 | E | 未領材料・未退料が残っているため結案できません。 | 未領/未退料あり | 退料・調整 | PRD | 06-production/93-messages.md |
+| MSG-PRD-077 | E | 原価が確定していないため結案できません。月結後に再実行してください。 | 原価未確定 | 月結後再実行 | PRD | 06-production/93-messages.md |
+| MSG-PRD-078 | E | 工单に未完了の変更申請があります。 | 変更申請中 | 変更完了待ち | PRD | 06-production/93-messages.md |
+| MSG-PRD-079 | W | 工单の計画完成日を超過しています。 | 遅延 | 納期再回答 | PRD | 06-production/93-messages.md |
+| MSG-PRD-080 | E | 受入数量が委外注文の残数量を超えています。 | 超過受入 | 数量確認 | PRD | 06-production/93-messages.md |
+| MSG-PRD-081 | W | 加工単価が 0 です。購買価格を確認してください。 | 単価未設定 | 単価登録 | PRD | 06-production/93-messages.md |
+| MSG-PRD-082 | E | 実績のある委外訂单は取消できません。先に発料・受入を取消してください。 | 実績あり取消 | 実績取消 | PRD | 06-production/93-messages.md |
+| MSG-PRD-083 | E | 来料検査（IQC）が合格していないため入庫できません。 | IQC 未合格 | 検査完了/特采 | PRD | 06-production/93-messages.md |
+| MSG-PRD-084 | E | 加工費結算の対象受入が不正です。受入確定・未結算を確認してください。 | 結算対象不正/連携失敗 | 対象確認・再実行 | PRD | 06-production/93-messages.md |
+| MSG-PRD-085 | E | 扣款額が加工費を超えているか、扣款理由が未入力です。 | 扣款不正 | 修正 | PRD | 06-production/93-messages.md |
+| MSG-PRD-086 | E | 支給材料の在庫が不足しています。発料できません。 | 在庫不足 | 補充手配 | PRD | 06-production/93-messages.md |
+| MSG-PRD-087 | E | 委外先の支給材料残と一致しません。数量を確認してください。 | 委外先在庫差異 | 原因調査 | PRD | 06-production/93-messages.md |
+| MSG-PRD-088 | W | 委外訂单の納期を超過しています。 | 委外遅延 | 督促・納期変更 | PRD | 06-production/93-messages.md |
+| MSG-PRD-089 | E | 発料数量が支給材料の標準量を超えています。 | 過剰発料 | 数量確認 | PRD | 06-production/93-messages.md |
+| MSG-PRD-090 | E | 設備の状態が不正です。状態を確認してください。 | 設備状態不整合 | 状態修正 | PRD | 06-production/93-messages.md |
+| MSG-PRD-091 | E | 帳票の出力に失敗しました。条件を確認して再実行してください。 | 帳票生成失敗 | 再実行 | PRD | 06-production/93-messages.md |
+| MSG-PRD-092 | E | 集計対象データがありません。 | 集計 0 件 | 条件変更 | PRD | 06-production/93-messages.md |
+| MSG-PRD-093 | E | 選択した条件ではデータ量が多すぎます。条件を絞ってください。 | 件数超過 | 条件追加 | PRD | 06-production/93-messages.md |
+| MSG-PRD-094 | E | パラメータ値が範囲外です。 | 設定値不正 | 修正 | PRD | 06-production/93-messages.md |
+| MSG-PRD-095 | E | 既に処理中です。完了後に再実行してください。 | 二重起動 | 完了待ち | PRD | 06-production/93-messages.md |
+| MSG-PRD-096 | W | 一部のデータは権限がないため表示されません。 | 項目権限 | 管理者へ依頼 | PRD | 06-production/93-messages.md |
+| MSG-PRD-097 | E | 過去日の報工は登録できません（当日以前 7 日以内のみ）。 | 報工日範囲外 | 日付修正 | PRD | 06-production/93-messages.md |
+| MSG-PRD-098 | E | 工序の順序が前工程の完了と整合していません。 | 前工程未完了 | 前工程完了 | PRD | 06-production/93-messages.md |
+| MSG-PRD-099 | E | システムエラーが発生しました。管理者に連絡してください（エラー番号：{0}）。 | 500 エラー | trace_id を連絡 | PRD | 06-production/93-messages.md |
+| MSG-PRD-100 | E | 超産承認が必要です。許容完工数量を超える入庫は承認後のみ可能です。 | 超産未承認 | 超産承認申請 | PRD | 06-production/93-messages.md |
+| MSG-PRD-101 | E | 超産承認が却下または取消のため入庫できません。 | 超産承認無効 | 再申請または数量修正 | PRD | 06-production/93-messages.md |
+| MSG-PRD-102 | E | 冲销数量が已完工数量を超えています。 | 冲销 qty > completed_qty | 数量修正 | PRD | 06-production/93-messages.md |
+| MSG-PRD-103 | E | 超産申請数量が不正です。申請超産数量は 0 より大きい値を指定してください。 | request_qty ≤ 0 または NULL（60103） | 申請超産数量を修正して再申請 | PRD | 06-production/93-messages.md |
+| MSG-PRD-104 | E | 下达日不能早于今天。 | releaseDate が Asia/Shanghai 当日より前（60104） | 下达日を当日以降に修正 | PRD | 06-production/93-messages.md |
 | MSG-COM-032 |  |  |  |  | PUR | 04-purchase/93-messages.md |
 | MSG-COM-033 |  |  |  |  | PUR | 04-purchase/93-messages.md |
 | MSG-COM-034 |  |  |  |  | PUR | 04-purchase/93-messages.md |
