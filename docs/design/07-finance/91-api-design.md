@@ -165,7 +165,7 @@
 | 127 | GET | /api/finance/standard-costs/{id} | finance:standard-cost:view | 標準原価版詳細 | 4001 |
 | 128 | POST | /api/finance/standard-costs | finance:standard-cost:register | 草稿登録（`status=10`） | 70136 |
 | 129 | PUT | /api/finance/standard-costs/{id} | finance:standard-cost:register | 草稿更新（`version` 楽観ロック） | 70135,70136 |
-| 130 | POST | /api/finance/standard-costs/{id}/publish | finance:standard-cost:publish | 発行（`fin_publish_standard_cost` 呼出、advisory lock で同一物料を直列化、旧版自動打切り。`23P01` も 70134 に変換） | 70134,70135 |
+| 130 | POST | /api/finance/standard-costs/{id}/publish | finance:standard-cost:publish | 発行（`fin_publish_standard_cost` 呼出、`mdm_material` 行ロックで同一物料を直列化、旧版自動打切り。`23P01` も 70134 に変換） | 70134,70135 |
 
 ### 2.7 期末・報表（F-FIN-035～039）
 
