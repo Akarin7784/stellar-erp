@@ -17,7 +17,7 @@
 | 角色 | 用途 | 属性 |
 |---|---|---|
 | owner（dev：`erp`；prod：DBA 指定） | Flyway 执行迁移，所有表的所有者 | 仅用于迁移，应用运行时不使用 |
-| `erp_app` | 应用运行账号（`spring.datasource.username`） | 非 owner、`NOSUPERUSER`、`NOBYPASSRLS`；仅 DML 权限 + `public` 的 USAGE/CREATE（CREATE 仅为 Flowable 自动建表，见 #7） |
+| `erp_app` | 应用运行账号（`spring.datasource.username`） | 非 owner、`NOSUPERUSER`、`NOBYPASSRLS`；仅 DML 权限 + `public`/`flowable` 的 USAGE；**无 CREATE**（自建表 owner 是自己会使 RLS 失效）。Flowable 表由 Flyway 预建在 schema `flowable`（#7，PR #46） |
 
 - 角色由迁移 `sys/V202610200101__sys_create_app_role.sql` 以 `NOLOGIN` 创建；之后 owner 新建的表通过 `ALTER DEFAULT PRIVILEGES` 自动授权。
 - 登录与密码由 Flyway 回调 `db/callback/afterMigrate.sql` 根据占位符 `erp_app_password`（环境变量 `DB_APP_PASSWORD`）设置；为空则保持 `NOLOGIN`。密码不得包含单引号。

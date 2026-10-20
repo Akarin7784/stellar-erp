@@ -4,6 +4,8 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
+import java.util.OptionalLong;
+
 import javax.sql.DataSource;
 
 import org.springframework.jdbc.support.JdbcTransactionManager;
@@ -15,6 +17,7 @@ import com.stellar.erp.common.TenantContext;
  * 在每个事务开始时执行 {@code SELECT set_config('app.tenant_id', ?, true)}（事务级，等价 SET LOCAL），
  * 使 RLS 策略 {@code tenant_id = current_setting('app.tenant_id')::bigint} 生效。
  * 事务提交/回滚后设置自动失效，连接归还连接池时不会残留租户。
+ * 未设置租户上下文时不写入 app.tenant_id（不存在默认租户），访问受 RLS 保护的表会报错。
  */
 public class TenantAwareTransactionManager extends JdbcTransactionManager {
 
@@ -27,8 +30,12 @@ public class TenantAwareTransactionManager extends JdbcTransactionManager {
     @Override
     protected void prepareTransactionalConnection(Connection con, TransactionDefinition definition) throws SQLException {
         super.prepareTransactionalConnection(con, definition);
+        OptionalLong tenant = TenantContext.current();
+        if (tenant.isEmpty()) {
+            return;
+        }
         try (PreparedStatement ps = con.prepareStatement(SET_TENANT_SQL)) {
-            ps.setString(1, Long.toString(TenantContext.currentTenantId()));
+            ps.setString(1, Long.toString(tenant.getAsLong()));
             ps.execute();
         }
     }

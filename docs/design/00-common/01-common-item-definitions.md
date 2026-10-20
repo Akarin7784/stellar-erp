@@ -24,7 +24,7 @@
 | # | 物理名 | 論理名 | 型 | NULL | 既定値 | 説明 |
 |---|---|---|---|---|---|---|
 | 1 | `id` | 主キー | `BIGINT` | NOT NULL | アプリ生成 | 雪花 ID（MyBatis-Plus `ASSIGN_ID`）。API・画面では文字列で表現 |
-| 2 | `tenant_id` | 租户 ID | `BIGINT` | NOT NULL | `current_setting('app.tenant_id')::bigint` | 租户＝部署客户。RLS の隔離キー（ENABLE+FORCE、USING/WITH CHECK）。`DEFAULT 0` 禁止、上下文なしの INSERT は失敗。首期の租户上下文既定値は 0（アプリ側 `TenantContext`）。詳細は [10](10-rls-and-db-roles.md) |
+| 2 | `tenant_id` | 租户 ID | `BIGINT` | NOT NULL | `current_setting('app.tenant_id')::bigint` | 租户＝部署客户。RLS の隔離キー（ENABLE+FORCE、USING/WITH CHECK）。`DEFAULT 0` 禁止、上下文なしの INSERT は失敗。アプリ側 `TenantContext` に既定租户はなく、未設定なら例外。詳細は [10](10-rls-and-db-roles.md) |
 | 3 | `company_id` | 公司 ID | `BIGINT` | NOT NULL | `1` | 会計主体・組織単位。Phase 2 で多公司対応 |
 | 4 | `created_at` | 作成日時 | `TIMESTAMPTZ` | NOT NULL | `now()` | サーバ時刻（Asia/Shanghai 表現） |
 | 5 | `created_by` | 作成者 ID | `BIGINT` | NOT NULL | `0` | システム処理は `0`。ユーザは `sys_user.id` |
@@ -40,7 +40,7 @@
 ```sql
 -- 全業務テーブル共通の監査カラム（実装時は各テーブル DDL に展開する）
 id          BIGINT       NOT NULL,
-tenant_id   BIGINT       NOT NULL DEFAULT 0,
+tenant_id   BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
 company_id  BIGINT       NOT NULL DEFAULT 1,
 created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
 created_by  BIGINT       NOT NULL DEFAULT 0,

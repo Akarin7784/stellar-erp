@@ -22,6 +22,12 @@ class FlowableSchemaTest {
     @Autowired
     WorkflowService workflowService;
 
+    /** CI 守护：整个应用（含 Flowable 引擎）以非 owner 的 erp_app 启动并运行。 */
+    @Test
+    void applicationRunsAsErpApp() {
+        assertThat(jdbc.queryForObject("SELECT current_user", String.class)).isEqualTo("erp_app");
+    }
+
     @Test
     void noFlowableTablesInPublic() {
         Integer n = jdbc.queryForObject("""

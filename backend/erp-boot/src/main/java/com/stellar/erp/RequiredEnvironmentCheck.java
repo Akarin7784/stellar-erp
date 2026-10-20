@@ -14,7 +14,11 @@ import org.springframework.util.StringUtils;
  */
 public class RequiredEnvironmentCheck implements ApplicationListener<ApplicationEnvironmentPreparedEvent> {
 
-    static final List<String> PROD_REQUIRED = List.of("DB_URL", "DB_USER", "DB_PASSWORD");
+    static final List<String> PROD_REQUIRED = List.of(
+            "DB_URL", "DB_USER", "DB_PASSWORD", "DB_APP_USER", "DB_APP_PASSWORD");
+
+    /** afterMigrate.sql 以 Flyway 占位符把该值拼进 SQL 字面量，因此不得包含单引号。 */
+    static final String APP_PASSWORD_PLACEHOLDER = "spring.flyway.placeholders.erp_app_password";
 
     @Override
     public void onApplicationEvent(ApplicationEnvironmentPreparedEvent event) {
@@ -22,6 +26,19 @@ public class RequiredEnvironmentCheck implements ApplicationListener<Application
     }
 
     static void verify(Environment env) {
+        verifyRequired(env);
+        String appPassword;
+        try {
+            appPassword = env.getProperty(APP_PASSWORD_PLACEHOLDER);
+        } catch (IllegalArgumentException unresolved) {
+            return; // 占位符无法解析时由 Spring/Flyway 自行报错
+        }
+        if (appPassword != null && appPassword.indexOf('\'') >= 0) {
+            throw new IllegalStateException("DB_APP_PASSWORD（" + APP_PASSWORD_PLACEHOLDER + "）不得包含单引号");
+        }
+    }
+
+    private static void verifyRequired(Environment env) {
         if (!env.acceptsProfiles(Profiles.of("prod"))) {
             return;
         }

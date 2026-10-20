@@ -38,6 +38,50 @@ class RlsCoverageTest {
         assertThat(violations).as("以下含 tenant_id 的表未完整启用 RLS").isEmpty();
     }
 
+    /** public 中允许不带 tenant_id 的非业务表（显式白名单）。Flowable 表在 schema flowable，不在 public。 */
+    static final List<String> NON_TENANT_WHITELIST = List.of("flyway_schema_history");
+
+    @Test
+    void everyPublicTableHasTenantIdUnlessWhitelisted() {
+        List<String> missing = jdbc.queryForList("""
+                SELECT c.relname FROM pg_class c
+                JOIN pg_namespace n ON n.oid = c.relnamespace
+                WHERE n.nspname = 'public'
+                  AND c.relkind IN ('r', 'p')
+                  AND NOT c.relispartition
+                  AND c.relname <> ALL (?::text[])
+                  AND NOT EXISTS (SELECT 1 FROM pg_attribute a
+                                  WHERE a.attrelid = c.oid AND a.attname = 'tenant_id' AND NOT a.attisdropped)
+                ORDER BY 1
+                """, String.class, (Object) NON_TENANT_WHITELIST.toArray(String[]::new));
+        assertThat(missing).as("public 中以下表缺少 tenant_id 且不在白名单 %s", NON_TENANT_WHITELIST).isEmpty();
+    }
+
+    @Test
+    void everyPolicyOnTenantTablesHasUsingAndWithCheck() {
+        List<String> violations = jdbc.queryForList("""
+                SELECT c.relname || '.' || p.polname FROM pg_policy p
+                JOIN pg_class c ON c.oid = p.polrelid
+                JOIN pg_namespace n ON n.oid = c.relnamespace
+                WHERE n.nspname = 'public'
+                  AND (p.polqual IS NULL OR p.polwithcheck IS NULL)
+                ORDER BY 1
+                """, String.class);
+        assertThat(violations).as("以下策略缺少 USING 或 WITH CHECK").isEmpty();
+    }
+
+    @Test
+    void appRoleCannotCreateInBusinessOrFlowableSchema() {
+        var row = jdbc.queryForMap("""
+                SELECT has_schema_privilege('erp_app', 'public', 'CREATE') AS pub,
+                       has_schema_privilege('erp_app', 'flowable', 'CREATE') AS flw,
+                       has_schema_privilege('erp_app', 'flowable', 'USAGE') AS flw_usage
+                """);
+        assertThat(row.get("pub")).isEqualTo(false);
+        assertThat(row.get("flw")).isEqualTo(false);
+        assertThat(row.get("flw_usage")).isEqualTo(true);
+    }
+
     @Test
     void sysUserIsCoveredByTheCheck() {
         Integer n = jdbc.queryForObject("""

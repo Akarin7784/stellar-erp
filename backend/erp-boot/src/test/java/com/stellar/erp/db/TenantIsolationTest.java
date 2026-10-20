@@ -90,6 +90,19 @@ class TenantIsolationTest {
     }
 
     @Test
+    void transactionWithoutTenantContextFails() {
+        TenantContext.clear();
+        assertThatThrownBy(() -> tx.execute(s -> jdbc.queryForList("SELECT username FROM sys_user", String.class)))
+                .isInstanceOf(DataAccessException.class)
+                .rootCause().hasMessageContaining("app.tenant_id");
+        assertThatThrownBy(() -> tx.execute(s -> jdbc.update(
+                "INSERT INTO sys_user (id, username, password) VALUES (9006, 'erin', 'x')")))
+                .isInstanceOf(DataAccessException.class);
+        assertThat(OwnerJdbc.of(pg).queryForObject("SELECT count(*) FROM sys_user WHERE id = 9006 OR tenant_id = 0", Integer.class))
+                .as("不得落到租户 0").isZero();
+    }
+
+    @Test
     void insertWithoutTenantContextFails() {
         assertThatThrownBy(() -> jdbc.update("INSERT INTO sys_user (id, username, password) VALUES (9005, 'dave', 'x')"))
                 .isInstanceOf(DataAccessException.class);
