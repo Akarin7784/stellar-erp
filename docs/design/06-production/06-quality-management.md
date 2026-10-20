@@ -22,9 +22,9 @@
 | 目的 | 「何を・どこで・どのように検査し、合否をどう判定するか」を標準化し（品目×工程×顧客）、受入（IQC）・工程内（IPQC）・完成（FQC）・出荷（OQC）の各段階で検査を実施する。不合格品は NCR で処置（返工/特采/报废/返品/分选）を承認・実行し、批次を介して材料→製品→出荷の追跡を可能にする。判定結果は E15 で在庫・購買・製造へ通知する |
 | 利用者・ロール | 質検員（検査登録・判定）、質量主管（標準承認・特采/报废承認）、製造・購買（処置実行）、計画員（追溯参照） |
 | 利用シーン | ①入荷材料の IQC ②工程完了時の IPQC（YE3 は 20/30/40/50/60/70/80〜100 の各工程）③完成品の FQC／出荷試験 ④不合格品の NCR 起票と処置 ⑤クレーム発生時の批次逆追溯 |
-| 優先度 | P1（Phase 1.5） |
+| 優先度 | P1（第一版.5） |
 | 画面 ID | SCR-PRD-025（検査標準）、SCR-PRD-026（検査登録）、SCR-PRD-027（検査一覧・判定）、SCR-PRD-028（NCR）、SCR-PRD-029（追溯查询） |
-| 関連 IF | なし（外部検査機関との連携は Phase 2） |
+| 関連 IF | なし（外部検査機関との連携は 第一版） |
 
 ### 1.1 検査種別と業務上の位置づけ
 
@@ -33,7 +33,7 @@
 | IQC 来料检验 | `10` | 入荷後・入庫前（在庫は待検） | E14 `purchase.receipt.posted` 購読、委外受入確定 | E15 → INV 待検→可用/不合格、PUR 返品、NCR | F-PRD-013、[04](04-outsourcing.md) |
 | IPQC 过程检验 | `20` | 指定工序完了時 | 報工確定（`is_inspection_point=true`） | E15 → 次工程投入可否、NCR | [03](03-material-issue-reporting.md) |
 | FQC 成品检验 | `30` | 完成品入庫（E24）**後**・在庫 `stockStatus=10 待検` に対して実施 | 完工入庫確定（E24） | E15（合格）→INV で 20 可用、NCR | [03](03-material-issue-reporting.md) |
-| OQC 出货检验 | `40` | 出荷前（任意・顧客要求時） | 出荷指示（SAL 連携） | E15 → 出荷保留/解放 | SAL（Phase 2 連携） |
+| OQC 出货检验 | `40` | 出荷前（任意・顧客要求時） | 出荷指示（SAL 連携） | E15 → 出荷保留/解放 | SAL（第一版 連携） |
 | 型式試験 | `30`（FQC の一種） | 年 1 回・機種ごと | 品質計画（手動登録） | 標準適合の確認、能效確認 | [routing-demo.md](../90-data/routing-demo.md) §5 |
 
 > 来料检验（IQC）の所管域は本域（PRD）である（[07 术语集](../00-common/07-glossary.md)「来料检验」所管域 PRD、[09](../00-common/09-cross-domain-flow.md) 第 8 章）。採購（PUR）は検査依頼と結果受領のみを行い、検査記録は本域が唯一の保持者となる。
@@ -73,7 +73,7 @@
 |---|---|---|---|---|
 | CALC-QC-01 | 抜取数（AQL） | `sample_size = f(lot_size, inspection_level, aql_value)`（GB/T 2828.1-2012 表による） | 整数 | ロット 200、水準 II、AQL 1.0 → 標本 32、Ac=1／Re=2【示例值】 |
 | CALC-QC-02 | 不良率 | `defect_rate = 不良数 ÷ 検査数` | 4 桁 | 2 ÷ 120 = 0.0167 |
-| CALC-QC-03 | 工程能力（参考） | `Cp = (USL − LSL) ÷ (6σ)`（Phase 2） | 4 桁 | — |
+| CALC-QC-03 | 工程能力（参考） | `Cp = (USL − LSL) ÷ (6σ)` | 4 桁 | — |
 | CALC-QC-04 | ロット判定（计数） | `合格 = (不良数 ≤ Ac) かつ (关键项不良数 = 0)` | — | Ac=1 で 2 件 → 不合格 |
 | CALC-QC-05 | 品質コスト | `cost = 返工費 + 廃棄損失 + 返品費 + 選別費` | 2 桁 | NCR 単位で集計 |
 | CALC-QC-06 | FPY（一次通過率） | `FPY = 初回合格数 ÷ 初回検査数` | 4 桁 | 117 ÷ 120 = 0.9750 |
@@ -225,7 +225,7 @@ prd_inspection_standard（品目×工程×顧客×種別×版本×有効期間�
 | IQC | E14 `purchase.receipt.posted` 購読（または委外受入 E26 確定） | `inspection_type=10`、`source_type=10/50`、対象ロット・受入数量 | `inspection_qty`＝受入数量、`sample_qty`＝標準の抽検数 | イベント購読（冪等：`receiptId`） |
 | IPQC | 報工確定（`is_inspection_point=true`） | `inspection_type=20`、`source_type=20`、`source_id=workOrderOperationId` | `inspection_qty`＝報工良品数 | 同期（同一 TX で起票） |
 | FQC | 完工入庫登録（`prd_completion_receipt` 作成） | `inspection_type=30`、`source_type=30`、`source_id=workOrderId` | `inspection_qty`＝入庫予定数、全数 | 同期（入庫確定前） |
-| OQC | 出荷指示（SAL 連携、Phase 2） | `inspection_type=40`、`source_type=40` | 出荷数量 | イベント（E10 前） |
+| OQC | 出荷指示（SAL 連携、第一版） | `inspection_type=40`、`source_type=40` | 出荷数量 | イベント（E10 前） |
 | 手動 | 画面起票 | 任意 | 任意 | `POST /api/production/inspections` |
 
 ### 4.2 判定処理（PRC-PRD-006-01）
@@ -588,10 +588,10 @@ SELECT * FROM trace ORDER BY depth, operation_seq;
 |---|---|---|---|---|---|
 | 1 | 検査水準（AQL）・抜取数の最終値 | 品質部の検査基準書が未確定 | 暫定：一般検査水準 II、AQL は材料 1.0／外観 2.5／機能 0.65（【示例值】） | PRD + 質量部 | 2026-11-30 |
 | 2 | 絶縁抵抗・耐電圧・振動・騒音の規格値 | 実際の限界値は GB/T 28575-2020 の原文による | 暫定：本文の【示例值】。標準原文で確定 | PRD + 技術部 | 2026-11-20 |
-| 3 | 顧客特殊要求（CSR）の管理方法 | 顧客ごとの検査成績書・立会検査の要求が多様 | 暫定：検査標準の `customer_id`＋`ext_data`。CSR 台帳は Phase 2 | PRD + 営業 | 2026-12-20 |
+| 3 | 顧客特殊要求（CSR）の管理方法 | 顧客ごとの検査成績書・立会検査の要求が多様 | 暫定：検査標準の `customer_id`＋`ext_data`。CSR 台帳は 第一版 | PRD + 営業 | 2026-12-20 |
 | 4 | 返工工单の原価独立核算 | 品質コストの帰属方法が未確定 | 暫定：独立工单で帰集。FIN で「品質成本」として別掲（[00-overview](00-overview.md) 未決 #7） | PRD + FIN | 2026-12-10 |
 | 5 | 型式試験の運用（年 1 回・機種ごと） | 実施体制・外部試験機関の利用が未定 | 暫定：FQC の一種として手動登録。外部試験成績書は添付 | PRD + 質量部 | 2027-03-31 |
-| 6 | 外部検査機関・顧客立会検査とのデータ連携 | Phase 2 | 暫定：検査成績書 PDF を添付。連携は INT 域で設計 | PRD + INT | 2027-03-31 |
+| 6 | 外部検査機関・顧客立会検査とのデータ連携 | 第一版 | 暫定：検査成績書 PDF を添付。連携は INT 域で設計 | PRD + INT | 2027-03-31 |
 
 ## 15. 改訂履歴
 
