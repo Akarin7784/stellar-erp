@@ -366,7 +366,7 @@ sequenceDiagram
 | 7 | Outbox 配信基盤の帰属 | 09 で `sys_outbox_event` を定義しているが、発行は各域 | テーブルは SYS が提供、発行 API は共通モジュール（`erp-common`）で実装 | Lead | 2026-10-27 |
 | 8 | 監査ログのパーティション開始時期 | 年 1,000 万行見込み | Phase 1 は単一テーブル + 月次アーカイブ、Phase 2 で宣言的パーティション | 运维担当 | 2026-12-01 |
 | 9 | 印刷テンプレートのエンジン | JasperReports / HTML→PDF の選定 | Phase 1 は HTML テンプレート + Puppeteer（IF-SYS-007）。JasperReports は Phase 2 検討 | Lead | 2026-11-10 |
-| 10 | 租户分離（RLS）の実装時期 | 首期単租户 | Phase 3（README 優先度 P2）。テーブル・API は `tenant_id` を全件保持 | Lead | 2027-03-31 |
+| 10 | 租户分離（RLS）の実装時期 | 已決：不分期 | 第一版で首批業務テーブルと同時に RLS 有効化。テーブル・API は `tenant_id` を全件保持 | Lead | 已決（2026-10-20，Yuri） |
 
 ## 13. 改訂履歴
 
