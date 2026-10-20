@@ -67,7 +67,7 @@
 | BR-WO-12 | 工单番号は `WO{YYMMDD}{4桁日序}`（[08](../00-common/08-common-business-rules.md) 2.1）。取消・再作成でも新しい番号を採番する | 監査性 | `prd_work_order.work_order_no` |
 | BR-WO-13 | 同一受注明細に対して複数工单を作成できる（分納・分割）。合計完工数量は受注数量を超えない（超入庫容许率内） | 分納対応 | `sales_order_id` |
 | BR-WO-14 | 工单の日程は工艺路線の工序順・標準工数・工作日历から算出し、後工程の着手日は前工程の完了日＋待ち時間とする | [05](05-mrp-planning.md) 6.3 | `prd_work_order_operation` |
-| BR-WO-15 | **G2-18**：MTO 工单の `material_id` は `sales_order_line_id` の物料と一致必須（不一致は HTTP 422 / `60056` / `MSG-PRD-056`。業務拒否に共通 4002 を使わない）。数量は物料基本単位。完工累計 `completed_qty` ≤ 受注行／工单 `allowed_qty`（`allowed_qty = floor(base×(1+rate))`、`mdm_uom.decimal_places`。容差 NUMERIC(5,4)：受注行→物料→分類→`sys_param.prd.completion_over_rate`。NULL 継承、0 明示。欠落は 5000）。跨表ロックは受注行→工单（同一表 id 昇順）。超産は専用承認＋Flowable 後に `allowed_qty` 再計算（`MSG-PRD-100`/`60100`）。 | G2-18/#47/#29、#54 | `sales_order_line_id`、`allowed_qty`、`completed_qty`、`over_receipt_rate` |
+| BR-WO-15 | **G2-18**：MTO 工单の `material_id` は `sales_order_line_id` の物料と一致必須（不一致は HTTP 422 / `60056` / `MSG-PRD-056`。業務拒否に共通 4002 を使わない）。数量は物料基本単位。完工累計 `completed_qty` ≤ 受注行／工单 `allowed_qty`（`allowed_qty = floor(base×(1+rate))`、`mdm_uom.decimal_places`。容差 NUMERIC(5,4)：受注行→物料→分類→`sys_param.prd.completion_over_rate`。NULL 継承、0 明示。欠落は 5000）。跨表ロックは受注行→工单（同一表 id 昇順）。超産は専用承認＋Flowable（未承認は `MSG-PRD-100`/`60100`）。承認時は増分方式 `allowed_qty = allowed_qty + delta`（delta＝`request_qty`、≤0/NULL は `60103`）：工单級は受注行と当該工单を各 +delta（他工单は自身の上限に拘束）、受注行級は受注行のみ +delta（工单不変・按分なし）。受注変更時は率で再算出後に承認済 delta 合計を加算し戻す（[90 §3.19.1](90-db-design.md)）。 | G2-18/#47/#29、#54 | `sales_order_line_id`、`allowed_qty`、`completed_qty`、`over_receipt_rate` |
 
 ### 2.3 計算式・判定式
 
