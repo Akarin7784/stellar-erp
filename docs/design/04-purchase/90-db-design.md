@@ -178,10 +178,10 @@ CREATE TABLE pur_purchase_requisition (
     updated_by            BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_pur_purchase_requisition PRIMARY KEY (id),
     CONSTRAINT uk_pur_purchase_requisition_no UNIQUE (tenant_id, company_id, pr_no),
-    CONSTRAINT fk_pur_purchase_requisition_dept FOREIGN KEY (department_id) REFERENCES sys_department (id),
-    CONSTRAINT fk_pur_purchase_requisition_applicant FOREIGN KEY (applicant_id) REFERENCES sys_user (id),
-    CONSTRAINT fk_pur_purchase_requisition_factory FOREIGN KEY (factory_id) REFERENCES mdm_factory (id),
-    CONSTRAINT fk_pur_purchase_requisition_wh FOREIGN KEY (warehouse_id) REFERENCES mdm_warehouse (id),
+    CONSTRAINT fk_pur_purchase_requisition_dept FOREIGN KEY (tenant_id, department_id) REFERENCES sys_department (tenant_id, id),
+    CONSTRAINT fk_pur_purchase_requisition_applicant FOREIGN KEY (tenant_id, applicant_id) REFERENCES sys_user (tenant_id, id),
+    CONSTRAINT fk_pur_purchase_requisition_factory FOREIGN KEY (tenant_id, factory_id) REFERENCES mdm_factory (tenant_id, id),
+    CONSTRAINT fk_pur_purchase_requisition_wh FOREIGN KEY (tenant_id, warehouse_id) REFERENCES mdm_warehouse (tenant_id, id),
     CONSTRAINT ck_pur_purchase_requisition_status CHECK (pr_status IN (10,20,25,30,35,40,90,95)),
     CONSTRAINT ck_pur_purchase_requisition_amount CHECK (total_amount >= 0 AND tax_amount >= 0)
 );
@@ -282,8 +282,8 @@ CREATE TABLE pur_purchase_requisition_line (
     CONSTRAINT uk_pur_purchase_requisition_line_no UNIQUE (tenant_id, purchase_requisition_id, line_no),
     CONSTRAINT fk_pur_purchase_requisition_line_pr FOREIGN KEY (purchase_requisition_id)
         REFERENCES pur_purchase_requisition (id) ON DELETE RESTRICT,
-    CONSTRAINT fk_pur_purchase_requisition_line_material FOREIGN KEY (material_id) REFERENCES mdm_material (id),
-    CONSTRAINT fk_pur_purchase_requisition_line_supplier FOREIGN KEY (supplier_suggest_id) REFERENCES mdm_supplier (id),
+    CONSTRAINT fk_pur_purchase_requisition_line_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
+    CONSTRAINT fk_pur_purchase_requisition_line_supplier FOREIGN KEY (tenant_id, supplier_suggest_id) REFERENCES mdm_supplier (tenant_id, id),
     CONSTRAINT ck_pur_purchase_requisition_line_qty CHECK (quantity > 0 AND converted_qty >= 0),
     CONSTRAINT ck_pur_purchase_requisition_line_status CHECK (line_status IN (10,30,35,40,90))
 );
@@ -359,7 +359,7 @@ CREATE TABLE pur_rfq (
     CONSTRAINT pk_pur_rfq PRIMARY KEY (id),
     CONSTRAINT uk_pur_rfq_no UNIQUE (tenant_id, company_id, rfq_no),
     CONSTRAINT fk_pur_rfq_pr FOREIGN KEY (purchase_requisition_id) REFERENCES pur_purchase_requisition (id),
-    CONSTRAINT fk_pur_rfq_dept FOREIGN KEY (department_id) REFERENCES sys_department (id),
+    CONSTRAINT fk_pur_rfq_dept FOREIGN KEY (tenant_id, department_id) REFERENCES sys_department (tenant_id, id),
     CONSTRAINT ck_pur_rfq_status CHECK (rfq_status IN (10,30,35,40,90)),
     CONSTRAINT ck_pur_rfq_deadline CHECK (quote_deadline > created_at)
 );
@@ -425,8 +425,8 @@ CREATE TABLE pur_rfq_line (
     CONSTRAINT uk_pur_rfq_line_no UNIQUE (tenant_id, rfq_id, line_no),
     CONSTRAINT fk_pur_rfq_line_rfq FOREIGN KEY (rfq_id) REFERENCES pur_rfq (id) ON DELETE RESTRICT,
     CONSTRAINT fk_pur_rfq_line_pr_line FOREIGN KEY (purchase_requisition_line_id) REFERENCES pur_purchase_requisition_line (id),
-    CONSTRAINT fk_pur_rfq_line_material FOREIGN KEY (material_id) REFERENCES mdm_material (id),
-    CONSTRAINT fk_pur_rfq_line_supplier FOREIGN KEY (selected_supplier_id) REFERENCES mdm_supplier (id),
+    CONSTRAINT fk_pur_rfq_line_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
+    CONSTRAINT fk_pur_rfq_line_supplier FOREIGN KEY (tenant_id, selected_supplier_id) REFERENCES mdm_supplier (tenant_id, id),
     CONSTRAINT ck_pur_rfq_line_qty CHECK (quantity > 0),
     CONSTRAINT ck_pur_rfq_line_status CHECK (line_status IN (10,30,35,40,90))
 );
@@ -481,7 +481,7 @@ CREATE TABLE pur_rfq_supplier (
     CONSTRAINT pk_pur_rfq_supplier PRIMARY KEY (id),
     CONSTRAINT uk_pur_rfq_supplier UNIQUE (tenant_id, rfq_id, supplier_id),
     CONSTRAINT fk_pur_rfq_supplier_rfq FOREIGN KEY (rfq_id) REFERENCES pur_rfq (id) ON DELETE RESTRICT,
-    CONSTRAINT fk_pur_rfq_supplier_supplier FOREIGN KEY (supplier_id) REFERENCES mdm_supplier (id),
+    CONSTRAINT fk_pur_rfq_supplier_supplier FOREIGN KEY (tenant_id, supplier_id) REFERENCES mdm_supplier (tenant_id, id),
     CONSTRAINT ck_pur_rfq_supplier_status CHECK (response_status IN (0,1,2,3,4))
 );
 ```
@@ -538,7 +538,7 @@ CREATE TABLE pur_supplier_quotation (
     CONSTRAINT pk_pur_supplier_quotation PRIMARY KEY (id),
     CONSTRAINT uk_pur_supplier_quotation UNIQUE (tenant_id, rfq_id, supplier_id),
     CONSTRAINT fk_pur_supplier_quotation_rfq FOREIGN KEY (rfq_id) REFERENCES pur_rfq (id) ON DELETE RESTRICT,
-    CONSTRAINT fk_pur_supplier_quotation_supplier FOREIGN KEY (supplier_id) REFERENCES mdm_supplier (id),
+    CONSTRAINT fk_pur_supplier_quotation_supplier FOREIGN KEY (tenant_id, supplier_id) REFERENCES mdm_supplier (tenant_id, id),
     CONSTRAINT ck_pur_supplier_quotation_valid CHECK (valid_to >= valid_from),
     CONSTRAINT ck_pur_supplier_quotation_rate CHECK (exchange_rate > 0)
 );
@@ -608,7 +608,7 @@ CREATE TABLE pur_supplier_quotation_line (
     CONSTRAINT uk_pur_supplier_quotation_line UNIQUE (tenant_id, quotation_id, rfq_line_id),
     CONSTRAINT fk_pur_supplier_quotation_line_q FOREIGN KEY (quotation_id) REFERENCES pur_supplier_quotation (id) ON DELETE RESTRICT,
     CONSTRAINT fk_pur_supplier_quotation_line_rfq_line FOREIGN KEY (rfq_line_id) REFERENCES pur_rfq_line (id),
-    CONSTRAINT fk_pur_supplier_quotation_line_material FOREIGN KEY (material_id) REFERENCES mdm_material (id),
+    CONSTRAINT fk_pur_supplier_quotation_line_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
     CONSTRAINT ck_pur_supplier_quotation_line_price CHECK (quoted_unit_price >= 0 AND quoted_qty > 0),
     CONSTRAINT ck_pur_supplier_quotation_line_score CHECK (total_score IS NULL OR total_score >= 0)
 );
@@ -699,11 +699,11 @@ CREATE TABLE pur_purchase_order (
     updated_by             BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_pur_purchase_order PRIMARY KEY (id),
     CONSTRAINT uk_pur_purchase_order_no UNIQUE (tenant_id, company_id, po_no),
-    CONSTRAINT fk_pur_purchase_order_supplier FOREIGN KEY (supplier_id) REFERENCES mdm_supplier (id),
-    CONSTRAINT fk_pur_purchase_order_dept FOREIGN KEY (department_id) REFERENCES sys_department (id),
-    CONSTRAINT fk_pur_purchase_order_buyer FOREIGN KEY (buyer_id) REFERENCES sys_user (id),
-    CONSTRAINT fk_pur_purchase_order_factory FOREIGN KEY (factory_id) REFERENCES mdm_factory (id),
-    CONSTRAINT fk_pur_purchase_order_wh FOREIGN KEY (warehouse_id) REFERENCES mdm_warehouse (id),
+    CONSTRAINT fk_pur_purchase_order_supplier FOREIGN KEY (tenant_id, supplier_id) REFERENCES mdm_supplier (tenant_id, id),
+    CONSTRAINT fk_pur_purchase_order_dept FOREIGN KEY (tenant_id, department_id) REFERENCES sys_department (tenant_id, id),
+    CONSTRAINT fk_pur_purchase_order_buyer FOREIGN KEY (tenant_id, buyer_id) REFERENCES sys_user (tenant_id, id),
+    CONSTRAINT fk_pur_purchase_order_factory FOREIGN KEY (tenant_id, factory_id) REFERENCES mdm_factory (tenant_id, id),
+    CONSTRAINT fk_pur_purchase_order_wh FOREIGN KEY (tenant_id, warehouse_id) REFERENCES mdm_warehouse (tenant_id, id),
     CONSTRAINT ck_pur_purchase_order_status CHECK (po_status IN (10,20,25,30,35,40,90,95)),
     CONSTRAINT ck_pur_purchase_order_prepay CHECK (prepay_ratio >= 0 AND prepay_ratio <= 100),
     CONSTRAINT ck_pur_purchase_order_amount CHECK (total_amount >= 0)
@@ -807,8 +807,8 @@ CREATE TABLE pur_purchase_order_line (
     CONSTRAINT fk_pur_purchase_order_line_po FOREIGN KEY (purchase_order_id) REFERENCES pur_purchase_order (id) ON DELETE RESTRICT,
     CONSTRAINT fk_pur_purchase_order_line_pr_line FOREIGN KEY (purchase_requisition_line_id) REFERENCES pur_purchase_requisition_line (id),
     CONSTRAINT fk_pur_purchase_order_line_quote_line FOREIGN KEY (rfq_quotation_line_id) REFERENCES pur_supplier_quotation_line (id),
-    CONSTRAINT fk_pur_purchase_order_line_material FOREIGN KEY (material_id) REFERENCES mdm_material (id),
-    CONSTRAINT fk_pur_purchase_order_line_wh FOREIGN KEY (warehouse_id) REFERENCES mdm_warehouse (id),
+    CONSTRAINT fk_pur_purchase_order_line_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
+    CONSTRAINT fk_pur_purchase_order_line_wh FOREIGN KEY (tenant_id, warehouse_id) REFERENCES mdm_warehouse (tenant_id, id),
     CONSTRAINT ck_pur_purchase_order_line_qty CHECK (quantity > 0 AND received_qty >= 0 AND cancelled_qty >= 0),
     CONSTRAINT ck_pur_purchase_order_line_price CHECK (unit_price >= 0),
     CONSTRAINT ck_pur_purchase_order_line_status CHECK (line_status IN (10,30,35,40,90))
@@ -927,9 +927,9 @@ CREATE TABLE pur_receipt (
     CONSTRAINT pk_pur_receipt PRIMARY KEY (id),
     CONSTRAINT uk_pur_receipt_no UNIQUE (tenant_id, company_id, receipt_no),
     CONSTRAINT fk_pur_receipt_po FOREIGN KEY (purchase_order_id) REFERENCES pur_purchase_order (id) ON DELETE RESTRICT,
-    CONSTRAINT fk_pur_receipt_supplier FOREIGN KEY (supplier_id) REFERENCES mdm_supplier (id),
-    CONSTRAINT fk_pur_receipt_wh FOREIGN KEY (warehouse_id) REFERENCES mdm_warehouse (id),
-    CONSTRAINT fk_pur_receipt_user FOREIGN KEY (receiving_user_id) REFERENCES sys_user (id),
+    CONSTRAINT fk_pur_receipt_supplier FOREIGN KEY (tenant_id, supplier_id) REFERENCES mdm_supplier (tenant_id, id),
+    CONSTRAINT fk_pur_receipt_wh FOREIGN KEY (tenant_id, warehouse_id) REFERENCES mdm_warehouse (tenant_id, id),
+    CONSTRAINT fk_pur_receipt_user FOREIGN KEY (tenant_id, receiving_user_id) REFERENCES sys_user (tenant_id, id),
     CONSTRAINT ck_pur_receipt_status CHECK (receipt_status IN (25,30,35,40,90))
 );
 ```
@@ -1017,8 +1017,8 @@ CREATE TABLE pur_receipt_line (
     CONSTRAINT uk_pur_receipt_line_no UNIQUE (tenant_id, receipt_id, line_no),
     CONSTRAINT fk_pur_receipt_line_receipt FOREIGN KEY (receipt_id) REFERENCES pur_receipt (id) ON DELETE RESTRICT,
     CONSTRAINT fk_pur_receipt_line_po_line FOREIGN KEY (purchase_order_line_id) REFERENCES pur_purchase_order_line (id),
-    CONSTRAINT fk_pur_receipt_line_material FOREIGN KEY (material_id) REFERENCES mdm_material (id),
-    CONSTRAINT fk_pur_receipt_line_wh FOREIGN KEY (warehouse_id) REFERENCES mdm_warehouse (id),
+    CONSTRAINT fk_pur_receipt_line_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
+    CONSTRAINT fk_pur_receipt_line_wh FOREIGN KEY (tenant_id, warehouse_id) REFERENCES mdm_warehouse (tenant_id, id),
     CONSTRAINT ck_pur_receipt_line_qty CHECK (received_qty > 0 AND accepted_qty >= 0 AND rejected_qty >= 0),
     CONSTRAINT ck_pur_receipt_line_inspection CHECK (inspection_status IN (0,1,2,3,4,5))
 );
@@ -1096,8 +1096,8 @@ CREATE TABLE pur_return (
     updated_by           BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_pur_return PRIMARY KEY (id),
     CONSTRAINT uk_pur_return_no UNIQUE (tenant_id, company_id, return_no),
-    CONSTRAINT fk_pur_return_supplier FOREIGN KEY (supplier_id) REFERENCES mdm_supplier (id),
-    CONSTRAINT fk_pur_return_wh FOREIGN KEY (warehouse_id) REFERENCES mdm_warehouse (id),
+    CONSTRAINT fk_pur_return_supplier FOREIGN KEY (tenant_id, supplier_id) REFERENCES mdm_supplier (tenant_id, id),
+    CONSTRAINT fk_pur_return_wh FOREIGN KEY (tenant_id, warehouse_id) REFERENCES mdm_warehouse (tenant_id, id),
     CONSTRAINT fk_pur_return_orig_invoice FOREIGN KEY (original_invoice_id) REFERENCES pur_invoice (id),
     CONSTRAINT ck_pur_return_type CHECK (return_type IN (1,2,3,4,5)),
     CONSTRAINT ck_pur_return_status CHECK (return_status IN (10,20,25,30,40,90,95)),
@@ -1170,7 +1170,7 @@ CREATE TABLE pur_return_line (
     CONSTRAINT uk_pur_return_line_no UNIQUE (tenant_id, return_id, line_no),
     CONSTRAINT fk_pur_return_line_return FOREIGN KEY (return_id) REFERENCES pur_return (id) ON DELETE RESTRICT,
     CONSTRAINT fk_pur_return_line_receipt_line FOREIGN KEY (receipt_line_id) REFERENCES pur_receipt_line (id),
-    CONSTRAINT fk_pur_return_line_material FOREIGN KEY (material_id) REFERENCES mdm_material (id),
+    CONSTRAINT fk_pur_return_line_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
     CONSTRAINT fk_pur_return_line_replacement FOREIGN KEY (replacement_receipt_id) REFERENCES pur_receipt (id),
     CONSTRAINT fk_pur_return_line_orig_invoice_line FOREIGN KEY (original_invoice_line_id) REFERENCES pur_invoice_line (id),
     CONSTRAINT ck_pur_return_line_qty CHECK (return_qty > 0 AND replacement_qty >= 0),
@@ -1245,7 +1245,7 @@ CREATE TABLE pur_invoice (
     updated_by             BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_pur_invoice PRIMARY KEY (id),
     CONSTRAINT uk_pur_invoice_no UNIQUE (tenant_id, company_id, invoice_no),
-    CONSTRAINT fk_pur_invoice_supplier FOREIGN KEY (supplier_id) REFERENCES mdm_supplier (id),
+    CONSTRAINT fk_pur_invoice_supplier FOREIGN KEY (tenant_id, supplier_id) REFERENCES mdm_supplier (tenant_id, id),
     CONSTRAINT fk_pur_invoice_original FOREIGN KEY (original_invoice_id) REFERENCES pur_invoice (id),
     CONSTRAINT ck_pur_invoice_type CHECK (invoice_type IN (10,20,30,40,50)),
     CONSTRAINT ck_pur_invoice_matched CHECK (matched_status IN (0,1,2,3,4,5,6,9)),
@@ -1320,7 +1320,7 @@ CREATE TABLE pur_invoice_line (
     CONSTRAINT fk_pur_invoice_line_invoice FOREIGN KEY (invoice_id) REFERENCES pur_invoice (id) ON DELETE RESTRICT,
     CONSTRAINT fk_pur_invoice_line_po_line FOREIGN KEY (purchase_order_line_id) REFERENCES pur_purchase_order_line (id),
     CONSTRAINT fk_pur_invoice_line_receipt_line FOREIGN KEY (receipt_line_id) REFERENCES pur_receipt_line (id),
-    CONSTRAINT fk_pur_invoice_line_material FOREIGN KEY (material_id) REFERENCES mdm_material (id),
+    CONSTRAINT fk_pur_invoice_line_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
     CONSTRAINT fk_pur_invoice_line_orig_line FOREIGN KEY (original_invoice_line_id) REFERENCES pur_invoice_line (id),
     CONSTRAINT ck_pur_invoice_line_qty CHECK (invoice_qty <> 0),
     CONSTRAINT ck_pur_invoice_line_tax CHECK (tax_rate >= 0 AND tax_rate <= 100)
@@ -1399,7 +1399,7 @@ CREATE TABLE pur_invoice_match (
     CONSTRAINT fk_pur_invoice_match_invoice_line FOREIGN KEY (invoice_line_id) REFERENCES pur_invoice_line (id),
     CONSTRAINT fk_pur_invoice_match_po_line FOREIGN KEY (purchase_order_line_id) REFERENCES pur_purchase_order_line (id),
     CONSTRAINT fk_pur_invoice_match_receipt_line FOREIGN KEY (receipt_line_id) REFERENCES pur_receipt_line (id),
-    CONSTRAINT fk_pur_invoice_match_material FOREIGN KEY (material_id) REFERENCES mdm_material (id),
+    CONSTRAINT fk_pur_invoice_match_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
     CONSTRAINT ck_pur_invoice_match_status CHECK (match_status IN (1,2,3,4,5,6)),
     CONSTRAINT ck_pur_invoice_match_type CHECK (diff_type IN (0,1,2,3,4,5)),
     CONSTRAINT ck_pur_invoice_match_treatment CHECK (accounting_treatment IS NULL OR accounting_treatment BETWEEN 1 AND 5)
@@ -1470,7 +1470,7 @@ CREATE TABLE pur_statement (
     CONSTRAINT pk_pur_statement PRIMARY KEY (id),
     CONSTRAINT uk_pur_statement_no UNIQUE (tenant_id, company_id, statement_no),
     CONSTRAINT uk_pur_statement_period UNIQUE (tenant_id, company_id, supplier_id, period_code),
-    CONSTRAINT fk_pur_statement_supplier FOREIGN KEY (supplier_id) REFERENCES mdm_supplier (id),
+    CONSTRAINT fk_pur_statement_supplier FOREIGN KEY (tenant_id, supplier_id) REFERENCES mdm_supplier (tenant_id, id),
     CONSTRAINT ck_pur_statement_status CHECK (statement_status IN (10,30,40,90)),
     CONSTRAINT ck_pur_statement_period CHECK (period_code ~ '^[0-9]{4}-[0-9]{2}$')
 );
@@ -1525,7 +1525,7 @@ CREATE TABLE pur_statement_line (
     CONSTRAINT pk_pur_statement_line PRIMARY KEY (id),
     CONSTRAINT uk_pur_statement_line_no UNIQUE (tenant_id, statement_id, line_no),
     CONSTRAINT fk_pur_statement_line_statement FOREIGN KEY (statement_id) REFERENCES pur_statement (id) ON DELETE RESTRICT,
-    CONSTRAINT fk_pur_statement_line_material FOREIGN KEY (material_id) REFERENCES mdm_material (id),
+    CONSTRAINT fk_pur_statement_line_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
     CONSTRAINT ck_pur_statement_line_amount CHECK (debit_amount >= 0 AND credit_amount >= 0)
 );
 ```
@@ -1708,7 +1708,7 @@ CREATE TABLE pur_supplier_performance (
     updated_by             BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_pur_supplier_performance PRIMARY KEY (id),
     CONSTRAINT uk_pur_supplier_performance UNIQUE (tenant_id, company_id, period_code, supplier_id),
-    CONSTRAINT fk_pur_supplier_performance_supplier FOREIGN KEY (supplier_id) REFERENCES mdm_supplier (id),
+    CONSTRAINT fk_pur_supplier_performance_supplier FOREIGN KEY (tenant_id, supplier_id) REFERENCES mdm_supplier (tenant_id, id),
     CONSTRAINT ck_pur_supplier_performance_period CHECK (period_code ~ '^[0-9]{4}-[0-9]{2}$'),
     CONSTRAINT ck_pur_supplier_performance_score CHECK (total_score >= 0 AND total_score <= 100),
     CONSTRAINT ck_pur_supplier_performance_grade CHECK (grade IS NULL OR grade IN ('A','B','C','D'))
@@ -1754,7 +1754,7 @@ CREATE TABLE pur_supplier_performance (
 
 - 業務一意索引（`uk_`）は DDL 本文・本一覧とも `(tenant_id, company_id, 業務キー)` で始める。
 - `tenant_id` は `NOT NULL DEFAULT current_setting('app.tenant_id')::bigint`（字面量默认租户禁止）。`company_id` は NOT NULL・既定値なし（ヘッダ・設定・集計テーブル）。
-- **例外なし**（2026-10-21 決定）：明細・関連・履歴テーブルの一意制約も `(tenant_id, 親 ID, …)` 先頭とする（例：`UNIQUE (tenant_id, purchase_requisition_id, line_no)`）。全テーブルが `tenant_id` を持つ。06-production の「親 ID 先頭」例外方式は新規域では採用しない。
+- **例外なし**：「親 ID 先頭」の例外は全域で廃止（蓝色大肥鱼 2026-10-21 決定、sys/V202610210708 と整合）。例外は [00-common/04](../00-common/04-common-db-spec.md) §6.1 第 4 条（`company_id` を持たないテナント共有表、`(tenant_id, …)` 先頭）のみ：`uk_sys_company_code`、`uk_sys_company_credit`、`uk_sys_menu_code`、`uk_sys_menu_permission`、`uk_sys_dict_type_code`、`uk_sys_outbox_event_id`、`uk_sys_idempotency_key`、`uk_mdm_exchange_rate`。親 ID・イベント ID 先頭の例外は廃止。※ 本域の明細・関連・履歴テーブル（`pur_*_line` 等 13 表）は DDL に `company_id` 列がなく、一意制約は `(tenant_id, 親 ID, …)` 先頭（例：`UNIQUE (tenant_id, purchase_requisition_id, line_no)`）。`company_id` 列追加の要否は未決（§未決事項参照）。
 - **G2-20**：非一意の照会索引（`idx_`）は `(company_id, …)` 先頭としてよい。`uk_` を company_id 先頭と書いてはならない。
 
 ---
@@ -1771,7 +1771,7 @@ CREATE TABLE pur_supplier_performance (
 | 6 | 退货数量 ≤ 可退数量 | アプリ検証 | `pur_return_line` |
 | 7 | 状態値の妥当性 | CHECK | 各伝票 |
 | 8 | 親子の参照整合（CASCADE 禁止） | FK `ON DELETE RESTRICT` | 明細 |
-| 9 | マスタ参照整合 | FK（`mdm_*`、`sys_*`） | 各テーブル |
+| 9 | マスタ参照整合 | 複合 FK `(tenant_id, x_id) REFERENCES mdm_*/sys_* (tenant_id, id)`（sys/V202610210707 と同一規約。単列 FK 禁止、跨租户参照は 23503） | 各テーブル |
 | 10 | 二重計上防止 | E17 の `(source_type, source_id)` 一意（`sys_outbox_event` と FIN 側） | イベント |
 | 11 | 二重マッチ防止 | UNIQUE (`tenant_id`, `invoice_line_id`, `receipt_line_id`) | `pur_invoice_match` |
 | 12 | 期間締切 | アプリ検証（`fin_period.status`） | 全登録系 |
@@ -1849,3 +1849,4 @@ CREATE TABLE pur_supplier_performance (
 | v1.1 | 2026-10-20 | 红队第 2 轮修复：invoice_type コードを 10/20/30/40/50 に統一、pur_tolerance_rule を MDM 既定への上書き規則に限定（二重定義解消）、E16/E35 金額項目を 09 改訂に追従 | purchase-designer |
 | v1.2 | 2026-10-21 | 第一版全量化：`company_id` 既定値 1 を削除、業務一意索引を `(tenant_id, company_id, …)` 先頭に統一（DDL・一覧）、§6.1 例外一覧追加、段階表記を削除 | 业务分析 |
 | v1.3 | 2026-10-21 | 明細・関連・履歴 12 一意制約を `(tenant_id, …)` 先頭に変更し §6.1 例外を廃止；PO ヘッダに `change_approved_at` 追加；ER 図列名を DDL に統一；`uk_pur_tolerance_rule` を `scope_id` NULLS NOT DISTINCT に変更；`prd_planned_order`→`prd_mrp_plan_order` | 业务分析 |
+| v1.4 | 2026-10-21 | sys/mdm への単列 FK 33 件を複合 FK `(tenant_id, x_id) → (tenant_id, id)` に変更（0707 規約）、§6.1 例外記述を更新、§7 #9 を複合 FK に（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

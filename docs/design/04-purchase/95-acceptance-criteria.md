@@ -26,7 +26,7 @@
 ## AC-PUR-03 一意索引は tenant_id 先頭
 
 - W：業務一意索引（`uk_`）を DDL 本文・§4 テーブル一覧・§6 索引一覧・§7 制約一覧で確認。T：`(tenant_id, company_id, …)` で始まり、4 箇所の列順が一致する（`uk_pur_*_no`、`uk_pur_invoice_number`、`uk_pur_statement_period`、`uk_pur_tolerance_rule`、`uk_pur_supplier_performance`）。
-- T：親 ID 先頭の一意索引は 90 §6.1 の例外一覧に全て列挙され、理由（親行が tenant/company を保証）が書かれている。一覧外の非 tenant 先頭 `uk_` は 0 件。
+- T：`company_id` を持つ表の `uk_` はすべて `(tenant_id, company_id, …)` 先頭。親 ID 先頭の例外一覧は存在しない。`company_id` 列のない明細表（90 §6.1 注記）は `(tenant_id, …)` 先頭。非 tenant 先頭 `uk_` は 0 件。
 - T（G2-20）：`company_id` 先頭は非一意 `idx_` のみ（例：`idx_pur_tolerance_rule_lookup`）。
 
 ## AC-PUR-04 RLS
@@ -86,3 +86,9 @@
 | 1 | E14 に `inspectionFlag` を載せるか | **決定済（蓝色大肥鱼 2026-10-21）**：E14 明細ごとに後方互換追加 | — | 蓝色大肥鱼 |
 | 2 | PRD IQC 起票の `sourceType` | **決定済（同上）**：`PURCHASE_RECEIPT` に統一 | — | 蓝色大肥鱼 |
 | 3 | `pur_receipt.inspection_flag`（ヘッダ）の要否 | **決定済（同上）**：ヘッダ列を削除、明細のみ。一覧表示は `bool_or(line.inspection_flag)` で導出 | — | 蓝色大肥鱼 |
+
+## 改訂履歴
+
+| 版数 | 日付 | 変更内容 | 変更者 |
+|---|---|---|---|
+| v1.1 | 2026-10-21 | 親 ID 先頭の例外一覧の前提を削除（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

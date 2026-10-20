@@ -48,17 +48,14 @@
 
 問題なし。
 
-### 3.5 doc_format（8 件）
+### 3.5 doc_format（5 件）
 
 | ファイル | 内容 |
 |---|---|
 | 02-mdm/95-acceptance-criteria.md | 冒頭に文書情報（文書番号）がありません |
-| 02-mdm/95-acceptance-criteria.md | 改訂履歴がありません |
 | 03-sales/95-acceptance-criteria.md | 冒頭に文書情報（文書番号）がありません |
 | 04-purchase/95-acceptance-criteria.md | 冒頭に文書情報（文書番号）がありません |
-| 04-purchase/95-acceptance-criteria.md | 改訂履歴がありません |
 | 05-inventory/95-acceptance-criteria.md | 冒頭に文書情報（文書番号）がありません |
-| 05-inventory/95-acceptance-criteria.md | 改訂履歴がありません |
 | 06-production/95-acceptance-criteria.md | 冒頭に文書情報（文書番号）がありません |
 
 ### 3.5 link（0 件）

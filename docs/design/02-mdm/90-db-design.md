@@ -404,7 +404,7 @@ CREATE TABLE mdm_material_factory (
     CONSTRAINT pk_mdm_material_factory PRIMARY KEY (id),
     CONSTRAINT fk_mdm_material_factory_material FOREIGN KEY (material_id) REFERENCES mdm_material (id)
 );
-CREATE UNIQUE INDEX uk_mdm_material_factory ON mdm_material_factory (material_id, factory_id) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_mdm_material_factory ON mdm_material_factory (tenant_id, company_id, material_id, factory_id) WHERE deleted = FALSE;
 CREATE INDEX idx_mdm_material_factory_factory ON mdm_material_factory (factory_id);
 ```
 
@@ -472,7 +472,7 @@ CREATE TABLE mdm_material_substitute (
     CONSTRAINT ck_mdm_substitute_type CHECK (substitute_type IN (10,20,30,40)),
     CONSTRAINT ck_mdm_substitute_ratio CHECK (conversion_ratio > 0)
 );
-CREATE UNIQUE INDEX uk_mdm_substitute ON mdm_material_substitute (material_id, substitute_material_id, valid_from) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_mdm_substitute ON mdm_material_substitute (tenant_id, company_id, material_id, substitute_material_id, valid_from) WHERE deleted = FALSE;
 CREATE INDEX idx_mdm_substitute_target ON mdm_material_substitute (substitute_material_id, status);
 ```
 
@@ -924,7 +924,7 @@ CREATE TABLE mdm_warehouse_zone (
     CONSTRAINT pk_mdm_warehouse_zone PRIMARY KEY (id),
     CONSTRAINT fk_mdm_warehouse_zone_warehouse FOREIGN KEY (warehouse_id) REFERENCES mdm_warehouse (id)
 );
-CREATE UNIQUE INDEX uk_mdm_warehouse_zone_code ON mdm_warehouse_zone (warehouse_id, zone_code) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_mdm_warehouse_zone_code ON mdm_warehouse_zone (tenant_id, company_id, warehouse_id, zone_code) WHERE deleted = FALSE;
 
 CREATE TABLE mdm_warehouse_bin (
     id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
@@ -1112,7 +1112,7 @@ CREATE TABLE mdm_price_list_line (
         (scope_type = 20 AND customer_category_code IS NOT NULL AND material_id IS NOT NULL) OR
         (scope_type = 30 AND material_id IS NOT NULL) OR (scope_type = 40))
 );
-CREATE UNIQUE INDEX uk_mdm_price_line_no ON mdm_price_list_line (price_list_id, line_no) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_mdm_price_line_no ON mdm_price_list_line (tenant_id, company_id, price_list_id, line_no) WHERE deleted = FALSE;
 CREATE INDEX idx_mdm_price_line_lookup ON mdm_price_list_line (scope_type, customer_id, material_id, min_qty, valid_from);
 CREATE INDEX idx_mdm_price_line_material ON mdm_price_list_line (material_id, valid_from DESC);
 ```
@@ -1191,7 +1191,7 @@ CREATE TABLE mdm_supplier_quotation_line (
     CONSTRAINT fk_mdm_quotation_line_quotation FOREIGN KEY (quotation_id) REFERENCES mdm_supplier_quotation (id),
     CONSTRAINT fk_mdm_quotation_line_material FOREIGN KEY (material_id) REFERENCES mdm_material (id)
 );
-CREATE UNIQUE INDEX uk_mdm_quotation_line_no ON mdm_supplier_quotation_line (quotation_id, line_no) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_mdm_quotation_line_no ON mdm_supplier_quotation_line (tenant_id, company_id, quotation_id, line_no) WHERE deleted = FALSE;
 ```
 
 #### 4.5.4 結算・支払条件・銀行
@@ -1242,7 +1242,7 @@ CREATE TABLE mdm_payment_term_line (
     CONSTRAINT pk_mdm_payment_term_line PRIMARY KEY (id),
     CONSTRAINT fk_mdm_payment_term_line_term FOREIGN KEY (payment_term_id) REFERENCES mdm_payment_term (id)
 );
-CREATE UNIQUE INDEX uk_mdm_payment_term_line ON mdm_payment_term_line (payment_term_id, seq_no) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_mdm_payment_term_line ON mdm_payment_term_line (tenant_id, company_id, payment_term_id, seq_no) WHERE deleted = FALSE;
 
 ```
 
@@ -1329,7 +1329,7 @@ CREATE TABLE mdm_supplier_evaluation (
     CONSTRAINT pk_mdm_supplier_evaluation PRIMARY KEY (id),
     CONSTRAINT fk_mdm_evaluation_supplier FOREIGN KEY (supplier_id) REFERENCES mdm_supplier (id)
 );
-CREATE UNIQUE INDEX uk_mdm_evaluation ON mdm_supplier_evaluation (supplier_id, evaluation_period) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_mdm_evaluation ON mdm_supplier_evaluation (tenant_id, company_id, supplier_id, evaluation_period) WHERE deleted = FALSE;
 CREATE INDEX idx_mdm_evaluation_period ON mdm_supplier_evaluation (evaluation_period, total_score DESC);
 
 CREATE TABLE mdm_supplier_eval_item (
@@ -1341,7 +1341,7 @@ CREATE TABLE mdm_supplier_eval_item (
     CONSTRAINT pk_mdm_supplier_eval_item PRIMARY KEY (id),
     CONSTRAINT fk_mdm_eval_item_evaluation FOREIGN KEY (evaluation_id) REFERENCES mdm_supplier_evaluation (id)
 );
-CREATE UNIQUE INDEX uk_mdm_eval_item ON mdm_supplier_eval_item (evaluation_id, dimension_code);
+CREATE UNIQUE INDEX uk_mdm_eval_item ON mdm_supplier_eval_item (tenant_id, company_id, evaluation_id, dimension_code);
 ```
 
 ### 4.7 治理（条码・变更・品質・権限）
@@ -1393,7 +1393,7 @@ CREATE TABLE mdm_change_request_line (
     CONSTRAINT pk_mdm_change_request_line PRIMARY KEY (id),
     CONSTRAINT fk_mdm_change_line_request FOREIGN KEY (request_id) REFERENCES mdm_change_request (id)
 );
-CREATE UNIQUE INDEX uk_mdm_change_line_no ON mdm_change_request_line (request_id, line_no);
+CREATE UNIQUE INDEX uk_mdm_change_line_no ON mdm_change_request_line (tenant_id, company_id, request_id, line_no);
 
 CREATE TABLE mdm_data_quality_rule (
     id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
@@ -1454,10 +1454,10 @@ CREATE UNIQUE INDEX uk_mdm_data_scope_policy ON mdm_data_scope_policy (tenant_id
 | 9 | `idx_mdm_customer_owner` | mdm_customer | B-Tree | (company_id, owner_user_id, status) | 担当者別 |
 | 10 | `idx_mdm_warehouse_bin_warehouse` | mdm_warehouse_bin | B-Tree | (warehouse_id, zone_id, is_active) | 庫位検索 |
 | 11 | `uk_mdm_exchange_rate` | mdm_exchange_rate | UNIQUE | (tenant_id, pair, rate_type, effective_date) WHERE deleted=FALSE | レート一意（テナント単位、会社間で共有） |
-| 12 | `uk_mdm_price_line_no` | mdm_price_list_line | UNIQUE | (price_list_id, line_no) WHERE deleted=FALSE | 明細行一意 |
+| 12 | `uk_mdm_price_line_no` | mdm_price_list_line | UNIQUE | (tenant_id, company_id, price_list_id, line_no) WHERE deleted=FALSE | 明細行一意 |
 | 13 | `idx_mdm_price_line_lookup` | mdm_price_list_line | B-Tree | (scope_type, customer_id, material_id, min_qty, valid_from) | 取价 |
 | 14 | `idx_mdm_purchase_price_lookup` | mdm_purchase_price | B-Tree | (supplier_id, material_id, min_qty, valid_from) | 購買取价 |
-| 15 | `uk_mdm_evaluation` | mdm_supplier_evaluation | UNIQUE | (supplier_id, evaluation_period) WHERE deleted=FALSE | 月次評価一意 |
+| 15 | `uk_mdm_evaluation` | mdm_supplier_evaluation | UNIQUE | (tenant_id, company_id, supplier_id, evaluation_period) WHERE deleted=FALSE | 月次評価一意 |
 | 16 | `idx_mdm_dq_issue_status` | mdm_data_quality_issue | B-Tree | (status, severity, detected_at DESC) | 品質問題一覧 |
 | 17 | `idx_mdm_supplier_qual_expiry` | mdm_supplier_qualification | B-Tree | (valid_to) WHERE deleted=FALSE | 期限切れ警告 |
 | 18 | `uk_mdm_bank_account_owner_no` | mdm_partner_bank_account | UNIQUE | (tenant_id, company_id, owner_type, owner_id, account_no) WHERE deleted=FALSE | 取引先口座一意 |
@@ -1525,7 +1525,7 @@ CREATE UNIQUE INDEX uk_mdm_data_scope_policy ON mdm_data_scope_policy (tenant_id
 - 業務一意索引は `(tenant_id, company_id, 業務キー)` で始める。`uk_mdm_exchange_rate` はテナント単位（会社間で共有）のため `(tenant_id, from_currency_code, to_currency_code, rate_type, effective_date)`。
 - `ON CONFLICT` の対象列は必ず `tenant_id` を含め、部分一意索引と同じ WHERE を繰り返す。
 - `company_id` は既定値なし・必須（`NOT NULL`）。
-- **例外（親 ID 先頭の明細表、親側で tenant/company が一意に決まるため据え置き）**：`uk_mdm_material_factory`、`uk_mdm_substitute`、`uk_mdm_warehouse_zone_code`、`uk_mdm_price_line_no`、`uk_mdm_quotation_line_no`、`uk_mdm_payment_term_line`、`uk_mdm_evaluation`、`uk_mdm_eval_item`、`uk_mdm_change_line_no`。
+- **例外**：例外は [00-common/04](../00-common/04-common-db-spec.md) §6.1 第 4 条（`company_id` を持たないテナント共有表、`(tenant_id, …)` 先頭）のみ：`uk_sys_company_code`、`uk_sys_company_credit`、`uk_sys_menu_code`、`uk_sys_menu_permission`、`uk_sys_dict_type_code`、`uk_sys_outbox_event_id`、`uk_sys_idempotency_key`、`uk_mdm_exchange_rate`。親 ID・イベント ID 先頭の例外は廃止（蓝色大肥鱼 2026-10-21 決定、sys/V202610210708 と整合）。明細表（`uk_mdm_material_factory`、`uk_mdm_substitute`、`uk_mdm_warehouse_zone_code`、`uk_mdm_price_line_no`、`uk_mdm_quotation_line_no`、`uk_mdm_payment_term_line`、`uk_mdm_evaluation`、`uk_mdm_eval_item`、`uk_mdm_change_line_no`）も `(tenant_id, company_id, 親 ID, …)` 先頭。
 
 ## 10. 改訂履歴
 
@@ -1533,5 +1533,4 @@ CREATE UNIQUE INDEX uk_mdm_data_scope_policy ON mdm_data_scope_policy (tenant_id
 |---|---|---|---|
 | v1.0 | 2026-10-20 | 初版：53 テーブル定義（DDL・索引・制約・容量・更新タイミング）、共通列セット A/B/C、ER 図。同日追記：Lead 裁定により工厂主数据を MDM 所有（F-MDM-025）へ変更、単位換算グループを uom.csv の 11 群へ整合、`mdm_material.cost_method`（1品種法/2分批法、既定1）と CHECK 制約を追加。第 2 次追記（红队第 2 轮）：`mdm_supplier_material` に `moq`/`purchase_lead_time_days`、`mdm_material_category`/`mdm_supplier` に `over_receipt_tolerance_rate` を追加、`mdm_bank` の行別コード・銀行類別の区別を明記、`invoice_type` に 50 紅字発票を追加、税码件数を CSV 正とし、初期データ件数を 54 件に修正 | mdm-designer |
 | v1.1 | 2026-10-20 | 第一版全量範囲（分期表記削除）。T1 確定：容差を比率 `NUMERIC(5,4)` で追加（完工・出荷）、`valuation_method` NOT NULL + CHECK、`standard_cost` は `fin_standard_cost` 参照、`inspection_required` 列を作らない、T1 表の索引先頭を `company_id` に | 业务分析 |
-
-
+| v1.2 | 2026-10-21 | mdm 明細 9 件（DDL・一覧）を 一意索引を `(tenant_id, company_id, …)` 先頭に統一（sys/V202610210707・0708 と整合）、「親 ID 先頭」例外一覧を削除。例外は 00-common/04 §6.1 第 4 条のテナント共有表のみ（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

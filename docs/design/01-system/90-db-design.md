@@ -169,8 +169,8 @@ COMMENT ON TABLE sys_company IS '公司（会计主体）';
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_sys_company_code | UNIQUE | (company_code) | WHERE deleted=FALSE | 公司代码一意 |
-| uk_sys_company_credit | UNIQUE | (unified_social_credit_code) | WHERE deleted=FALSE AND unified_social_credit_code IS NOT NULL | 信用代码一意 |
+| uk_sys_company_code | UNIQUE | (tenant_id, company_code) | WHERE deleted=FALSE | 公司代码一意 |
+| uk_sys_company_credit | UNIQUE | (tenant_id, unified_social_credit_code) | WHERE deleted=FALSE AND unified_social_credit_code IS NOT NULL | 信用代码一意 |
 
 **更新仕様**：F-SYS-014 のみが INSERT/UPDATE。削除は無効化（`status=0`）で表現し、`company_id` が参照されている場合は削除不可（`MSG-SYS-014`）。
 
@@ -201,7 +201,7 @@ COMMENT ON TABLE sys_factory_setting IS '工厂组织设置（工厂主数据は
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_sys_factory_setting | UNIQUE | (factory_id) | WHERE deleted=FALSE | 工厂×設定一意 |
+| uk_sys_factory_setting | UNIQUE | (tenant_id, company_id, factory_id) | WHERE deleted=FALSE | 工厂×設定一意 |
 | idx_sys_factory_setting_default | B-Tree | (company_id, is_default) | WHERE is_default AND deleted=FALSE | 既定工厂一意 |
 
 **更新仕様**：F-SYS-014 のみ。`is_default=true` は会社ごとに 1 件（アプリで保証、部分一意インデックス）。`factory_id` の有効性は MDM の公開 Service（`FactoryService.exists`）で検証する。MDM 側で工場が無効化された場合は本設定も `is_enabled=false` に更新する（起動時の整合性検査 BAT-SYS-010 で検出）。
@@ -234,7 +234,7 @@ COMMENT ON TABLE sys_tenant IS '租户（マルチテナント契約単位）';
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_sys_tenant_code | UNIQUE | (tenant_code) | WHERE deleted=FALSE | 租户コード一意 |
+| uk_sys_tenant_code | UNIQUE | (tenant_id, tenant_code) | WHERE deleted=FALSE | 租户コード一意 |
 
 **更新仕様**：画面での編集も第一版対象（TODO：編集仕様未設計）。初期データで `id=0`「系统默认租户」を投入する。
 
@@ -272,7 +272,7 @@ COMMENT ON TABLE sys_department IS '部门（组织ツリー）';
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_sys_department_company_code | UNIQUE | (company_id, department_code) | WHERE deleted=FALSE | 部門コード一意 |
+| uk_sys_department_company_code | UNIQUE | (tenant_id, company_id, department_code) | WHERE deleted=FALSE | 部門コード一意 |
 | idx_sys_department_parent | B-Tree | (parent_id, sort_no) | — | ツリー表示 |
 | idx_sys_department_path | B-Tree | (department_path) | — | 子孫検索（`LIKE '/1/12/%'`） |
 
@@ -307,7 +307,7 @@ COMMENT ON TABLE sys_position IS '岗位（職位）';
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_sys_position_company_code | UNIQUE | (company_id, position_code) | WHERE deleted=FALSE | 岗位コード一意 |
+| uk_sys_position_company_code | UNIQUE | (tenant_id, company_id, position_code) | WHERE deleted=FALSE | 岗位コード一意 |
 | idx_sys_position_department | B-Tree | (department_id, status) | — | 部門別岗位一覧 |
 
 ### 3.6 sys_user 用户
@@ -359,8 +359,8 @@ COMMENT ON TABLE sys_user IS '用户（ログインアカウント＋社員属�
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_sys_user_code | UNIQUE | (company_id, user_code) | WHERE deleted=FALSE | 工号一意 |
-| uk_sys_user_username | UNIQUE | (username) | WHERE deleted=FALSE | ログイン ID 一意 |
+| uk_sys_user_code | UNIQUE | (tenant_id, company_id, user_code) | WHERE deleted=FALSE | 工号一意 |
+| uk_sys_user_username | UNIQUE | (tenant_id, company_id, username) | WHERE deleted=FALSE | ログイン ID 一意 |
 | idx_sys_user_dept_status | B-Tree | (department_id, status) | — | 部門別ユーザ一覧 |
 | idx_sys_user_name_trgm | GIN | (real_name gin_trgm_ops) | — | 氏名曖昧検索 |
 | idx_sys_user_mobile | B-Tree | (mobile) | — | 電話番号検索 |
@@ -397,7 +397,7 @@ COMMENT ON TABLE sys_role IS '角色（権限集合）';
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_sys_role_code | UNIQUE | (role_code) | WHERE deleted=FALSE | ロールコード一意 |
+| uk_sys_role_code | UNIQUE | (tenant_id, company_id, role_code) | WHERE deleted=FALSE | ロールコード一意 |
 | idx_sys_role_status | B-Tree | (status, sort_no) | — | 有効ロール一覧 |
 
 **制約**：`role_type=1`（内置）は `role_code` 変更・削除不可。SoD（職務分掌）チェックは付与時にアプリで実施（[共通业务规则](../00-common/08-common-business-rules.md) 9.2、`MSG-SYS-012` 警告）。
@@ -432,7 +432,7 @@ COMMENT ON TABLE sys_user_role IS '用户角色（付与履歴付き）';
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_sys_user_role | UNIQUE | (user_id, role_id, grant_type) | WHERE deleted=FALSE | 重複付与防止 |
+| uk_sys_user_role | UNIQUE | (tenant_id, company_id, user_id, role_id, grant_type) | WHERE deleted=FALSE | 重複付与防止 |
 | idx_sys_user_role_role | B-Tree | (role_id, status) | — | ロール別ユーザ一覧 |
 
 **制約**：有効期間 `valid_from <= valid_to`。期限切れ `valid_to < today` は認可判定時に無効扱い（バッチで `status=0` に更新）。自己付与（`granted_by = user_id`）は禁止（`MSG-SYS-011`）。
@@ -463,7 +463,7 @@ COMMENT ON TABLE sys_role_permission IS '角色权限（ロール×メニュー/
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_sys_role_permission | UNIQUE | (role_id, menu_id) | WHERE deleted=FALSE | 重複付与防止 |
+| uk_sys_role_permission | UNIQUE | (tenant_id, company_id, role_id, menu_id) | WHERE deleted=FALSE | 重複付与防止 |
 | idx_sys_role_permission_code | B-Tree | (permission_code) | — | 権限コード逆引き（監査用） |
 
 **更新仕様**：F-SYS-003 の保存時に「全削除→再登録」（トランザクション内）。権限キャッシュ（Redis）を無効化し、影響ユーザの次回リクエストから反映。
@@ -497,7 +497,7 @@ COMMENT ON TABLE sys_role_data_scope IS '角色数据范围（リソース単位
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_sys_role_data_scope | UNIQUE | (role_id, module_code, resource_code) | WHERE deleted=FALSE | リソース単位一意 |
+| uk_sys_role_data_scope | UNIQUE | (tenant_id, company_id, role_id, module_code, resource_code) | WHERE deleted=FALSE | リソース単位一意 |
 | idx_sys_role_data_scope_factory | GIN | (factory_ids jsonb_path_ops) | — | 工場範囲検索 |
 | idx_sys_role_data_scope_warehouse | GIN | (warehouse_ids jsonb_path_ops) | — | 倉庫範囲検索 |
 
@@ -534,7 +534,7 @@ COMMENT ON TABLE sys_user_data_scope IS '用户数据范围（個別上書き。
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_sys_user_data_scope | UNIQUE | (user_id, resource_code) | WHERE deleted=FALSE | リソース単位一意 |
+| uk_sys_user_data_scope | UNIQUE | (tenant_id, company_id, user_id, resource_code) | WHERE deleted=FALSE | リソース単位一意 |
 | idx_sys_user_data_scope_user | B-Tree | (user_id, valid_to) | — | 認可時の有効範囲取得 |
 
 ### 3.12 sys_menu 菜单/权限
@@ -575,8 +575,8 @@ COMMENT ON TABLE sys_menu IS '菜单/权限（メニューツリー＋ボタン�
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_sys_menu_code | UNIQUE | (menu_code) | WHERE deleted=FALSE | メニューコード一意 |
-| uk_sys_menu_permission | UNIQUE | (permission_code) | WHERE deleted=FALSE AND permission_code IS NOT NULL | 権限コード一意 |
+| uk_sys_menu_code | UNIQUE | (tenant_id, menu_code) | WHERE deleted=FALSE | メニューコード一意 |
+| uk_sys_menu_permission | UNIQUE | (tenant_id, permission_code) | WHERE deleted=FALSE AND permission_code IS NOT NULL | 権限コード一意 |
 | idx_sys_menu_parent | B-Tree | (parent_id, sort_no) | — | ツリー表示 |
 | idx_sys_menu_module | B-Tree | (module_code, menu_type) | — | モジュール別一覧 |
 
@@ -610,7 +610,7 @@ COMMENT ON TABLE sys_dict_type IS '数据字典类型';
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_sys_dict_type_code | UNIQUE | (dict_code) | WHERE deleted=FALSE | 字典コード一意 |
+| uk_sys_dict_type_code | UNIQUE | (tenant_id, dict_code) | WHERE deleted=FALSE | 字典コード一意 |
 | idx_sys_dict_type_module | B-Tree | (module_code, status) | — | モジュール別一覧 |
 
 ### 3.14 sys_dict_item 字典项目
@@ -644,7 +644,7 @@ COMMENT ON TABLE sys_dict_item IS '数据字典项目';
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_sys_dict_item | UNIQUE | (dict_type_id, item_code) | WHERE deleted=FALSE | 同一字典内コード一意 |
+| uk_sys_dict_item | UNIQUE | (tenant_id, company_id, dict_type_id, item_code) | WHERE deleted=FALSE | 同一字典内コード一意 |
 | idx_sys_dict_item_type | B-Tree | (dict_type_id, status, sort_no) | — | 字典参照（キャッシュ元） |
 
 **キャッシュ**：起動時に全件を Caffeine（ローカル、10 分 TTL）へ、Redis（`sys:dict:{dictCode}`、無期限）へロード。更新時は更新 API が Redis を更新し、他ノードへ pub/sub 通知（または TTL 失効）。辞書削除はキャッシュから除去。
@@ -740,7 +740,7 @@ COMMENT ON TABLE sys_number_rule IS '编号规则（採番ルール）';
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_sys_number_rule_code | UNIQUE | (rule_code) | WHERE deleted=FALSE | ルールコード一意 |
+| uk_sys_number_rule_code | UNIQUE | (tenant_id, company_id, rule_code) | WHERE deleted=FALSE | ルールコード一意 |
 | idx_sys_number_rule_status | B-Tree | (status, module_code) | — | 有効ルール一覧 |
 
 **制約**：`seq_length` 1〜10。`reset_cycle=1` のとき `date_format` は日を含む形式（`yyMMdd` 等）必須（アプリ検証 `MSG-SYS-051`）。採番実績（`sys_sequence`）が存在する状態での桁数短縮は禁止（欠番・桁溢れ防止）。
@@ -927,7 +927,7 @@ COMMENT ON TABLE sys_attachment IS '附件（ファイルメタ情報）';
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_sys_attachment_no | UNIQUE | (attachment_no) | WHERE deleted=FALSE | 附件番号一意 |
+| uk_sys_attachment_no | UNIQUE | (tenant_id, company_id, attachment_no) | WHERE deleted=FALSE | 附件番号一意 |
 | idx_sys_attachment_sha | B-Tree | (sha256) | — | 同一ファイル検出（重複排除） |
 | idx_sys_attachment_user | B-Tree | (upload_user_id, created_at DESC) | — | マイ附件一覧 |
 | idx_sys_attachment_expire | B-Tree | (expire_at) | WHERE expire_at IS NOT NULL | 一時ファイル清理 |
@@ -961,7 +961,7 @@ COMMENT ON TABLE sys_attachment_biz IS '附件业务关联（業務×附件）';
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_sys_attachment_biz | UNIQUE | (attachment_id, biz_type, biz_id) | WHERE deleted=FALSE | 重複紐付け防止 |
+| uk_sys_attachment_biz | UNIQUE | (tenant_id, company_id, attachment_id, biz_type, biz_id) | WHERE deleted=FALSE | 重複紐付け防止 |
 | idx_sys_attachment_biz | B-Tree | (biz_type, biz_id, sort_no) | — | 業務詳細の添付一覧 |
 
 **制約**：1 業務 20 ファイル・合計 100MB 以下（`sys_param` で変更可）。業務データ削除（取消）時も添付は保持し、参照のみ不可とする。
@@ -1000,7 +1000,7 @@ COMMENT ON TABLE sys_notification IS '站内通知（通知本体）';
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_sys_notification_no | UNIQUE | (notification_no) | — | 通知番号一意 |
+| uk_sys_notification_no | UNIQUE | (tenant_id, company_id, notification_no) | — | 通知番号一意 |
 | idx_sys_notification_scene | B-Tree | (biz_scene, created_at DESC) | — | シーン別監視 |
 | idx_sys_notification_status | B-Tree | (send_status, created_at) | — | 再送対象抽出 |
 | idx_sys_notification_expire | B-Tree | (expire_at) | WHERE expire_at IS NOT NULL | 期限切れ清理 |
@@ -1032,7 +1032,7 @@ COMMENT ON TABLE sys_notification_receiver IS '通知受信者（既読管理）
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_sys_notification_receiver | UNIQUE | (notification_id, receiver_user_id) | — | 受信者重複防止 |
+| uk_sys_notification_receiver | UNIQUE | (tenant_id, company_id, notification_id, receiver_user_id) | — | 受信者重複防止 |
 | idx_sys_notification_receiver_inbox | B-Tree | (receiver_user_id, status, created_at DESC) | — | 受信箱一覧 |
 
 **更新仕様**：通知作成時に受信者を一括 INSERT。既読 API は `read_flag=true`・`read_at`・`status=1` を更新。ユーザ削除（退職）時も受信者レコードは保持（1 年で清理）。
@@ -1071,7 +1071,7 @@ COMMENT ON TABLE sys_notification_template IS '通知模板（站内/邮件/短�
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_sys_notification_template | UNIQUE | (template_code, channel_type, version_no) | WHERE deleted=FALSE | テンプレート×渠道×版数一意 |
+| uk_sys_notification_template | UNIQUE | (tenant_id, company_id, template_code, channel_type, version_no) | WHERE deleted=FALSE | テンプレート×渠道×版数一意 |
 | idx_sys_notification_template_scene | B-Tree | (biz_scene, channel_type, status) | — | シーン別有効テンプレート取得 |
 
 **制約**：`title_template`/`content_template` のプレースホルダ（`{n}`）は `variables_schema` の件数と一致（アプリ検証 `MSG-SYS-061`）。使用中テンプレートの削除禁止（無効化で対応）。
@@ -1153,7 +1153,7 @@ COMMENT ON TABLE sys_import_export_job IS '导入导出任务（非同期ジョ�
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_sys_import_export_job_no | UNIQUE | (job_no) | — | 任务番号一意 |
+| uk_sys_import_export_job_no | UNIQUE | (tenant_id, company_id, job_no) | — | 任务番号一意 |
 | idx_sys_import_export_job_user | B-Tree | (created_by, created_at DESC) | — | 自分のジョブ一覧 |
 | idx_sys_import_export_job_status | B-Tree | (job_status, created_at) | — | 実行待ち抽出・多重起動防止 |
 | idx_sys_import_export_job_expire | B-Tree | (expire_at) | WHERE expire_at IS NOT NULL | ファイル清理 |
@@ -1221,7 +1221,7 @@ COMMENT ON TABLE sys_import_template IS '导入模板（Excel テンプレート
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_sys_import_template_code | UNIQUE | (template_code, version_no) | WHERE deleted=FALSE | 模板×版数一意 |
+| uk_sys_import_template_code | UNIQUE | (tenant_id, company_id, template_code, version_no) | WHERE deleted=FALSE | 模板×版数一意 |
 | idx_sys_import_template_biz | B-Tree | (module_code, biz_type, status) | — | 業務別テンプレート取得 |
 
 ### 3.30 sys_print_template 打印模板
@@ -1260,7 +1260,7 @@ COMMENT ON TABLE sys_print_template IS '打印模板（帳票レイアウト）'
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_sys_print_template | UNIQUE | (template_code, version_no) | WHERE deleted=FALSE | 模板×版数一意 |
+| uk_sys_print_template | UNIQUE | (tenant_id, company_id, template_code, version_no) | WHERE deleted=FALSE | 模板×版数一意 |
 | idx_sys_print_template_report | B-Tree | (report_id, is_default, status) | — | 帳票の既定テンプレート取得 |
 
 ### 3.31 sys_print_log 打印日志
@@ -1335,7 +1335,7 @@ COMMENT ON TABLE sys_scheduled_job IS '定时任务定义';
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_sys_scheduled_job_code | UNIQUE | (job_code) | WHERE deleted=FALSE | ジョブコード一意 |
+| uk_sys_scheduled_job_code | UNIQUE | (tenant_id, company_id, job_code) | WHERE deleted=FALSE | ジョブコード一意 |
 | idx_sys_scheduled_job_status | B-Tree | (status, next_run_at) | — | スケジューラ起動時のロード |
 
 **制約**：`schedule_type=1` は `cron_expression` 必須、`=2` は `fixed_interval_ms` 必須。`job_code` はバッチ ID（`BAT-{DOM}-{3桁}`）と一致させる。
@@ -1409,7 +1409,7 @@ COMMENT ON TABLE sys_outbox_event IS 'Outbox 事件（ドメインイベント�
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_sys_outbox_event_id | UNIQUE | (event_id) | — | イベント冪等 |
+| uk_sys_outbox_event_id | UNIQUE | (tenant_id, event_id) | — | イベント冪等 |
 | idx_sys_outbox_event_pending | B-Tree | (status, next_retry_at) | — | 配信対象抽出 |
 | idx_sys_outbox_event_type | B-Tree | (event_type, occurred_at DESC) | — | イベント監視 |
 
@@ -1443,7 +1443,7 @@ COMMENT ON TABLE sys_event_consume_log IS '事件消费日志（冪等重複排�
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_sys_event_consume_log | UNIQUE | (event_id, consumer_name) | — | 二重消費防止 |
+| uk_sys_event_consume_log | UNIQUE | (tenant_id, event_id, consumer_name) | — | 二重消費防止 |
 | idx_sys_event_consume_log_type | B-Tree | (event_type, consumed_at DESC) | — | 消費状況監視 |
 
 ### 3.36 sys_idempotency 幂等键
@@ -1475,7 +1475,7 @@ COMMENT ON TABLE sys_idempotency IS '幂等键（Idempotency-Key 管理）';
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_sys_idempotency_key | UNIQUE | (idempotency_key) | — | キー一意 |
+| uk_sys_idempotency_key | UNIQUE | (tenant_id, idempotency_key) | — | キー一意 |
 | idx_sys_idempotency_expire | B-Tree | (expires_at) | — | 期限切れ削除 |
 
 **制約**：同一キーで `process_status=0`（処理中）は `409 + code=4005`。`request_hash` が異なる同一キーは `400` で拒否（キー使い回し検出）。
@@ -1505,7 +1505,7 @@ COMMENT ON TABLE sys_user_preference IS '用户画面设置（列構成・検索
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_sys_user_preference | UNIQUE | (user_id, preference_type, resource_key) | WHERE deleted=FALSE | ユーザ×種別×画面一意 |
+| uk_sys_user_preference | UNIQUE | (tenant_id, company_id, user_id, preference_type, resource_key) | WHERE deleted=FALSE | ユーザ×種別×画面一意 |
 
 **制約**：値は 8KB 以下。他ユーザの設定は参照不可（API で `userId` をログインユーザに強制）。
 
@@ -1601,3 +1601,4 @@ COMMENT ON TABLE sys_data_maintenance_log IS '数据维护历史（初期化・�
 | v1.1 | 2026-10-20 | Lead 裁决に伴う修正：承認マトリクスは `wf_approval_matrix`（WF 所有）に統一（本域は保存しない）。工厂主データを MDM（`mdm_factory`）へ移管し、SYS は `sys_factory` を `sys_factory_setting`（工厂组织设置）に変更。ER・テーブル一覧・コメントを更新 | system-workflow |
 | v1.2 | 2026-10-20 | 红队第 2 轮修复：REV-005（データ範囲に工場/倉庫次元 `factory_ids`/`warehouse_ids`、scope_type 6/7、GIN 索引、ER 追加）、REV-006（監査ログは重要操作を同一 TX で同期 INSERT・破棄禁止・ローカル退避+アラート）、REV-026（`sys_sequence` DDL を 04-common §5 に一致）、Outbox DDL 正本を本ファイルと明記し `event_version` 追加 | system-workflow |
 | v1.3 | 2026-10-21 | §3.15 `uk_sys_param_key` を `(tenant_id, company_id, param_key) WHERE deleted=FALSE` に修正（迁移 V202610210103 に一致）、`param_key` 注釈を「テナント・会社内で一意」に、`idx_sys_param_group` を `(tenant_id, company_id, param_group, sort_no)` に修正（迁移 :167 に一致）、参照範囲を当該会社のみ・`company_id=0` フォールバックなし・欠落は 5000 と明記（迁移 :165 注釈は廃止） | 业务分析 |
+| v1.4 | 2026-10-21 | sys 一意索引 23 件を 0708 に合わせ `(tenant_id, company_id, …)` 先頭に変更、豁免 7 件（company/menu/dict_type/outbox/idempotency）は `(tenant_id, …)`（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

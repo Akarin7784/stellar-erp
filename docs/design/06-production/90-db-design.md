@@ -45,7 +45,7 @@
 | 明細（`*_line`、`*_item`、`*_action`、`*_labor`、`*_defect`） | `id`、`company_id`（親と同値を冗長保持。全索引の先頭列とするため省略不可、[04](../00-common/04-common-db-spec.md) 第 14 章）、親 ID、`line_no` 必須 |
 | 履歴・ログ（`prd_mrp_demand`、`prd_mrp_action`、`prd_work_order_change`、`prd_work_order_relation`、`prd_wo_lot`、`prd_capacity_load`） | `id`、`tenant_id`、`company_id`、`created_at`、`created_by` のみ。更新系カラム不要（追記専用、訂正は取消行＋再登録） |
 
-- **索引**（G2-20 対応）：**一意索引（`uk_`）は `(tenant_id, company_id, …)` 先頭**（文書末尾の例外を除く。`uk_` を company_id 先頭としない）。非一意の照会・性能索引（`idx_`）は多公司フィルタのため `(company_id, …)` または `(tenant_id, company_id, …)` 先頭としてよい（[04](../00-common/04-common-db-spec.md) 第 6・7 章、G2-20）。マスタの業務キー一意索引は `WHERE deleted = FALSE` の部分一意索引とする。
+- **索引**（G2-20 対応）：**一意索引（`uk_`）は `(tenant_id, company_id, …)` 先頭**（例外は 00-common §6.1 第 4 条のみ。`uk_` を company_id 先頭としない）。非一意の照会・性能索引（`idx_`）は多公司フィルタのため `(company_id, …)` または `(tenant_id, company_id, …)` 先頭としてよい（[04](../00-common/04-common-db-spec.md) 第 6・7 章、G2-20）。マスタの業務キー一意索引は `WHERE deleted = FALSE` の部分一意索引とする。
 - **型・精度**：金額 `NUMERIC(18,2)`、単価 `NUMERIC(18,6)`、数量 `NUMERIC(18,4)`、比率 `NUMERIC(7,4)`、工数 `NUMERIC(12,2)`、単件標準工時 `NUMERIC(12,4)`（01 第 6 章の工数を単件基準で細分化したもの。合計工数は `NUMERIC(12,2)`）、日付 `DATE`、日時 `TIMESTAMPTZ`。`FLOAT`/`DOUBLE` は使用禁止。
 - **状態・区分**：`SMALLINT`＋`COMMENT ON COLUMN` で定義。名称は DB に保存しない（Java enum / message properties で解決）。
 - **採番**：業務番号は `sys_sequence`（[08](../00-common/08-common-business-rules.md) 2.1）。本域の採番キーは §6.1。
@@ -250,7 +250,7 @@ CREATE TABLE prd_bom_line (
     CONSTRAINT ck_prd_bom_line_level CHECK (level_no >= 1)
 );
 
-CREATE UNIQUE INDEX uk_prd_bom_line_bom_line ON prd_bom_line (company_id, bom_id, line_no);
+CREATE UNIQUE INDEX uk_prd_bom_line_bom_line ON prd_bom_line (tenant_id, company_id, bom_id, line_no);
 CREATE INDEX idx_prd_bom_line_component ON prd_bom_line (company_id, component_material_id);
 CREATE INDEX idx_prd_bom_line_substitute ON prd_bom_line (company_id, substitute_group) WHERE substitute_group IS NOT NULL;
 ```
@@ -294,7 +294,7 @@ CREATE TABLE prd_bom_substitute (
     CONSTRAINT ck_prd_bom_substitute_qty CHECK (substitute_qty > 0 AND ratio > 0 AND ratio <= 1)
 );
 
-CREATE UNIQUE INDEX uk_prd_bom_substitute_line_pri ON prd_bom_substitute (company_id, bom_line_id, priority_no) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_prd_bom_substitute_line_pri ON prd_bom_substitute (tenant_id, company_id, bom_line_id, priority_no) WHERE deleted = FALSE;
 CREATE INDEX idx_prd_bom_substitute_material ON prd_bom_substitute (company_id, substitute_material_id, valid_from, valid_to);
 ```
 
@@ -385,7 +385,7 @@ CREATE TABLE prd_routing_operation (
     CONSTRAINT ck_prd_routing_operation_time CHECK (setup_time >= 0 AND run_time_per_unit >= 0)
 );
 
-CREATE UNIQUE INDEX uk_prd_routing_operation_routing_seq ON prd_routing_operation (company_id, routing_id, operation_seq) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_prd_routing_operation_routing_seq ON prd_routing_operation (tenant_id, company_id, routing_id, operation_seq) WHERE deleted = FALSE;
 CREATE INDEX idx_prd_routing_operation_wc ON prd_routing_operation (company_id, work_center_id);
 CREATE INDEX idx_prd_routing_operation_inspection ON prd_routing_operation (company_id, is_inspection_point) WHERE is_inspection_point = TRUE;
 ```
@@ -418,7 +418,7 @@ CREATE TABLE prd_routing_operation_alt (
     CONSTRAINT ck_prd_routing_operation_alt_eff CHECK (efficiency_rate >= 0.5)
 );
 
-CREATE UNIQUE INDEX uk_prd_routing_operation_alt_pri ON prd_routing_operation_alt (company_id, routing_operation_id, priority_no) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_prd_routing_operation_alt_pri ON prd_routing_operation_alt (tenant_id, company_id, routing_operation_id, priority_no) WHERE deleted = FALSE;
 ```
 
 ### 3.7 prd_work_center（工作中心）
@@ -497,7 +497,7 @@ CREATE TABLE prd_work_center_calendar (
     CONSTRAINT ck_prd_work_center_calendar_hours CHECK (working_hours >= 0 AND overtime_hours >= 0)
 );
 
-CREATE UNIQUE INDEX uk_prd_work_center_calendar_date ON prd_work_center_calendar (company_id, work_center_id, calendar_date, shift_code) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_prd_work_center_calendar_date ON prd_work_center_calendar (tenant_id, company_id, work_center_id, calendar_date, shift_code) WHERE deleted = FALSE;
 CREATE INDEX idx_prd_work_center_calendar_date ON prd_work_center_calendar (company_id, calendar_date, day_type);
 ```
 
@@ -744,7 +744,7 @@ CREATE TABLE prd_mps_line (
     CONSTRAINT ck_prd_mps_line_qty CHECK (planned_qty >= 0)
 );
 
-CREATE UNIQUE INDEX uk_prd_mps_line_mps_line ON prd_mps_line (company_id, mps_id, line_no);
+CREATE UNIQUE INDEX uk_prd_mps_line_mps_line ON prd_mps_line (tenant_id, company_id, mps_id, line_no);
 CREATE INDEX idx_prd_mps_line_material_date ON prd_mps_line (company_id, material_id, plan_date);
 ```
 
@@ -1172,7 +1172,7 @@ CREATE TABLE prd_work_order_material (
     CONSTRAINT ck_prd_work_order_material_status CHECK (issue_status IN (0,10,20))
 );
 
-CREATE UNIQUE INDEX uk_prd_work_order_material_wo_line ON prd_work_order_material (company_id, work_order_id, line_no);
+CREATE UNIQUE INDEX uk_prd_work_order_material_wo_line ON prd_work_order_material (tenant_id, company_id, work_order_id, line_no);
 CREATE INDEX idx_prd_work_order_material_material ON prd_work_order_material (company_id, material_id, issue_status);
 CREATE INDEX idx_prd_work_order_material_unissued ON prd_work_order_material (company_id, work_order_id, remaining_qty) WHERE remaining_qty > 0;
 ```
@@ -1231,7 +1231,7 @@ CREATE TABLE prd_work_order_operation (
     CONSTRAINT ck_prd_work_order_operation_status CHECK (operation_status IN (0,10,20,30))
 );
 
-CREATE UNIQUE INDEX uk_prd_work_order_operation_wo_seq ON prd_work_order_operation (company_id, work_order_id, operation_seq);
+CREATE UNIQUE INDEX uk_prd_work_order_operation_wo_seq ON prd_work_order_operation (tenant_id, company_id, work_order_id, operation_seq);
 CREATE INDEX idx_prd_work_order_operation_wc_date ON prd_work_order_operation (company_id, work_center_id, planned_start_date, operation_status);
 CREATE INDEX idx_prd_work_order_operation_inspection ON prd_work_order_operation (company_id, inspection_status) WHERE inspection_status IN (10,30);
 ```
@@ -1267,7 +1267,7 @@ CREATE TABLE prd_work_order_change (
     CONSTRAINT ck_prd_work_order_change_type CHECK (change_type IN (10,20,30,40,50,60,70))
 );
 
-CREATE UNIQUE INDEX uk_prd_work_order_change_wo_no ON prd_work_order_change (company_id, work_order_id, change_no);
+CREATE UNIQUE INDEX uk_prd_work_order_change_wo_no ON prd_work_order_change (tenant_id, company_id, work_order_id, change_no);
 CREATE INDEX idx_prd_work_order_change_date ON prd_work_order_change (company_id, created_at DESC);
 ```
 
@@ -1397,7 +1397,7 @@ CREATE TABLE prd_material_issue_line (
     CONSTRAINT ck_prd_material_issue_line_amount CHECK (amount >= 0)
 );
 
-CREATE UNIQUE INDEX uk_prd_material_issue_line_issue_line ON prd_material_issue_line (company_id, issue_id, line_no);
+CREATE UNIQUE INDEX uk_prd_material_issue_line_issue_line ON prd_material_issue_line (tenant_id, company_id, issue_id, line_no);
 CREATE INDEX idx_prd_material_issue_line_wom ON prd_material_issue_line (company_id, work_order_material_id);
 CREATE INDEX idx_prd_material_issue_line_material ON prd_material_issue_line (company_id, material_id, batch_no);
 ```
@@ -1497,7 +1497,7 @@ CREATE TABLE prd_work_report_labor (
     CONSTRAINT ck_prd_work_report_labor_hours CHECK (labor_hours > 0 AND labor_amount >= 0)
 );
 
-CREATE UNIQUE INDEX uk_prd_work_report_labor_report_line ON prd_work_report_labor (company_id, report_id, line_no);
+CREATE UNIQUE INDEX uk_prd_work_report_labor_report_line ON prd_work_report_labor (tenant_id, company_id, report_id, line_no);
 CREATE INDEX idx_prd_work_report_labor_employee ON prd_work_report_labor (company_id, employee_id, start_at DESC);
 ```
 
@@ -1537,7 +1537,7 @@ CREATE TABLE prd_work_report_defect (
     CONSTRAINT ck_prd_work_report_defect_disp CHECK (disposition IN (10,20,30,40,50,60))
 );
 
-CREATE UNIQUE INDEX uk_prd_work_report_defect_report_line ON prd_work_report_defect (company_id, report_id, line_no);
+CREATE UNIQUE INDEX uk_prd_work_report_defect_report_line ON prd_work_report_defect (tenant_id, company_id, report_id, line_no);
 CREATE INDEX idx_prd_work_report_defect_code ON prd_work_report_defect (company_id, defect_code_id, created_at DESC);
 ```
 
@@ -1628,7 +1628,7 @@ CREATE TABLE prd_completion_receipt_line (
     CONSTRAINT ck_prd_completion_receipt_line_quality CHECK (quality_status IN (10,20,30,40))
 );
 
-CREATE UNIQUE INDEX uk_prd_completion_receipt_line_rcpt_line ON prd_completion_receipt_line (company_id, receipt_id, line_no);
+CREATE UNIQUE INDEX uk_prd_completion_receipt_line_rcpt_line ON prd_completion_receipt_line (tenant_id, company_id, receipt_id, line_no);
 CREATE INDEX idx_prd_completion_receipt_line_material ON prd_completion_receipt_line (company_id, material_id, batch_no);
 ```
 
@@ -1727,7 +1727,7 @@ CREATE TABLE prd_outsourcing_order_line (
     CONSTRAINT ck_prd_outsourcing_order_line_price CHECK (processing_unit_price >= 0)
 );
 
-CREATE UNIQUE INDEX uk_prd_outsourcing_order_line_order_line ON prd_outsourcing_order_line (company_id, outsourcing_order_id, line_no);
+CREATE UNIQUE INDEX uk_prd_outsourcing_order_line_order_line ON prd_outsourcing_order_line (tenant_id, company_id, outsourcing_order_id, line_no);
 CREATE INDEX idx_prd_outsourcing_order_line_material ON prd_outsourcing_order_line (company_id, material_id);
 ```
 
@@ -1811,7 +1811,7 @@ CREATE TABLE prd_outsourcing_issue_line (
     CONSTRAINT ck_prd_outsourcing_issue_line_amt CHECK (amount >= 0)
 );
 
-CREATE UNIQUE INDEX uk_prd_outsourcing_issue_line_issue_line ON prd_outsourcing_issue_line (company_id, issue_id, line_no);
+CREATE UNIQUE INDEX uk_prd_outsourcing_issue_line_issue_line ON prd_outsourcing_issue_line (tenant_id, company_id, issue_id, line_no);
 CREATE INDEX idx_prd_outsourcing_issue_line_material ON prd_outsourcing_issue_line (company_id, material_id, batch_no);
 ```
 
@@ -1900,7 +1900,7 @@ CREATE TABLE prd_outsourcing_receipt_line (
     CONSTRAINT ck_prd_outsourcing_receipt_line_cost CHECK (unit_material_cost >= 0 AND processing_unit_price >= 0)
 );
 
-CREATE UNIQUE INDEX uk_prd_outsourcing_receipt_line_rcpt_line ON prd_outsourcing_receipt_line (company_id, receipt_id, line_no);
+CREATE UNIQUE INDEX uk_prd_outsourcing_receipt_line_rcpt_line ON prd_outsourcing_receipt_line (tenant_id, company_id, receipt_id, line_no);
 CREATE INDEX idx_prd_outsourcing_receipt_line_material ON prd_outsourcing_receipt_line (company_id, material_id, batch_no);
 ```
 
@@ -2605,7 +2605,7 @@ CREATE INDEX idx_prd_capacity_load_date ON prd_capacity_load (company_id, load_d
 - 業務一意索引は `(tenant_id, company_id, 業務キー)` で始める（#43/#49/#54 と同一）。
 - `ON CONFLICT` は同じ列を含め、採番は `sys_sequence.step` で増分（`EXCLUDED.step` 禁止）。
 - `company_id` は既定値なし・必須。`tenant_id` は `DEFAULT current_setting('app.tenant_id')::bigint`（禁止写死的默认租户。字面量 `0` を DEFAULT にしない）。
-- **例外（親 ID 先頭）**：`uk_prd_bom_line_bom_line`, `uk_prd_bom_substitute_line_pri`, `uk_prd_routing_operation_routing_seq`, `uk_prd_routing_operation_alt_pri`, `uk_prd_work_center_calendar_date`, `uk_prd_mps_line_mps_line`, `uk_prd_work_order_material_wo_line`, `uk_prd_work_order_operation_wo_seq`, `uk_prd_work_order_change_wo_no`, `uk_prd_material_issue_line_issue_line`, `uk_prd_work_report_labor_report_line`, `uk_prd_work_report_defect_report_line`, `uk_prd_completion_receipt_line_rcpt_line`, `uk_prd_outsourcing_order_line_order_line`, `uk_prd_outsourcing_issue_line_issue_line`, `uk_prd_outsourcing_receipt_line_rcpt_line`。
+- **例外**：例外は [00-common/04](../00-common/04-common-db-spec.md) §6.1 第 4 条（`company_id` を持たないテナント共有表、`(tenant_id, …)` 先頭）のみ：`uk_sys_company_code`、`uk_sys_company_credit`、`uk_sys_menu_code`、`uk_sys_menu_permission`、`uk_sys_dict_type_code`、`uk_sys_outbox_event_id`、`uk_sys_idempotency_key`、`uk_mdm_exchange_rate`。親 ID・イベント ID 先頭の例外は廃止（蓝色大肥鱼 2026-10-21 決定、sys/V202610210708 と整合）。明細表 16 件（旧「親 ID 先頭」例外。0708 で `tenant_id` を前置）も `(tenant_id, company_id, 親 ID, …)` 先頭。
 
 
 ## 9. 改訂履歴
@@ -2627,3 +2627,4 @@ CREATE INDEX idx_prd_capacity_load_date ON prd_capacity_load (company_id, load_d
 | v1.4 | 2026-10-21 | PR #13 指摘対応：`prd_work_order.over_receipt_rate` の DEFAULT 0.05 削除（登録時にチェーン解決値をスナップショット、工单上は NULL 継承しない）、`prd_mrp_action.current_date`→`current_due_date`（予約語）、v1.1 削除済み列を参照する uk 4 件削除（`*_req` で一意）、§3.18 コードブロックの閉じ fence 追加 | 业务分析 |
 | v1.5 | 2026-10-21 | `ck_prd_opa_qty` を `ck_prd_opa_request_qty`（request_qty > 0、違反は 60103）と `ck_prd_opa_allowed_qty`（current_allowed_qty >= 0）に分割（migration prd/V202610210704） | 数据库与运维 |
 | v1.6 | 2026-10-21 | §4 索引一覧 #1・#2 の対象列を DDL と一致（`tenant_id, company_id` / `company_id` を追加） | 业务分析 |
+| v1.7 | 2026-10-21 | prd 明細 16 件を 一意索引を `(tenant_id, company_id, …)` 先頭に統一（sys/V202610210707・0708 と整合）、「親 ID 先頭」例外一覧を削除。例外は 00-common/04 §6.1 第 4 条のテナント共有表のみ（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

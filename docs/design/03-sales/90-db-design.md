@@ -208,7 +208,7 @@ CREATE TABLE sal_inquiry_line (
 
 | 索引 | 種別 | 対象列 | 目的 |
 |---|---|---|---|
-| `uk_sal_inquiry_line_no` | UNIQUE | (`inquiry_id`, `line_no`) | 行番號一意 |
+| `uk_sal_inquiry_line_no` | UNIQUE | (`tenant_id`, `company_id`, `inquiry_id`, `line_no`) | 行番號一意 |
 | `idx_sal_inquiry_line_material` | B-Tree | (`material_id`) | 物料別照会 |
 
 ### 3.3 `sal_quotation`（报价单）
@@ -312,7 +312,7 @@ CREATE TABLE sal_quotation_line (
 
 | 索引 | 種別 | 対象列 | 目的 |
 |---|---|---|---|
-| `uk_sal_quotation_line_no` | UNIQUE | (`quotation_id`, `line_no`) | 行番號一意 |
+| `uk_sal_quotation_line_no` | UNIQUE | (`tenant_id`, `company_id`, `quotation_id`, `line_no`) | 行番號一意 |
 | `idx_sal_quotation_line_material` | B-Tree | (`material_id`) | 物料別 |
 
 ### 3.5 `sal_quotation_version`（报价单版本）
@@ -342,7 +342,7 @@ CREATE TABLE sal_quotation_version (
     CONSTRAINT pk_sal_quotation_version PRIMARY KEY (id),
     CONSTRAINT fk_sal_quotation_version_q FOREIGN KEY (quotation_id) REFERENCES sal_quotation (id)
 );
-CREATE UNIQUE INDEX uk_sal_quotation_version_rev ON sal_quotation_version (quotation_id, revision_no);
+CREATE UNIQUE INDEX uk_sal_quotation_version_rev ON sal_quotation_version (tenant_id, company_id, quotation_id, revision_no);
 ```
 
 ### 3.6 `sal_sales_order`（销售订单）
@@ -430,7 +430,7 @@ CREATE TABLE sal_sales_order (
 | `idx_sal_sales_order_customer` | B-Tree | (`customer_id`, `order_date` DESC) | 顧客別 |
 | `idx_sal_sales_order_owner` | B-Tree | (`owner_user_id`, `order_status`) | 擔當者別 |
 | `idx_sal_sales_order_delivery` | B-Tree | (`delivery_date`, `order_status`) | 納期遅延検出 |
-| `uk_sal_sales_order_source` | UNIQUE | (`tenant_id`, `source_type`, `source_id`) WHERE `source_id` IS NOT NULL | 受注転換の二重作成防止 |
+| `uk_sal_sales_order_source` | UNIQUE | (`tenant_id`, `company_id`, `source_type`, `source_id`) WHERE `source_id` IS NOT NULL | 受注転換の二重作成防止 |
 
 ### 3.7 `sal_sales_order_line`（销售订单明细）
 
@@ -498,7 +498,7 @@ CREATE TABLE sal_sales_order_line (
 
 | 索引 | 種別 | 対象列 | 目的 |
 |---|---|---|---|
-| `uk_sal_sales_order_line_no` | UNIQUE | (`sales_order_id`, `line_no`) | 行番號一意（安定キー） |
+| `uk_sal_sales_order_line_no` | UNIQUE | (`tenant_id`, `company_id`, `sales_order_id`, `line_no`) | 行番號一意（安定キー） |
 | `idx_sal_sales_order_line_status` | B-Tree | (`line_status`, `delivery_date`) | 追蹤・遅延検出 |
 | `idx_sal_sales_order_line_material` | B-Tree | (`material_id`, `delivery_date`) | 物料別引當整理 |
 | `idx_sal_sales_order_line_open` | B-Tree | (`sales_order_id`) WHERE `line_status IN (10,30,35)` | 未完了明細 |
@@ -543,7 +543,7 @@ CREATE TABLE sal_sales_order_version (
     CONSTRAINT pk_sal_sales_order_version PRIMARY KEY (id),
     CONSTRAINT fk_sal_sales_order_version_o FOREIGN KEY (sales_order_id) REFERENCES sal_sales_order (id)
 );
-CREATE UNIQUE INDEX uk_sal_sales_order_version_no ON sal_sales_order_version (sales_order_id, version_no);
+CREATE UNIQUE INDEX uk_sal_sales_order_version_no ON sal_sales_order_version (tenant_id, company_id, sales_order_id, version_no);
 CREATE INDEX idx_sal_sales_order_version_status ON sal_sales_order_version (change_status, requested_at DESC);
 ```
 
@@ -678,7 +678,7 @@ CREATE TABLE sal_delivery_note_line (
 
 | 索引 | 種別 | 対象列 | 目的 |
 |---|---|---|---|
-| `uk_sal_dn_line_no` | UNIQUE | (`delivery_note_id`, `line_no`) | 行番號一意 |
+| `uk_sal_dn_line_no` | UNIQUE | (`tenant_id`, `company_id`, `delivery_note_id`, `line_no`) | 行番號一意 |
 | `idx_sal_dn_line_order_line` | B-Tree | (`sales_order_line_id`) | 受注明細別の出荷集計 |
 | `idx_sal_dn_line_material` | B-Tree | (`material_id`) | 物料別 |
 
@@ -742,7 +742,7 @@ CREATE TABLE sal_delivery_serial (
     CONSTRAINT fk_sal_delivery_serial_dn FOREIGN KEY (delivery_note_id) REFERENCES sal_delivery_note (id),
     CONSTRAINT fk_sal_delivery_serial_line FOREIGN KEY (delivery_note_line_id) REFERENCES sal_delivery_note_line (id)
 );
-CREATE UNIQUE INDEX uk_sal_delivery_serial_line ON sal_delivery_serial (delivery_note_line_id, serial_no);
+CREATE UNIQUE INDEX uk_sal_delivery_serial_line ON sal_delivery_serial (tenant_id, company_id, delivery_note_line_id, serial_no);
 CREATE INDEX idx_sal_delivery_serial_no ON sal_delivery_serial (material_id, serial_no);
 ```
 
@@ -844,7 +844,7 @@ CREATE TABLE sal_sales_return_line (
     CONSTRAINT fk_sal_return_line_dn_line FOREIGN KEY (original_delivery_line_id) REFERENCES sal_delivery_note_line (id),
     CONSTRAINT ck_sal_return_line_qty CHECK (return_qty > 0 AND return_qty <= returnable_qty)
 );
-CREATE UNIQUE INDEX uk_sal_return_line_no ON sal_sales_return_line (return_id, line_no);
+CREATE UNIQUE INDEX uk_sal_return_line_no ON sal_sales_return_line (tenant_id, company_id, return_id, line_no);
 CREATE INDEX idx_sal_return_line_dn_line ON sal_sales_return_line (original_delivery_line_id);
 ```
 
@@ -961,7 +961,7 @@ CREATE TABLE sal_invoice_application_line (
     CONSTRAINT fk_sal_iva_line_app FOREIGN KEY (application_id) REFERENCES sal_invoice_application (id),
     CONSTRAINT fk_sal_iva_line_dn FOREIGN KEY (delivery_id) REFERENCES sal_delivery_note (id)
 );
-CREATE UNIQUE INDEX uk_sal_iva_line_no ON sal_invoice_application_line (application_id, line_no);
+CREATE UNIQUE INDEX uk_sal_iva_line_no ON sal_invoice_application_line (tenant_id, company_id, application_id, line_no);
 CREATE INDEX idx_sal_iva_line_dn ON sal_invoice_application_line (delivery_id);
 ```
 
@@ -1046,7 +1046,7 @@ CREATE TABLE sal_invoice_line (
     CONSTRAINT fk_sal_invoice_line_inv FOREIGN KEY (invoice_id) REFERENCES sal_invoice (id),
     CONSTRAINT ck_sal_invoice_line_qty CHECK (qty > 0)
 );
-CREATE UNIQUE INDEX uk_sal_invoice_line_no ON sal_invoice_line (invoice_id, line_no);
+CREATE UNIQUE INDEX uk_sal_invoice_line_no ON sal_invoice_line (tenant_id, company_id, invoice_id, line_no);
 CREATE INDEX idx_sal_invoice_line_material ON sal_invoice_line (material_id);
 ```
 
@@ -1142,7 +1142,7 @@ CREATE TABLE sal_statement_line (
     CONSTRAINT pk_sal_statement_line PRIMARY KEY (id),
     CONSTRAINT fk_sal_statement_line_s FOREIGN KEY (statement_id) REFERENCES sal_statement (id)
 );
-CREATE UNIQUE INDEX uk_sal_statement_line_no ON sal_statement_line (statement_id, line_no);
+CREATE UNIQUE INDEX uk_sal_statement_line_no ON sal_statement_line (tenant_id, company_id, statement_id, line_no);
 CREATE INDEX idx_sal_statement_line_date ON sal_statement_line (statement_id, transaction_date);
 ```
 
@@ -1175,7 +1175,7 @@ CREATE TABLE sal_credit_ledger_snapshot (
     CONSTRAINT fk_sal_credit_occ_customer FOREIGN KEY (customer_id) REFERENCES mdm_customer (id),
     CONSTRAINT ck_sal_credit_occ_amt CHECK (amount >= 0 AND released_amount >= 0 AND released_amount <= amount)
 );
-CREATE UNIQUE INDEX uk_sal_credit_occ_source ON sal_credit_ledger_snapshot (tenant_id, source_type, source_id, release_seq);
+CREATE UNIQUE INDEX uk_sal_credit_occ_source ON sal_credit_ledger_snapshot (tenant_id, company_id, source_type, source_id, release_seq);
 CREATE INDEX idx_sal_credit_occ_customer ON sal_credit_ledger_snapshot (customer_id, status);
 CREATE INDEX idx_sal_credit_occ_source_lookup ON sal_credit_ledger_snapshot (source_type, source_id);
 ```
@@ -1255,7 +1255,7 @@ CREATE TABLE sal_receivable_snapshot (
     synced_at           TIMESTAMPTZ  NOT NULL DEFAULT now(),   -- 同期日時
     CONSTRAINT pk_sal_receivable_snapshot PRIMARY KEY (id)
 );
-CREATE UNIQUE INDEX uk_sal_receivable_snapshot_fin ON sal_receivable_snapshot (tenant_id, receivable_id);
+CREATE UNIQUE INDEX uk_sal_receivable_snapshot_fin ON sal_receivable_snapshot (tenant_id, company_id, receivable_id);
 CREATE INDEX idx_sal_receivable_snapshot_cust ON sal_receivable_snapshot (customer_id, due_date);
 CREATE INDEX idx_sal_receivable_snapshot_open ON sal_receivable_snapshot (customer_id, receivable_status);
 ```
@@ -1368,7 +1368,7 @@ CREATE TABLE sal_sales_forecast_line (
     CONSTRAINT fk_sal_forecast_line_f FOREIGN KEY (forecast_id) REFERENCES sal_sales_forecast (id),
     CONSTRAINT ck_sal_forecast_line_qty CHECK (forecast_qty >= 0)
 );
-CREATE UNIQUE INDEX uk_sal_forecast_line_no ON sal_sales_forecast_line (forecast_id, line_no);
+CREATE UNIQUE INDEX uk_sal_forecast_line_no ON sal_sales_forecast_line (tenant_id, company_id, forecast_id, line_no);
 CREATE INDEX idx_sal_forecast_line_material ON sal_sales_forecast_line (material_id);
 ```
 
@@ -1466,7 +1466,7 @@ CREATE INDEX idx_sal_forecast_line_material ON sal_sales_forecast_line (material
 - 業務一意索引は `(tenant_id, company_id, 業務キー)` で始める（#43/#49 と同一）。
 - `ON CONFLICT` は同じ列を含め、採番は `sys_sequence.step` で増分する（`EXCLUDED.step` 禁止）。
 - `company_id` は既定値なし・必須。`tenant_id` は `DEFAULT current_setting('app.tenant_id')::bigint`（`DEFAULT 0` 禁止）。
-- **例外（親 ID 先頭の明細・版表）**：`uk_sal_inquiry_line_no`、`uk_sal_quotation_line_no`、`uk_sal_quotation_version_rev`、`uk_sal_sales_order_line_no`、`uk_sal_sales_order_version_no`、`uk_sal_dn_line_no`、`uk_sal_delivery_serial_line`、`uk_sal_return_line_no`、`uk_sal_iva_line_no`、`uk_sal_invoice_line_no`、`uk_sal_statement_line_no`、`uk_sal_forecast_line_no`。
+- **例外**：例外は [00-common/04](../00-common/04-common-db-spec.md) §6.1 第 4 条（`company_id` を持たないテナント共有表、`(tenant_id, …)` 先頭）のみ：`uk_sys_company_code`、`uk_sys_company_credit`、`uk_sys_menu_code`、`uk_sys_menu_permission`、`uk_sys_dict_type_code`、`uk_sys_outbox_event_id`、`uk_sys_idempotency_key`、`uk_mdm_exchange_rate`。親 ID・イベント ID 先頭の例外は廃止（蓝色大肥鱼 2026-10-21 決定、sys/V202610210708 と整合）。明細・版表（`uk_sal_*_line_no`、`uk_sal_quotation_version_rev`、`uk_sal_sales_order_version_no`、`uk_sal_delivery_serial_line`）も `(tenant_id, company_id, 親 ID, …)` 先頭。
 
 ## 10. 未決事項
 
@@ -1484,9 +1484,4 @@ CREATE INDEX idx_sal_forecast_line_material ON sal_sales_forecast_line (material
 |---|---|---|---|
 | v1.0 | 2026-10-20 | 初版作成：29 テーブルの物理設計（DDL・索引・制約・容量・更新責任）、共通カラム方針、イベント連動、Flyway 計画 | sales-designer |
 | v1.1 | 2026-10-20 | 紅隊修復第 2 輪：`sal_credit_ledger_snapshot` を FIN 與信台帳の読取投影へ再定義（SAL 直接更新禁止）、與信判定コードを 10/20/30/40/90 に統一、与信使用額の権威を FIN へ一本化 | sales-designer |
-
-
-
-
-
-
+| v1.2 | 2026-10-21 | sal 明細・版表 15 件を 一意索引を `(tenant_id, company_id, …)` 先頭に統一（sys/V202610210707・0708 と整合）、「親 ID 先頭」例外一覧を削除。例外は 00-common/04 §6.1 第 4 条のテナント共有表のみ（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

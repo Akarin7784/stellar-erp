@@ -120,13 +120,13 @@ CREATE TABLE rpt_kpi_definition (
     updated_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_by      BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_rpt_kpi_definition PRIMARY KEY (id),
-    CONSTRAINT uk_rpt_kpi_definition UNIQUE (kpi_code, version_no),
+    CONSTRAINT uk_rpt_kpi_definition UNIQUE (tenant_id, company_id, kpi_code, version_no),
     CONSTRAINT ck_rpt_kpi_definition_cat CHECK (category IN ('FINANCE','SALES','INVENTORY','PURCHASE','PRODUCTION')),
     CONSTRAINT ck_rpt_kpi_definition_freq CHECK (frequency IN ('D','M','Q','Y')),
     CONSTRAINT ck_rpt_kpi_definition_dir CHECK (direction IN (10,20)),
     CONSTRAINT ck_rpt_kpi_definition_status CHECK (status IN (10,20,90))
 );
-CREATE UNIQUE INDEX uk_rpt_kpi_definition_current ON rpt_kpi_definition (kpi_code) WHERE status <> 90;
+CREATE UNIQUE INDEX uk_rpt_kpi_definition_current ON rpt_kpi_definition (tenant_id, company_id, kpi_code) WHERE status <> 90;
 ```
 
 **主要項目定義**
@@ -162,7 +162,7 @@ CREATE TABLE rpt_kpi_target (
     updated_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_by      BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_rpt_kpi_target PRIMARY KEY (id),
-    CONSTRAINT uk_rpt_kpi_target UNIQUE (kpi_code, period_code, dimension_key, target_type)
+    CONSTRAINT uk_rpt_kpi_target UNIQUE (tenant_id, company_id, kpi_code, period_code, dimension_key, target_type)
 );
 -- kpi_code は rpt_kpi_definition を論理参照する（定義は版数を持つため FK を張らない）
 ```
@@ -190,7 +190,7 @@ CREATE TABLE rpt_kpi_snapshot (
     created_at          TIMESTAMPTZ  NOT NULL DEFAULT now(),
     created_by          BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_rpt_kpi_snapshot PRIMARY KEY (id),
-    CONSTRAINT uk_rpt_kpi_snapshot UNIQUE (kpi_code, period_type, period_code, dimension_key),
+    CONSTRAINT uk_rpt_kpi_snapshot UNIQUE (tenant_id, company_id, kpi_code, period_type, period_code, dimension_key),
     CONSTRAINT ck_rpt_kpi_snapshot_status CHECK (snapshot_status IN (10,40,90))
 );
 CREATE INDEX idx_rpt_kpi_snapshot_period ON rpt_kpi_snapshot (period_type, period_code, kpi_code);
@@ -218,7 +218,7 @@ CREATE TABLE rpt_kpi_lineage (
     created_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
     created_by      BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_rpt_kpi_lineage PRIMARY KEY (id),
-    CONSTRAINT uk_rpt_kpi_lineage UNIQUE (kpi_code, seq_no, version_no)
+    CONSTRAINT uk_rpt_kpi_lineage UNIQUE (tenant_id, company_id, kpi_code, seq_no, version_no)
 );
 ```
 
@@ -260,7 +260,7 @@ CREATE TABLE rpt_dashboard (
     updated_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_by      BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_rpt_dashboard PRIMARY KEY (id),
-    CONSTRAINT uk_rpt_dashboard UNIQUE (dashboard_code)
+    CONSTRAINT uk_rpt_dashboard UNIQUE (tenant_id, company_id, dashboard_code)
 );
 
 CREATE TABLE rpt_dashboard_widget (
@@ -284,7 +284,7 @@ CREATE TABLE rpt_dashboard_widget (
     updated_by      BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_rpt_dashboard_widget PRIMARY KEY (id),
     CONSTRAINT fk_rpt_dashboard_widget_dash FOREIGN KEY (dashboard_id) REFERENCES rpt_dashboard (id),
-    CONSTRAINT uk_rpt_dashboard_widget UNIQUE (dashboard_id, widget_code)
+    CONSTRAINT uk_rpt_dashboard_widget UNIQUE (tenant_id, company_id, dashboard_id, widget_code)
 );
 ```
 
@@ -302,7 +302,7 @@ CREATE TABLE rpt_analysis_favorite (
     is_shared       BOOLEAN      NOT NULL DEFAULT FALSE,
     created_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
     CONSTRAINT pk_rpt_analysis_favorite PRIMARY KEY (id),
-    CONSTRAINT uk_rpt_analysis_favorite UNIQUE (owner_user_id, favorite_name)
+    CONSTRAINT uk_rpt_analysis_favorite UNIQUE (tenant_id, company_id, owner_user_id, favorite_name)
 );
 ```
 
@@ -418,7 +418,7 @@ CREATE TABLE rpt_inventory_snapshot (
     created_at          TIMESTAMPTZ  NOT NULL DEFAULT now(),
     CONSTRAINT pk_rpt_inventory_snapshot PRIMARY KEY (id)
 );
-CREATE UNIQUE INDEX uk_rpt_inventory_snapshot ON rpt_inventory_snapshot (snapshot_date, warehouse_id, material_id, batch_no, stock_status);
+CREATE UNIQUE INDEX uk_rpt_inventory_snapshot ON rpt_inventory_snapshot (tenant_id, company_id, snapshot_date, warehouse_id, material_id, batch_no, stock_status);
 CREATE INDEX idx_rpt_inventory_snapshot_date ON rpt_inventory_snapshot (snapshot_date, warehouse_id);
 CREATE INDEX idx_rpt_inventory_snapshot_mat ON rpt_inventory_snapshot (material_id, snapshot_date);
 ```
@@ -514,7 +514,7 @@ CREATE TABLE rpt_warning_rule (
     updated_at          TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_by          BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_rpt_warning_rule PRIMARY KEY (id),
-    CONSTRAINT uk_rpt_warning_rule UNIQUE (rule_code),
+    CONSTRAINT uk_rpt_warning_rule UNIQUE (tenant_id, company_id, rule_code),
     CONSTRAINT ck_rpt_warning_rule_type CHECK (rule_type IN (10,20,30,40)),
     CONSTRAINT ck_rpt_warning_rule_sev CHECK (severity IN (10,20,30))
 );
@@ -545,8 +545,8 @@ CREATE TABLE rpt_warning_event (
     dedup_key           VARCHAR(120) NOT NULL,
     created_at          TIMESTAMPTZ  NOT NULL DEFAULT now(),
     CONSTRAINT pk_rpt_warning_event PRIMARY KEY (id),
-    CONSTRAINT uk_rpt_warning_event_no UNIQUE (event_no),
-    CONSTRAINT uk_rpt_warning_event_dedup UNIQUE (dedup_key),
+    CONSTRAINT uk_rpt_warning_event_no UNIQUE (tenant_id, company_id, event_no),
+    CONSTRAINT uk_rpt_warning_event_dedup UNIQUE (tenant_id, company_id, dedup_key),
     CONSTRAINT ck_rpt_warning_event_status CHECK (status IN (10,20,30,40,90))
 );
 CREATE INDEX idx_rpt_warning_event_date ON rpt_warning_event (event_date DESC, severity);
@@ -570,7 +570,7 @@ CREATE TABLE rpt_warning_subscription (
     created_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
     created_by      BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_rpt_warning_subscription PRIMARY KEY (id),
-    CONSTRAINT uk_rpt_warning_subscription UNIQUE (rule_code, subscriber_type, subscriber_id)
+    CONSTRAINT uk_rpt_warning_subscription UNIQUE (tenant_id, company_id, rule_code, subscriber_type, subscriber_id)
 );
 ```
 
@@ -598,7 +598,7 @@ CREATE TABLE rpt_subscription (
     updated_at          TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_by          BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_rpt_subscription PRIMARY KEY (id),
-    CONSTRAINT uk_rpt_subscription_no UNIQUE (subscription_no),
+    CONSTRAINT uk_rpt_subscription_no UNIQUE (tenant_id, company_id, subscription_no),
     CONSTRAINT ck_rpt_subscription_freq CHECK (frequency IN (10,20,30))
 );
 CREATE INDEX idx_rpt_subscription_next ON rpt_subscription (status, next_send_at);
@@ -621,7 +621,7 @@ CREATE TABLE rpt_subscription_log (
     created_at          TIMESTAMPTZ  NOT NULL DEFAULT now(),
     CONSTRAINT pk_rpt_subscription_log PRIMARY KEY (id),
     CONSTRAINT fk_rpt_subscription_log_sub FOREIGN KEY (subscription_id) REFERENCES rpt_subscription (id),
-    CONSTRAINT uk_rpt_subscription_log UNIQUE (subscription_id, period_code)
+    CONSTRAINT uk_rpt_subscription_log UNIQUE (tenant_id, company_id, subscription_id, period_code)
 );
 ```
 
@@ -647,7 +647,7 @@ CREATE TABLE rpt_etl_job (
     error_summary   VARCHAR(1000),
     created_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
     CONSTRAINT pk_rpt_etl_job PRIMARY KEY (id),
-    CONSTRAINT uk_rpt_etl_job_no UNIQUE (job_no),
+    CONSTRAINT uk_rpt_etl_job_no UNIQUE (tenant_id, company_id, job_no),
     CONSTRAINT ck_rpt_etl_job_status CHECK (status IN (10,40,45,90))
 );
 CREATE INDEX idx_rpt_etl_job_date ON rpt_etl_job (biz_date DESC, job_type);
@@ -687,7 +687,7 @@ CREATE TABLE rpt_data_quality_check (
     detail          VARCHAR(1000),
     checked_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
     CONSTRAINT pk_rpt_data_quality_check PRIMARY KEY (id),
-    CONSTRAINT uk_rpt_data_quality_check UNIQUE (check_date, check_type, kpi_code, period_code)
+    CONSTRAINT uk_rpt_data_quality_check UNIQUE (tenant_id, company_id, check_date, check_type, kpi_code, period_code)
 );
 CREATE INDEX idx_rpt_data_quality_check_status ON rpt_data_quality_check (status, check_date DESC);
 ```
@@ -720,18 +720,18 @@ CREATE INDEX idx_rpt_query_log_screen ON rpt_query_log (screen_code, created_at 
 
 | # | テーブル | 索引名 | 種別 | 対象列 | 目的 |
 |---|---|---|---|---|---|
-| 1 | `rpt_kpi_definition` | `uk_rpt_kpi_definition_current` | UNIQUE（部分） | (`kpi_code`) WHERE `status <> 90` | 有効版一意 |
-| 2 | `rpt_kpi_target` | `uk_rpt_kpi_target` | UNIQUE | (`kpi_code`,`period_code`,`dimension_key`,`target_type`) | 目標一意 |
-| 3 | `rpt_kpi_snapshot` | `uk_rpt_kpi_snapshot` | UNIQUE | (`kpi_code`,`period_type`,`period_code`,`dimension_key`) | 快照一意 |
+| 1 | `rpt_kpi_definition` | `uk_rpt_kpi_definition_current` | UNIQUE（部分） | (`tenant_id`, `company_id`, `kpi_code`) WHERE `status <> 90` | 有効版一意 |
+| 2 | `rpt_kpi_target` | `uk_rpt_kpi_target` | UNIQUE | (`tenant_id`,`company_id`,`kpi_code`,`period_code`,`dimension_key`,`target_type`) | 目標一意 |
+| 3 | `rpt_kpi_snapshot` | `uk_rpt_kpi_snapshot` | UNIQUE | (`tenant_id`,`company_id`,`kpi_code`,`period_type`,`period_code`,`dimension_key`) | 快照一意 |
 | 4 | `rpt_kpi_snapshot` | `idx_rpt_kpi_snapshot_period` | B-Tree | (`period_type`,`period_code`,`kpi_code`) | 期間検索 |
 | 5 | `rpt_sales_detail` | `idx_rpt_sales_detail_ship` | B-Tree | (`ship_date`,`line_status`) | 期間集計 |
 | 6 | `rpt_purchase_detail` | `idx_rpt_purchase_detail_date` | B-Tree | (`receipt_date`,`inspection_status`) | 期間集計 |
-| 7 | `rpt_inventory_snapshot` | `uk_rpt_inventory_snapshot` | UNIQUE | (`snapshot_date`,`warehouse_id`,`material_id`,batch,status) | 日次一意 |
+| 7 | `rpt_inventory_snapshot` | `uk_rpt_inventory_snapshot` | UNIQUE | (`tenant_id`,`company_id`,`snapshot_date`,`warehouse_id`,`material_id`,batch,status) | 日次一意 |
 | 8 | `rpt_production_detail` | `idx_rpt_production_detail_end` | B-Tree | (`actual_end_date`,`factory_id`) | 産量集計 |
 | 9 | `rpt_finance_detail` | `idx_rpt_finance_detail_period` | B-Tree | (`period_code`,`account_code`) | 科目集計 |
-| 10 | `rpt_warning_event` | `uk_rpt_warning_event_dedup` | UNIQUE | (`dedup_key`) | 重複防止 |
+| 10 | `rpt_warning_event` | `uk_rpt_warning_event_dedup` | UNIQUE | (`tenant_id`, `company_id`, `dedup_key`) | 重複防止 |
 | 11 | `rpt_subscription` | `idx_rpt_subscription_next` | B-Tree | (`status`,`next_send_at`) | 配信対象 |
-| 12 | `rpt_data_quality_check` | `uk_rpt_data_quality_check` | UNIQUE | (`check_date`,`check_type`,`kpi_code`,`period_code`) | 検査一意 |
+| 12 | `rpt_data_quality_check` | `uk_rpt_data_quality_check` | UNIQUE | (`tenant_id`,`company_id`,`check_date`,`check_type`,`kpi_code`,`period_code`) | 検査一意 |
 
 ## 5. 制約・整合性
 
@@ -789,3 +789,4 @@ CREATE INDEX idx_rpt_query_log_screen ON rpt_query_log (screen_code, created_at 
 | 版数 | 日付 | 変更内容 | 変更者 |
 |---|---|---|---|
 | v1.0 | 2026-10-20 | 初版：22 テーブルの DDL・索引・制約・容量・更新タイミング | analytics-designer |
+| v1.1 | 2026-10-21 | rpt 一意制約・索引 23 件を `(tenant_id, company_id, …)` 先頭に統一（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
