@@ -169,8 +169,8 @@ COMMENT ON TABLE sys_company IS '公司（会计主体）';
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_sys_company_code | UNIQUE | (company_code) | WHERE deleted=FALSE | 公司代码一意 |
-| uk_sys_company_credit | UNIQUE | (unified_social_credit_code) | WHERE deleted=FALSE AND unified_social_credit_code IS NOT NULL | 信用代码一意 |
+| uk_sys_company_code | UNIQUE | (tenant_id, company_code) | WHERE deleted=FALSE | 公司代码一意 |
+| uk_sys_company_credit | UNIQUE | (tenant_id, unified_social_credit_code) | WHERE deleted=FALSE AND unified_social_credit_code IS NOT NULL | 信用代码一意 |
 
 **更新仕様**：F-SYS-014 のみが INSERT/UPDATE。削除は無効化（`status=0`）で表現し、`company_id` が参照されている場合は削除不可（`MSG-SYS-014`）。
 
@@ -397,7 +397,7 @@ COMMENT ON TABLE sys_role IS '角色（権限集合）';
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_sys_role_code | UNIQUE | (role_code) | WHERE deleted=FALSE | ロールコード一意 |
+| uk_sys_role_code | UNIQUE | (tenant_id, company_id, role_code) | WHERE deleted=FALSE | ロールコード一意 |
 | idx_sys_role_status | B-Tree | (status, sort_no) | — | 有効ロール一覧 |
 
 **制約**：`role_type=1`（内置）は `role_code` 変更・削除不可。SoD（職務分掌）チェックは付与時にアプリで実施（[共通业务规则](../00-common/08-common-business-rules.md) 9.2、`MSG-SYS-012` 警告）。
@@ -575,8 +575,8 @@ COMMENT ON TABLE sys_menu IS '菜单/权限（メニューツリー＋ボタン�
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_sys_menu_code | UNIQUE | (menu_code) | WHERE deleted=FALSE | メニューコード一意 |
-| uk_sys_menu_permission | UNIQUE | (permission_code) | WHERE deleted=FALSE AND permission_code IS NOT NULL | 権限コード一意 |
+| uk_sys_menu_code | UNIQUE | (tenant_id, menu_code) | WHERE deleted=FALSE | メニューコード一意 |
+| uk_sys_menu_permission | UNIQUE | (tenant_id, permission_code) | WHERE deleted=FALSE AND permission_code IS NOT NULL | 権限コード一意 |
 | idx_sys_menu_parent | B-Tree | (parent_id, sort_no) | — | ツリー表示 |
 | idx_sys_menu_module | B-Tree | (module_code, menu_type) | — | モジュール別一覧 |
 
@@ -610,7 +610,7 @@ COMMENT ON TABLE sys_dict_type IS '数据字典类型';
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_sys_dict_type_code | UNIQUE | (dict_code) | WHERE deleted=FALSE | 字典コード一意 |
+| uk_sys_dict_type_code | UNIQUE | (tenant_id, dict_code) | WHERE deleted=FALSE | 字典コード一意 |
 | idx_sys_dict_type_module | B-Tree | (module_code, status) | — | モジュール別一覧 |
 
 ### 3.14 sys_dict_item 字典项目
@@ -740,7 +740,7 @@ COMMENT ON TABLE sys_number_rule IS '编号规则（採番ルール）';
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_sys_number_rule_code | UNIQUE | (rule_code) | WHERE deleted=FALSE | ルールコード一意 |
+| uk_sys_number_rule_code | UNIQUE | (tenant_id, company_id, rule_code) | WHERE deleted=FALSE | ルールコード一意 |
 | idx_sys_number_rule_status | B-Tree | (status, module_code) | — | 有効ルール一覧 |
 
 **制約**：`seq_length` 1〜10。`reset_cycle=1` のとき `date_format` は日を含む形式（`yyMMdd` 等）必須（アプリ検証 `MSG-SYS-051`）。採番実績（`sys_sequence`）が存在する状態での桁数短縮は禁止（欠番・桁溢れ防止）。
@@ -1409,7 +1409,7 @@ COMMENT ON TABLE sys_outbox_event IS 'Outbox 事件（ドメインイベント�
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_sys_outbox_event_id | UNIQUE | (event_id) | — | イベント冪等 |
+| uk_sys_outbox_event_id | UNIQUE | (tenant_id, event_id) | — | イベント冪等 |
 | idx_sys_outbox_event_pending | B-Tree | (status, next_retry_at) | — | 配信対象抽出 |
 | idx_sys_outbox_event_type | B-Tree | (event_type, occurred_at DESC) | — | イベント監視 |
 
@@ -1475,7 +1475,7 @@ COMMENT ON TABLE sys_idempotency IS '幂等键（Idempotency-Key 管理）';
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_sys_idempotency_key | UNIQUE | (idempotency_key) | — | キー一意 |
+| uk_sys_idempotency_key | UNIQUE | (tenant_id, idempotency_key) | — | キー一意 |
 | idx_sys_idempotency_expire | B-Tree | (expires_at) | — | 期限切れ削除 |
 
 **制約**：同一キーで `process_status=0`（処理中）は `409 + code=4005`。`request_hash` が異なる同一キーは `400` で拒否（キー使い回し検出）。
@@ -1601,3 +1601,4 @@ COMMENT ON TABLE sys_data_maintenance_log IS '数据维护历史（初期化・�
 | v1.1 | 2026-10-20 | Lead 裁决に伴う修正：承認マトリクスは `wf_approval_matrix`（WF 所有）に統一（本域は保存しない）。工厂主データを MDM（`mdm_factory`）へ移管し、SYS は `sys_factory` を `sys_factory_setting`（工厂组织设置）に変更。ER・テーブル一覧・コメントを更新 | system-workflow |
 | v1.2 | 2026-10-20 | 红队第 2 轮修复：REV-005（データ範囲に工場/倉庫次元 `factory_ids`/`warehouse_ids`、scope_type 6/7、GIN 索引、ER 追加）、REV-006（監査ログは重要操作を同一 TX で同期 INSERT・破棄禁止・ローカル退避+アラート）、REV-026（`sys_sequence` DDL を 04-common §5 に一致）、Outbox DDL 正本を本ファイルと明記し `event_version` 追加 | system-workflow |
 | v1.3 | 2026-10-21 | §3.15 `uk_sys_param_key` を `(tenant_id, company_id, param_key) WHERE deleted=FALSE` に修正（迁移 V202610210103 に一致）、`param_key` 注釈を「テナント・会社内で一意」に、`idx_sys_param_group` を `(tenant_id, company_id, param_group, sort_no)` に修正（迁移 :167 に一致）、参照範囲を当該会社のみ・`company_id=0` フォールバックなし・欠落は 5000 と明記（迁移 :165 注釈は廃止） | 业务分析 |
+| v1.4 | 2026-10-21 | 一意キー列を 00-common §6.1 に整合：テナント級一意（`uk_sys_company_code`/`_credit`・`uk_sys_menu_code`/`_permission`・`uk_sys_dict_type_code`・`uk_sys_outbox_event_id`・`uk_sys_idempotency_key`）は `(tenant_id, …)`、`uk_sys_role_code`・`uk_sys_number_rule_code` は `(tenant_id, company_id, …)` | 业务分析 |
