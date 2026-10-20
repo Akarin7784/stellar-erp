@@ -33,7 +33,7 @@
 
 ```sql
 -- 共通カラム（全テーブル必須・定義は 01 第 2 章）:
--- id BIGINT PK, tenant_id BIGINT DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT DEFAULT 1,
+-- id BIGINT PK, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
 -- created_at TIMESTAMPTZ, created_by BIGINT, updated_at TIMESTAMPTZ, updated_by BIGINT,
 -- version INT DEFAULT 0, deleted BOOLEAN DEFAULT FALSE, remark VARCHAR(500), ext_data JSONB
 ```
@@ -191,12 +191,12 @@ CREATE TABLE prd_bom (
     CONSTRAINT ck_prd_bom_base_qty CHECK (base_qty > 0)
 );
 
-CREATE UNIQUE INDEX uk_prd_bom_bom_no ON prd_bom (company_id, bom_no) WHERE deleted = FALSE;
-CREATE UNIQUE INDEX uk_prd_bom_material_version ON prd_bom (company_id, material_id, factory_id, version_no) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_prd_bom_bom_no ON prd_bom (tenant_id, company_id, bom_no) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_prd_bom_material_version ON prd_bom (tenant_id, company_id, material_id, factory_id, version_no) WHERE deleted = FALSE;
 CREATE INDEX idx_prd_bom_material_status ON prd_bom (company_id, material_id, bom_status, valid_from DESC);
 CREATE INDEX idx_prd_bom_effective ON prd_bom (company_id, effective_status, valid_from, valid_to);
 -- 既定版本は 1 件のみ（部分一意）
-CREATE UNIQUE INDEX uk_prd_bom_default ON prd_bom (company_id, material_id, factory_id) WHERE is_default = TRUE AND deleted = FALSE;
+CREATE UNIQUE INDEX uk_prd_bom_default ON prd_bom (tenant_id, company_id, material_id, factory_id) WHERE is_default = TRUE AND deleted = FALSE;
 ```
 
 **更新仕様**
@@ -337,10 +337,10 @@ CREATE TABLE prd_routing (
     CONSTRAINT ck_prd_routing_valid CHECK (valid_to IS NULL OR valid_to >= valid_from)
 );
 
-CREATE UNIQUE INDEX uk_prd_routing_no ON prd_routing (company_id, routing_no) WHERE deleted = FALSE;
-CREATE UNIQUE INDEX uk_prd_routing_material_version ON prd_routing (company_id, material_id, factory_id, version_no) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_prd_routing_no ON prd_routing (tenant_id, company_id, routing_no) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_prd_routing_material_version ON prd_routing (tenant_id, company_id, material_id, factory_id, version_no) WHERE deleted = FALSE;
 CREATE INDEX idx_prd_routing_material_status ON prd_routing (company_id, material_id, routing_status, valid_from DESC);
-CREATE UNIQUE INDEX uk_prd_routing_default ON prd_routing (company_id, material_id, factory_id) WHERE is_default = TRUE AND deleted = FALSE;
+CREATE UNIQUE INDEX uk_prd_routing_default ON prd_routing (tenant_id, company_id, material_id, factory_id) WHERE is_default = TRUE AND deleted = FALSE;
 ```
 
 ### 3.5 prd_routing_operation（工艺工序）
@@ -401,7 +401,7 @@ CREATE INDEX idx_prd_routing_operation_inspection ON prd_routing_operation (comp
 | データ量見積 | 初期 2,000 / 年 +300 / 5 年 3,500 |
 | 保存期間 | 無期限 |
 
-**概要**：工程能力不足・设备故障时的替代工作中心/设备。`efficiency_rate` は替代時の能率係数（1.2000 = 主工作中心より 20% 余計に時間がかかる）。工单工序で手動選択する（自動振替は Phase 2）。
+**概要**：工程能力不足・设备故障时的替代工作中心/设备。`efficiency_rate` は替代時の能率係数（1.2000 = 主工作中心より 20% 余計に時間がかかる）。工单工序で手動選択する（自動振替は 第一版）。
 
 ```sql
 CREATE TABLE prd_routing_operation_alt (
@@ -463,7 +463,7 @@ CREATE TABLE prd_work_center (
     CONSTRAINT ck_prd_work_center_rate CHECK (labor_rate_per_hour >= 0 AND overhead_rate_per_hour >= 0)
 );
 
-CREATE UNIQUE INDEX uk_prd_work_center_code ON prd_work_center (company_id, work_center_code) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_prd_work_center_code ON prd_work_center (tenant_id, company_id, work_center_code) WHERE deleted = FALSE;
 CREATE INDEX idx_prd_work_center_factory ON prd_work_center (company_id, factory_id, status);
 ```
 
@@ -508,11 +508,11 @@ CREATE INDEX idx_prd_work_center_calendar_date ON prd_work_center_calendar (comp
 | テーブル物理名 | `prd_equipment` |
 | 論理名 | 设备台账 |
 | 種別 | マスタ |
-| 更新元機能 | F-PRD-018（Phase 2 で詳細化） |
+| 更新元機能 | F-PRD-018（第一版 で詳細化） |
 | データ量見積 | 初期 150 / 年 +10 / 5 年 200 |
 | 保存期間 | 無期限（廃棄後 10 年） |
 
-**概要**：1 行 = 1 台の設備。工作中心に所属し、点検・维修の対象。Phase 1 は設備台帳と工作中心の紐付けのみ使用し、点検・维修は Phase 2。
+**概要**：1 行 = 1 台の設備。工作中心に所属し、点検・维修の対象。当面は設備台帳と工作中心の紐付けのみ使用し、点検・维修は 第一版。
 
 ```sql
 CREATE TABLE prd_equipment (
@@ -539,7 +539,7 @@ CREATE TABLE prd_equipment (
     CONSTRAINT ck_prd_equipment_status CHECK (equipment_status IN (10,20,30,40,90))
 );
 
-CREATE UNIQUE INDEX uk_prd_equipment_code ON prd_equipment (company_id, equipment_code) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_prd_equipment_code ON prd_equipment (tenant_id, company_id, equipment_code) WHERE deleted = FALSE;
 CREATE INDEX idx_prd_equipment_wc ON prd_equipment (company_id, work_center_id, equipment_status);
 CREATE INDEX idx_prd_equipment_next_maintenance ON prd_equipment (company_id, next_maintenance_date) WHERE equipment_status <> 90;
 ```
@@ -551,11 +551,11 @@ CREATE INDEX idx_prd_equipment_next_maintenance ON prd_equipment (company_id, ne
 | テーブル物理名 | `prd_equipment_maintenance` |
 | 論理名 | 设备点检维修 |
 | 種別 | 伝票 |
-| 更新元機能 | F-PRD-018（Phase 2） |
+| 更新元機能 | F-PRD-018 |
 | データ量見積 | 初期 0 / 年 +3,000 / 5 年 15,000 |
 | 保存期間 | 10 年 |
 
-**概要**：点检（日常/定期）、保养、故障维修的记录。Phase 2 で詳細設計。ダウンタイムは粗能力計画の実効能力補正に使用する。
+**概要**：点检（日常/定期）、保养、故障维修的记录。第一版 で詳細設計。ダウンタイムは粗能力計画の実効能力補正に使用する。
 
 ```sql
 CREATE TABLE prd_equipment_maintenance (
@@ -577,7 +577,7 @@ CREATE TABLE prd_equipment_maintenance (
     CONSTRAINT ck_prd_equipment_maintenance_type CHECK (maintenance_type IN (10,20,30,40))
 );
 
-CREATE UNIQUE INDEX uk_prd_equipment_maintenance_no ON prd_equipment_maintenance (company_id, maintenance_no) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_prd_equipment_maintenance_no ON prd_equipment_maintenance (tenant_id, company_id, maintenance_no) WHERE deleted = FALSE;
 CREATE INDEX idx_prd_equipment_maintenance_eq_date ON prd_equipment_maintenance (company_id, equipment_id, maintenance_date DESC);
 ```
 
@@ -635,7 +635,7 @@ CREATE TABLE prd_material_planning (
     CONSTRAINT ck_prd_material_planning_yield CHECK (yield_rate > 0 AND yield_rate <= 1)
 );
 
-CREATE UNIQUE INDEX uk_prd_material_planning_mat_factory ON prd_material_planning (company_id, material_id, factory_id) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_prd_material_planning_mat_factory ON prd_material_planning (tenant_id, company_id, material_id, factory_id) WHERE deleted = FALSE;
 CREATE INDEX idx_prd_material_planning_llc ON prd_material_planning (company_id, low_level_code, material_type);
 CREATE INDEX idx_prd_material_planning_planner ON prd_material_planning (company_id, mrp_planner_user_id);
 ```
@@ -665,7 +665,7 @@ CREATE TABLE prd_demand_forecast (
     bucket_type         SMALLINT      NOT NULL DEFAULT 10,       -- 10:日 20:週 30:月
     forecast_qty        NUMERIC(18,4) NOT NULL,                  -- 预测数量
     forecast_type       SMALLINT      NOT NULL DEFAULT 10,       -- 10:销售预测 20:生产计划 30:安全库存补充
-    confidence_rate     NUMERIC(7,4)  NOT NULL DEFAULT 1,        -- 置信度（MRP 重み付け用、Phase 2）
+    confidence_rate     NUMERIC(7,4)  NOT NULL DEFAULT 1,        -- 置信度（MRP 重み付け用、第一版）
     source_type         SMALLINT      NOT NULL DEFAULT 10,       -- 10:手工 20:销售预测取込 30:Excel 取込
     forecast_status     SMALLINT      NOT NULL DEFAULT 10,       -- 10:草稿 20:承認待ち 30:確定 90:取消
     approved_by         BIGINT,                                  -- 承認者
@@ -675,7 +675,7 @@ CREATE TABLE prd_demand_forecast (
     CONSTRAINT ck_prd_demand_forecast_qty CHECK (forecast_qty >= 0)
 );
 
-CREATE UNIQUE INDEX uk_prd_demand_forecast_no ON prd_demand_forecast (company_id, forecast_no);
+CREATE UNIQUE INDEX uk_prd_demand_forecast_no ON prd_demand_forecast (tenant_id, company_id, forecast_no);
 CREATE INDEX idx_prd_demand_forecast_mat_date ON prd_demand_forecast (company_id, material_id, bucket_date, forecast_status);
 CREATE INDEX idx_prd_demand_forecast_run ON prd_demand_forecast (company_id, forecast_status, bucket_type);
 ```
@@ -710,8 +710,8 @@ CREATE TABLE prd_mps (
     CONSTRAINT ck_prd_mps_status CHECK (mps_status IN (10,20,30,40,90))
 );
 
-CREATE UNIQUE INDEX uk_prd_mps_no ON prd_mps (company_id, mps_no);
-CREATE UNIQUE INDEX uk_prd_mps_factory_period_ver ON prd_mps (company_id, factory_id, period_code, version_no);
+CREATE UNIQUE INDEX uk_prd_mps_no ON prd_mps (tenant_id, company_id, mps_no);
+CREATE UNIQUE INDEX uk_prd_mps_factory_period_ver ON prd_mps (tenant_id, company_id, factory_id, period_code, version_no);
 ```
 
 ### 3.14 prd_mps_line（主生产计划明细）
@@ -789,7 +789,7 @@ CREATE TABLE prd_mrp_run (
     CONSTRAINT ck_prd_mrp_run_status CHECK (run_status IN (10,40,90,95))
 );
 
-CREATE UNIQUE INDEX uk_prd_mrp_run_no ON prd_mrp_run (company_id, mrp_run_no);
+CREATE UNIQUE INDEX uk_prd_mrp_run_no ON prd_mrp_run (tenant_id, company_id, mrp_run_no);
 CREATE INDEX idx_prd_mrp_run_date ON prd_mrp_run (company_id, factory_id, run_date DESC, run_status);
 ```
 
@@ -886,7 +886,7 @@ CREATE TABLE prd_mrp_plan_order (
     CONSTRAINT ck_prd_mrp_plan_order_date CHECK (start_date <= due_date)
 );
 
-CREATE UNIQUE INDEX uk_prd_mrp_plan_order_no ON prd_mrp_plan_order (company_id, plan_order_no);
+CREATE UNIQUE INDEX uk_prd_mrp_plan_order_no ON prd_mrp_plan_order (tenant_id, company_id, plan_order_no);
 CREATE INDEX idx_prd_mrp_plan_order_run_mat ON prd_mrp_plan_order (company_id, mrp_run_id, material_id, due_date);
 CREATE INDEX idx_prd_mrp_plan_order_status ON prd_mrp_plan_order (company_id, plan_status, start_date);
 CREATE INDEX idx_prd_mrp_plan_order_converted ON prd_mrp_plan_order (company_id, converted_doc_type, converted_doc_id);
@@ -950,11 +950,12 @@ CREATE INDEX idx_prd_mrp_action_material ON prd_mrp_action (company_id, material
 
 | 数量項目 | 意味 | 整合制約（業務ルール） |
 |---|---|---|
-| `order_qty` | 注文数量（＝製造すべき良品数量） | > 0 |
-| `reported_good_qty` | 報工良品累計（全工序最終の良品） | ≤ order_qty × (1 + `over_report_rate`) |
+| `order_qty` | 注文数量（＝製造すべき良品数量、**物料基本単位**） | > 0 |
+| `reported_good_qty` | 報工良品累計（全工序最終の良品、基本単位） | ≤ order_qty × (1 + `over_report_rate`) |
 | `reported_defect_qty` | 報工不良累計（返工可能） | ≥ 0 |
 | `scrapped_qty` | 報工报废累計 | ≥ 0 |
-| `completed_qty` | 完工入库良品累計 | ≤ order_qty × (1 + `over_receipt_rate`) |
+| `completed_qty` | 完工入库良品累計（**基本単位**） | ≤ `allowed_qty`（MTO）。MTS：≤ order_qty × (1 + over_receipt_rate) |
+| `allowed_qty` | 許容完工上限（**基本単位**） | MTO：受注行 `allowed_qty` スナップショット。超産承認／受注変更承認後に再計算 |
 | `progress_rate` | 進捗率 = reported_good_qty ÷ order_qty | 0〜1.2（表示用に保持、報工時に更新） |
 
 ```sql
@@ -970,8 +971,9 @@ CREATE TABLE prd_work_order (
     factory_id          BIGINT        NOT NULL,                  -- 工厂 ID → mdm_factory.id
     department_id       BIGINT,                                  -- 制造部门 ID → sys_department.id
     warehouse_id        BIGINT,                                  -- 完工入库仓库 ID → mdm_warehouse.id
-    order_qty           NUMERIC(18,4) NOT NULL,                  -- 注文数量
-    completed_qty       NUMERIC(18,4) NOT NULL DEFAULT 0,        -- 完工入库良品累計
+    order_qty           NUMERIC(18,4) NOT NULL,                  -- 注文数量（物料基本単位）
+    completed_qty       NUMERIC(18,4) NOT NULL DEFAULT 0,        -- 完工入库良品累計（物料基本単位）
+    allowed_qty         NUMERIC(18,4),                           -- 許容完工上限（基本単位。MTO は受注行からスナップショット）
     reported_good_qty   NUMERIC(18,4) NOT NULL DEFAULT 0,        -- 報工良品累計
     reported_defect_qty NUMERIC(18,4) NOT NULL DEFAULT 0,        -- 報工不良累計
     scrapped_qty        NUMERIC(18,4) NOT NULL DEFAULT 0,        -- 報工报废累計
@@ -987,6 +989,7 @@ CREATE TABLE prd_work_order (
     inspection_status   SMALLINT      NOT NULL DEFAULT 10,       -- 10:起票 20:検査中 30:判定確定 90:取消
     priority_no         SMALLINT      NOT NULL DEFAULT 5,        -- 优先度 1(最高)〜9(最低)
     sales_order_id      BIGINT,                                  -- 受注 ID → sal_sales_order.id（MTO）
+    sales_order_line_id BIGINT,                                  -- 受注明細 ID → sal_sales_order_line.id（MTO。G2-18 / backend #47）
     sales_order_no      VARCHAR(32),                             -- 受注番号（スナップショット）
     customer_id         BIGINT,                                  -- 顧客 ID → mdm_customer.id
     bom_id              BIGINT,                                  -- 適用 BOM ID → prd_bom.id（展開時スナップショット）
@@ -999,8 +1002,8 @@ CREATE TABLE prd_work_order (
     parent_work_order_id BIGINT,                                 -- 親工单 ID（多阶製造）
     root_work_order_id  BIGINT,                                  -- 最上位工单 ID（追溯用）
     is_backflush        BOOLEAN       NOT NULL DEFAULT FALSE,    -- 倒冲工单フラグ
-    over_receipt_rate   NUMERIC(7,4)  NOT NULL DEFAULT 0.05,     -- 超入庫容许率（0.0500 = 5%）
-    over_report_rate    NUMERIC(7,4)  NOT NULL DEFAULT 0.05,     -- 超報工容许率
+    over_receipt_rate   NUMERIC(5,4)  NOT NULL DEFAULT 0.05,     -- 完工超収容差スナップショット（比率 NUMERIC(5,4)。チェーン：受注行>物料>分類>会社 sys_param key prd.completion_over_rate）
+    over_report_rate    NUMERIC(5,4)  NOT NULL DEFAULT 0.05,     -- 超報工容差（比率 NUMERIC(5,4)）
     is_hold             BOOLEAN       NOT NULL DEFAULT FALSE,    -- 保留フラグ（工程異常・品質問題）
     hold_reason         VARCHAR(500),                            -- 保留理由
     standard_cost       NUMERIC(18,6) NOT NULL DEFAULT 0,        -- 標準単位原価（成本卷算値）
@@ -1031,13 +1034,24 @@ CREATE TABLE prd_work_order (
     CONSTRAINT ck_prd_work_order_rate CHECK (over_receipt_rate >= 0 AND over_report_rate >= 0)
 );
 
-CREATE UNIQUE INDEX uk_prd_work_order_no ON prd_work_order (company_id, work_order_no);
-CREATE INDEX idx_prd_work_order_status_date ON prd_work_order (company_id, factory_id, order_status, planned_end_date);
-CREATE INDEX idx_prd_work_order_material ON prd_work_order (company_id, material_id, order_status);
-CREATE INDEX idx_prd_work_order_sales ON prd_work_order (company_id, sales_order_id) WHERE sales_order_id IS NOT NULL;
-CREATE INDEX idx_prd_work_order_parent ON prd_work_order (company_id, parent_work_order_id) WHERE parent_work_order_id IS NOT NULL;
-CREATE INDEX idx_prd_work_order_source ON prd_work_order (company_id, source_type, source_id);
+CREATE UNIQUE INDEX uk_prd_work_order_no ON prd_work_order (tenant_id, company_id, work_order_no);
+CREATE INDEX idx_prd_work_order_status_date ON prd_work_order (tenant_id, company_id, factory_id, order_status, planned_end_date);
+CREATE INDEX idx_prd_work_order_material ON prd_work_order (tenant_id, company_id, material_id, order_status);
+CREATE INDEX idx_prd_work_order_sales ON prd_work_order (tenant_id, company_id, sales_order_id) WHERE sales_order_id IS NOT NULL;
+CREATE INDEX idx_prd_work_order_so_line ON prd_work_order (tenant_id, company_id, sales_order_line_id) WHERE sales_order_line_id IS NOT NULL;
+CREATE INDEX idx_prd_work_order_parent ON prd_work_order (tenant_id, company_id, parent_work_order_id) WHERE parent_work_order_id IS NOT NULL;
+CREATE INDEX idx_prd_work_order_source ON prd_work_order (tenant_id, company_id, source_type, source_id);
 ```
+
+**G2-18 / 受注連係（2026-10-20 決定、backend #47）**：
+
+1. **品目一致**：工单 `material_id` ＝ 紐づく受注行（`sales_order_line_id`）の `material_id`。不一致は業務拒否 **HTTP 422・業務コード `60056`・`MSG-PRD-056`**（共通 4002 は状態競合 409 専用。業務拒否に 4002 を使わない）。
+2. **単位**：工单・報工・完工の数量はすべて**物料基本単位**（販売単位ではない）。
+3. **容差チェーン**（`completion_over_rate` / `over_receipt_rate` は **NUMERIC(5,4) 比率**。NULL＝次段継承、0＝明示 0%）：受注行 → 物料 → 物料分類 → 会社 `sys_param` key `prd.completion_over_rate`（既定 0.05、`sys_init_tenant` シード）。会社パラメータ欠落やテナント未設定は **5000**（設定不備）。
+4. **`allowed_qty`**：`floor(base_qty × (1 + rate))` を `mdm_uom.decimal_places` で切捨て。MTO は受注確定時に受注行へスナップショットし、工单はそれを参照／コピー。再計算は承認済受注変更または超産承認後のみ。
+5. **ロック**：跨表は先に受注行 `FOR UPDATE`、次に工单。同一表は id 昇順（[04 §11.1](../00-common/04-common-db-spec.md)）。適用：完工、冲销、返工入庫、受注変更、超産承認。過帳は行ロックのみ（楽観 `version` は画面編集）。
+6. **超産承認**：専用承認表（申請数量・承認後 allowed_qty・承認者・日時等）＋ Flowable。DDL は本域で後続追加（TODO）。承認後に受注行および関連工单の `allowed_qty` を再計算。
+
 
 **更新仕様**
 
@@ -1289,12 +1303,12 @@ CREATE TABLE prd_material_issue (
     CONSTRAINT ck_prd_material_issue_qty CHECK (total_qty >= 0)
 );
 
-CREATE UNIQUE INDEX uk_prd_material_issue_req ON prd_material_issue (company_id, request_no);
+CREATE UNIQUE INDEX uk_prd_material_issue_req ON prd_material_issue (tenant_id, company_id, request_no);
 CREATE INDEX idx_prd_material_issue_doc ON prd_material_issue (company_id, stock_doc_no);
 CREATE INDEX idx_prd_material_issue_wo ON prd_material_issue (company_id, work_order_id, issue_type, issue_status);
 CREATE INDEX idx_prd_material_issue_date ON prd_material_issue (company_id, issue_date, issue_status);
 
-CREATE UNIQUE INDEX uk_prd_material_issue_no ON prd_material_issue (company_id, issue_no);
+CREATE UNIQUE INDEX uk_prd_material_issue_no ON prd_material_issue (tenant_id, company_id, issue_no);
 ```
 
 ### 3.25 prd_material_issue_line（领退料明细）
@@ -1396,7 +1410,7 @@ CREATE TABLE prd_work_report (
     CONSTRAINT ck_prd_work_report_input CHECK (input_qty >= reported_good_qty + defect_qty + scrap_qty - 0.0001)
 );
 
-CREATE UNIQUE INDEX uk_prd_work_report_no ON prd_work_report (company_id, report_no);
+CREATE UNIQUE INDEX uk_prd_work_report_no ON prd_work_report (tenant_id, company_id, report_no);
 CREATE INDEX idx_prd_work_report_wo ON prd_work_report (company_id, work_order_id, operation_seq, report_status);
 CREATE INDEX idx_prd_work_report_date ON prd_work_report (company_id, report_date, report_status);
 CREATE INDEX idx_prd_work_report_op ON prd_work_report (company_id, work_order_operation_id);
@@ -1523,12 +1537,12 @@ CREATE TABLE prd_completion_receipt (
     CONSTRAINT ck_prd_completion_receipt_qty CHECK (total_qty >= 0)
 );
 
-CREATE UNIQUE INDEX uk_prd_completion_receipt_req ON prd_completion_receipt (company_id, request_no);
+CREATE UNIQUE INDEX uk_prd_completion_receipt_req ON prd_completion_receipt (tenant_id, company_id, request_no);
 CREATE INDEX idx_prd_completion_receipt_doc ON prd_completion_receipt (company_id, stock_doc_no);
 CREATE INDEX idx_prd_completion_receipt_wo ON prd_completion_receipt (company_id, work_order_id, receipt_status);
 CREATE INDEX idx_prd_completion_receipt_date ON prd_completion_receipt (company_id, receipt_date, receipt_status);
 
-CREATE UNIQUE INDEX uk_prd_completion_receipt_no ON prd_completion_receipt (company_id, receipt_no);
+CREATE UNIQUE INDEX uk_prd_completion_receipt_no ON prd_completion_receipt (tenant_id, company_id, receipt_no);
 ```
 
 ### 3.30 prd_completion_receipt_line（完工入库明细）
@@ -1627,7 +1641,7 @@ CREATE TABLE prd_outsourcing_order (
     CONSTRAINT ck_prd_outsourcing_order_amount CHECK (processing_amount >= 0 AND tax_amount >= 0)
 );
 
-CREATE UNIQUE INDEX uk_prd_outsourcing_order_no ON prd_outsourcing_order (company_id, outsourcing_no);
+CREATE UNIQUE INDEX uk_prd_outsourcing_order_no ON prd_outsourcing_order (tenant_id, company_id, outsourcing_no);
 CREATE INDEX idx_prd_outsourcing_order_supplier ON prd_outsourcing_order (company_id, supplier_id, os_status, planned_delivery_date);
 CREATE INDEX idx_prd_outsourcing_order_status ON prd_outsourcing_order (company_id, os_status, planned_delivery_date);
 ```
@@ -1711,11 +1725,11 @@ CREATE TABLE prd_outsourcing_issue (
     CONSTRAINT ck_prd_outsourcing_issue_qty CHECK (total_qty >= 0)
 );
 
-CREATE UNIQUE INDEX uk_prd_outsourcing_issue_req ON prd_outsourcing_issue (company_id, request_no);
+CREATE UNIQUE INDEX uk_prd_outsourcing_issue_req ON prd_outsourcing_issue (tenant_id, company_id, request_no);
 CREATE INDEX idx_prd_outsourcing_issue_doc ON prd_outsourcing_issue (company_id, stock_doc_no);
 CREATE INDEX idx_prd_outsourcing_issue_order ON prd_outsourcing_issue (company_id, outsourcing_order_id, issue_status);
 
-CREATE UNIQUE INDEX uk_prd_outsourcing_issue_no ON prd_outsourcing_issue (company_id, issue_no);
+CREATE UNIQUE INDEX uk_prd_outsourcing_issue_no ON prd_outsourcing_issue (tenant_id, company_id, issue_no);
 ```
 
 ### 3.34 prd_outsourcing_issue_line（委外发料明细）
@@ -1799,11 +1813,11 @@ CREATE TABLE prd_outsourcing_receipt (
     CONSTRAINT ck_prd_outsourcing_receipt_qty CHECK (total_qty >= 0)
 );
 
-CREATE UNIQUE INDEX uk_prd_outsourcing_receipt_req ON prd_outsourcing_receipt (company_id, request_no);
+CREATE UNIQUE INDEX uk_prd_outsourcing_receipt_req ON prd_outsourcing_receipt (tenant_id, company_id, request_no);
 CREATE INDEX idx_prd_outsourcing_receipt_doc ON prd_outsourcing_receipt (company_id, stock_doc_no);
 CREATE INDEX idx_prd_outsourcing_receipt_order ON prd_outsourcing_receipt (company_id, outsourcing_order_id, receipt_status);
 
-CREATE UNIQUE INDEX uk_prd_outsourcing_receipt_no ON prd_outsourcing_receipt (company_id, receipt_no);
+CREATE UNIQUE INDEX uk_prd_outsourcing_receipt_no ON prd_outsourcing_receipt (tenant_id, company_id, receipt_no);
 ```
 
 ### 3.36 prd_outsourcing_receipt_line（委外收货明细）
@@ -1894,7 +1908,7 @@ CREATE TABLE prd_outsourcing_settlement (
     CONSTRAINT ck_prd_outsourcing_settlement_amt CHECK (total_processing_amount >= 0 AND net_amount >= 0 AND deduction_amount >= 0)
 );
 
-CREATE UNIQUE INDEX uk_prd_outsourcing_settlement_no ON prd_outsourcing_settlement (company_id, settlement_no);
+CREATE UNIQUE INDEX uk_prd_outsourcing_settlement_no ON prd_outsourcing_settlement (tenant_id, company_id, settlement_no);
 CREATE INDEX idx_prd_outsourcing_settlement_supplier ON prd_outsourcing_settlement (company_id, supplier_id, period_code, settlement_status);
 ```
 
@@ -1934,7 +1948,7 @@ CREATE TABLE prd_outsourcing_settlement_line (
     CONSTRAINT ck_prd_outsourcing_settlement_line_amt CHECK (processing_amount >= 0 AND deduction_amount >= 0 AND net_amount >= 0)
 );
 
-CREATE UNIQUE INDEX uk_prd_outsourcing_settlement_line_settle_line ON prd_outsourcing_settlement_line (company_id, settlement_id, line_no);
+CREATE UNIQUE INDEX uk_prd_outsourcing_settlement_line_settle_line ON prd_outsourcing_settlement_line (tenant_id, company_id, settlement_id, line_no);
 CREATE INDEX idx_prd_outsourcing_settlement_line_rcpt ON prd_outsourcing_settlement_line (company_id, outsourcing_receipt_id);
 ```
 
@@ -1983,7 +1997,7 @@ CREATE TABLE prd_inspection_standard (
     CONSTRAINT ck_prd_inspection_standard_valid CHECK (valid_to IS NULL OR valid_to >= valid_from)
 );
 
-CREATE UNIQUE INDEX uk_prd_inspection_standard_no ON prd_inspection_standard (company_id, standard_no) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_prd_inspection_standard_no ON prd_inspection_standard (tenant_id, company_id, standard_no) WHERE deleted = FALSE;
 CREATE INDEX idx_prd_inspection_standard_apply ON prd_inspection_standard (company_id, inspection_type, material_id, operation_seq, customer_id, standard_status);
 CREATE INDEX idx_prd_inspection_standard_valid ON prd_inspection_standard (company_id, inspection_type, valid_from, valid_to);
 ```
@@ -2026,7 +2040,7 @@ CREATE TABLE prd_inspection_standard_item (
     CONSTRAINT ck_prd_inspection_standard_item_limit CHECK (upper_limit IS NULL OR lower_limit IS NULL OR upper_limit >= lower_limit)
 );
 
-CREATE UNIQUE INDEX uk_prd_inspection_standard_item_std_seq ON prd_inspection_standard_item (company_id, standard_id, item_seq);
+CREATE UNIQUE INDEX uk_prd_inspection_standard_item_std_seq ON prd_inspection_standard_item (tenant_id, company_id, standard_id, item_seq);
 CREATE INDEX idx_prd_inspection_standard_item_code ON prd_inspection_standard_item (company_id, inspection_item_code);
 ```
 
@@ -2095,7 +2109,7 @@ CREATE TABLE prd_inspection (
     CONSTRAINT ck_prd_inspection_qty CHECK (inspection_qty >= 0 AND sample_qty >= 0 AND defect_qty >= 0)
 );
 
-CREATE UNIQUE INDEX uk_prd_inspection_no ON prd_inspection (company_id, inspection_no);
+CREATE UNIQUE INDEX uk_prd_inspection_no ON prd_inspection (tenant_id, company_id, inspection_no);
 CREATE INDEX idx_prd_inspection_source ON prd_inspection (company_id, source_type, source_id);
 CREATE INDEX idx_prd_inspection_status ON prd_inspection (company_id, inspection_type, inspection_status, judged_at);
 CREATE INDEX idx_prd_inspection_wo ON prd_inspection (company_id, work_order_id) WHERE work_order_id IS NOT NULL;
@@ -2144,7 +2158,7 @@ CREATE TABLE prd_inspection_line (
     CONSTRAINT ck_prd_inspection_line_qty CHECK (sample_qty >= 0 AND defect_qty >= 0)
 );
 
-CREATE UNIQUE INDEX uk_prd_inspection_line_inspection_seq ON prd_inspection_line (company_id, inspection_id, item_seq);
+CREATE UNIQUE INDEX uk_prd_inspection_line_inspection_seq ON prd_inspection_line (tenant_id, company_id, inspection_id, item_seq);
 CREATE INDEX idx_prd_inspection_line_item ON prd_inspection_line (company_id, inspection_item_code, judge);
 ```
 
@@ -2207,7 +2221,7 @@ CREATE TABLE prd_ncr (
     CONSTRAINT ck_prd_ncr_qty CHECK (defect_qty > 0 AND disposition_qty > 0 AND disposition_qty <= defect_qty)
 );
 
-CREATE UNIQUE INDEX uk_prd_ncr_no ON prd_ncr (company_id, ncr_no);
+CREATE UNIQUE INDEX uk_prd_ncr_no ON prd_ncr (tenant_id, company_id, ncr_no);
 CREATE INDEX idx_prd_ncr_status ON prd_ncr (company_id, ncr_status, ncr_date);
 CREATE INDEX idx_prd_ncr_material ON prd_ncr (company_id, material_id, lot_no);
 CREATE INDEX idx_prd_ncr_wo ON prd_ncr (company_id, work_order_id) WHERE work_order_id IS NOT NULL;
@@ -2249,7 +2263,7 @@ CREATE TABLE prd_ncr_action (
     CONSTRAINT ck_prd_ncr_action_qty CHECK (action_qty > 0)
 );
 
-CREATE UNIQUE INDEX uk_prd_ncr_action_ncr_seq ON prd_ncr_action (company_id, ncr_id, action_seq);
+CREATE UNIQUE INDEX uk_prd_ncr_action_ncr_seq ON prd_ncr_action (tenant_id, company_id, ncr_id, action_seq);
 CREATE INDEX idx_prd_ncr_action_status ON prd_ncr_action (company_id, action_status, planned_date);
 ```
 
@@ -2282,7 +2296,7 @@ CREATE TABLE prd_defect_code (
     CONSTRAINT ck_prd_defect_code_type CHECK (defect_type IN (10,20))
 );
 
-CREATE UNIQUE INDEX uk_prd_defect_code ON prd_defect_code (company_id, defect_code) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_prd_defect_code ON prd_defect_code (tenant_id, company_id, defect_code) WHERE deleted = FALSE;
 CREATE INDEX idx_prd_defect_code_group ON prd_defect_code (company_id, defect_group, is_active);
 ```
 
@@ -2333,7 +2347,7 @@ CREATE INDEX idx_prd_wo_lot_input ON prd_wo_lot (company_id, input_material_id, 
 CREATE INDEX idx_prd_wo_lot_consumed ON prd_wo_lot (company_id, consumed_at);
 ```
 
-> パーティション方針（Phase 2）：`prd_wo_lot` は `consumed_at` の月次レンジパーティション、`prd_mrp_demand`/`prd_mrp_action` は `created_at` の月次レンジパーティションへ移行可能な設計とする（[04](../00-common/04-common-db-spec.md) 8 章）。
+> パーティション方針：`prd_wo_lot` は `consumed_at` の月次レンジパーティション、`prd_mrp_demand`/`prd_mrp_action` は `created_at` の月次レンジパーティションへ移行可能な設計とする（[04](../00-common/04-common-db-spec.md) 8 章）。
 
 ### 3.47 prd_capacity_load（产能负荷快照）
 
@@ -2367,7 +2381,7 @@ CREATE TABLE prd_capacity_load (
     CONSTRAINT ck_prd_capacity_load_rate CHECK (load_rate >= 0)
 );
 
-CREATE UNIQUE INDEX uk_prd_capacity_load_wc_date_snap ON prd_capacity_load (company_id, work_center_id, load_date, load_type, snapshot_date);
+CREATE UNIQUE INDEX uk_prd_capacity_load_wc_date_snap ON prd_capacity_load (tenant_id, company_id, work_center_id, load_date, load_type, snapshot_date);
 CREATE INDEX idx_prd_capacity_load_date ON prd_capacity_load (company_id, load_date, load_type, load_rate DESC);
 ```
 
@@ -2467,7 +2481,7 @@ CREATE INDEX idx_prd_capacity_load_date ON prd_capacity_load (company_id, load_d
 | `PRD_MPS` | MPS | 11 | MPS2610001 | 月次 | `prd_mps.mps_no`（域内拡張） |
 | `PRD_FORECAST` | FC | 12 | FC2610200001 | 日次 | `prd_demand_forecast.forecast_no`（域内拡張） |
 | `PRD_INSPECTION_STD` | QS | 8 | QS100001 | 連番 | `prd_inspection_standard.standard_no`（域内拡張） |
-| `PRD_EQUIPMENT_MAINT` | MT | 13 | MT2610200001 | 日次 | `prd_equipment_maintenance.maintenance_no`（域内拡張、Phase 2） |
+| `PRD_EQUIPMENT_MAINT` | MT | 13 | MT2610200001 | 日次 | `prd_equipment_maintenance.maintenance_no`（域内拡張、第一版） |
 
 > [08](../00-common/08-common-business-rules.md) 2.1 に定義のないプレフィックスは「域内拡張」と明記し、形式は `{PREFIX}{YYMMDD}{4桁日序}` の共通則に従う（[00-overview](00-overview.md) 7 章のバッチ・帳票 ID と混同しないこと）。
 
@@ -2477,7 +2491,7 @@ CREATE INDEX idx_prd_capacity_load_date ON prd_capacity_load (company_id, load_d
 
 | テーブル | 初期 | 年間増加 | 5 年後 | 保存期間 | アーカイブ方針 |
 |---|---|---|---|---|---|
-| `prd_bom` / `prd_bom_line` / `prd_bom_substitute` | 3,000 / 30,000 / 3,000 | +500 / +6,000 / +600 | 5,500 / 60,000 / 6,000 | 無期限 | 廃止版はアーカイブスキーマへ（Phase 2） |
+| `prd_bom` / `prd_bom_line` / `prd_bom_substitute` | 3,000 / 30,000 / 3,000 | +500 / +6,000 / +600 | 5,500 / 60,000 / 6,000 | 無期限 | 廃止版はアーカイブスキーマへ |
 | `prd_routing` / `prd_routing_operation` | 2,500 / 25,000 | +400 / +4,000 | 4,500 / 45,000 | 無期限 | 同上 |
 | `prd_work_center` / `prd_work_center_calendar` | 80 / 2,000 | +5 / +800 | 105 / 6,000 | 無期限 | — |
 | `prd_equipment` / `prd_equipment_maintenance` | 150 / 0 | +10 / +3,000 | 200 / 15,000 | 無期限 / 10 年 | 点検記録は 10 年で削除可 |
@@ -2485,7 +2499,7 @@ CREATE INDEX idx_prd_capacity_load_date ON prd_capacity_load (company_id, load_d
 | `prd_demand_forecast` | 5,000 | +12,000 | 65,000 | 3 年 | 月次アーカイブ |
 | `prd_mps` / `prd_mps_line` | 100 / 5,000 | +120 / +12,000 | 700 / 65,000 | 5 年 | — |
 | `prd_mrp_run` | 0 | +300 | 1,500 | 3 年 | 月次アーカイブ |
-| `prd_mrp_demand` | 0 | +150,000 | 750,000 | 3 年 | 月次パーティション（Phase 2） |
+| `prd_mrp_demand` | 0 | +150,000 | 750,000 | 3 年 | 月次パーティション |
 | `prd_mrp_plan_order` | 0 | +60,000 | 300,000 | 3 年 | 同上 |
 | `prd_mrp_action` | 0 | +100,000 | 500,000 | 3 年 | 同上 |
 | `prd_work_order` | 30,000 | +18,000 | 120,000 | 10 年 | 会計関連は 30 年 |
@@ -2501,7 +2515,7 @@ CREATE INDEX idx_prd_capacity_load_date ON prd_capacity_load (company_id, load_d
 | `prd_inspection` / `_line` | 80,000 / 600,000 | +60,000 / +450,000 | 380,000 / 2,850,000 | 10 年 | — |
 | `prd_ncr` / `prd_ncr_action` | 8,000 / 12,000 | +6,000 / +9,000 | 38,000 / 57,000 | 10 年 | — |
 | `prd_defect_code` | 200 | +20 | 300 | 無期限 | — |
-| `prd_wo_lot` | 0 | +200,000 | 1,000,000 | 5 年 | 月次パーティション（Phase 2） |
+| `prd_wo_lot` | 0 | +200,000 | 1,000,000 | 5 年 | 月次パーティション |
 | `prd_capacity_load` | 0 | +60,000 | 300,000 | 1 年 | 月次アーカイブ |
 
 > 概算容量：5 年後で約 8.5 GB（平均行長 0.5 KB 換算、索引込み）。PostgreSQL 単一インスタンスで問題ない規模（[04](../00-common/04-common-db-spec.md) 13 章の性能目標を満たす）。
@@ -2543,6 +2557,14 @@ CREATE INDEX idx_prd_capacity_load_date ON prd_capacity_load (company_id, load_d
 | `prd_defect_code` | F-PRD-012 | F-PRD-012 | `is_active=false` | 缺陷代码 |
 | `prd_wo_lot` | F-PRD-006/007/008 | `lot_status` のみ（出荷時） | —（追記専用） | 批次追溯 |
 | `prd_capacity_load` | BAT-PRD-008 | — | 当日スナップショットを置換（DELETE→INSERT） | 能力負荷 |
+
+### 一意索引の先頭列ルールと例外（2026-10-20 決定）
+
+- 業務一意索引は `(tenant_id, company_id, 業務キー)` で始める（#43/#49/#54 と同一）。
+- `ON CONFLICT` は同じ列を含め、採番は `sys_sequence.step` で増分（`EXCLUDED.step` 禁止）。
+- `company_id` は既定値なし・必須。`tenant_id` は `DEFAULT current_setting('app.tenant_id')::bigint`（禁止写死的默认租户。字面量 `0` を DEFAULT にしない）。
+- **例外（親 ID 先頭）**：`uk_prd_bom_line_bom_line`, `uk_prd_bom_substitute_line_pri`, `uk_prd_routing_operation_routing_seq`, `uk_prd_routing_operation_alt_pri`, `uk_prd_work_center_calendar_date`, `uk_prd_mps_line_mps_line`, `uk_prd_work_order_material_wo_line`, `uk_prd_work_order_operation_wo_seq`, `uk_prd_work_order_change_wo_no`, `uk_prd_material_issue_line_issue_line`, `uk_prd_work_report_labor_report_line`, `uk_prd_work_report_defect_report_line`, `uk_prd_completion_receipt_line_rcpt_line`, `uk_prd_outsourcing_order_line_order_line`, `uk_prd_outsourcing_issue_line_issue_line`, `uk_prd_outsourcing_receipt_line_rcpt_line`。
+
 
 ## 9. 改訂履歴
 
