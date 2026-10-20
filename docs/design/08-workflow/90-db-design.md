@@ -321,8 +321,9 @@ CREATE TABLE wf_business_process (
     completed_at        TIMESTAMPTZ,                      -- 完了日時
     final_result        SMALLINT,                         -- 最終結果：1 承認 / 2 却下 / 3 撤回 / 4 取消 / 5 強制終了
     urgent_flag         BOOLEAN       NOT NULL DEFAULT FALSE, -- 緊急フラグ
-    status              SMALLINT      NOT NULL DEFAULT 20,-- 状態：1 有効 / 0 無効（再提出で更新）
+    status              SMALLINT      NOT NULL DEFAULT 20, -- 伝票状態：10 草稿 / 20 承認中 / 30 承認済 / 40 却下 / 90 撤回（再提出で更新）
     CONSTRAINT ck_wf_business_process_status CHECK (process_status IN (10,20,25,90,95)),
+    CONSTRAINT ck_wf_business_process_doc_status CHECK (status IN (10,20,30,40,90)),
     CONSTRAINT ck_wf_business_process_result CHECK (final_result IS NULL OR final_result IN (1,2,3,4,5))
 );
 COMMENT ON TABLE wf_business_process IS '業務流程関連（業務伝票とプロセスインスタンスの紐付け）';
@@ -378,11 +379,13 @@ CREATE TABLE wf_task (
     cc_flag             BOOLEAN       NOT NULL DEFAULT FALSE, -- 主管抄送要否
     status              SMALLINT      NOT NULL DEFAULT 1,  -- 状態：1 有効 / 0 無効
     parent_task_id      BIGINT,                           -- 親タスク（wf_task.id、加签の子タスク時。通常 NULL）
+    task_type           SMALLINT      NOT NULL DEFAULT 10, -- タスク種別：10 通常 / 20 加签 / 30 转办
     CONSTRAINT fk_wf_task_parent FOREIGN KEY (parent_task_id) REFERENCES wf_task (id),
     CONSTRAINT ck_wf_task_status CHECK (task_status IN (20,25,90,95)),
     CONSTRAINT ck_wf_task_delegation CHECK (delegation_type IS NULL OR delegation_type IN (1,2)),
     CONSTRAINT ck_wf_task_urgency CHECK (urgency IN (0,1,2)),
-    CONSTRAINT ck_wf_task_row_status CHECK (status IN (0,1))
+    CONSTRAINT ck_wf_task_row_status CHECK (status IN (0,1)),
+    CONSTRAINT ck_wf_task_type CHECK (task_type IN (10,20,30))
 );
 COMMENT ON TABLE wf_task IS '承认タスク拡張（待办一覧の検索用属性）';
 ```
@@ -730,3 +733,4 @@ COMMENT ON TABLE wf_variable IS '流程変数（業務変数スナップショ�
 |---|---|---|---|
 | v1.0 | 2026-10-20 | 初版：設計方針、ER 図、15 テーブル定義（DDL・索引・制約・更新仕様）、容量、更新タイミング | system-workflow |
 | v1.1 | 2026-10-21 | DDL 整備（建迁移前）：唯一索引 12 件を `tenant_id` 先頭（`(tenant_id[, company_id], …)`、`wf_approval_matrix` は `(tenant_id, …)`、L セットの `wf_process_stat` は `(tenant_id, …)`）、T セット（`deleted` なし）の `uk_wf_business_process`/`uk_wf_task`/`uk_wf_cc`/`uk_wf_variable` から `WHERE deleted=FALSE` を削除、`wf_business_process` の重複 `company_id … DEFAULT 1` を削除、RLS 方針を追記（Flowable `ACT_*`/`FLW_*` は対象外）、既存の枚挙注釈どおり CHECK を追加、`wf_task.parent_task_id`（加签の親タスク、域内自己参照 FK）を追加（蓝色大肥鱼 決定） | 业务分析 |
+| v1.2 | 2026-10-21 | `wf_business_process.status` の注釈を伝票状態（10 草稿 / 20 承認中 / 30 承認済 / 40 却下 / 90 撤回、DEFAULT 20 維持）に修正し CHECK `ck_wf_business_process_doc_status` を追加、`wf_task.task_type`（10 通常 / 20 加签 / 30 转办、DEFAULT 10）と CHECK `ck_wf_task_type` を追加（蓝色大肥鱼 決定） | 业务分析 |
