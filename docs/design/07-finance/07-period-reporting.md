@@ -111,7 +111,7 @@ stateDiagram-v2
 
 | 遷移 | トリガ | 権限 | 更新項目 | メッセージ |
 |---|---|---|---|---|
-| FUTURE→OPEN | 月初バッチ/手動 | finance:period:close | status、opened_at | MSG-FIN-121 |
+| FUTURE→OPEN | 月初バッチ/手動 | finance:period:close | status、opened_at。同一トランザクションで当該期間に有効な `fin_standard_cost`（`status=40`、`period_from` ≤ 当期 ≤ `period_to` または NULL）の `total_unit_cost` を `mdm_material.standard_cost` に刷新（`erp_cost_publisher` 経由、[90 §6.12](90-db-design.md)）。当期に有効版がない物料は**旧値を保持**（NULL にしない。`period_to` は後続版の発行による自動打切りでのみ設定されるため通常は発生しない）。`fin_period` 作成前は発行日の属する月を「当月」とみなす | MSG-FIN-121 |
 | OPEN→CLOSED | 月結実行 | finance:period:close | status、closed_at/by | MSG-FIN-123 |
 | CLOSED→OPEN | 期間再開 | finance:period:reopen（財務総監） | status、reopen_reason；E37 待ちフラグ | MSG-FIN-124 |
 
@@ -727,3 +727,4 @@ stateDiagram-v2
 | v1.0 | 2026-10-20 | 初版：期間状態機/月結 15 チェック/損益転記 J28・J29/年結 J30/BS・IS・CF の取数公式/科目余額表/P2 機能概要/画面/API/メッセージ/テスト | finance-designer |
 | v1.1 | 2026-10-20 | 09 章 §3 追補：E37 `inventory.period.reopened` の購読（FIN が期間再開承認者、INV が承認後に発行）を §2.6・§6.2 に追加、E30 再送と再月結手順を明記 | finance-designer |
 | v1.2 | 2026-10-20 | 红队修复：唯一シナリオで BS/IS/CF を再計算（売上 66,666,666.67／原価 50,000,000／粗利 25%／所得税 1,300,000 を应交税费 3,551,200 に計上）。**所有者权益变动表（SCE、PRT-FIN-039）を §7.5 に追加**、損益転記 J28/J29 例更新、テスト観点更新 | finance-designer |
+| v1.3 | 2026-10-21 | 開帳（FUTURE→OPEN）時に当月有効な標準原価を `mdm_material.standard_cost` へ刷新（蓝色大肥鱼決定、#14） | 业务分析 |

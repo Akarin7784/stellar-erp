@@ -1697,7 +1697,7 @@ COMMENT ON TABLE fin_standard_cost IS '标准成本（物料×版本×適用期�
 | 5 | `material_unit_cost` 他 3 要素 | 要素別標準単価 | NUMERIC(18,6) | NOT NULL | 単価精度 18,6（[01 第 6 章](../00-common/01-common-item-definitions.md)） |
 | 6 | `total_unit_cost` | 標準単位原価 | NUMERIC(18,6) | NOT NULL | 4 要素合計（CHECK）。例 YE3-100L1-4：659.95 + 53.75 + 64.50 + 0 = 778.20（[06](06-auto-voucher-costing.md) CALC-A7、[bom-demo §6](../90-data/bom-demo.md)） |
 | 7 | `std_labor_hours` / `std_labor_rate` / `std_overhead_rate` | 標準工時・賃率・配賦率 | NUMERIC(18,4) / NUMERIC(18,6) | NOT NULL | 例 2.15 h、25.00、30.00 元/h |
-| 8 | `status` | 状態 | SMALLINT | NOT NULL | 10→40 発行時に `fin_publish_standard_cost` が `mdm_material.standard_cost` を更新 |
+| 8 | `status` | 状態 | SMALLINT | NOT NULL | 10→40。`mdm_material.standard_cost` には**当月有効版のみ**を反映（発行版の `period_from` ≤ 当月なら発行時、将来月なら当該期間の開帳時に BAT-FIN-001 が反映） |
 
 **前提（DBA）**：`CREATE EXTENSION IF NOT EXISTS btree_gist;` を本表作成マイグレーションより前に実行する（`EXCLUDE` で BIGINT の `=` を使うため）。
 
@@ -1705,7 +1705,7 @@ COMMENT ON TABLE fin_standard_cost IS '标准成本（物料×版本×適用期�
 1. 最初に `SELECT 1 FROM mdm_material WHERE tenant_id=… AND company_id=… AND id=material_id FOR NO KEY UPDATE` で当該物料行をロック（外部キー検査の `FOR KEY SHARE` と競合しないため、発行中も物料を参照する INSERT はブロックされない）し、同一物料の発行を直列化する（初回発行で既存の発行済み行がない場合、および READ COMMITTED で待機後に `period_to IS NULL` の再評価で 0 行になる場合も直列化されるため。advisory lock は使わない）。ロック取得**後**に対象版（`status=10`）と現在有効な発行済み版（`status=40`、`period_from` 最大の 1 行）を `FOR UPDATE` で取得する。
 2. 新版の `period_from` ≤ 有効版の `period_from`、または新版の `period_from` の月が成本計算済み・CLOSED 期間（`fin_period.status IN ('CLOSED','YEAR_CLOSED')`）なら `MSG-FIN-134`（70134）で拒否する。
 3. 有効版の `period_to` = 新版 `period_from` − 1 か月（自動打切り）に更新し、新版を `status=40`・`published_at/by` で更新する。`ex_fin_standard_cost_period` が最終防衛線。EXCLUDE は DEFERRABLE ではないため、必ず旧版の打切り UPDATE → 新版の `status=40` UPDATE の順で実行する。万一 EXCLUDE 違反（SQLSTATE `23P01`）が発生した場合、API は 500 ではなく `MSG-FIN-134`（70134、422）に変換して返す。
-4. （以下従来どおり）`fin_publish_standard_cost`（所有者 `erp_cost_publisher`、`SECURITY DEFINER`、`search_path` 固定、最初に `set_config('app.tenant_id', …, true)`）が `status=40` の版を選び `mdm_material.standard_cost` を更新する（権限設計は [02-mdm 90 §4.1.2](../02-mdm/90-db-design.md)）。工单下达時は PRD が当該期間の発行済み版の `total_unit_cost` を `prd_work_order.standard_cost` にスナップショットする。標準差異（`fin_cost_variance`）は `standard_cost_id` で比較元の版を保持する。
+4. （以下従来どおり）`fin_publish_standard_cost`（所有者 `erp_cost_publisher`、`SECURITY DEFINER`、`search_path` 固定、最初に `set_config('app.tenant_id', …, true)`）が `status=40` の版を選び、その `period_from` が当月（`fin_period` の OPEN 期間）以前なら `mdm_material.standard_cost` を更新する。将来月開始の版は発行時には更新せず、当該期間の開帳（FUTURE→OPEN、BAT-FIN-001）で当月有効版の値に刷新する（[07 §期間状態遷移](07-period-reporting.md)）（権限設計は [02-mdm 90 §4.1.2](../02-mdm/90-db-design.md)）。工单下达時は PRD が当該期間の発行済み版の `total_unit_cost` を `prd_work_order.standard_cost` にスナップショットする。標準差異（`fin_cost_variance`）は `standard_cost_id` で比較元の版を保持する。
 
 ### 6.11 実装順 P2 テーブル（概要 DDL、第一版で作成）
 
@@ -1903,3 +1903,4 @@ COMMENT ON TABLE fin_cash_plan IS '资金计划（実装順 P2）';
 | v1.2 | 2026-10-21 | 第一版全量化：`company_id` 既定値 1 を削除、業務一意索引を `(tenant_id, company_id, …)` 先頭に統一（DDL・一覧）、§7.1 例外一覧、RLS（ENABLE+FORCE、tenant_id）明記、段階表記を削除。§6.12 `fin_standard_cost` 追加（53 表）、成本表に委外要素・標準版参照を追加、`fin_payable.source_type` を `PURCHASE_RECEIPT` に統一、P2 表の番号一意索引を追加 | 业务分析 |
 | v1.3 | 2026-10-21 | `fin_standard_cost.period_from/to` を月初 DATE 化、`ex_fin_standard_cost_period`（EXCLUDE gist、btree_gist 前提）、発行時の自動打切りと MSG-FIN-134 | 业务分析 |
 | v1.4 | 2026-10-21 | 発行の並行制御（`mdm_material` 行 `FOR NO KEY UPDATE`、ロック後に有効版取得）、`23P01`→MSG-FIN-134（422） | 业务分析 |
+| v1.5 | 2026-10-21 | `mdm_material.standard_cost` は当月有効版のみ反映、将来月開始版は期間開帳時に刷新（蓝色大肥鱼決定、#14） | 业务分析 |
