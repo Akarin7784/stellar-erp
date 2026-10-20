@@ -6,7 +6,7 @@
 -- 业务错误由 g2_18_raise 抛出：SQLSTATE P0001，MESSAGE = 错误码。
 -- 「--!include <classpath 路径>」由 PgTapSuiteTest / scripts/local-ci.sh 展开成文件内容。
 BEGIN;
-SELECT plan(65);
+SELECT plan(66);
 
 --!include pgtap-support/g2_18_stub_tables.sql
 --!include db/draft/g2_18_completion.sql
@@ -184,6 +184,7 @@ SELECT is((SELECT ARRAY[approval_status, approved_allowed_qty, approved_by] FROM
 SELECT is((SELECT count(*) FROM sys_audit_log WHERE id = 990005 AND resource_no = 'OA-L3' AND (after_data->>'delta_qty')::numeric = 10),
           1::bigint, 'A10 写入审计日志（tenant_id 取列默认值）');
 SELECT throws_ok($$SELECT g2_18_approve_overproduction(991301, 9, 990006)$$, 'P0001', '4002', 'A11 已批的审批单再次通过 → 4002');
+SELECT throws_ok($$SELECT g2_18_raise_allowed_qty(991017, NULL, NULL, 'X', 9, 990007)$$, 'P0001', '60103', 'A12 delta NULL → 60103');
 SELECT throws_ok($$SELECT g2_18_raise_allowed_qty(991017, NULL, 0, 'X', 9, 990008)$$, 'P0001', '60103', 'A13 delta 0 → 60103');
 SELECT throws_ok($$SELECT g2_18_raise_allowed_qty(991017, NULL, -1, 'X', 9, 990009)$$, 'P0001', '60103', 'A14 delta 负数 → 60103');
 SELECT throws_ok($$SELECT g2_18_approve_overproduction(991702, 9, 990010)$$, 'P0001', '60103', 'A15 审批单 request_qty 0.4（PCE 取整为 0）→ 60103');
