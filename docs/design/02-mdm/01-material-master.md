@@ -591,10 +591,10 @@ BEGIN;
 -- 1) 分類の有効性・末級を確認
 SELECT category_code, status, is_leaf FROM mdm_material_category WHERE id = :categoryId;
 -- 2) 当日の連番を原子的に取得（行ロック）
-INSERT INTO sys_sequence (id, tenant_id, sequence_key, sequence_date, current_value, step, created_at, updated_at)
-VALUES (:snowflakeId, 0, 'MDM_MATERIAL_' || :categoryCode, CURRENT_DATE, 1, 1, now(), now())
-ON CONFLICT (sequence_key, sequence_date)
-DO UPDATE SET current_value = sys_sequence.current_value + 1, updated_at = now()
+INSERT INTO sys_sequence (id, tenant_id, company_id, sequence_key, sequence_date, current_value, step, created_at, updated_at)
+VALUES (:snowflakeId, current_setting('app.tenant_id')::bigint, :companyId, 'MDM_MATERIAL_' || :categoryCode, CURRENT_DATE, 1, 1, now(), now())
+ON CONFLICT (tenant_id, company_id, sequence_key, sequence_date)
+DO UPDATE SET current_value = sys_sequence.current_value + sys_sequence.step, updated_at = now()
 RETURNING current_value;   -- 例: 1
 -- 3) material_code = categoryCode || lpad(current_value, 6, '0')
 COMMIT;

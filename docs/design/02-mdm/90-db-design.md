@@ -62,7 +62,7 @@ erDiagram
 |---|---|---|---|---|
 | `id` | BIGINT | NOT NULL | アプリ採番 | 雪花 ID（PK） |
 | `tenant_id` | BIGINT | NOT NULL | `current_setting('app.tenant_id')::bigint` | 租户（RLS、[10-rls-and-db-roles.md](../00-common/10-rls-and-db-roles.md)（PR #43）を正とする） |
-| `company_id` | BIGINT | NOT NULL | 1 | 公司 ID |
+| `company_id` | BIGINT | NOT NULL | —（既定値なし、必須） | 公司 ID |
 | `created_at` | TIMESTAMPTZ | NOT NULL | now() | 作成日時 |
 | `created_by` | BIGINT | NOT NULL | 0 | 作成者 |
 | `updated_at` | TIMESTAMPTZ | NOT NULL | now() | 更新日時 |
@@ -163,7 +163,7 @@ erDiagram
 CREATE TABLE mdm_material_category (
     id              BIGINT       NOT NULL,
     tenant_id       BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id      BIGINT       NOT NULL DEFAULT 1,
+    company_id      BIGINT       NOT NULL,
     category_code   VARCHAR(4)   NOT NULL,             -- 分类编码（4位：大类2+中类2）
     category_name   VARCHAR(100) NOT NULL,             -- 分类名称
     parent_id       BIGINT       NULL,                 -- 父分类ID（根为NULL）
@@ -188,7 +188,7 @@ CREATE TABLE mdm_material_category (
     CONSTRAINT pk_mdm_material_category PRIMARY KEY (id),
     CONSTRAINT fk_mdm_material_category_parent FOREIGN KEY (parent_id) REFERENCES mdm_material_category (id)
 );
-CREATE UNIQUE INDEX uk_mdm_material_category_code ON mdm_material_category (company_id, category_code) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_mdm_material_category_code ON mdm_material_category (tenant_id, company_id, category_code) WHERE deleted = FALSE;
 CREATE INDEX idx_mdm_material_category_parent ON mdm_material_category (company_id, parent_id);
 CREATE INDEX gin_mdm_material_category_name ON mdm_material_category USING gin (category_name gin_trgm_ops);
 ```
@@ -207,7 +207,7 @@ CREATE INDEX gin_mdm_material_category_name ON mdm_material_category USING gin (
 CREATE TABLE mdm_material (
     id                    BIGINT       NOT NULL,
     tenant_id             BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id            BIGINT       NOT NULL DEFAULT 1,
+    company_id            BIGINT       NOT NULL,
     material_code         VARCHAR(10)  NOT NULL,       -- 物料编码（分类4+流水6）
     material_name         VARCHAR(200) NOT NULL,       -- 物料名称
     material_short_name   VARCHAR(100) NULL,           -- 简称
@@ -321,7 +321,7 @@ CREATE TABLE mdm_material (
     CONSTRAINT ck_mdm_material_ship_over_rate CHECK (ship_over_rate IS NULL OR ship_over_rate >= 0),
     CONSTRAINT ck_mdm_material_status CHECK (status IN (0,1))
 );
-CREATE UNIQUE INDEX uk_mdm_material_company_code ON mdm_material (company_id, material_code) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_mdm_material_company_code ON mdm_material (tenant_id, company_id, material_code) WHERE deleted = FALSE;
 CREATE INDEX idx_mdm_material_category ON mdm_material (company_id, category_id);
 CREATE INDEX idx_mdm_material_type_status ON mdm_material (company_id, material_type, status);
 CREATE INDEX idx_mdm_material_batch ON mdm_material (company_id, is_batch_managed, status);
@@ -377,7 +377,7 @@ CREATE INDEX gin_mdm_material_ext ON mdm_material USING gin (ext_data jsonb_path
 CREATE TABLE mdm_material_factory (
     id                  BIGINT       NOT NULL,
     tenant_id           BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id          BIGINT       NOT NULL DEFAULT 1,
+    company_id          BIGINT       NOT NULL,
     material_id         BIGINT       NOT NULL,        -- 物料ID
     factory_id          BIGINT       NOT NULL,        -- 工厂ID
     default_warehouse_id BIGINT      NULL,            -- 工厂默认仓库
@@ -420,7 +420,7 @@ CREATE INDEX idx_mdm_material_factory_factory ON mdm_material_factory (factory_i
 CREATE TABLE mdm_material_his (
     id               BIGINT       NOT NULL,
     tenant_id        BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id       BIGINT       NOT NULL DEFAULT 1,
+    company_id       BIGINT       NOT NULL,
     material_id      BIGINT       NOT NULL,          -- 物料ID
     operation_type   VARCHAR(16)  NOT NULL,          -- CREATE/UPDATE/APPROVE/DEACTIVATE/REACTIVATE
     change_request_id BIGINT      NULL,              -- 变更申请ID
@@ -441,7 +441,7 @@ CREATE INDEX idx_mdm_material_his_request ON mdm_material_his (change_request_id
 CREATE TABLE mdm_material_substitute (
     id                   BIGINT      NOT NULL,
     tenant_id            BIGINT      NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id           BIGINT      NOT NULL DEFAULT 1,
+    company_id           BIGINT      NOT NULL,
     material_id          BIGINT      NOT NULL,       -- 替代源物料
     substitute_material_id BIGINT    NOT NULL,       -- 替代目标物料
     substitute_type      SMALLINT    NOT NULL,       -- 10完全/20条件/30单向/40紧急
@@ -480,7 +480,7 @@ CREATE INDEX idx_mdm_substitute_target ON mdm_material_substitute (substitute_ma
 CREATE TABLE mdm_material_barcode (
     id              BIGINT       NOT NULL,
     tenant_id       BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id      BIGINT       NOT NULL DEFAULT 1,
+    company_id      BIGINT       NOT NULL,
     material_id     BIGINT       NOT NULL,          -- 物料ID
     barcode_rule_code VARCHAR(32) NOT NULL,         -- 条码规则
     barcode_value   VARCHAR(128) NOT NULL,          -- 条码内容
@@ -499,7 +499,7 @@ CREATE TABLE mdm_material_barcode (
     CONSTRAINT pk_mdm_material_barcode PRIMARY KEY (id),
     CONSTRAINT fk_mdm_barcode_material FOREIGN KEY (material_id) REFERENCES mdm_material (id)
 );
-CREATE UNIQUE INDEX uk_mdm_material_barcode_value ON mdm_material_barcode (barcode_value) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_mdm_material_barcode_value ON mdm_material_barcode (tenant_id, company_id, barcode_value) WHERE deleted = FALSE;
 CREATE INDEX idx_mdm_material_barcode_material ON mdm_material_barcode (material_id, is_active);
 ```
 
@@ -509,7 +509,7 @@ CREATE INDEX idx_mdm_material_barcode_material ON mdm_material_barcode (material
 CREATE TABLE mdm_code_rule (
     id              BIGINT       NOT NULL,
     tenant_id       BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id      BIGINT       NOT NULL DEFAULT 1,
+    company_id      BIGINT       NOT NULL,
     object_type     VARCHAR(32)  NOT NULL,          -- MATERIAL/CUSTOMER/SUPPLIER/WAREHOUSE/BIN...
     rule_code       VARCHAR(32)  NOT NULL,          -- 规则编码
     rule_name       VARCHAR(100) NOT NULL,          -- 规则名称
@@ -529,7 +529,7 @@ CREATE TABLE mdm_code_rule (
     remark          VARCHAR(500) NULL,
     CONSTRAINT pk_mdm_code_rule PRIMARY KEY (id)
 );
-CREATE UNIQUE INDEX uk_mdm_code_rule_object ON mdm_code_rule (company_id, object_type, rule_code) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_mdm_code_rule_object ON mdm_code_rule (tenant_id, company_id, object_type, rule_code) WHERE deleted = FALSE;
 ```
 
 #### 4.1.8 mdm_ext_field（扩展字段定义）
@@ -538,7 +538,7 @@ CREATE UNIQUE INDEX uk_mdm_code_rule_object ON mdm_code_rule (company_id, object
 CREATE TABLE mdm_ext_field (
     id              BIGINT       NOT NULL,
     tenant_id       BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id      BIGINT       NOT NULL DEFAULT 1,
+    company_id      BIGINT       NOT NULL,
     object_type     VARCHAR(32)  NOT NULL,          -- MATERIAL/CUSTOMER/SUPPLIER...
     field_code      VARCHAR(64)  NOT NULL,          -- 字段代码（JSON key）
     field_name      VARCHAR(100) NOT NULL,          -- 字段名称
@@ -557,7 +557,7 @@ CREATE TABLE mdm_ext_field (
     remark          VARCHAR(500) NULL,
     CONSTRAINT pk_mdm_ext_field PRIMARY KEY (id)
 );
-CREATE UNIQUE INDEX uk_mdm_ext_field ON mdm_ext_field (company_id, object_type, field_code) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_mdm_ext_field ON mdm_ext_field (tenant_id, company_id, object_type, field_code) WHERE deleted = FALSE;
 ```
 
 ### 4.2 取引先系
@@ -570,7 +570,7 @@ CREATE UNIQUE INDEX uk_mdm_ext_field ON mdm_ext_field (company_id, object_type, 
 CREATE TABLE mdm_customer (
     id                    BIGINT       NOT NULL,
     tenant_id             BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id            BIGINT       NOT NULL DEFAULT 1,
+    company_id            BIGINT       NOT NULL,
     customer_code         VARCHAR(8)   NOT NULL,       -- 客户编码（C+6位）
     customer_name         VARCHAR(200) NOT NULL,       -- 客户名称
     short_name            VARCHAR(100) NULL,           -- 简称
@@ -616,8 +616,8 @@ CREATE TABLE mdm_customer (
     CONSTRAINT ck_mdm_customer_type CHECK (customer_type IN (10,20,30,40)),
     CONSTRAINT ck_mdm_customer_status CHECK (status IN (0,1))
 );
-CREATE UNIQUE INDEX uk_mdm_customer_code ON mdm_customer (company_id, customer_code) WHERE deleted = FALSE;
-CREATE UNIQUE INDEX uk_mdm_customer_tax_no ON mdm_customer (company_id, tax_no) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_mdm_customer_code ON mdm_customer (tenant_id, company_id, customer_code) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_mdm_customer_tax_no ON mdm_customer (tenant_id, company_id, tax_no) WHERE deleted = FALSE;
 CREATE INDEX idx_mdm_customer_owner ON mdm_customer (company_id, owner_user_id, status);
 CREATE INDEX idx_mdm_customer_credit ON mdm_customer (company_id, credit_status);
 CREATE INDEX gin_mdm_customer_name ON mdm_customer USING gin (customer_name gin_trgm_ops);
@@ -627,7 +627,7 @@ CREATE INDEX gin_mdm_customer_name ON mdm_customer USING gin (customer_name gin_
 
 ```sql
 CREATE TABLE mdm_customer_contact (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     customer_id BIGINT NOT NULL,                       -- 客户ID
     contact_name VARCHAR(64) NOT NULL,                 -- 姓名
     contact_position VARCHAR(64) NULL,                 -- 职位
@@ -645,7 +645,7 @@ CREATE TABLE mdm_customer_contact (
 CREATE INDEX idx_mdm_customer_contact_customer ON mdm_customer_contact (customer_id, deleted);
 
 CREATE TABLE mdm_customer_address (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     customer_id BIGINT NOT NULL,                       -- 客户ID
     address_name VARCHAR(100) NOT NULL,                -- 地址名称
     receiver_name VARCHAR(64) NOT NULL,                -- 收货人
@@ -664,7 +664,7 @@ CREATE TABLE mdm_customer_address (
 CREATE INDEX idx_mdm_customer_address_customer ON mdm_customer_address (customer_id, deleted);
 
 CREATE TABLE mdm_customer_his (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     customer_id BIGINT NOT NULL,                       -- 客户ID
     operation_type VARCHAR(16) NOT NULL,               -- CREATE/UPDATE/APPROVE/DEACTIVATE
     change_request_id BIGINT NULL,                     -- 变更申请ID
@@ -682,7 +682,7 @@ CREATE INDEX idx_mdm_customer_his_customer ON mdm_customer_his (customer_id, cre
 
 ```sql
 CREATE TABLE mdm_supplier (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     supplier_code VARCHAR(8) NOT NULL,                 -- 供应商编码（S+6位）
     supplier_name VARCHAR(200) NOT NULL,               -- 供应商名称
     short_name VARCHAR(100) NULL,                      -- 简称
@@ -717,8 +717,8 @@ CREATE TABLE mdm_supplier (
     CONSTRAINT ck_mdm_supplier_type CHECK (supplier_type IN (10,20,30,40)),
     CONSTRAINT ck_mdm_supplier_admission CHECK (admission_status IN (10,20,30,40,50,60))
 );
-CREATE UNIQUE INDEX uk_mdm_supplier_code ON mdm_supplier (company_id, supplier_code) WHERE deleted = FALSE;
-CREATE UNIQUE INDEX uk_mdm_supplier_tax_no ON mdm_supplier (company_id, tax_no) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_mdm_supplier_code ON mdm_supplier (tenant_id, company_id, supplier_code) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_mdm_supplier_tax_no ON mdm_supplier (tenant_id, company_id, tax_no) WHERE deleted = FALSE;
 CREATE INDEX idx_mdm_supplier_admission ON mdm_supplier (admission_status, supplier_grade);
 CREATE INDEX idx_mdm_supplier_buyer ON mdm_supplier (buyer_id);
 CREATE INDEX gin_mdm_supplier_name ON mdm_supplier USING gin (supplier_name gin_trgm_ops);
@@ -728,7 +728,7 @@ CREATE INDEX gin_mdm_supplier_name ON mdm_supplier USING gin (supplier_name gin_
 
 ```sql
 CREATE TABLE mdm_supplier_contact (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     supplier_id BIGINT NOT NULL, contact_name VARCHAR(64) NOT NULL,
     contact_position VARCHAR(64) NULL, contact_phone VARCHAR(32) NULL,
     contact_email VARCHAR(128) NULL, is_default_contact BOOLEAN NOT NULL DEFAULT FALSE,
@@ -742,7 +742,7 @@ CREATE TABLE mdm_supplier_contact (
 CREATE INDEX idx_mdm_supplier_contact_supplier ON mdm_supplier_contact (supplier_id, deleted);
 
 CREATE TABLE mdm_supplier_address (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     supplier_id BIGINT NOT NULL, address_type SMALLINT NOT NULL DEFAULT 10, -- 10送货/20开票/30注册
     address_name VARCHAR(100) NOT NULL, address_detail VARCHAR(200) NOT NULL,
     contact_name VARCHAR(64) NULL, contact_phone VARCHAR(32) NULL,
@@ -756,7 +756,7 @@ CREATE TABLE mdm_supplier_address (
 CREATE INDEX idx_mdm_supplier_address_supplier ON mdm_supplier_address (supplier_id, deleted);
 
 CREATE TABLE mdm_supplier_qualification (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     supplier_id BIGINT NOT NULL, qualification_type VARCHAR(32) NOT NULL, -- BUSINESS_LICENSE/ISO9001/ISO14001/CCC/EXPROOF/OTHER
     qualification_no VARCHAR(64) NOT NULL, issuer VARCHAR(100) NULL,
     valid_from DATE NOT NULL, valid_to DATE NULL,      -- 有效期
@@ -772,7 +772,7 @@ CREATE INDEX idx_mdm_supplier_qual_supplier ON mdm_supplier_qualification (suppl
 CREATE INDEX idx_mdm_supplier_qual_expiry ON mdm_supplier_qualification (valid_to) WHERE deleted = FALSE;
 
 CREATE TABLE mdm_supplier_material (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     supplier_id BIGINT NOT NULL, material_id BIGINT NULL,       -- 物料ID（或分类）
     category_code VARCHAR(4) NULL,                              -- 物料分类（物料为空时使用）
     priority INT NOT NULL DEFAULT 100,                          -- 优先级
@@ -791,7 +791,7 @@ CREATE INDEX idx_mdm_supplier_material_material ON mdm_supplier_material (materi
 CREATE INDEX idx_mdm_supplier_material_supplier ON mdm_supplier_material (supplier_id, is_active);
 
 CREATE TABLE mdm_supplier_his (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     supplier_id BIGINT NOT NULL, operation_type VARCHAR(16) NOT NULL,
     change_request_id BIGINT NULL, before_data JSONB NULL, after_data JSONB NULL,
     change_reason VARCHAR(1000) NULL,
@@ -805,9 +805,24 @@ CREATE INDEX idx_mdm_supplier_his_supplier ON mdm_supplier_his (supplier_id, cre
 
 > 種別: マスタ＋履歴 / 更新元: F-MDM-013 / 口座番号は暗号化推奨（[01 第 15 章](../00-common/01-common-item-definitions.md)）
 
-```sql
+> `mdm_bank` は本口座表から参照されるため DDL をここで先に定義する（論理上は 4.5.4 結算・支払条件・銀行に属する）。
+
+```sqlCREATE TABLE mdm_bank (
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
+    bank_code VARCHAR(16) NOT NULL,                    -- 银行行别代码（CNAPS 先頭 3 桁と同値。例 102=中国工商银行）
+    bank_name VARCHAR(100) NOT NULL, bank_short_name VARCHAR(64) NULL,
+    bank_category SMALLINT NULL,                       -- 銀行類別（10政策性/20国有大型/30股份制/40城商/50农商/60外资。CNAPS 行別コードとは別軸）
+    status SMALLINT NOT NULL DEFAULT 1,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(), created_by BIGINT NOT NULL DEFAULT 0,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by BIGINT NOT NULL DEFAULT 0,
+    version INT NOT NULL DEFAULT 0, deleted BOOLEAN NOT NULL DEFAULT FALSE, remark VARCHAR(500) NULL,
+    CONSTRAINT pk_mdm_bank PRIMARY KEY (id)
+);
+CREATE UNIQUE INDEX uk_mdm_bank_code ON mdm_bank (tenant_id, company_id, bank_code) WHERE deleted = FALSE;
+CREATE INDEX idx_mdm_bank_name ON mdm_bank (bank_name);
+
 CREATE TABLE mdm_partner_bank_account (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     owner_type VARCHAR(16) NOT NULL,                   -- CUSTOMER/SUPPLIER
     owner_id BIGINT NOT NULL,                          -- 客户/供应商ID
     bank_id BIGINT NOT NULL,                           -- 银行ID
@@ -833,7 +848,7 @@ CREATE INDEX idx_mdm_bank_account_owner ON mdm_partner_bank_account (owner_type,
 CREATE UNIQUE INDEX uk_mdm_bank_account_owner_no ON mdm_partner_bank_account (owner_type, owner_id, account_no) WHERE deleted = FALSE;
 
 CREATE TABLE mdm_partner_bank_account_his (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     account_id BIGINT NOT NULL,                        -- 原账户ID
     owner_type VARCHAR(16) NOT NULL, owner_id BIGINT NOT NULL,
     before_data JSONB NULL, after_data JSONB NULL,     -- 变更前后（账号下4桁のみ保持）
@@ -852,7 +867,7 @@ CREATE INDEX idx_mdm_bank_account_his_account ON mdm_partner_bank_account_his (a
 
 ```sql
 CREATE TABLE mdm_factory (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     factory_code VARCHAR(8) NOT NULL,                  -- 工厂编码（CZ01/WX01）
     factory_name VARCHAR(100) NOT NULL,                -- 工厂名称
     address VARCHAR(200) NULL,                         -- 地址
@@ -864,14 +879,14 @@ CREATE TABLE mdm_factory (
     version INT NOT NULL DEFAULT 0, deleted BOOLEAN NOT NULL DEFAULT FALSE, remark VARCHAR(500) NULL,
     CONSTRAINT pk_mdm_factory PRIMARY KEY (id)
 );
-CREATE UNIQUE INDEX uk_mdm_factory_code ON mdm_factory (company_id, factory_code) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_mdm_factory_code ON mdm_factory (tenant_id, company_id, factory_code) WHERE deleted = FALSE;
 ```
 
 #### 4.3.2 mdm_warehouse / zone / bin
 
 ```sql
 CREATE TABLE mdm_warehouse (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     warehouse_code VARCHAR(8) NOT NULL,                -- 仓库编码（WH+2位）
     warehouse_name VARCHAR(100) NOT NULL,              -- 仓库名称
     warehouse_type SMALLINT NOT NULL,                  -- 10原料/20半成品/30成品/40待检/50不合格/60寄售/70在途/80委外
@@ -892,10 +907,10 @@ CREATE TABLE mdm_warehouse (
     CONSTRAINT fk_mdm_warehouse_factory FOREIGN KEY (factory_id) REFERENCES mdm_factory (id),
     CONSTRAINT ck_mdm_warehouse_type CHECK (warehouse_type IN (10,20,30,40,50,60,70,80))
 );
-CREATE UNIQUE INDEX uk_mdm_warehouse_code ON mdm_warehouse (company_id, warehouse_code) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_mdm_warehouse_code ON mdm_warehouse (tenant_id, company_id, warehouse_code) WHERE deleted = FALSE;
 
 CREATE TABLE mdm_warehouse_zone (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     warehouse_id BIGINT NOT NULL, zone_code VARCHAR(8) NOT NULL, zone_name VARCHAR(100) NOT NULL,
     zone_type SMALLINT NOT NULL DEFAULT 10,            -- 10保管/20拣货/30入库/40出库/50待检/60冻结/70不合格/80退货
     floor_no SMALLINT NULL, area_m2 NUMERIC(18,2) NULL,
@@ -909,7 +924,7 @@ CREATE TABLE mdm_warehouse_zone (
 CREATE UNIQUE INDEX uk_mdm_warehouse_zone_code ON mdm_warehouse_zone (warehouse_id, zone_code) WHERE deleted = FALSE;
 
 CREATE TABLE mdm_warehouse_bin (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     warehouse_id BIGINT NOT NULL, zone_id BIGINT NOT NULL,
     bin_code VARCHAR(64) NOT NULL,                     -- 库位编码（WH01-A-01-02-03）
     bin_name VARCHAR(100) NULL,
@@ -930,16 +945,16 @@ CREATE TABLE mdm_warehouse_bin (
     CONSTRAINT fk_mdm_warehouse_bin_warehouse FOREIGN KEY (warehouse_id) REFERENCES mdm_warehouse (id),
     CONSTRAINT fk_mdm_warehouse_bin_zone FOREIGN KEY (zone_id) REFERENCES mdm_warehouse_zone (id)
 );
-CREATE UNIQUE INDEX uk_mdm_warehouse_bin_code ON mdm_warehouse_bin (company_id, bin_code) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_mdm_warehouse_bin_code ON mdm_warehouse_bin (tenant_id, company_id, bin_code) WHERE deleted = FALSE;
 CREATE INDEX idx_mdm_warehouse_bin_warehouse ON mdm_warehouse_bin (warehouse_id, zone_id, is_active);
-CREATE UNIQUE INDEX uk_mdm_warehouse_bin_barcode ON mdm_warehouse_bin (bin_barcode) WHERE deleted = FALSE AND bin_barcode IS NOT NULL;
+CREATE UNIQUE INDEX uk_mdm_warehouse_bin_barcode ON mdm_warehouse_bin (tenant_id, company_id, bin_barcode) WHERE deleted = FALSE AND bin_barcode IS NOT NULL;
 ```
 
 ### 4.4 単位・通貨・税
 
 ```sql
 CREATE TABLE mdm_uom (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     uom_code VARCHAR(16) NOT NULL,                     -- 单位代码（UN/ECE Rec20）
     uom_name VARCHAR(32) NOT NULL, uom_name_en VARCHAR(64) NULL,
     conversion_group VARCHAR(16) NOT NULL,             -- 换算组（uom.csv の 11 群：PCS/SET/BOX/PK/ROL/MASS/LEN/AREA/VOL/TIME/ENERGY）
@@ -952,11 +967,11 @@ CREATE TABLE mdm_uom (
     version INT NOT NULL DEFAULT 0, deleted BOOLEAN NOT NULL DEFAULT FALSE, remark VARCHAR(500) NULL,
     CONSTRAINT pk_mdm_uom PRIMARY KEY (id)
 );
-CREATE UNIQUE INDEX uk_mdm_uom_code ON mdm_uom (company_id, uom_code) WHERE deleted = FALSE;
-CREATE UNIQUE INDEX uk_mdm_uom_base ON mdm_uom (company_id, conversion_group) WHERE is_base_uom = TRUE AND deleted = FALSE;
+CREATE UNIQUE INDEX uk_mdm_uom_code ON mdm_uom (tenant_id, company_id, uom_code) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_mdm_uom_base ON mdm_uom (tenant_id, company_id, conversion_group) WHERE is_base_uom = TRUE AND deleted = FALSE;
 
 CREATE TABLE mdm_uom_conversion (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     conversion_group VARCHAR(16) NOT NULL, from_uom_code VARCHAR(16) NOT NULL, to_uom_code VARCHAR(16) NOT NULL,
     conversion_rate NUMERIC(18,8) NOT NULL,            -- 1 from = n to
     valid_from DATE NOT NULL, valid_to DATE NULL, status SMALLINT NOT NULL DEFAULT 1,
@@ -969,7 +984,7 @@ CREATE TABLE mdm_uom_conversion (
 CREATE INDEX idx_mdm_uom_conversion_group ON mdm_uom_conversion (conversion_group, valid_from DESC);
 
 CREATE TABLE mdm_currency (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     currency_code VARCHAR(3) NOT NULL,                 -- ISO 4217
     currency_name VARCHAR(64) NOT NULL, symbol VARCHAR(8) NULL,
     decimal_places SMALLINT NOT NULL DEFAULT 2, is_base_currency BOOLEAN NOT NULL DEFAULT FALSE,
@@ -979,11 +994,11 @@ CREATE TABLE mdm_currency (
     version INT NOT NULL DEFAULT 0, deleted BOOLEAN NOT NULL DEFAULT FALSE, remark VARCHAR(500) NULL,
     CONSTRAINT pk_mdm_currency PRIMARY KEY (id)
 );
-CREATE UNIQUE INDEX uk_mdm_currency_code ON mdm_currency (company_id, currency_code) WHERE deleted = FALSE;
-CREATE UNIQUE INDEX uk_mdm_currency_base ON mdm_currency (company_id) WHERE is_base_currency = TRUE AND deleted = FALSE;
+CREATE UNIQUE INDEX uk_mdm_currency_code ON mdm_currency (tenant_id, company_id, currency_code) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_mdm_currency_base ON mdm_currency (tenant_id, company_id) WHERE is_base_currency = TRUE AND deleted = FALSE;
 
 CREATE TABLE mdm_exchange_rate (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     from_currency_code VARCHAR(3) NOT NULL, to_currency_code VARCHAR(3) NOT NULL,
     rate_type VARCHAR(8) NOT NULL DEFAULT 'SPOT',       -- SPOT/PERIOD/AVG
     effective_date DATE NOT NULL, exchange_rate NUMERIC(18,8) NOT NULL,
@@ -996,11 +1011,11 @@ CREATE TABLE mdm_exchange_rate (
     CONSTRAINT ck_mdm_exchange_rate_positive CHECK (exchange_rate > 0),
     CONSTRAINT ck_mdm_exchange_rate_type CHECK (rate_type IN ('SPOT','PERIOD','AVG'))
 );
-CREATE UNIQUE INDEX uk_mdm_exchange_rate ON mdm_exchange_rate (from_currency_code, to_currency_code, rate_type, effective_date) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_mdm_exchange_rate ON mdm_exchange_rate (tenant_id, from_currency_code, to_currency_code, rate_type, effective_date) WHERE deleted = FALSE;
 CREATE INDEX idx_mdm_exchange_rate_pair_date ON mdm_exchange_rate (from_currency_code, to_currency_code, rate_type, effective_date DESC);
 
 CREATE TABLE mdm_tax_code (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     tax_code VARCHAR(32) NOT NULL,                     -- 具体税码（VAT13-OUT/VAT13-IN...）
     tax_name VARCHAR(100) NOT NULL,
     tax_rate_code VARCHAR(16) NOT NULL,                -- 06基础税率码（VAT13...）
@@ -1016,11 +1031,11 @@ CREATE TABLE mdm_tax_code (
     CONSTRAINT pk_mdm_tax_code PRIMARY KEY (id),
     CONSTRAINT ck_mdm_tax_code_type CHECK (tax_type IN (10,11,20,30,40,50))
 );
-CREATE UNIQUE INDEX uk_mdm_tax_code ON mdm_tax_code (company_id, tax_code, valid_from) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_mdm_tax_code ON mdm_tax_code (tenant_id, company_id, tax_code, valid_from) WHERE deleted = FALSE;
 CREATE INDEX idx_mdm_tax_code_type ON mdm_tax_code (tax_type, status);
 
 CREATE TABLE mdm_tax_rate (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     tax_code_id BIGINT NOT NULL, tax_rate NUMERIC(7,4) NOT NULL,
     effective_from DATE NOT NULL, effective_to DATE NULL, legal_basis VARCHAR(200) NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(), created_by BIGINT NOT NULL DEFAULT 0,
@@ -1030,7 +1045,7 @@ CREATE TABLE mdm_tax_rate (
 CREATE INDEX idx_mdm_tax_rate_code ON mdm_tax_rate (tax_code_id, effective_from DESC);
 
 CREATE TABLE mdm_tax_classification (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     classification_code VARCHAR(32) NOT NULL,          -- 商品和服务税收分类编码
     classification_name VARCHAR(200) NOT NULL,
     goods_service_type SMALLINT NULL,                  -- 10货物/20服务/30无形资产/40不动产
@@ -1041,7 +1056,7 @@ CREATE TABLE mdm_tax_classification (
     version INT NOT NULL DEFAULT 0, deleted BOOLEAN NOT NULL DEFAULT FALSE, remark VARCHAR(500) NULL,
     CONSTRAINT pk_mdm_tax_classification PRIMARY KEY (id)
 );
-CREATE UNIQUE INDEX uk_mdm_tax_classification ON mdm_tax_classification (company_id, classification_code) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_mdm_tax_classification ON mdm_tax_classification (tenant_id, company_id, classification_code) WHERE deleted = FALSE;
 ```
 
 ### 4.5 価格・結算
@@ -1052,7 +1067,7 @@ CREATE UNIQUE INDEX uk_mdm_tax_classification ON mdm_tax_classification (company
 
 ```sql
 CREATE TABLE mdm_price_list (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     price_list_code VARCHAR(32) NOT NULL, price_list_name VARCHAR(100) NOT NULL,
     scope_type SMALLINT NOT NULL DEFAULT 40,           -- 10全社/20客户分类/30区域/40客户
     currency_code VARCHAR(3) NOT NULL DEFAULT 'CNY',
@@ -1066,11 +1081,11 @@ CREATE TABLE mdm_price_list (
     version INT NOT NULL DEFAULT 0, deleted BOOLEAN NOT NULL DEFAULT FALSE, remark VARCHAR(500) NULL, ext_data JSONB NULL,
     CONSTRAINT pk_mdm_price_list PRIMARY KEY (id)
 );
-CREATE UNIQUE INDEX uk_mdm_price_list_code ON mdm_price_list (company_id, price_list_code) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_mdm_price_list_code ON mdm_price_list (tenant_id, company_id, price_list_code) WHERE deleted = FALSE;
 CREATE INDEX idx_mdm_price_list_status_date ON mdm_price_list (status, valid_from, valid_to);
 
 CREATE TABLE mdm_price_list_line (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     price_list_id BIGINT NOT NULL, line_no INT NOT NULL,
     scope_type SMALLINT NOT NULL,                      -- 10客户+物料/20客户分类+物料/30物料/40全社标准
     customer_id BIGINT NULL, customer_category_code VARCHAR(32) NULL,
@@ -1103,7 +1118,7 @@ CREATE INDEX idx_mdm_price_line_material ON mdm_price_list_line (material_id, va
 
 ```sql
 CREATE TABLE mdm_price_discount (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     discount_code VARCHAR(32) NOT NULL, discount_name VARCHAR(100) NOT NULL,
     apply_scope SMALLINT NOT NULL,                     -- 10客户/20客户分类/30物料/40全社
     customer_id BIGINT NULL, customer_category_code VARCHAR(32) NULL, material_id BIGINT NULL,
@@ -1118,14 +1133,14 @@ CREATE TABLE mdm_price_discount (
     version INT NOT NULL DEFAULT 0, deleted BOOLEAN NOT NULL DEFAULT FALSE, remark VARCHAR(500) NULL,
     CONSTRAINT pk_mdm_price_discount PRIMARY KEY (id)
 );
-CREATE UNIQUE INDEX uk_mdm_price_discount_code ON mdm_price_discount (company_id, discount_code) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_mdm_price_discount_code ON mdm_price_discount (tenant_id, company_id, discount_code) WHERE deleted = FALSE;
 ```
 
 #### 4.5.3 mdm_purchase_price（采购价格）・mdm_supplier_quotation / _line（供应商报价）
 
 ```sql
 CREATE TABLE mdm_purchase_price (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     supplier_id BIGINT NOT NULL, material_id BIGINT NOT NULL,
     scope_type SMALLINT NOT NULL DEFAULT 10,           -- 10供应商+物料/20供应商分类+物料/30物料标准
     supplier_category VARCHAR(32) NULL,
@@ -1145,7 +1160,7 @@ CREATE INDEX idx_mdm_purchase_price_lookup ON mdm_purchase_price (supplier_id, m
 CREATE INDEX idx_mdm_purchase_price_material ON mdm_purchase_price (material_id, status);
 
 CREATE TABLE mdm_supplier_quotation (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     quotation_no VARCHAR(32) NOT NULL, supplier_id BIGINT NOT NULL, rfq_no VARCHAR(32) NULL,
     quotation_date DATE NOT NULL, valid_from DATE NOT NULL, valid_to DATE NOT NULL,
     currency_code VARCHAR(3) NOT NULL DEFAULT 'CNY', payment_term_code VARCHAR(32) NULL,
@@ -1157,11 +1172,11 @@ CREATE TABLE mdm_supplier_quotation (
     CONSTRAINT pk_mdm_supplier_quotation PRIMARY KEY (id),
     CONSTRAINT fk_mdm_quotation_supplier FOREIGN KEY (supplier_id) REFERENCES mdm_supplier (id)
 );
-CREATE UNIQUE INDEX uk_mdm_quotation_no ON mdm_supplier_quotation (company_id, quotation_no) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_mdm_quotation_no ON mdm_supplier_quotation (tenant_id, company_id, quotation_no) WHERE deleted = FALSE;
 CREATE INDEX idx_mdm_quotation_supplier ON mdm_supplier_quotation (supplier_id, quotation_date DESC);
 
 CREATE TABLE mdm_supplier_quotation_line (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     quotation_id BIGINT NOT NULL, line_no INT NOT NULL, material_id BIGINT NOT NULL,
     quantity NUMERIC(18,4) NULL, uom_code VARCHAR(16) NULL,
     unit_price NUMERIC(18,6) NOT NULL, currency_code VARCHAR(3) NOT NULL DEFAULT 'CNY',
@@ -1178,9 +1193,11 @@ CREATE UNIQUE INDEX uk_mdm_quotation_line_no ON mdm_supplier_quotation_line (quo
 
 #### 4.5.4 結算・支払条件・銀行
 
+> `mdm_bank` の DDL は参照順のため [4.2.5](#425-mdm_partner_bank_account--_his取引先银行账户) に記載。
+
 ```sql
 CREATE TABLE mdm_settlement_method (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     settlement_method_code VARCHAR(32) NOT NULL,       -- 06 §8.1（BANK_TRANSFER...）
     settlement_method_name VARCHAR(100) NOT NULL,
     settlement_type SMALLINT NOT NULL,                 -- 10现金/20转账/30票据/40信用证/50其他
@@ -1191,10 +1208,10 @@ CREATE TABLE mdm_settlement_method (
     version INT NOT NULL DEFAULT 0, deleted BOOLEAN NOT NULL DEFAULT FALSE, remark VARCHAR(500) NULL,
     CONSTRAINT pk_mdm_settlement_method PRIMARY KEY (id)
 );
-CREATE UNIQUE INDEX uk_mdm_settlement_code ON mdm_settlement_method (company_id, settlement_method_code) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_mdm_settlement_code ON mdm_settlement_method (tenant_id, company_id, settlement_method_code) WHERE deleted = FALSE;
 
 CREATE TABLE mdm_payment_term (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     payment_term_code VARCHAR(32) NOT NULL,            -- 06 §8.2（NET30...）
     payment_term_name VARCHAR(100) NOT NULL,
     settlement_basis SMALLINT NOT NULL DEFAULT 40,     -- 10发票日/20验收日/30发货日/40月末/50订单日
@@ -1208,10 +1225,10 @@ CREATE TABLE mdm_payment_term (
     version INT NOT NULL DEFAULT 0, deleted BOOLEAN NOT NULL DEFAULT FALSE, remark VARCHAR(500) NULL,
     CONSTRAINT pk_mdm_payment_term PRIMARY KEY (id)
 );
-CREATE UNIQUE INDEX uk_mdm_payment_term_code ON mdm_payment_term (company_id, payment_term_code) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_mdm_payment_term_code ON mdm_payment_term (tenant_id, company_id, payment_term_code) WHERE deleted = FALSE;
 
 CREATE TABLE mdm_payment_term_line (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     payment_term_id BIGINT NOT NULL, seq_no SMALLINT NOT NULL,
     installment_ratio NUMERIC(7,4) NOT NULL,           -- 分期比率%（合计100）
     due_type SMALLINT NOT NULL,                        -- 10固定日/20相对日
@@ -1224,26 +1241,29 @@ CREATE TABLE mdm_payment_term_line (
 );
 CREATE UNIQUE INDEX uk_mdm_payment_term_line ON mdm_payment_term_line (payment_term_id, seq_no) WHERE deleted = FALSE;
 
-CREATE TABLE mdm_bank (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
-    bank_code VARCHAR(16) NOT NULL,                    -- 银行行别代码（CNAPS 先頭 3 桁と同値。例 102=中国工商银行）
-    bank_name VARCHAR(100) NOT NULL, bank_short_name VARCHAR(64) NULL,
-    bank_category SMALLINT NULL,                       -- 銀行類別（10政策性/20国有大型/30股份制/40城商/50农商/60外资。CNAPS 行別コードとは別軸）
-    status SMALLINT NOT NULL DEFAULT 1,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(), created_by BIGINT NOT NULL DEFAULT 0,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by BIGINT NOT NULL DEFAULT 0,
-    version INT NOT NULL DEFAULT 0, deleted BOOLEAN NOT NULL DEFAULT FALSE, remark VARCHAR(500) NULL,
-    CONSTRAINT pk_mdm_bank PRIMARY KEY (id)
-);
-CREATE UNIQUE INDEX uk_mdm_bank_code ON mdm_bank (company_id, bank_code) WHERE deleted = FALSE;
-CREATE INDEX idx_mdm_bank_name ON mdm_bank (bank_name);
 ```
 
 ### 4.6 信用・評価
 
 ```sql
+CREATE TABLE mdm_credit_check_rule (
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
+    rule_code VARCHAR(32) NOT NULL, rule_name VARCHAR(100) NOT NULL,
+    check_timing JSONB NOT NULL,                       -- [10,30] 检查时点
+    exposure_scope JSONB NOT NULL,                     -- [10,20,30] 占用范围
+    include_open_orders BOOLEAN NOT NULL DEFAULT TRUE,
+    over_limit_ratio NUMERIC(7,4) NOT NULL DEFAULT 0,
+    overflow_action SMALLINT NOT NULL DEFAULT 30,      -- 10阻断/20警告/30审批
+    status SMALLINT NOT NULL DEFAULT 1,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(), created_by BIGINT NOT NULL DEFAULT 0,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by BIGINT NOT NULL DEFAULT 0,
+    version INT NOT NULL DEFAULT 0, deleted BOOLEAN NOT NULL DEFAULT FALSE, remark VARCHAR(500) NULL,
+    CONSTRAINT pk_mdm_credit_check_rule PRIMARY KEY (id)
+);
+CREATE UNIQUE INDEX uk_mdm_credit_check_rule ON mdm_credit_check_rule (tenant_id, company_id, rule_code) WHERE deleted = FALSE;
+
 CREATE TABLE mdm_credit_limit (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     customer_id BIGINT NOT NULL,                       -- 客户ID（1客户1有效记录）
     currency_code VARCHAR(3) NOT NULL DEFAULT 'CNY',
     credit_limit_amount NUMERIC(18,2) NOT NULL DEFAULT 0,     -- 信用额度
@@ -1265,7 +1285,7 @@ CREATE INDEX idx_mdm_credit_limit_customer ON mdm_credit_limit (customer_id, val
 CREATE INDEX idx_mdm_credit_limit_status ON mdm_credit_limit (credit_status);
 
 CREATE TABLE mdm_credit_limit_his (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     credit_limit_id BIGINT NOT NULL, customer_id BIGINT NOT NULL,
     before_data JSONB NULL, after_data JSONB NULL, change_request_id BIGINT NULL,
     change_reason VARCHAR(1000) NULL,
@@ -1274,24 +1294,9 @@ CREATE TABLE mdm_credit_limit_his (
 );
 CREATE INDEX idx_mdm_credit_limit_his_customer ON mdm_credit_limit_his (customer_id, created_at DESC);
 
-CREATE TABLE mdm_credit_check_rule (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
-    rule_code VARCHAR(32) NOT NULL, rule_name VARCHAR(100) NOT NULL,
-    check_timing JSONB NOT NULL,                       -- [10,30] 检查时点
-    exposure_scope JSONB NOT NULL,                     -- [10,20,30] 占用范围
-    include_open_orders BOOLEAN NOT NULL DEFAULT TRUE,
-    over_limit_ratio NUMERIC(7,4) NOT NULL DEFAULT 0,
-    overflow_action SMALLINT NOT NULL DEFAULT 30,      -- 10阻断/20警告/30审批
-    status SMALLINT NOT NULL DEFAULT 1,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(), created_by BIGINT NOT NULL DEFAULT 0,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by BIGINT NOT NULL DEFAULT 0,
-    version INT NOT NULL DEFAULT 0, deleted BOOLEAN NOT NULL DEFAULT FALSE, remark VARCHAR(500) NULL,
-    CONSTRAINT pk_mdm_credit_check_rule PRIMARY KEY (id)
-);
-CREATE UNIQUE INDEX uk_mdm_credit_check_rule ON mdm_credit_check_rule (company_id, rule_code) WHERE deleted = FALSE;
 
 CREATE TABLE mdm_supplier_admission (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     admission_no VARCHAR(32) NOT NULL, supplier_id BIGINT NOT NULL,
     apply_date DATE NOT NULL, apply_type SMALLINT NOT NULL DEFAULT 10, -- 10新规/20再准入/30范围扩大
     reviewer_id BIGINT NULL, review_result SMALLINT NULL, -- 10通过/20驳回
@@ -1303,10 +1308,10 @@ CREATE TABLE mdm_supplier_admission (
     CONSTRAINT pk_mdm_supplier_admission PRIMARY KEY (id),
     CONSTRAINT fk_mdm_admission_supplier FOREIGN KEY (supplier_id) REFERENCES mdm_supplier (id)
 );
-CREATE UNIQUE INDEX uk_mdm_admission_no ON mdm_supplier_admission (company_id, admission_no) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_mdm_admission_no ON mdm_supplier_admission (tenant_id, company_id, admission_no) WHERE deleted = FALSE;
 
 CREATE TABLE mdm_supplier_evaluation (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     supplier_id BIGINT NOT NULL, evaluation_period VARCHAR(7) NOT NULL, -- YYYY-MM
     quality_score NUMERIC(5,2) NULL, delivery_score NUMERIC(5,2) NULL,
     price_score NUMERIC(5,2) NULL, service_score NUMERIC(5,2) NULL, technology_score NUMERIC(5,2) NULL,
@@ -1325,7 +1330,7 @@ CREATE UNIQUE INDEX uk_mdm_evaluation ON mdm_supplier_evaluation (supplier_id, e
 CREATE INDEX idx_mdm_evaluation_period ON mdm_supplier_evaluation (evaluation_period, total_score DESC);
 
 CREATE TABLE mdm_supplier_eval_item (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     evaluation_id BIGINT NOT NULL, dimension_code VARCHAR(32) NOT NULL, -- QUALITY/DELIVERY/PRICE/SERVICE/TECH
     score NUMERIC(5,2) NOT NULL, weight NUMERIC(7,4) NOT NULL,
     data_source SMALLINT NOT NULL DEFAULT 10,          -- 10系统/20手动
@@ -1340,7 +1345,7 @@ CREATE UNIQUE INDEX uk_mdm_eval_item ON mdm_supplier_eval_item (evaluation_id, d
 
 ```sql
 CREATE TABLE mdm_barcode_rule (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     rule_code VARCHAR(32) NOT NULL, rule_name VARCHAR(100) NOT NULL,
     target_type SMALLINT NOT NULL,                     -- 10物料/20批次/30库位/40包装箱/50序列号
     barcode_type SMALLINT NOT NULL DEFAULT 10,         -- 10Code128/20GS1-128/30QR
@@ -1353,10 +1358,10 @@ CREATE TABLE mdm_barcode_rule (
     version INT NOT NULL DEFAULT 0, deleted BOOLEAN NOT NULL DEFAULT FALSE, remark VARCHAR(500) NULL,
     CONSTRAINT pk_mdm_barcode_rule PRIMARY KEY (id)
 );
-CREATE UNIQUE INDEX uk_mdm_barcode_rule ON mdm_barcode_rule (company_id, rule_code) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_mdm_barcode_rule ON mdm_barcode_rule (tenant_id, company_id, rule_code) WHERE deleted = FALSE;
 
 CREATE TABLE mdm_change_request (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     request_no VARCHAR(32) NOT NULL,                   -- CR2610200001
     object_type VARCHAR(32) NOT NULL,                  -- MATERIAL/CUSTOMER/SUPPLIER/PRICE/CREDIT...
     object_id BIGINT NOT NULL, object_code VARCHAR(64) NULL,
@@ -1371,12 +1376,12 @@ CREATE TABLE mdm_change_request (
     version INT NOT NULL DEFAULT 0, deleted BOOLEAN NOT NULL DEFAULT FALSE, remark VARCHAR(500) NULL,
     CONSTRAINT pk_mdm_change_request PRIMARY KEY (id)
 );
-CREATE UNIQUE INDEX uk_mdm_change_request_no ON mdm_change_request (company_id, request_no) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_mdm_change_request_no ON mdm_change_request (tenant_id, company_id, request_no) WHERE deleted = FALSE;
 CREATE INDEX idx_mdm_change_request_object ON mdm_change_request (object_type, object_id, status);
 CREATE INDEX idx_mdm_change_request_status ON mdm_change_request (status, submitted_at);
 
 CREATE TABLE mdm_change_request_line (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     request_id BIGINT NOT NULL, line_no INT NOT NULL,
     field_name VARCHAR(64) NOT NULL,                   -- 字段物理名
     field_label VARCHAR(100) NULL, before_value VARCHAR(1000) NULL, after_value VARCHAR(1000) NULL,
@@ -1388,7 +1393,7 @@ CREATE TABLE mdm_change_request_line (
 CREATE UNIQUE INDEX uk_mdm_change_line_no ON mdm_change_request_line (request_id, line_no);
 
 CREATE TABLE mdm_data_quality_rule (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     rule_code VARCHAR(32) NOT NULL, rule_name VARCHAR(100) NOT NULL,
     object_type VARCHAR(32) NOT NULL, check_type SMALLINT NOT NULL, -- 10必须/20格式/30唯一/40参照/50业务
     severity SMALLINT NOT NULL DEFAULT 20,             -- 10E/20W/30I
@@ -1399,10 +1404,10 @@ CREATE TABLE mdm_data_quality_rule (
     version INT NOT NULL DEFAULT 0, deleted BOOLEAN NOT NULL DEFAULT FALSE, remark VARCHAR(500) NULL,
     CONSTRAINT pk_mdm_data_quality_rule PRIMARY KEY (id)
 );
-CREATE UNIQUE INDEX uk_mdm_data_quality_rule ON mdm_data_quality_rule (company_id, rule_code) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_mdm_data_quality_rule ON mdm_data_quality_rule (tenant_id, company_id, rule_code) WHERE deleted = FALSE;
 
 CREATE TABLE mdm_data_quality_issue (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     object_type VARCHAR(32) NOT NULL, object_id BIGINT NOT NULL, object_code VARCHAR(64) NULL,
     rule_id BIGINT NOT NULL, severity SMALLINT NOT NULL, issue_message VARCHAR(500) NOT NULL,
     assignee_id BIGINT NULL, status SMALLINT NOT NULL DEFAULT 10, -- 10起票/20修正中/30修正済/40关闭/50无视
@@ -1418,7 +1423,7 @@ CREATE INDEX idx_mdm_dq_issue_object ON mdm_data_quality_issue (object_type, obj
 CREATE INDEX idx_mdm_dq_issue_status ON mdm_data_quality_issue (status, severity, detected_at DESC);
 
 CREATE TABLE mdm_data_scope_policy (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     object_type VARCHAR(32) NOT NULL,                  -- MATERIAL/CUSTOMER/SUPPLIER...
     scope_key_column VARCHAR(64) NOT NULL,             -- 权限键列（factory_id/owner_user_id/sales_department_id）
     scope_type VARCHAR(16) NOT NULL,                   -- FACTORY/DEPARTMENT/OWNER/CUSTOM
@@ -1428,24 +1433,24 @@ CREATE TABLE mdm_data_scope_policy (
     version INT NOT NULL DEFAULT 0, deleted BOOLEAN NOT NULL DEFAULT FALSE, remark VARCHAR(500) NULL,
     CONSTRAINT pk_mdm_data_scope_policy PRIMARY KEY (id)
 );
-CREATE UNIQUE INDEX uk_mdm_data_scope_policy ON mdm_data_scope_policy (company_id, object_type, scope_key_column) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_mdm_data_scope_policy ON mdm_data_scope_policy (tenant_id, company_id, object_type, scope_key_column) WHERE deleted = FALSE;
 ```
 
 ## 5. インデックス方針・主要索引一覧
 
 | # | 索引名 | テーブル | 種別 | 対象列 | 目的 |
 |---|---|---|---|---|---|
-| 1 | `uk_mdm_material_company_code` | mdm_material | UNIQUE | (company_id, material_code) WHERE deleted=FALSE | 物料編碼一意 |
+| 1 | `uk_mdm_material_company_code` | mdm_material | UNIQUE | (tenant_id, company_id, material_code) WHERE deleted=FALSE | 物料編碼一意 |
 | 2 | `idx_mdm_material_category` | mdm_material | B-Tree | (company_id, category_id) | 分類別一覧 |
 | 3 | `idx_mdm_material_type_status` | mdm_material | B-Tree | (company_id, material_type, status) | 類型・状態検索 |
 | 4 | `gin_mdm_material_name` | mdm_material | GIN | (material_name gin_trgm_ops) | 名称曖昧検索 |
 | 5 | `gin_mdm_material_spec` | mdm_material | GIN | (spec gin_trgm_ops) | 規格検索 |
 | 6 | `gin_mdm_material_ext` | mdm_material | GIN | (ext_data jsonb_path_ops) | 拡張項目検索 |
-| 7 | `uk_mdm_customer_tax_no` | mdm_customer | UNIQUE | (company_id, tax_no) WHERE deleted=FALSE | 税号一意 |
-| 8 | `uk_mdm_supplier_tax_no` | mdm_supplier | UNIQUE | (company_id, tax_no) WHERE deleted=FALSE | 税号一意 |
+| 7 | `uk_mdm_customer_tax_no` | mdm_customer | UNIQUE | (tenant_id, company_id, tax_no) WHERE deleted=FALSE | 税号一意 |
+| 8 | `uk_mdm_supplier_tax_no` | mdm_supplier | UNIQUE | (tenant_id, company_id, tax_no) WHERE deleted=FALSE | 税号一意 |
 | 9 | `idx_mdm_customer_owner` | mdm_customer | B-Tree | (company_id, owner_user_id, status) | 担当者別 |
 | 10 | `idx_mdm_warehouse_bin_warehouse` | mdm_warehouse_bin | B-Tree | (warehouse_id, zone_id, is_active) | 庫位検索 |
-| 11 | `uk_mdm_exchange_rate` | mdm_exchange_rate | UNIQUE | (pair, rate_type, effective_date) WHERE deleted=FALSE | レート一意 |
+| 11 | `uk_mdm_exchange_rate` | mdm_exchange_rate | UNIQUE | (tenant_id, pair, rate_type, effective_date) WHERE deleted=FALSE | レート一意（テナント単位、会社間で共有） |
 | 12 | `uk_mdm_price_line_no` | mdm_price_list_line | UNIQUE | (price_list_id, line_no) WHERE deleted=FALSE | 明細行一意 |
 | 13 | `idx_mdm_price_line_lookup` | mdm_price_list_line | B-Tree | (scope_type, customer_id, material_id, min_qty, valid_from) | 取价 |
 | 14 | `idx_mdm_purchase_price_lookup` | mdm_purchase_price | B-Tree | (supplier_id, material_id, min_qty, valid_from) | 購買取价 |
@@ -1510,6 +1515,13 @@ CREATE UNIQUE INDEX uk_mdm_data_scope_policy ON mdm_data_scope_policy (company_i
 3. **JSONB の容量**：`mdm_material_his.before_data/after_data` は全列 JSON のため 1 行最大 8KB 程度。年間 5 万行で 400MB 以内。
 4. **未決事項**：批次/序列号規則の実体（#6）は DB 設計に影響するため、決定後に本節を更新する。工厂テーブル帰属（00-overview #3）は Lead 裁定済み（MDM 所有・`mdm_factory` 維持）、信用占用の保有域（#4）は Lead 裁定済み（MDM 非保有）で本節に反映済み。
 5. **初期データ**：`90-data/material-master.csv`（54 件）、`90-data/code-lists/mdm-tax-code.csv`（業務税码の全件・件数は同 CSV を正とする）、`06-code-list.md` の通貨・単位・税码・決済条件を `R__seed_mdm_*.sql` で投入する（[04 第 10.2 節](../00-common/04-common-db-spec.md)）。
+
+### 一意索引の先頭列ルールと例外（2026-10-20 決定）
+
+- 業務一意索引は `(tenant_id, company_id, 業務キー)` で始める。`uk_mdm_exchange_rate` はテナント単位（会社間で共有）のため `(tenant_id, from_currency_code, to_currency_code, rate_type, effective_date)`。
+- `ON CONFLICT` の対象列は必ず `tenant_id` を含め、部分一意索引と同じ WHERE を繰り返す。
+- `company_id` は既定値なし・必須（`NOT NULL`）。
+- **例外（親 ID 先頭の明細表、親側で tenant/company が一意に決まるため据え置き）**：`uk_mdm_material_factory`、`uk_mdm_substitute`、`uk_mdm_bank_account_owner_no`、`uk_mdm_warehouse_zone_code`、`uk_mdm_price_line_no`、`uk_mdm_quotation_line_no`、`uk_mdm_payment_term_line`、`uk_mdm_evaluation`、`uk_mdm_eval_item`、`uk_mdm_change_line_no`。
 
 ## 10. 改訂履歴
 
