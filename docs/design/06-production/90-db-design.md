@@ -903,7 +903,7 @@ CREATE INDEX idx_prd_mrp_plan_order_converted ON prd_mrp_plan_order (company_id,
 | データ量見積 | 年間 +100,000 / 5 年 500,000（3 年保存） |
 | 保存期間 | 3 年 |
 
-**概要**：MRP が出力する「人間が判断すべき行動」の通知。発注（10）/製造（20）/取消（30）/延期（40）/提前（50）/增量（60）/减量（70）/安全库存不足（80）。既存の PO/工单に対する日付・数量の変更提案は `ref_doc_type`/`ref_doc_id` で参照し、`action_date`/`suggested_date` の対比で示す。処理状態を `action_status` で管理し、確認・無視を記録する（実行自体は PUR/PRD の画面で行う）。
+**概要**：MRP が出力する「人間が判断すべき行動」の通知。発注（10）/製造（20）/取消（30）/延期（40）/提前（50）/增量（60）/减量（70）/安全库存不足（80）。既存の PO/工单に対する日付・数量の変更提案は `ref_doc_type`/`ref_doc_id` で参照し、`current_due_date`/`suggested_date` の対比で示す。処理状態を `action_status` で管理し、確認・無視を記録する（実行自体は PUR/PRD の画面で行う）。
 
 ```sql
 CREATE TABLE prd_mrp_action (
@@ -918,7 +918,7 @@ CREATE TABLE prd_mrp_action (
     ref_doc_type        SMALLINT,                                -- 参照先種別 10:采购订单 20:工单 30:委外订单 40:请购 50:计划订单
     ref_doc_id          BIGINT,                                  -- 参照先 ID
     ref_doc_no          VARCHAR(64),                             -- 参照先单号
-    action_date         DATE,                                    -- 现日期（`current_date` は予約語のため改名）（延期/提前の対象）
+    current_due_date    DATE,                                    -- 现日期（`current_date` は予約語のため改名）（延期/提前の対象）
     suggested_date      DATE,                                    -- 建议日期
     current_qty         NUMERIC(18,4),                           -- 现数量
     suggested_qty       NUMERIC(18,4),                           -- 建议数量
@@ -1003,7 +1003,7 @@ CREATE TABLE prd_work_order (
     parent_work_order_id BIGINT,                                 -- 親工单 ID（多阶製造）
     root_work_order_id  BIGINT,                                  -- 最上位工单 ID（追溯用）
     is_backflush        BOOLEAN       NOT NULL DEFAULT FALSE,    -- 倒冲工单フラグ
-    over_receipt_rate   NUMERIC(5,4),                            -- 完工超収容差（既定値なし、NULL 可。NULL＝上位継承、0＝明示 0%（G2-18）。比率 NUMERIC(5,4)。チェーン：受注行>物料>分類>会社 sys_param key prd.completion_over_rate）
+    over_receipt_rate   NUMERIC(5,4)  NOT NULL,                  -- 完工超収容差スナップショット（既定値なし。工单登録時にチェーンで解決した値を必ず設定、工单上は NULL 継承しない。比率 NUMERIC(5,4)。チェーン：受注行>物料>分類>会社 sys_param key prd.completion_over_rate）
     over_report_rate    NUMERIC(5,4)  NOT NULL DEFAULT 0.05,     -- 超報工容差（比率 NUMERIC(5,4)）
     is_hold             BOOLEAN       NOT NULL DEFAULT FALSE,    -- 保留フラグ（工程異常・品質問題）
     hold_reason         VARCHAR(500),                            -- 保留理由
@@ -1032,7 +1032,7 @@ CREATE TABLE prd_work_order (
     CONSTRAINT ck_prd_work_order_status CHECK (order_status IN (10,20,25,30,35,40,90,95)),
     CONSTRAINT ck_prd_work_order_qty CHECK (order_qty > 0 AND completed_qty >= 0 AND scrapped_qty >= 0),
     CONSTRAINT ck_prd_work_order_date CHECK (planned_end_date >= planned_start_date),
-    CONSTRAINT ck_prd_work_order_rate CHECK ((over_receipt_rate IS NULL OR over_receipt_rate >= 0) AND over_report_rate >= 0)
+    CONSTRAINT ck_prd_work_order_rate CHECK (over_receipt_rate >= 0 AND over_report_rate >= 0)
 );
 
 CREATE UNIQUE INDEX uk_prd_work_order_no ON prd_work_order (tenant_id, company_id, work_order_no);
@@ -2623,4 +2623,4 @@ CREATE INDEX idx_prd_capacity_load_date ON prd_capacity_load (company_id, load_d
 | v1.1 | 2026-10-20 | 红队修复第2轮（REV-001/002/003/004/012 等）：INV 単一採番への整合（MII/MIR/FGI/OSI/OSR は INV 所有、PRD は request_no＋stock_doc_id/stock_doc_no 参照）、E15 resultCode/batchNo/warehouseId、E24 stockStatus=10 待検→E15 合格で 20 可用、原価サンプル 120 PCE／材料 79,187.55（標準 79,194.00・価格差異 −6.45）／人工 6,450.00／費用 7,740.00／93,377.55（778.15）、工单結案を 40＋closed_at に統一（45 廃止）、INV API 参照・工费率所有権 | production-designer |
 | v1.2 | 2026-10-20 | 同名索引の重複定義 6 件を削除（`prd_material_issue`、`prd_completion_receipt`、`prd_outsourcing_issue`、`prd_outsourcing_receipt`。定義は完全一致のため後方側を削除） | db-ops |
 | v1.3 | 2026-10-21 | `prd_work_order.standard_cost` を既定値なし・NULL 可に変更、下达時に `fin_standard_cost` 発行版をスナップショット、なしは NULL＋`MSG-FIN-117`・差異スキップ・画面「未設定」（PR #8 決定 2（蓝色大肥鱼 2026-10-21）） | 业务分析 |
-| v1.4 | 2026-10-21 | PR #13 指摘対応（蓝色大肥鱼決定）：`prd_work_order.over_receipt_rate` を NULL 可・既定値なし（NULL＝上位継承、G2-18）、`order_status` 既定 10 維持、`prd_mrp_action.current_date`→`action_date`（予約語）、明細表 `company_id` 冗長保持（§1.2、全明細の uk 先頭列）、v1.1 削除済み列を参照する uk 4 件削除（`*_req` で一意）、§3.18 コードブロックの閉じ fence 追加 | 业务分析 |
+| v1.4 | 2026-10-21 | PR #13 指摘対応：`prd_work_order.over_receipt_rate` の DEFAULT 0.05 削除（登録時にチェーン解決値をスナップショット、工单上は NULL 継承しない）、`prd_mrp_action.current_date`→`current_due_date`（予約語）、v1.1 削除済み列を参照する uk 4 件削除（`*_req` で一意）、§3.18 コードブロックの閉じ fence 追加 | 业务分析 |
