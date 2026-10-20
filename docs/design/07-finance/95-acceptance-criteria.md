@@ -1,0 +1,95 @@
+# 财务管理域 验收标准（第一版全量・多租户・标准成本・成本核算）
+
+| 項目 | 内容 |
+|---|---|
+| 文書名 | 财务管理域 验收标准 |
+| 版数 | v1.0 |
+| 作成日 | 2026-10-21 |
+| 作成者 | 业务分析 |
+| 状態 | ドラフト（レビュー待ち） |
+| 関連文書 | [00-overview.md](00-overview.md) / [02-voucher-ledger.md](02-voucher-ledger.md) / [03-ap-payment.md](03-ap-payment.md) / [04-ar-receipt.md](04-ar-receipt.md) / [05-cashier-tax.md](05-cashier-tax.md) / [06-auto-voucher-costing.md](06-auto-voucher-costing.md) / [07-period-reporting.md](07-period-reporting.md) / [90-db-design.md](90-db-design.md) / [02-mdm 90](../02-mdm/90-db-design.md) / [05-inventory 02](../05-inventory/02-inbound-outbound.md) / [06-production 90](../06-production/90-db-design.md) / [00-common 10](../00-common/10-rls-and-db-roles.md) |
+
+---
+
+形式：G（Given）/ W（When）/ T（Then）。本書は既存設計の規則（BR / BC / CALC / TST）を検証可能な形に書き直したものであり、新しい業務規則は追加しない。未確定事項は末尾「未決」に記す。
+
+## AC-FIN-01 分期表記なし（第一版全量）
+
+- W：`docs/design/07-finance` を `Phase` / `フェーズ` / `分期` で grep。T：0 件（本 AC の検査文言を除く）。
+- W：優先度の記述を確認。T：「P0/P1/P2 は全て第一版、実装順のみ」（[00-overview](00-overview.md) 機能一覧注記、[90](90-db-design.md) §1 #13）と矛盾する記述（「次期」「将来版で対応」等）がない。標準原価・RLS・P2 表は第一版に含まれる。
+
+## AC-FIN-02 tenant_id / company_id
+
+- W：[90-db-design.md](90-db-design.md) の全 DDL を確認。T：`tenant_id` は `NOT NULL DEFAULT current_setting('app.tenant_id')::bigint`、字面量默认租户（`DEFAULT 0` 等）なし。`scripts/check-tenant-default.sh` が OK。
+- T：`company_id` は全テーブルで `NOT NULL` かつ既定値なし（`DEFAULT 1` が 0 件）。
+
+## AC-FIN-03 一意索引は tenant_id 先頭
+
+- W：業務一意索引（`uk_`）を DDL 本文・§7 索引一覧で確認。T：`(tenant_id, company_id, …)` で始まり、両者の列順が一致する（例：`uk_fin_voucher_no`、`uk_fin_voucher_source`、`uk_fin_receivable_source`、`uk_fin_payable_source`、`uk_fin_cost_collection`、`uk_fin_standard_cost_version`）。
+- T：親 ID／イベント ID 先頭の一意索引は 90 §7.1 の例外一覧に全て列挙され、理由が書かれている。一覧外の非 tenant 先頭 `uk_` は 0 件。
+- T（G2-20）：`company_id` 先頭は非一意 `idx_` のみ（例：`idx_fin_standard_cost_lookup`）。
+
+## AC-FIN-04 RLS
+
+- G：テナント A のセッション（`app.tenant_id=A`）。W：`fin_*` を SELECT。T：テナント B の行は返らない。全 `fin_*` が `ENABLE` + `FORCE ROW LEVEL SECURITY`、ポリシーは `tenant_id` のみで判定（[90](90-db-design.md) §1、[00-common 10](../00-common/10-rls-and-db-roles.md)）。
+
+## AC-FIN-05 凭证の借貸平衡と記帳
+
+- W：借貸差 0.01 の凭证を保存。T：`MSG-FIN-001`、保存されない（[02](02-voucher-ledger.md) BR-01、CALC-01、TST-F-FIN-003-02）。
+- W：1 行のみの凭证。T：`MSG-FIN-018`（BR-02、TST-F-FIN-003-03）。
+- W：制单人自身で审核。T：`MSG-FIN-011`（BR-08、TST-F-FIN-005-02）。
+- W：CLOSED 期間で反记账。T：`MSG-FIN-020`（BR-11、TST-F-FIN-007-02）。W：同一凭证を再度冲销。T：`MSG-FIN-033`（BR-12、TST-F-FIN-008-02、`uk_fin_voucher_reversal`）。
+
+## AC-FIN-06 自動凭证の冪等性
+
+- G：同一 `eventId` を 2 回処理。T：凭证 1 張のみ（[06](06-auto-voucher-costing.md) BR-03、TST-F-FIN-030-02）。`uk_fin_auto_voucher_log_event` と `uk_fin_voucher_source`（`tenant_id, company_id, source_type, source_id`）で保証。
+- G：テンプレート未設定。W：消費。T：`FAILED`、`MSG-FIN-104`（TST-F-FIN-030-03）。リトライで成功時 `status=2`（TST-F-FIN-030-04）。
+
+## AC-FIN-07 暂估 AP（E14）と来源値
+
+- G：E14 受信。T：`fin_payable` に `source_type='PURCHASE_RECEIPT'`、`source_id=receiptId`、`accrual_flag=true` で 1 件、J01（借 1403 / 贷 2202）（[03](03-ap-payment.md) BR-01、TST-F-FIN-012-01）。値は INV／PUR の `PURCHASE_RECEIPT` と同一（[05-inventory 02 §2.6.1a](../05-inventory/02-inbound-outbound.md)）。
+- G：同一 E14 を 2 回受信。T：AP 1 件のみ（BR-20、TST-F-FIN-012-02）。
+- W：E17 で三单一致。T：J02 冲回 + J03 確認（BR-02/BR-07、TST-F-FIN-013-01）。价差が容差外・理由なし。T：`MSG-FIN-043`（BR-04、TST-F-FIN-013-03）。
+
+## AC-FIN-08 AR 計上と核销
+
+- G：E10 受信。T：AR 計上、状態 40（[04](04-ar-receipt.md) BR-01、TST-F-FIN-019-01）。同一 E10 2 回で AR 1 件（BR-20、TST-F-FIN-019-02）。
+- W：部分核销。T：状態 35（BR-09、TST-F-FIN-021-01）。核销>未収。T：`MSG-FIN-065`（TST-F-FIN-021-02）。反核销で残高復元・状態 40（BR-10、TST-F-FIN-021-03）。
+
+## AC-FIN-09 标准成本（fin_standard_cost）
+
+- W：[90](90-db-design.md) §6.12 を確認。T：`fin_standard_cost` が物料×版本×適用期間で定義され、要素は材料／人工／製造費用／委外の 4 区分、単価列は `NUMERIC(18,6)`、数量・工時は `NUMERIC(18,4)`（[01 第 6 章](../00-common/01-common-item-definitions.md)）。`total_unit_cost` = 4 要素合計（CHECK）。
+- G：YE3-100L1-4 の発行済み版。T：`total_unit_cost=778.20`（材料 659.95 + 人工 53.75 + 製造費用 64.50 + 委外 0）、標準原価 = 778.20 × 120 = 93,384.00（[06](06-auto-voucher-costing.md) CALC-A7、[bom-demo §6](../90-data/bom-demo.md)）。
+- G：同一物料・同一 `period_from` に発行済み版が既存。W：別版を発行（40）。T：`uk_fin_standard_cost_period` で拒否。
+- W：`fin_publish_standard_cost` を実行。T：`mdm_material.standard_cost` が発行版の値になる。`erp_app` による直接 UPDATE は権限エラー（[02-mdm 95](../02-mdm/95-acceptance-criteria.md)）。
+- G：標準原価未設定。W：成本計算。T：`MSG-FIN-117`（警告）、差異分析を行わない（[06](06-auto-voucher-costing.md) PRC 手順 6）。
+
+## AC-FIN-10 成本核算方法（BC-01/02）
+
+- G：`mdm_material.cost_method=1`（MTS）。W：成本計算。T：`fin_cost_collection.cost_method=1`、`cost_object_type=1`、`cost_object_id=material_id`（品种法）。実際 93,377.55、単位 778.146250（TST-F-FIN-031-01）。
+- G：`cost_method=2`（MTO）。T：`cost_method=2`、`cost_object_type=2`、`cost_object_id=work_order_id`（分批法）。完工成本 107,400.00（TST-F-FIN-031-02）。`(cost_method, cost_object_type)` の不整合は `ck_fin_cost_collection_object` で拒否。
+- T：原価要素（材料・人工・製造費用・委外）と精度（金額 18,2）は `prd_work_order.actual_material_cost` / `actual_labor_cost` / `actual_overhead_cost` / `actual_total_cost` と一致する（BC-15、[06-production 90](../06-production/90-db-design.md)）。
+- G：在庫月結（E20）未了。W：成本計算。T：`MSG-FIN-116`（BC-12、TST-F-FIN-031-03）。
+
+## AC-FIN-11 製造費用分配・完工・差異
+
+- W：製造費用分配。T：配賦後 5101=0、端数は最終工单に寄る（BC-05、TST-F-FIN-032-01/02）。
+- W：完工入库 J16。T：借 1405 / 贷 5001、単位成本一致（BC-08、TST-F-FIN-033-01）。`fin_product_cost.completion_source_type` は INV 完工入庫の `PRODUCTION_COMPLETION`（委外は `OUTSOURCING_ORDER`）。
+- G：5001 残高 ≠ WIP 合計。T：`MSG-FIN-113`（BC-09、TST-F-FIN-033-02）。
+- W：差異分析。T：材料価格差異 −6.45（有利）、数量差異 0.00（BC-10、CALC-A8/A9、TST-F-FIN-034-01）。`fin_cost_variance.standard_cost_id` に比較元の版が記録される。
+
+## AC-FIN-12 月結・报表
+
+- G：15 項目 OK。W：月結。T：期間 CLOSED、翌期 OPEN、E30 発行（TST-F-FIN-035-01）。未記帳あり。T：`MSG-FIN-120`（TST-F-FIN-035-02）。
+- W：BS 生成。T：資産＝負債＋権益（差 0.00）（TST-F-FIN-038-01）。SCE 期末＝BS 行 69（TST-F-FIN-038-07）。
+
+---
+
+## 未決
+
+| # | 事項 | 現状 | 推奨 | 決定者 |
+|---|---|---|---|---|
+| 1 | 標準原価の版発行（10→40）の承認主体 | 設計に記載なし（[06](06-auto-voucher-costing.md) 未決 #1） | 成本会計が卷算・登録、財務総監が発行（`fin_publish_standard_cost` 実行権限を財務総監ロールに限定） | 蓝色大肥鱼 / 財務総監 |
+| 2 | `prd_work_order.standard_cost NOT NULL DEFAULT 0` | 06-production 側に既定値 0 が残る（R3 G2-21 は既定値なし化を推奨） | PRD の PR で `DEFAULT 0` を削除し、下达時に `fin_standard_cost` 発行版をスナップショット。発行版がなければ NULL を許容し `MSG-FIN-117` で差異分析をスキップ | 蓝色大肥鱼（PRD 担当と調整） |
+| 3 | 期中に標準原価の版を改定した場合の差異比較元 | 「工单下达時スナップショット」と「計算期間の有効版」のどちらで比較するか未記載 | 分批法（MTO）は下达時スナップショット、品种法（MTS）は計算期間の発行済み版で比較し、`fin_cost_variance.standard_cost_id` に記録 | 蓝色大肥鱼 / 成本会計 |
+| 4 | 委外加工費の暂估（BC-14）の `fin_payable.source_type` | E14 由来は `PURCHASE_RECEIPT` に統一済。委外收货（OSR）由来の加工費暂估の来源値が未定 | INV と同じ `OUTSOURCING_ORDER` を使い、`uk_fin_payable_source` で冪等性を担保 | 蓝色大肥鱼 |

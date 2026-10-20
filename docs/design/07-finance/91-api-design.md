@@ -181,7 +181,7 @@
 | 114 | GET | /api/finance/statement-formulas | finance:statement:view | 取数公式一覧 | — |
 | 115 | GET | /api/finance/jobs/{jobId} | （各機能権限） | 非同期ジョブ状態 | 4001 |
 
-### 2.8 Phase 2 APIs（概要）
+### 2.8 実装順 P2 APIs（概要）
 
 | # | メソッド | パス | 権限 | 概要 |
 |---|---|---|---|---|

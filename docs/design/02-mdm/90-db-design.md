@@ -340,7 +340,7 @@ CREATE INDEX gin_mdm_material_ext ON mdm_material USING gin (ext_data jsonb_path
   - 購買受入（`over_receipt_tolerance_pct`）は別系統で従来どおり 物料 > 分類 > 仕入先 > 会社（05 §2.4）。この列も比率 `NUMERIC(5,4)`（0.05=5%）に統一。列名は 04-purchase（`90-db-design.md`、`04-receipt-iqc.md`）が参照しているため `_pct` のまま据え置く（TODO：購買ドメインの PR で `_rate` への改名と参照側の比率化を行う）。
 - **数量は基本単位**。`allowed_qty = floor(ordered_qty × (1 + rate))`（基本単位の精度 `mdm_uom.decimal_places` で切捨て）。受注行確定時にスナップショットし、承認済み受注変更・超産承認の時のみ再計算（詳細は販売・生産ドメイン）。
 - **検査フラグ**：`mdm_material` に `inspection_required` 列は**作らない**。入庫明細の `inspection_flag` は `inspection_stage` から導出し、明細にスナップショットとして書き込む（導出規則は 05-inventory 文書で確定）。
-- **標準原価**：唯一の正は `fin_standard_cost`（版管理・有効期間付き、DDL は 07-finance で定義。TODO：07-finance 側の DDL が未作成）。`mdm_material.standard_cost` は**スナップショット列**で、原価卷算結果の発行関数 `fin_publish_standard_cost` のみが書き込む（下記の保護方式）。工单下达時は `prd_work_order.standard_cost` にスナップショットする（Refs #32、#8）。
+- **標準原価**：唯一の正は `fin_standard_cost`（版管理・有効期間付き、DDL は [07-finance 90 §6.12](../07-finance/90-db-design.md)）。`mdm_material.standard_cost` は**スナップショット列**で、原価卷算結果の発行関数 `fin_publish_standard_cost` のみが書き込む（下記の保護方式）。工单下达時は `prd_work_order.standard_cost` にスナップショットする（Refs #32、#8）。
 - **`standard_cost` の更新保護**（関数 `fin_publish_standard_cost` の DDL は 07-finance で定義。本書は相互参照のみ）：
   - 専用の NOLOGIN ロール `erp_cost_publisher` が `SECURITY DEFINER` 関数 `fin_publish_standard_cost` を所有する。関数は `search_path` を固定し、最初に `set_config('app.tenant_id', 対象 tenant, true)` を設定する（FORCE RLS が適用される）。
   - `erp_cost_publisher` には `mdm_material` の列単位 `UPDATE (standard_cost)` に加え、WHERE 句と RLS ポリシーで使う列の列単位 `SELECT`（少なくとも `id`、`tenant_id`、`company_id`）を付与する。さらに `fin_standard_cost` の `SELECT` を付与する（列 SELECT が無いと `UPDATE ... WHERE id = ?` は権限エラーになる）。

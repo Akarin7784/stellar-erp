@@ -24,19 +24,22 @@
 | 5 | 状態・区分 | `SMALLINT` + `COMMENT`。名称は DB に持たない（共有コードで解決） |
 | 6 | スナップショット | 取引先名・科目名・税率・通貨は伝票にコピー保存（マスタ変更の影響を排除） |
 | 7 | 外部キー | マスタ・親子関係は FK（`ON DELETE RESTRICT`）。取引先など論理削除対象は FK を張らずアプリ検証 |
-| 8 | 一意制約 | 業務キーは部分一意インデックス（`WHERE deleted = FALSE` または状態条件付き） |
+| 8 | 一意制約 | 業務一意索引（`uk_`）は `(tenant_id, company_id, 業務キー)` 先頭（例外は §7.1）。論理削除・取消を伴う業務キーは部分一意（`WHERE deleted = FALSE` または状態条件付き） |
 | 9 | 金額の符号 | `debit_amount` / `credit_amount` は赤伝のみ負数を許可（`is_red=true`）。CHECK で `is_red OR amount >= 0` |
 | 10 | 履歴・ログ | 監査は `sys_audit_log`、自動凭证は `fin_auto_voucher_log`、月結は `fin_close_checklist`。追記専用 |
-| 11 | パーティション | Phase 1 は単一テーブル。`fin_voucher_line` は Phase 2 で `period_code` レンジパーティションを検討（年 80 万行） |
+| 11 | パーティション | 初期は単一テーブル。`fin_voucher_line` は `period_code` レンジパーティションを第一版の範囲で検討する（年 80 万行、実装順 P2） |
 | 12 | 保存期間 | 凭证・帳簿 30 年、月次报表 10 年、年度报表 永久（[08 章 12 章](../00-common/08-common-business-rules.md)） |
+| 13 | 範囲 | **第一版全量**：本書の全テーブル（標準原価・P2 表・RLS を含む）は第一版で作成する。P0/P1/P2 は実装順のみを表す |
+
+**RLS**：全 `fin_*` テーブルは `ENABLE ROW LEVEL SECURITY` + `FORCE ROW LEVEL SECURITY` とし、ポリシーは `tenant_id = current_setting('app.tenant_id')::bigint` のみで判定する（`company_id` は RLS に含めずアプリ層で制御。[00-common 10](../00-common/10-rls-and-db-roles.md)）。
 
 ### 1.1 共通監査列 DDL 雛形
 
 ```sql
 -- 全テーブルに展開（取引系は deleted なし）
 id          BIGINT       NOT NULL,
-tenant_id   BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-company_id  BIGINT       NOT NULL DEFAULT 1,
+tenant_id   BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,  -- 租户（字面量默认租户禁止）
+company_id  BIGINT       NOT NULL,       -- 公司（既定値なし）
 created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
 created_by  BIGINT       NOT NULL DEFAULT 0,
 updated_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
@@ -97,7 +100,7 @@ erDiagram
 
 ---
 
-## 3. テーブル一覧（52 表）
+## 3. テーブル一覧（53 表）
 
 | # | 物理名 | 論理名 | 種別 | 主な用途 | 更新元 | 見積（初期/年増/5年） |
 |---|---|---|---|---|---|---|
@@ -153,6 +156,7 @@ erDiagram
 | 50 | `fin_exchange_reval`（P2） | 汇兑损益调整 | 履歴 | 外貨期末調整 | F-FIN-044 | —/1,200/6,000 |
 | 51 | `fin_cash_plan`（P2） | 资金计划（头） | 伝票 | 資金収支計画 | F-FIN-045 | —/1,000/5,000 |
 | 52 | `fin_cash_plan_line`（P2） | 资金计划明细 | 伝票明細 | 計画明細 | F-FIN-045 | —/1.2 万/6 万 |
+| 53 | `fin_standard_cost` | 标准成本（版管理） | マスタ | 物料×版本×適用期間の標準単位原価（材料/人工/製造費用/委外） | F-FIN-034 | 300/300/1,800 |
 
 ---
 
@@ -170,7 +174,7 @@ erDiagram
 CREATE TABLE fin_account (
     id                  BIGINT        NOT NULL,
     tenant_id           BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id          BIGINT        NOT NULL DEFAULT 1,
+    company_id          BIGINT        NOT NULL,
     account_code        VARCHAR(32)   NOT NULL,              -- 科目コード（4 桁 + 2 桁補助、最大 2 階層）
     account_name        VARCHAR(200)  NOT NULL,              -- 科目名称
     parent_id           BIGINT,                              -- 親科目 ID
@@ -197,7 +201,7 @@ CREATE TABLE fin_account (
     CONSTRAINT ck_fin_account_category CHECK (account_category BETWEEN 1 AND 6),
     CONSTRAINT ck_fin_account_direction CHECK (balance_direction IN ('D','C'))
 );
-CREATE UNIQUE INDEX uk_fin_account_company_code ON fin_account (company_id, account_code) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_fin_account_company_code ON fin_account (tenant_id, company_id, account_code) WHERE deleted = FALSE;
 CREATE INDEX idx_fin_account_parent ON fin_account (parent_id);
 CREATE INDEX idx_fin_account_status ON fin_account (status, account_category);
 COMMENT ON TABLE fin_account IS '会计科目（CAS）';
@@ -224,7 +228,7 @@ COMMENT ON COLUMN fin_account.aux_types IS '辅助核算维度：CUSTOMER/SUPPLI
 CREATE TABLE fin_account_aux (
     id            BIGINT       NOT NULL,
     tenant_id     BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id    BIGINT       NOT NULL DEFAULT 1,
+    company_id    BIGINT       NOT NULL,
     account_id    BIGINT       NOT NULL,                  -- fin_account.id
     aux_type      VARCHAR(20)  NOT NULL,                  -- CUSTOMER/SUPPLIER/DEPARTMENT/EMPLOYEE/PROJECT/MATERIAL
     is_required   BOOLEAN      NOT NULL DEFAULT TRUE,     -- 必須か
@@ -249,7 +253,7 @@ COMMENT ON TABLE fin_account_aux IS '会计科目辅助核算设置';
 CREATE TABLE fin_period (
     id             BIGINT       NOT NULL,
     tenant_id      BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id     BIGINT       NOT NULL DEFAULT 1,
+    company_id     BIGINT       NOT NULL,
     fiscal_year    SMALLINT     NOT NULL,                 -- 2026
     period_code    VARCHAR(7)   NOT NULL,                 -- 2026-10
     period_no      SMALLINT     NOT NULL,                 -- 1～12
@@ -266,7 +270,7 @@ CREATE TABLE fin_period (
     updated_at     TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_by     BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_fin_period PRIMARY KEY (id),
-    CONSTRAINT uk_fin_period_code UNIQUE (company_id, period_code),
+    CONSTRAINT uk_fin_period_code UNIQUE (tenant_id, company_id, period_code),
     CONSTRAINT ck_fin_period_status CHECK (status IN ('FUTURE','OPEN','CLOSED','YEAR_CLOSED'))
 );
 CREATE INDEX idx_fin_period_status ON fin_period (fiscal_year, status);
@@ -279,7 +283,7 @@ COMMENT ON TABLE fin_period IS '会计期间（期间状态机）';
 CREATE TABLE fin_account_balance (
     id               BIGINT        NOT NULL,
     tenant_id        BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id       BIGINT        NOT NULL DEFAULT 1,
+    company_id       BIGINT        NOT NULL,
     period_code      VARCHAR(7)    NOT NULL,
     account_id       BIGINT        NOT NULL,
     account_code     VARCHAR(32)   NOT NULL,               -- スナップショット
@@ -300,7 +304,7 @@ CREATE TABLE fin_account_balance (
     CONSTRAINT pk_fin_account_balance PRIMARY KEY (id),
     CONSTRAINT fk_fin_account_balance_account FOREIGN KEY (account_id) REFERENCES fin_account (id)
 );
-CREATE UNIQUE INDEX uk_fin_account_balance ON fin_account_balance (company_id, period_code, account_id, balance_type);
+CREATE UNIQUE INDEX uk_fin_account_balance ON fin_account_balance (tenant_id, company_id, period_code, account_id, balance_type);
 CREATE INDEX idx_fin_account_balance_period ON fin_account_balance (period_code, account_code);
 COMMENT ON TABLE fin_account_balance IS '科目余额（期间×末级科目）';
 COMMENT ON COLUMN fin_account_balance.closing_debit IS '期末借方余额（借方科目=借-贷，贷方科目为0时由closing_credit保持）';
@@ -312,7 +316,7 @@ COMMENT ON COLUMN fin_account_balance.closing_debit IS '期末借方余额（借
 CREATE TABLE fin_aux_balance (
     id               BIGINT        NOT NULL,
     tenant_id        BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id       BIGINT        NOT NULL DEFAULT 1,
+    company_id       BIGINT        NOT NULL,
     period_code      VARCHAR(7)    NOT NULL,
     account_id       BIGINT        NOT NULL,
     aux_type         VARCHAR(20)   NOT NULL,
@@ -332,7 +336,7 @@ CREATE TABLE fin_aux_balance (
     updated_by       BIGINT        NOT NULL DEFAULT 0,
     CONSTRAINT pk_fin_aux_balance PRIMARY KEY (id)
 );
-CREATE UNIQUE INDEX uk_fin_aux_balance ON fin_aux_balance (company_id, period_code, account_id, aux_type, aux_object_id);
+CREATE UNIQUE INDEX uk_fin_aux_balance ON fin_aux_balance (tenant_id, company_id, period_code, account_id, aux_type, aux_object_id);
 CREATE INDEX idx_fin_aux_balance_object ON fin_aux_balance (aux_type, aux_object_id, period_code);
 COMMENT ON TABLE fin_aux_balance IS '辅助核算余额（客户/供应商/部门/员工/项目/物料）';
 ```
@@ -343,7 +347,7 @@ COMMENT ON TABLE fin_aux_balance IS '辅助核算余额（客户/供应商/部�
 CREATE TABLE fin_voucher (
     id               BIGINT        NOT NULL,
     tenant_id        BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id       BIGINT        NOT NULL DEFAULT 1,
+    company_id       BIGINT        NOT NULL,
     period_code      VARCHAR(7)    NOT NULL,
     voucher_type     SMALLINT      NOT NULL,                -- 1 记/2 收/3 付/4 转
     voucher_no       VARCHAR(8)    NOT NULL,                -- 记-0042
@@ -376,8 +380,8 @@ CREATE TABLE fin_voucher (
     CONSTRAINT ck_fin_voucher_status CHECK (status IN (10,20,40,90)),
     CONSTRAINT ck_fin_voucher_type CHECK (voucher_type BETWEEN 1 AND 4)
 );
-CREATE UNIQUE INDEX uk_fin_voucher_no ON fin_voucher (company_id, period_code, voucher_no);
-CREATE UNIQUE INDEX uk_fin_voucher_source ON fin_voucher (company_id, source_type, source_id)
+CREATE UNIQUE INDEX uk_fin_voucher_no ON fin_voucher (tenant_id, company_id, period_code, voucher_no);
+CREATE UNIQUE INDEX uk_fin_voucher_source ON fin_voucher (tenant_id, company_id, source_type, source_id)
     WHERE source_type IS NOT NULL AND status <> 90;
 CREATE UNIQUE INDEX uk_fin_voucher_reversal ON fin_voucher (reversal_of_voucher_id) WHERE reversal_of_voucher_id IS NOT NULL;
 CREATE INDEX idx_fin_voucher_period_status ON fin_voucher (period_code, status);
@@ -394,7 +398,7 @@ COMMENT ON COLUMN fin_voucher.source_type IS '自動凭证の来源種別。uk_f
 CREATE TABLE fin_voucher_line (
     id                  BIGINT        NOT NULL,
     tenant_id           BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id          BIGINT        NOT NULL DEFAULT 1,
+    company_id          BIGINT        NOT NULL,
     voucher_id          BIGINT        NOT NULL,
     line_no             INT           NOT NULL,
     summary             VARCHAR(200)  NOT NULL,
@@ -458,7 +462,7 @@ COMMENT ON COLUMN fin_voucher_line.cash_flow_item_code IS '现金流量项目（
 CREATE TABLE fin_voucher_template (
     id              BIGINT        NOT NULL,
     tenant_id       BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id      BIGINT        NOT NULL DEFAULT 1,
+    company_id      BIGINT        NOT NULL,
     template_code   VARCHAR(32)   NOT NULL,                -- TPL-FIN-J07
     template_name   VARCHAR(200)  NOT NULL,
     template_type   SMALLINT      NOT NULL DEFAULT 1,      -- 1 自動/2 手動
@@ -481,13 +485,13 @@ CREATE TABLE fin_voucher_template (
     CONSTRAINT pk_fin_voucher_template PRIMARY KEY (id),
     CONSTRAINT ck_fin_voucher_template_type CHECK (template_type IN (1,2))
 );
-CREATE UNIQUE INDEX uk_fin_voucher_template_code ON fin_voucher_template (company_id, template_code) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_fin_voucher_template_code ON fin_voucher_template (tenant_id, company_id, template_code) WHERE deleted = FALSE;
 CREATE INDEX idx_fin_voucher_template_event ON fin_voucher_template (event_type, source_domain, status);
 
 CREATE TABLE fin_voucher_template_line (
     id                   BIGINT        NOT NULL,
     tenant_id            BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id           BIGINT        NOT NULL DEFAULT 1,
+    company_id           BIGINT        NOT NULL,
     template_id          BIGINT        NOT NULL,
     line_no              INT           NOT NULL,
     direction            CHAR(1)       NOT NULL,            -- D/C
@@ -519,7 +523,7 @@ COMMENT ON TABLE fin_voucher_template_line IS '凭证模板行（借貸方向・
 CREATE TABLE fin_auto_voucher_log (
     id             BIGINT        NOT NULL,
     tenant_id      BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id     BIGINT        NOT NULL DEFAULT 1,
+    company_id     BIGINT        NOT NULL,
     event_id       UUID          NOT NULL,                 -- sys_outbox_event.event_id
     event_type     VARCHAR(100)  NOT NULL,
     aggregate_type VARCHAR(64),
@@ -552,7 +556,7 @@ COMMENT ON TABLE fin_auto_voucher_log IS '自动凭证生成日志（幂等・�
 CREATE TABLE fin_cash_flow_item (
     id            BIGINT       NOT NULL,
     tenant_id     BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id    BIGINT       NOT NULL DEFAULT 1,
+    company_id    BIGINT       NOT NULL,
     item_code     VARCHAR(32)  NOT NULL,                   -- CF01
     item_name     VARCHAR(200) NOT NULL,
     direction     SMALLINT     NOT NULL,                   -- 1 流入/2 流出/3 調整
@@ -566,7 +570,7 @@ CREATE TABLE fin_cash_flow_item (
     updated_by    BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_fin_cash_flow_item PRIMARY KEY (id)
 );
-CREATE UNIQUE INDEX uk_fin_cash_flow_item_code ON fin_cash_flow_item (company_id, item_code);
+CREATE UNIQUE INDEX uk_fin_cash_flow_item_code ON fin_cash_flow_item (tenant_id, company_id, item_code);
 COMMENT ON TABLE fin_cash_flow_item IS '现金流量项目（CAS 现金流量表）';
 ```
 
@@ -576,7 +580,7 @@ COMMENT ON TABLE fin_cash_flow_item IS '现金流量项目（CAS 现金流量表
 CREATE TABLE fin_aging_config (
     id            BIGINT       NOT NULL,
     tenant_id     BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id    BIGINT       NOT NULL DEFAULT 1,
+    company_id    BIGINT       NOT NULL,
     config_type   SMALLINT     NOT NULL,                   -- 1 AR/2 AP
     basis_type    SMALLINT     NOT NULL DEFAULT 2,         -- 1 業務日付/2 到期日
     bucket_no     SMALLINT     NOT NULL,
@@ -592,7 +596,7 @@ CREATE TABLE fin_aging_config (
     updated_by    BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_fin_aging_config PRIMARY KEY (id)
 );
-CREATE UNIQUE INDEX uk_fin_aging_config ON fin_aging_config (company_id, config_type, bucket_no);
+CREATE UNIQUE INDEX uk_fin_aging_config ON fin_aging_config (tenant_id, company_id, config_type, bucket_no);
 COMMENT ON TABLE fin_aging_config IS '账龄区间配置（未到期/1-30/31-60/61-90/91-180/181-360/>360）';
 ```
 
@@ -602,7 +606,7 @@ COMMENT ON TABLE fin_aging_config IS '账龄区间配置（未到期/1-30/31-60/
 CREATE TABLE fin_close_checklist (
     id            BIGINT        NOT NULL,
     tenant_id     BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id    BIGINT        NOT NULL DEFAULT 1,
+    company_id    BIGINT        NOT NULL,
     period_code   VARCHAR(7)    NOT NULL,
     check_code    VARCHAR(32)   NOT NULL,                  -- CLOSE_01..CLOSE_15
     check_name    VARCHAR(200)  NOT NULL,
@@ -621,7 +625,7 @@ CREATE TABLE fin_close_checklist (
     CONSTRAINT pk_fin_close_checklist PRIMARY KEY (id),
     CONSTRAINT ck_fin_close_checklist_result CHECK (result BETWEEN 0 AND 3)
 );
-CREATE UNIQUE INDEX uk_fin_close_checklist ON fin_close_checklist (company_id, period_code, check_code);
+CREATE UNIQUE INDEX uk_fin_close_checklist ON fin_close_checklist (tenant_id, company_id, period_code, check_code);
 COMMENT ON TABLE fin_close_checklist IS '月结检查清单结果（09 章 10.3 の 10 項目 + 追加 5 項目）';
 ```
 
@@ -634,7 +638,7 @@ COMMENT ON TABLE fin_close_checklist IS '月结检查清单结果（09 章 10.3 
 CREATE TABLE fin_statement_template (
     id             BIGINT       NOT NULL,
     tenant_id      BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id     BIGINT       NOT NULL DEFAULT 1,
+    company_id     BIGINT       NOT NULL,
     statement_type VARCHAR(8)   NOT NULL,                 -- BS/IS/CF/SCE（SCE=所有者权益变动表）
     line_no        INT          NOT NULL,                 -- 行次
     item_name      VARCHAR(200) NOT NULL,                 -- 报表項目名
@@ -652,7 +656,7 @@ CREATE TABLE fin_statement_template (
     updated_by     BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_fin_statement_template PRIMARY KEY (id)
 );
-CREATE UNIQUE INDEX uk_fin_statement_template ON fin_statement_template (company_id, statement_type, line_no);
+CREATE UNIQUE INDEX uk_fin_statement_template ON fin_statement_template (tenant_id, company_id, statement_type, line_no);
 COMMENT ON TABLE fin_statement_template IS '报表项目模板（財会〔2019〕6 号の法定様式）';
 ```
 
@@ -662,7 +666,7 @@ COMMENT ON TABLE fin_statement_template IS '报表项目模板（財会〔2019�
 CREATE TABLE fin_statement_formula (
     id             BIGINT        NOT NULL,
     tenant_id      BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id     BIGINT        NOT NULL DEFAULT 1,
+    company_id     BIGINT        NOT NULL,
     statement_type VARCHAR(8)    NOT NULL,
     line_no        INT           NOT NULL,
     item_name      VARCHAR(200)  NOT NULL,
@@ -680,7 +684,7 @@ CREATE TABLE fin_statement_formula (
     updated_by     BIGINT        NOT NULL DEFAULT 0,
     CONSTRAINT pk_fin_statement_formula PRIMARY KEY (id)
 );
-CREATE UNIQUE INDEX uk_fin_statement_formula ON fin_statement_formula (company_id, statement_type, line_no, valid_from);
+CREATE UNIQUE INDEX uk_fin_statement_formula ON fin_statement_formula (tenant_id, company_id, statement_type, line_no, valid_from);
 COMMENT ON TABLE fin_statement_formula IS '报表取数公式（残高/発生額/合計行）';
 COMMENT ON COLUMN fin_statement_formula.formula_expr IS '限定記法：残(借)/残(貸)/発(借)/発(貸)+科目コード。合計行は行番号の加減算';
 ```
@@ -691,7 +695,7 @@ COMMENT ON COLUMN fin_statement_formula.formula_expr IS '限定記法：残(借)
 CREATE TABLE fin_statement_snapshot (
     id             BIGINT        NOT NULL,
     tenant_id      BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id     BIGINT        NOT NULL DEFAULT 1,
+    company_id     BIGINT        NOT NULL,
     statement_type VARCHAR(8)    NOT NULL,                -- BS/IS/CF/SCE（SCE=所有者权益变动表）
     period_code    VARCHAR(7)    NOT NULL,
     compare_type   SMALLINT      NOT NULL DEFAULT 1,      -- 1 単期/2 前月比/3 前年同期
@@ -707,7 +711,7 @@ CREATE TABLE fin_statement_snapshot (
     updated_by     BIGINT        NOT NULL DEFAULT 0,
     CONSTRAINT pk_fin_statement_snapshot PRIMARY KEY (id)
 );
-CREATE UNIQUE INDEX uk_fin_statement_snapshot ON fin_statement_snapshot (company_id, statement_type, period_code, compare_type, snapshot_version);
+CREATE UNIQUE INDEX uk_fin_statement_snapshot ON fin_statement_snapshot (tenant_id, company_id, statement_type, period_code, compare_type, snapshot_version);
 CREATE INDEX idx_fin_statement_snapshot_period ON fin_statement_snapshot (period_code, statement_type);
 COMMENT ON TABLE fin_statement_snapshot IS '财务报表快照（監査用・版数保持）';
 COMMENT ON COLUMN fin_statement_snapshot.rows_data IS '报表行値の JSON 配列（行次・項目・金額）';
@@ -719,7 +723,7 @@ COMMENT ON COLUMN fin_statement_snapshot.rows_data IS '报表行値の JSON 配�
 CREATE TABLE fin_bank_account (
     id                  BIGINT        NOT NULL,
     tenant_id           BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id          BIGINT        NOT NULL DEFAULT 1,
+    company_id          BIGINT        NOT NULL,
     account_name        VARCHAR(200)  NOT NULL,           -- 口座名義・用途名
     bank_name           VARCHAR(200)  NOT NULL,           -- 开户银行
     bank_branch_name    VARCHAR(200),
@@ -741,7 +745,7 @@ CREATE TABLE fin_bank_account (
     updated_by          BIGINT        NOT NULL DEFAULT 0,
     CONSTRAINT pk_fin_bank_account PRIMARY KEY (id)
 );
-CREATE UNIQUE INDEX uk_fin_bank_account_no ON fin_bank_account (company_id, bank_account_no_enc) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_fin_bank_account_no ON fin_bank_account (tenant_id, company_id, bank_account_no_enc) WHERE deleted = FALSE;
 CREATE INDEX idx_fin_bank_account_status ON fin_bank_account (status);
 COMMENT ON TABLE fin_bank_account IS '银行账户（自有口座。仕入先銀行口座 mdm_partner_bank_account とは別）';
 ```
@@ -752,7 +756,7 @@ COMMENT ON TABLE fin_bank_account IS '银行账户（自有口座。仕入先銀
 CREATE TABLE fin_receivable (
     id                BIGINT        NOT NULL,
     tenant_id         BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id        BIGINT        NOT NULL DEFAULT 1,
+    company_id        BIGINT        NOT NULL,
     receivable_no     VARCHAR(12)   NOT NULL,              -- AR2610200001
     source_type       VARCHAR(20)   NOT NULL,              -- DELIVERY/INVOICE/RETURN/ADJUST
     source_id         BIGINT        NOT NULL,
@@ -787,8 +791,8 @@ CREATE TABLE fin_receivable (
     CONSTRAINT ck_fin_receivable_status CHECK (status IN (10,35,40,50,90)),
     CONSTRAINT ck_fin_receivable_balance CHECK (balance_amount >= 0)
 );
-CREATE UNIQUE INDEX uk_fin_receivable_no ON fin_receivable (company_id, receivable_no);
-CREATE UNIQUE INDEX uk_fin_receivable_source ON fin_receivable (company_id, source_type, source_id) WHERE status <> 90;
+CREATE UNIQUE INDEX uk_fin_receivable_no ON fin_receivable (tenant_id, company_id, receivable_no);
+CREATE UNIQUE INDEX uk_fin_receivable_source ON fin_receivable (tenant_id, company_id, source_type, source_id) WHERE status <> 90;
 CREATE INDEX idx_fin_receivable_customer ON fin_receivable (customer_id, status, due_date);
 CREATE INDEX idx_fin_receivable_due ON fin_receivable (due_date) WHERE status IN (35,40);
 COMMENT ON TABLE fin_receivable IS '应收单（出荷基準。E10/E12 由来、FIN が唯一更新）';
@@ -814,7 +818,7 @@ COMMENT ON COLUMN fin_receivable.invoice_status IS '开票状态：0 未开票/1
 CREATE TABLE fin_receivable_line (
     id               BIGINT        NOT NULL,
     tenant_id        BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id       BIGINT        NOT NULL DEFAULT 1,
+    company_id       BIGINT        NOT NULL,
     receivable_id    BIGINT        NOT NULL,
     line_no          INT           NOT NULL,
     material_id      BIGINT,
@@ -845,9 +849,9 @@ COMMENT ON TABLE fin_receivable_line IS '应收单明细（E10 明細行のス�
 CREATE TABLE fin_payable (
     id                BIGINT        NOT NULL,
     tenant_id         BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id        BIGINT        NOT NULL DEFAULT 1,
+    company_id        BIGINT        NOT NULL,
     payable_no        VARCHAR(12)   NOT NULL,              -- AP2610200001
-    source_type       VARCHAR(20)   NOT NULL,              -- RECEIPT/INVOICE/PREPAY/EXPENSE/ADJUST
+    source_type       VARCHAR(32)   NOT NULL,              -- PURCHASE_RECEIPT（E14 暫估。INV/PUR と同値）/INVOICE/PREPAY/EXPENSE/ADJUST
     source_id         BIGINT        NOT NULL,
     source_no         VARCHAR(64),
     supplier_id       BIGINT        NOT NULL,
@@ -882,8 +886,8 @@ CREATE TABLE fin_payable (
     CONSTRAINT pk_fin_payable PRIMARY KEY (id),
     CONSTRAINT ck_fin_payable_status CHECK (status IN (10,35,40,50,90))
 );
-CREATE UNIQUE INDEX uk_fin_payable_no ON fin_payable (company_id, payable_no);
-CREATE UNIQUE INDEX uk_fin_payable_source ON fin_payable (company_id, source_type, source_id) WHERE status <> 90;
+CREATE UNIQUE INDEX uk_fin_payable_no ON fin_payable (tenant_id, company_id, payable_no);
+CREATE UNIQUE INDEX uk_fin_payable_source ON fin_payable (tenant_id, company_id, source_type, source_id) WHERE status <> 90;
 CREATE INDEX idx_fin_payable_supplier ON fin_payable (supplier_id, status, due_date);
 CREATE INDEX idx_fin_payable_accrual ON fin_payable (accrual_flag, accrual_period) WHERE accrual_flag = TRUE;
 COMMENT ON TABLE fin_payable IS '应付单（暫估/請求/預払由来）';
@@ -897,7 +901,7 @@ COMMENT ON COLUMN fin_payable.reversed_flag IS '暫估冲回済フラグ（二�
 CREATE TABLE fin_invoice (
     id                BIGINT        NOT NULL,
     tenant_id         BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id        BIGINT        NOT NULL DEFAULT 1,
+    company_id        BIGINT        NOT NULL,
     invoice_type      VARCHAR(10)   NOT NULL,              -- INPUT 進項/OUTPUT 销项
     invoice_code      VARCHAR(16),                         -- 发票代码（数电票は空可）
     invoice_no        VARCHAR(32),                         -- 发票号码（数电票20位）
@@ -939,7 +943,7 @@ CREATE TABLE fin_invoice (
     CONSTRAINT ck_fin_invoice_type CHECK (invoice_type IN ('INPUT','OUTPUT')),
     CONSTRAINT ck_fin_invoice_status CHECK (status IN (10,40,50,90))
 );
-CREATE UNIQUE INDEX uk_fin_invoice_no ON fin_invoice (company_id, invoice_type, invoice_no);
+CREATE UNIQUE INDEX uk_fin_invoice_no ON fin_invoice (tenant_id, company_id, invoice_type, invoice_no);
 CREATE INDEX idx_fin_invoice_date ON fin_invoice (invoice_type, invoice_date, status);
 CREATE INDEX idx_fin_invoice_supplier ON fin_invoice (seller_id, invoice_date) WHERE invoice_type = 'INPUT';
 CREATE INDEX idx_fin_invoice_customer ON fin_invoice (buyer_id, invoice_date) WHERE invoice_type = 'OUTPUT';
@@ -953,7 +957,7 @@ COMMENT ON COLUMN fin_invoice.invoice_no IS '发票号码。数电票は20位、
 CREATE TABLE fin_invoice_line (
     id             BIGINT        NOT NULL,
     tenant_id      BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id     BIGINT        NOT NULL DEFAULT 1,
+    company_id     BIGINT        NOT NULL,
     invoice_id     BIGINT        NOT NULL,
     line_no        INT           NOT NULL,
     material_id    BIGINT,
@@ -985,7 +989,7 @@ COMMENT ON TABLE fin_invoice_line IS '发票明细（三单匹配の対象行）
 CREATE TABLE fin_invoice_match (
     id               BIGINT        NOT NULL,
     tenant_id        BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id       BIGINT        NOT NULL DEFAULT 1,
+    company_id       BIGINT        NOT NULL,
     invoice_id       BIGINT        NOT NULL,
     invoice_line_id  BIGINT,
     po_id            BIGINT,
@@ -1030,7 +1034,7 @@ COMMENT ON TABLE fin_invoice_match IS '三单匹配记录（PO/GR/发票の数�
 CREATE TABLE fin_payment_request (
     id              BIGINT        NOT NULL,
     tenant_id       BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id      BIGINT        NOT NULL DEFAULT 1,
+    company_id      BIGINT        NOT NULL,
     request_no      VARCHAR(12)   NOT NULL,               -- PA2610200001
     supplier_id     BIGINT        NOT NULL,
     supplier_code   VARCHAR(64)   NOT NULL,
@@ -1054,13 +1058,13 @@ CREATE TABLE fin_payment_request (
     CONSTRAINT pk_fin_payment_request PRIMARY KEY (id),
     CONSTRAINT ck_fin_payment_request_status CHECK (status IN (10,20,25,40,90,95))
 );
-CREATE UNIQUE INDEX uk_fin_payment_request_no ON fin_payment_request (company_id, request_no);
+CREATE UNIQUE INDEX uk_fin_payment_request_no ON fin_payment_request (tenant_id, company_id, request_no);
 CREATE INDEX idx_fin_payment_request_supplier ON fin_payment_request (supplier_id, status);
 
 CREATE TABLE fin_payment_request_line (
     id            BIGINT        NOT NULL,
     tenant_id     BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id    BIGINT        NOT NULL DEFAULT 1,
+    company_id    BIGINT        NOT NULL,
     request_id    BIGINT        NOT NULL,
     line_no       INT           NOT NULL,
     payable_id    BIGINT,                                  -- fin_payable（AP の場合）
@@ -1087,7 +1091,7 @@ COMMENT ON TABLE fin_payment_request_line IS '付款申请明细（AP/预付の�
 CREATE TABLE fin_payment (
     id               BIGINT        NOT NULL,
     tenant_id        BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id       BIGINT        NOT NULL DEFAULT 1,
+    company_id       BIGINT        NOT NULL,
     payment_no       VARCHAR(13)   NOT NULL,              -- PMT2610200001
     request_id       BIGINT,                              -- PA
     supplier_id      BIGINT        NOT NULL,
@@ -1116,7 +1120,7 @@ CREATE TABLE fin_payment (
     CONSTRAINT pk_fin_payment PRIMARY KEY (id),
     CONSTRAINT ck_fin_payment_status CHECK (status IN (10,40,90))
 );
-CREATE UNIQUE INDEX uk_fin_payment_no ON fin_payment (company_id, payment_no);
+CREATE UNIQUE INDEX uk_fin_payment_no ON fin_payment (tenant_id, company_id, payment_no);
 CREATE INDEX idx_fin_payment_supplier ON fin_payment (supplier_id, payment_date);
 CREATE INDEX idx_fin_payment_bank ON fin_payment (bank_account_id, payment_date);
 COMMENT ON TABLE fin_payment IS '付款单（出纳が実行。J10 を生成）';
@@ -1128,7 +1132,7 @@ COMMENT ON TABLE fin_payment IS '付款单（出纳が実行。J10 を生成）'
 CREATE TABLE fin_receipt (
     id               BIGINT        NOT NULL,
     tenant_id        BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id       BIGINT        NOT NULL DEFAULT 1,
+    company_id       BIGINT        NOT NULL,
     receipt_no       VARCHAR(13)   NOT NULL,              -- RCP2610280001
     customer_id      BIGINT        NOT NULL,
     customer_code    VARCHAR(64)   NOT NULL,
@@ -1157,7 +1161,7 @@ CREATE TABLE fin_receipt (
     CONSTRAINT pk_fin_receipt PRIMARY KEY (id),
     CONSTRAINT ck_fin_receipt_status CHECK (status IN (10,40,90))
 );
-CREATE UNIQUE INDEX uk_fin_receipt_no ON fin_receipt (company_id, receipt_no);
+CREATE UNIQUE INDEX uk_fin_receipt_no ON fin_receipt (tenant_id, company_id, receipt_no);
 CREATE INDEX idx_fin_receipt_customer ON fin_receipt (customer_id, receipt_date);
 COMMENT ON TABLE fin_receipt IS '收款单（到账確認で J08/J09、E29 発行）';
 COMMENT ON COLUMN fin_receipt.unapplied_amount IS '未核销金額（预收账款 2203 へ繰越）';
@@ -1169,7 +1173,7 @@ COMMENT ON COLUMN fin_receipt.unapplied_amount IS '未核销金額（预收账�
 CREATE TABLE fin_write_off (
     id             BIGINT        NOT NULL,
     tenant_id      BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id     BIGINT        NOT NULL DEFAULT 1,
+    company_id     BIGINT        NOT NULL,
     write_off_no   VARCHAR(16)   NOT NULL,                -- WOFF2610280001
     write_off_type SMALLINT      NOT NULL,                -- 10 AR/11 AP/12 預収→AR/13 預払→AP
     source_type    VARCHAR(20)   NOT NULL,                -- RECEIPT/PAYMENT/ADVANCE
@@ -1190,13 +1194,13 @@ CREATE TABLE fin_write_off (
     CONSTRAINT pk_fin_write_off PRIMARY KEY (id),
     CONSTRAINT ck_fin_write_off_status CHECK (status IN (10,90))
 );
-CREATE UNIQUE INDEX uk_fin_write_off_no ON fin_write_off (company_id, write_off_no);
+CREATE UNIQUE INDEX uk_fin_write_off_no ON fin_write_off (tenant_id, company_id, write_off_no);
 CREATE INDEX idx_fin_write_off_source ON fin_write_off (source_type, source_id);
 
 CREATE TABLE fin_write_off_line (
     id             BIGINT        NOT NULL,
     tenant_id      BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id     BIGINT        NOT NULL DEFAULT 1,
+    company_id     BIGINT        NOT NULL,
     write_off_id   BIGINT        NOT NULL,
     line_no        INT           NOT NULL,
     target_type    VARCHAR(20)   NOT NULL,                -- RECEIVABLE/PAYABLE/ADVANCE_RECEIPT/ADVANCE_PAYMENT
@@ -1228,7 +1232,7 @@ COMMENT ON TABLE fin_write_off_line IS '核销明细（源単→目標単、核�
 CREATE TABLE fin_cash_journal (
     id              BIGINT        NOT NULL,
     tenant_id       BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id      BIGINT        NOT NULL DEFAULT 1,
+    company_id      BIGINT        NOT NULL,
     journal_date    DATE          NOT NULL,
     direction       SMALLINT      NOT NULL,               -- 1 収入/2 支出
     amount          NUMERIC(18,2) NOT NULL,
@@ -1260,7 +1264,7 @@ COMMENT ON TABLE fin_cash_journal IS '现金日记账（1001 統制。日次残�
 CREATE TABLE fin_bank_journal (
     id                 BIGINT        NOT NULL,
     tenant_id          BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id         BIGINT        NOT NULL DEFAULT 1,
+    company_id         BIGINT        NOT NULL,
     bank_account_id    BIGINT        NOT NULL,
     journal_date       DATE          NOT NULL,
     direction          SMALLINT      NOT NULL,            -- 1 入金/2 出金
@@ -1283,7 +1287,7 @@ CREATE TABLE fin_bank_journal (
     CONSTRAINT pk_fin_bank_journal PRIMARY KEY (id),
     CONSTRAINT fk_fin_bank_journal_account FOREIGN KEY (bank_account_id) REFERENCES fin_bank_account (id)
 );
-CREATE UNIQUE INDEX uk_fin_bank_journal_ref ON fin_bank_journal (company_id, bank_account_id, bank_ref_no) WHERE bank_ref_no IS NOT NULL;
+CREATE UNIQUE INDEX uk_fin_bank_journal_ref ON fin_bank_journal (tenant_id, company_id, bank_account_id, bank_ref_no) WHERE bank_ref_no IS NOT NULL;
 CREATE INDEX idx_fin_bank_journal_date ON fin_bank_journal (bank_account_id, journal_date DESC);
 CREATE INDEX idx_fin_bank_journal_recon ON fin_bank_journal (bank_account_id, reconcile_status);
 COMMENT ON TABLE fin_bank_journal IS '银行存款日记账（1002 統制。対账状態保持）';
@@ -1295,7 +1299,7 @@ COMMENT ON TABLE fin_bank_journal IS '银行存款日记账（1002 統制。対�
 CREATE TABLE fin_bank_statement (
     id                BIGINT        NOT NULL,
     tenant_id         BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id        BIGINT        NOT NULL DEFAULT 1,
+    company_id        BIGINT        NOT NULL,
     statement_no      VARCHAR(13)   NOT NULL,             -- BST2610200001
     bank_account_id   BIGINT        NOT NULL,
     period_code       VARCHAR(7)    NOT NULL,
@@ -1314,13 +1318,13 @@ CREATE TABLE fin_bank_statement (
     updated_by        BIGINT        NOT NULL DEFAULT 0,
     CONSTRAINT pk_fin_bank_statement PRIMARY KEY (id)
 );
-CREATE UNIQUE INDEX uk_fin_bank_statement_account_period ON fin_bank_statement (company_id, bank_account_id, period_code);
-CREATE UNIQUE INDEX uk_fin_bank_statement_hash ON fin_bank_statement (company_id, file_sha256);
+CREATE UNIQUE INDEX uk_fin_bank_statement_account_period ON fin_bank_statement (tenant_id, company_id, bank_account_id, period_code);
+CREATE UNIQUE INDEX uk_fin_bank_statement_hash ON fin_bank_statement (tenant_id, company_id, file_sha256);
 
 CREATE TABLE fin_bank_statement_line (
     id                  BIGINT        NOT NULL,
     tenant_id           BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id          BIGINT        NOT NULL DEFAULT 1,
+    company_id          BIGINT        NOT NULL,
     statement_id        BIGINT        NOT NULL,
     line_no             INT           NOT NULL,
     txn_date            DATE          NOT NULL,
@@ -1354,7 +1358,7 @@ COMMENT ON TABLE fin_bank_statement_line IS '银行对账单明细（マッチ�
 CREATE TABLE fin_bank_reconciliation (
     id                 BIGINT        NOT NULL,
     tenant_id          BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id         BIGINT        NOT NULL DEFAULT 1,
+    company_id         BIGINT        NOT NULL,
     bank_account_id    BIGINT        NOT NULL,
     period_code        VARCHAR(7)    NOT NULL,
     statement_id       BIGINT,
@@ -1377,12 +1381,12 @@ CREATE TABLE fin_bank_reconciliation (
     CONSTRAINT pk_fin_bank_reconciliation PRIMARY KEY (id),
     CONSTRAINT ck_fin_bank_reconciliation_status CHECK (status IN (10,20,40,90))
 );
-CREATE UNIQUE INDEX uk_fin_bank_reconciliation ON fin_bank_reconciliation (company_id, bank_account_id, period_code);
+CREATE UNIQUE INDEX uk_fin_bank_reconciliation ON fin_bank_reconciliation (tenant_id, company_id, bank_account_id, period_code);
 
 CREATE TABLE fin_bank_recon_item (
     id            BIGINT        NOT NULL,
     tenant_id     BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id    BIGINT        NOT NULL DEFAULT 1,
+    company_id    BIGINT        NOT NULL,
     recon_id      BIGINT        NOT NULL,
     item_type     SMALLINT      NOT NULL,                 -- 1 企業未達(収)/2 企業未達(支)/3 銀行未達(収)/4 銀行未達(支)
     source_type   VARCHAR(20),                            -- JOURNAL/STATEMENT/MANUAL
@@ -1408,7 +1412,7 @@ COMMENT ON TABLE fin_bank_recon_item IS '未达账项（企業未達/銀行未�
 CREATE TABLE fin_vat_return (
     id                 BIGINT        NOT NULL,
     tenant_id          BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id         BIGINT        NOT NULL DEFAULT 1,
+    company_id         BIGINT        NOT NULL,
     period_code        VARCHAR(7)    NOT NULL,
     output_tax         NUMERIC(18,2) NOT NULL DEFAULT 0,
     input_tax          NUMERIC(18,2) NOT NULL DEFAULT 0,
@@ -1431,13 +1435,13 @@ CREATE TABLE fin_vat_return (
     CONSTRAINT pk_fin_vat_return PRIMARY KEY (id),
     CONSTRAINT ck_fin_vat_return_status CHECK (status IN (10,40,50,90))
 );
-CREATE UNIQUE INDEX uk_fin_vat_return ON fin_vat_return (company_id, period_code);
+CREATE UNIQUE INDEX uk_fin_vat_return ON fin_vat_return (tenant_id, company_id, period_code);
 COMMENT ON TABLE fin_vat_return IS '增值税申报辅助（销项-进项+转出-留抵=应纳税额）';
 
 CREATE TABLE fin_vat_return_line (
     id            BIGINT        NOT NULL,
     tenant_id     BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id    BIGINT        NOT NULL DEFAULT 1,
+    company_id    BIGINT        NOT NULL,
     return_id     BIGINT        NOT NULL,
     line_code     VARCHAR(20)   NOT NULL,                 -- 01 销项/02 进项/03 转出/04 留抵...
     line_name     VARCHAR(200)  NOT NULL,
@@ -1461,7 +1465,7 @@ COMMENT ON TABLE fin_vat_return_line IS '增值税申报辅助行（主表口径
 CREATE TABLE fin_tax_accrual (
     id              BIGINT        NOT NULL,
     tenant_id       BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id      BIGINT        NOT NULL DEFAULT 1,
+    company_id      BIGINT        NOT NULL,
     period_code     VARCHAR(7)    NOT NULL,
     tax_type        SMALLINT      NOT NULL,               -- 1 城建/2 教育/3 地方教育/4 所得税/5 其他
     tax_code        VARCHAR(20)   NOT NULL,               -- SUR7/EDU3/EDU2/CIT25（mdm_tax_code）
@@ -1476,7 +1480,7 @@ CREATE TABLE fin_tax_accrual (
     updated_by      BIGINT        NOT NULL DEFAULT 0,
     CONSTRAINT pk_fin_tax_accrual PRIMARY KEY (id)
 );
-CREATE UNIQUE INDEX uk_fin_tax_accrual ON fin_tax_accrual (company_id, period_code, tax_code);
+CREATE UNIQUE INDEX uk_fin_tax_accrual ON fin_tax_accrual (tenant_id, company_id, period_code, tax_code);
 COMMENT ON TABLE fin_tax_accrual IS '税金计提（附加税/所得税。J26/J27 生成）';
 ```
 
@@ -1486,15 +1490,16 @@ COMMENT ON TABLE fin_tax_accrual IS '税金计提（附加税/所得税。J26/J2
 CREATE TABLE fin_cost_collection (
     id              BIGINT        NOT NULL,
     tenant_id       BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id      BIGINT        NOT NULL DEFAULT 1,
+    company_id      BIGINT        NOT NULL,
     period_code     VARCHAR(7)    NOT NULL,
     cost_method     SMALLINT      NOT NULL,               -- 1 品種法/2 分批法
     cost_object_type SMALLINT     NOT NULL,               -- 1 製品/2 工单/3 批次
-    cost_object_id  BIGINT        NOT NULL,               -- material_id or work_order_id
+    cost_object_id  BIGINT        NOT NULL,               -- 品種法: material_id／分批法: work_order_id（BC-01/02）
     cost_object_no  VARCHAR(32),
-    material_cost   NUMERIC(18,2) NOT NULL DEFAULT 0,
-    labor_cost      NUMERIC(18,2) NOT NULL DEFAULT 0,
-    overhead_cost   NUMERIC(18,2) NOT NULL DEFAULT 0,
+    material_cost   NUMERIC(18,2) NOT NULL DEFAULT 0,     -- E22（INV source_type=WORK_ORDER）。prd_work_order.actual_material_cost と照合
+    labor_cost      NUMERIC(18,2) NOT NULL DEFAULT 0,     -- E23。prd_work_order.actual_labor_cost と照合
+    overhead_cost   NUMERIC(18,2) NOT NULL DEFAULT 0,     -- J15 配賦。prd_work_order.actual_overhead_cost に確定値を返す
+    outsourcing_cost NUMERIC(18,2) NOT NULL DEFAULT 0,    -- 委外加工費（BC-14、INV source_type=OUTSOURCING_ORDER）
     other_cost      NUMERIC(18,2) NOT NULL DEFAULT 0,
     total_cost      NUMERIC(18,2) NOT NULL DEFAULT 0,
     status          SMALLINT      NOT NULL DEFAULT 10,    -- 10/40/90
@@ -1504,14 +1509,16 @@ CREATE TABLE fin_cost_collection (
     created_by      BIGINT        NOT NULL DEFAULT 0,
     updated_at      TIMESTAMPTZ   NOT NULL DEFAULT now(),
     updated_by      BIGINT        NOT NULL DEFAULT 0,
-    CONSTRAINT pk_fin_cost_collection PRIMARY KEY (id)
+    CONSTRAINT pk_fin_cost_collection PRIMARY KEY (id),
+    CONSTRAINT ck_fin_cost_collection_method CHECK (cost_method IN (1,2)),
+    CONSTRAINT ck_fin_cost_collection_object CHECK ((cost_method = 1 AND cost_object_type = 1) OR (cost_method = 2 AND cost_object_type IN (2,3)))
 );
-CREATE UNIQUE INDEX uk_fin_cost_collection ON fin_cost_collection (company_id, period_code, cost_object_type, cost_object_id);
+CREATE UNIQUE INDEX uk_fin_cost_collection ON fin_cost_collection (tenant_id, company_id, period_code, cost_object_type, cost_object_id);
 
 CREATE TABLE fin_cost_allocation (
     id              BIGINT        NOT NULL,
     tenant_id       BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id      BIGINT        NOT NULL DEFAULT 1,
+    company_id      BIGINT        NOT NULL,
     period_code     VARCHAR(7)    NOT NULL,
     cost_center_id  BIGINT,                               -- 部門/費用中心
     cost_center_name VARCHAR(200),
@@ -1537,7 +1544,7 @@ CREATE INDEX idx_fin_cost_allocation_period ON fin_cost_allocation (period_code,
 CREATE TABLE fin_wip_balance (
     id              BIGINT        NOT NULL,
     tenant_id       BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id      BIGINT        NOT NULL DEFAULT 1,
+    company_id      BIGINT        NOT NULL,
     period_code     VARCHAR(7)    NOT NULL,
     work_order_id   BIGINT        NOT NULL,
     work_order_no   VARCHAR(12)   NOT NULL,
@@ -1556,12 +1563,12 @@ CREATE TABLE fin_wip_balance (
     updated_by      BIGINT        NOT NULL DEFAULT 0,
     CONSTRAINT pk_fin_wip_balance PRIMARY KEY (id)
 );
-CREATE UNIQUE INDEX uk_fin_wip_balance ON fin_wip_balance (company_id, period_code, work_order_id);
+CREATE UNIQUE INDEX uk_fin_wip_balance ON fin_wip_balance (tenant_id, company_id, period_code, work_order_id);
 
 CREATE TABLE fin_product_cost (
     id              BIGINT        NOT NULL,
     tenant_id       BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id      BIGINT        NOT NULL DEFAULT 1,
+    company_id      BIGINT        NOT NULL,
     period_code     VARCHAR(7)    NOT NULL,
     work_order_id   BIGINT,
     work_order_no   VARCHAR(12),
@@ -1573,8 +1580,12 @@ CREATE TABLE fin_product_cost (
     material_cost   NUMERIC(18,2) NOT NULL,
     labor_cost      NUMERIC(18,2) NOT NULL,
     overhead_cost   NUMERIC(18,2) NOT NULL,
+    outsourcing_cost NUMERIC(18,2) NOT NULL DEFAULT 0,
     total_cost      NUMERIC(18,2) NOT NULL,
     unit_cost       NUMERIC(18,6) NOT NULL,
+    standard_cost_id BIGINT,                              -- 適用した fin_standard_cost.id
+    standard_unit_cost NUMERIC(18,6),                     -- 標準単位原価スナップショット（CALC-A7）
+    completion_source_type VARCHAR(32) NOT NULL DEFAULT 'PRODUCTION_COMPLETION', -- INV 完工入庫 FGI の source_type（OSR は OUTSOURCING_ORDER）
     voucher_id      BIGINT,
     status          SMALLINT      NOT NULL DEFAULT 40,
     created_at      TIMESTAMPTZ   NOT NULL DEFAULT now(),
@@ -1588,10 +1599,11 @@ CREATE INDEX idx_fin_product_cost_period ON fin_product_cost (period_code, produ
 CREATE TABLE fin_cost_variance (
     id              BIGINT        NOT NULL,
     tenant_id       BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id      BIGINT        NOT NULL DEFAULT 1,
+    company_id      BIGINT        NOT NULL,
     period_code     VARCHAR(7)    NOT NULL,
     product_id      BIGINT,
     work_order_id   BIGINT,
+    standard_cost_id BIGINT,                              -- 比較に用いた fin_standard_cost.id
     variance_type   SMALLINT      NOT NULL,               -- 1 材料価格/2 材料数量/3 人工賃率/4 人工効率/5 製造費用
     standard_amount NUMERIC(18,2) NOT NULL,
     actual_amount   NUMERIC(18,2) NOT NULL,
@@ -1612,12 +1624,78 @@ COMMENT ON TABLE fin_product_cost IS '完工产品成本（数量・総成本・
 COMMENT ON TABLE fin_cost_variance IS '成本差异分析（標準 vs 実際）';
 ```
 
-### 6.11 Phase 2 テーブル（概要 DDL）
+> 成本対象（BC-01/02）：MTS 品種法は `cost_object_type=1`（製品×期間、`cost_object_id=material_id`）、MTO 分批法は `cost_object_type=2/3`（工单・批次、`cost_object_id=work_order_id`）。原価要素は材料・人工・製造費用・委外の 4 区分で、[06-production 90](../06-production/90-db-design.md) `prd_work_order.actual_material_cost` / `actual_labor_cost` / `actual_overhead_cost` / `actual_total_cost` / `cost_variance` と同じ区分・同じ精度（金額 18,2）。在庫側の来源値は [05-inventory 02 §2.6.1a](../05-inventory/02-inbound-outbound.md) の `PURCHASE_RECEIPT` / `OUTSOURCING_ORDER` / `PRODUCTION_COMPLETION` をそのまま使う。
+
+### 6.12 `fin_standard_cost` 标准成本（版管理）
+
+標準原価の唯一の正（R3 G2-21、[02-mdm 90 §4.1.2](../02-mdm/90-db-design.md)）。`mdm_material.standard_cost` と `prd_work_order.standard_cost` はスナップショットであり、本表から `fin_publish_standard_cost` で発行・工单下达時に複写する。標準原価は第一版で運用する（BC-10）。
 
 ```sql
--- 费用报销（P2）
+CREATE TABLE fin_standard_cost (
+    id                    BIGINT        NOT NULL,
+    tenant_id             BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
+    company_id            BIGINT        NOT NULL,
+    material_id           BIGINT        NOT NULL,               -- mdm_material.id（製品・半製品）
+    material_code         VARCHAR(64)   NOT NULL,               -- スナップショット
+    cost_version          VARCHAR(16)   NOT NULL,               -- 版本（例 2026A）
+    period_from           VARCHAR(7)    NOT NULL,               -- 適用開始期間 YYYY-MM
+    period_to             VARCHAR(7),                           -- 適用終了期間（NULL＝無期限）
+    cost_method           SMALLINT      NOT NULL,               -- 1 品种法/2 分批法（mdm_material.cost_method のスナップショット、BC-01）
+    bom_id                BIGINT,                               -- 卷算に用いた BOM
+    routing_id            BIGINT,                               -- 卷算に用いた工艺路线
+    base_qty              NUMERIC(18,4) NOT NULL DEFAULT 1,     -- 原価単位数量（基本単位）
+    std_labor_hours       NUMERIC(18,4) NOT NULL DEFAULT 0,     -- 標準工時（単位当たり）
+    std_labor_rate        NUMERIC(18,6) NOT NULL DEFAULT 0,     -- 標準賃率（元/h）
+    std_overhead_rate     NUMERIC(18,6) NOT NULL DEFAULT 0,     -- 標準配賦率（元/h）
+    material_unit_cost    NUMERIC(18,6) NOT NULL DEFAULT 0,     -- 材料（BOM 標準用量 × 標準単価）
+    labor_unit_cost       NUMERIC(18,6) NOT NULL DEFAULT 0,     -- 人工（標準工時 × 標準賃率）
+    overhead_unit_cost    NUMERIC(18,6) NOT NULL DEFAULT 0,     -- 製造費用（標準工時 × 標準配賦率）
+    outsourcing_unit_cost NUMERIC(18,6) NOT NULL DEFAULT 0,     -- 委外加工費
+    total_unit_cost       NUMERIC(18,6) NOT NULL,               -- 4 要素合計
+    status                SMALLINT      NOT NULL DEFAULT 10,    -- 10 草稿/40 已发布/90 失效
+    published_at          TIMESTAMPTZ,
+    published_by          BIGINT,
+    version               INT           NOT NULL DEFAULT 0,
+    remark                VARCHAR(500),
+    ext_data              JSONB,
+    created_at            TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    created_by            BIGINT        NOT NULL DEFAULT 0,
+    updated_at            TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    updated_by            BIGINT        NOT NULL DEFAULT 0,
+    CONSTRAINT pk_fin_standard_cost PRIMARY KEY (id),
+    CONSTRAINT uk_fin_standard_cost_version UNIQUE (tenant_id, company_id, material_id, cost_version),
+    CONSTRAINT fk_fin_standard_cost_material FOREIGN KEY (material_id) REFERENCES mdm_material (id),
+    CONSTRAINT ck_fin_standard_cost_status CHECK (status IN (10,40,90)),
+    CONSTRAINT ck_fin_standard_cost_method CHECK (cost_method IN (1,2)),
+    CONSTRAINT ck_fin_standard_cost_period CHECK (period_from ~ '^[0-9]{4}-[0-9]{2}$' AND (period_to IS NULL OR period_to >= period_from)),
+    CONSTRAINT ck_fin_standard_cost_nonneg CHECK (material_unit_cost >= 0 AND labor_unit_cost >= 0 AND overhead_unit_cost >= 0 AND outsourcing_unit_cost >= 0 AND base_qty > 0),
+    CONSTRAINT ck_fin_standard_cost_total CHECK (total_unit_cost = material_unit_cost + labor_unit_cost + overhead_unit_cost + outsourcing_unit_cost)
+);
+-- 同一物料・同一開始期間の発行済み版は 1 件（期間重複はアプリ検証＋発行関数で拒否）
+CREATE UNIQUE INDEX uk_fin_standard_cost_period ON fin_standard_cost (tenant_id, company_id, material_id, period_from) WHERE status = 40;
+CREATE INDEX idx_fin_standard_cost_lookup ON fin_standard_cost (company_id, material_id, status, period_from DESC);
+COMMENT ON TABLE fin_standard_cost IS '标准成本（物料×版本×適用期間、材料/人工/製造費用/委外）。唯一の正。mdm_material/prd_work_order の standard_cost はスナップショット';
+```
+
+| No | 物理名 | 論理名 | 型/桁 | NULL | 備考 |
+|---|---|---|---|---|---|
+| 1 | `material_id` / `material_code` | 物料 | BIGINT / VARCHAR(64) | NOT NULL | 原価対象製品 |
+| 2 | `cost_version` | 版本 | VARCHAR(16) | NOT NULL | 物料内一意 |
+| 3 | `period_from` / `period_to` | 適用期間 | VARCHAR(7) | NOT NULL / NULL | 発行済み版の期間は重複不可 |
+| 4 | `cost_method` | 成本核算方法 | SMALLINT | NOT NULL | 1 品种法（MTS）/2 分批法（MTO）（BC-01） |
+| 5 | `material_unit_cost` 他 3 要素 | 要素別標準単価 | NUMERIC(18,6) | NOT NULL | 単価精度 18,6（[01 第 6 章](../00-common/01-common-item-definitions.md)） |
+| 6 | `total_unit_cost` | 標準単位原価 | NUMERIC(18,6) | NOT NULL | 4 要素合計（CHECK）。例 YE3-100L1-4：659.95 + 53.75 + 64.50 + 0 = 778.20（[06](06-auto-voucher-costing.md) CALC-A7、[bom-demo §6](../90-data/bom-demo.md)） |
+| 7 | `std_labor_hours` / `std_labor_rate` / `std_overhead_rate` | 標準工時・賃率・配賦率 | NUMERIC(18,4) / NUMERIC(18,6) | NOT NULL | 例 2.15 h、25.00、30.00 元/h |
+| 8 | `status` | 状態 | SMALLINT | NOT NULL | 10→40 発行時に `fin_publish_standard_cost` が `mdm_material.standard_cost` を更新 |
+
+**発行**：`fin_publish_standard_cost`（所有者 `erp_cost_publisher`、`SECURITY DEFINER`、`search_path` 固定、最初に `set_config('app.tenant_id', …, true)`）が `status=40` の版を選び `mdm_material.standard_cost` を更新する（権限設計は [02-mdm 90 §4.1.2](../02-mdm/90-db-design.md)）。工单下达時は PRD が当該期間の発行済み版の `total_unit_cost` を `prd_work_order.standard_cost` にスナップショットする。標準差異（`fin_cost_variance`）は `standard_cost_id` で比較元の版を保持する。
+
+### 6.11 実装順 P2 テーブル（概要 DDL、第一版で作成）
+
+```sql
+-- 费用报销（実装順 P2）
 CREATE TABLE fin_expense_claim (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     claim_no VARCHAR(12) NOT NULL, claim_type SMALLINT NOT NULL,          -- 1 経費/2 借款/3 返済
     employee_id BIGINT NOT NULL, department_id BIGINT NOT NULL,
     claim_date DATE NOT NULL, total_amount NUMERIC(18,2) NOT NULL,
@@ -1627,17 +1705,19 @@ CREATE TABLE fin_expense_claim (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by BIGINT NOT NULL DEFAULT 0,
     CONSTRAINT pk_fin_expense_claim PRIMARY KEY (id)
 );
+CREATE UNIQUE INDEX uk_fin_expense_claim_no ON fin_expense_claim (tenant_id, company_id, claim_no);
 CREATE TABLE fin_expense_claim_line (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     claim_id BIGINT NOT NULL, line_no INT NOT NULL, expense_item_code VARCHAR(32) NOT NULL,
     expense_date DATE NOT NULL, amount NUMERIC(18,2) NOT NULL, tax_rate NUMERIC(7,4),
     tax_amount NUMERIC(18,2), invoice_id BIGINT, remark VARCHAR(200), created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     created_by BIGINT NOT NULL DEFAULT 0, updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by BIGINT NOT NULL DEFAULT 0,
     CONSTRAINT pk_fin_expense_claim_line PRIMARY KEY (id)
 );
--- 固定资产（P2）
+CREATE UNIQUE INDEX uk_fin_expense_claim_line ON fin_expense_claim_line (claim_id, line_no);
+-- 固定资产（実装順 P2）
 CREATE TABLE fin_asset (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     asset_no VARCHAR(20) NOT NULL, asset_name VARCHAR(200) NOT NULL, asset_category_code VARCHAR(20) NOT NULL,
     department_id BIGINT, location VARCHAR(200), acquisition_date DATE NOT NULL, original_cost NUMERIC(18,2) NOT NULL,
     residual_rate NUMERIC(7,4) NOT NULL DEFAULT 5.0000, useful_life_months INT NOT NULL,
@@ -1649,35 +1729,36 @@ CREATE TABLE fin_asset (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by BIGINT NOT NULL DEFAULT 0,
     CONSTRAINT pk_fin_asset PRIMARY KEY (id)
 );
-CREATE UNIQUE INDEX uk_fin_asset_no ON fin_asset (company_id, asset_no);
+CREATE UNIQUE INDEX uk_fin_asset_no ON fin_asset (tenant_id, company_id, asset_no);
 CREATE TABLE fin_asset_depreciation (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     asset_id BIGINT NOT NULL, period_code VARCHAR(7) NOT NULL, depreciation_amount NUMERIC(18,2) NOT NULL,
     accumulated_after NUMERIC(18,2) NOT NULL, voucher_id BIGINT, created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     created_by BIGINT NOT NULL DEFAULT 0, updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by BIGINT NOT NULL DEFAULT 0,
     CONSTRAINT pk_fin_asset_depreciation PRIMARY KEY (id)
 );
-CREATE UNIQUE INDEX uk_fin_asset_depreciation ON fin_asset_depreciation (company_id, asset_id, period_code);
--- 预算（P2）
+CREATE UNIQUE INDEX uk_fin_asset_depreciation ON fin_asset_depreciation (tenant_id, company_id, asset_id, period_code);
+-- 预算（実装順 P2）
 CREATE TABLE fin_budget (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     budget_no VARCHAR(16) NOT NULL, fiscal_year SMALLINT NOT NULL, budget_name VARCHAR(200) NOT NULL,
     department_id BIGINT, status SMALLINT NOT NULL DEFAULT 10, version INT NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(), created_by BIGINT NOT NULL DEFAULT 0,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by BIGINT NOT NULL DEFAULT 0,
     CONSTRAINT pk_fin_budget PRIMARY KEY (id)
 );
+CREATE UNIQUE INDEX uk_fin_budget_no ON fin_budget (tenant_id, company_id, budget_no);
 CREATE TABLE fin_budget_line (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     budget_id BIGINT NOT NULL, period_code VARCHAR(7) NOT NULL, account_code VARCHAR(32) NOT NULL,
     department_id BIGINT, budget_amount NUMERIC(18,2) NOT NULL, used_amount NUMERIC(18,2) NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(), created_by BIGINT NOT NULL DEFAULT 0,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by BIGINT NOT NULL DEFAULT 0,
     CONSTRAINT pk_fin_budget_line PRIMARY KEY (id)
 );
--- 汇兑损益・资金计划（P2）
+-- 汇兑损益・资金计划（実装順 P2）
 CREATE TABLE fin_exchange_reval (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     period_code VARCHAR(7) NOT NULL, account_id BIGINT NOT NULL, currency_code VARCHAR(3) NOT NULL,
     original_balance NUMERIC(18,2) NOT NULL, book_balance NUMERIC(18,2) NOT NULL,
     revalued_balance NUMERIC(18,2) NOT NULL, adjustment_amount NUMERIC(18,2) NOT NULL,
@@ -1685,27 +1766,30 @@ CREATE TABLE fin_exchange_reval (
     created_by BIGINT NOT NULL DEFAULT 0, updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by BIGINT NOT NULL DEFAULT 0,
     CONSTRAINT pk_fin_exchange_reval PRIMARY KEY (id)
 );
+CREATE UNIQUE INDEX uk_fin_exchange_reval ON fin_exchange_reval (tenant_id, company_id, period_code, account_id, currency_code);
 CREATE TABLE fin_cash_plan (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     plan_no VARCHAR(16) NOT NULL, plan_type SMALLINT NOT NULL, plan_date_from DATE NOT NULL, plan_date_to DATE NOT NULL,
     status SMALLINT NOT NULL DEFAULT 10, version INT NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(), created_by BIGINT NOT NULL DEFAULT 0,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by BIGINT NOT NULL DEFAULT 0,
     CONSTRAINT pk_fin_cash_plan PRIMARY KEY (id)
 );
+CREATE UNIQUE INDEX uk_fin_cash_plan_no ON fin_cash_plan (tenant_id, company_id, plan_no);
 CREATE TABLE fin_cash_plan_line (
-    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL DEFAULT 1,
+    id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     plan_id BIGINT NOT NULL, line_no INT NOT NULL, plan_date DATE NOT NULL, direction SMALLINT NOT NULL,
     planned_amount NUMERIC(18,2) NOT NULL, source_type VARCHAR(20), source_id BIGINT, remark VARCHAR(200),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(), created_by BIGINT NOT NULL DEFAULT 0,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by BIGINT NOT NULL DEFAULT 0,
     CONSTRAINT pk_fin_cash_plan_line PRIMARY KEY (id)
 );
-COMMENT ON TABLE fin_asset IS '固定资产卡片（P2）';
-COMMENT ON TABLE fin_asset_depreciation IS '固定资产折旧明细（P2、J25）';
-COMMENT ON TABLE fin_budget IS '预算（P2）';
-COMMENT ON TABLE fin_exchange_reval IS '汇兑损益调整（P2）';
-COMMENT ON TABLE fin_cash_plan IS '资金计划（P2）';
+CREATE UNIQUE INDEX uk_fin_cash_plan_line ON fin_cash_plan_line (plan_id, line_no);
+COMMENT ON TABLE fin_asset IS '固定资产卡片（実装順 P2）';
+COMMENT ON TABLE fin_asset_depreciation IS '固定资产折旧明细（実装順 P2、J25）';
+COMMENT ON TABLE fin_budget IS '预算（実装順 P2）';
+COMMENT ON TABLE fin_exchange_reval IS '汇兑损益调整（実装順 P2）';
+COMMENT ON TABLE fin_cash_plan IS '资金计划（実装順 P2）';
 ```
 
 ---
@@ -1714,28 +1798,43 @@ COMMENT ON TABLE fin_cash_plan IS '资金计划（P2）';
 
 | # | 索引名 | テーブル | 種別 | 対象列 | 目的 |
 |---|---|---|---|---|---|
-| 1 | `uk_fin_account_company_code` | fin_account | UNIQUE 部分 | (company_id, account_code) WHERE deleted=false | 科目コード一意 |
-| 2 | `uk_fin_account_balance` | fin_account_balance | UNIQUE | (company_id, period_code, account_id, balance_type) | 残高 UPSERT |
-| 3 | `uk_fin_voucher_no` | fin_voucher | UNIQUE | (company_id, period_code, voucher_no) | 凭证号一意 |
-| 4 | `uk_fin_voucher_source` | fin_voucher | UNIQUE 部分 | (company_id, source_type, source_id) | 自動凭证の二重計上防止 |
+| 1 | `uk_fin_account_company_code` | fin_account | UNIQUE 部分 | (tenant_id, company_id, account_code) WHERE deleted=false | 科目コード一意 |
+| 2 | `uk_fin_account_balance` | fin_account_balance | UNIQUE | (tenant_id, company_id, period_code, account_id, balance_type) | 残高 UPSERT |
+| 3 | `uk_fin_voucher_no` | fin_voucher | UNIQUE | (tenant_id, company_id, period_code, voucher_no) | 凭证号一意 |
+| 4 | `uk_fin_voucher_source` | fin_voucher | UNIQUE 部分 | (tenant_id, company_id, source_type, source_id) | 自動凭证の二重計上防止 |
 | 5 | `idx_fin_voucher_period_status` | fin_voucher | B-Tree | (period_code, status) | 一覧・月結チェック |
 | 6 | `uk_fin_voucher_line` | fin_voucher_line | UNIQUE | (voucher_id, line_no) | 行一意 |
 | 7 | `idx_fin_voucher_line_account` | fin_voucher_line | B-Tree | (account_id, voucher_id) | 明細帳 |
-| 8 | `uk_fin_receivable_source` | fin_receivable | UNIQUE 部分 | (company_id, source_type, source_id) WHERE status<>90 | E10 幂等 |
+| 8 | `uk_fin_receivable_source` | fin_receivable | UNIQUE 部分 | (tenant_id, company_id, source_type, source_id) WHERE status<>90 | E10 幂等 |
 | 9 | `idx_fin_receivable_customer` | fin_receivable | B-Tree | (customer_id, status, due_date) | 账龄・一覧 |
-| 10 | `uk_fin_payable_source` | fin_payable | UNIQUE 部分 | (company_id, source_type, source_id) WHERE status<>90 | E14/E17 幂等 |
+| 10 | `uk_fin_payable_source` | fin_payable | UNIQUE 部分 | (tenant_id, company_id, source_type, source_id) WHERE status<>90 | E14/E17 幂等 |
 | 11 | `idx_fin_payable_accrual` | fin_payable | B-Tree 部分 | (accrual_flag, accrual_period) | 暂估一覧 |
-| 12 | `uk_fin_invoice_no` | fin_invoice | UNIQUE | (company_id, invoice_type, invoice_no) | 发票重複防止 |
+| 12 | `uk_fin_invoice_no` | fin_invoice | UNIQUE | (tenant_id, company_id, invoice_type, invoice_no) | 发票重複防止 |
 | 13 | `idx_fin_invoice_date` | fin_invoice | B-Tree | (invoice_type, invoice_date, status) | 台账・申报 |
-| 14 | `uk_fin_write_off_no` | fin_write_off | UNIQUE | (company_id, write_off_no) | 核销番号 |
+| 14 | `uk_fin_write_off_no` | fin_write_off | UNIQUE | (tenant_id, company_id, write_off_no) | 核销番号 |
 | 15 | `idx_fin_write_off_line_target` | fin_write_off_line | B-Tree | (target_type, target_id) | 反核销・残高 |
-| 16 | `uk_fin_bank_journal_ref` | fin_bank_journal | UNIQUE 部分 | (company_id, bank_account_id, bank_ref_no) | 流水一意 |
-| 17 | `uk_fin_bank_statement_hash` | fin_bank_statement | UNIQUE | (company_id, file_sha256) | 重複取込防止 |
-| 18 | `uk_fin_tax_accrual` | fin_tax_accrual | UNIQUE | (company_id, period_code, tax_code) | 计提二重防止 |
-| 19 | `uk_fin_cost_collection` | fin_cost_collection | UNIQUE | (company_id, period_code, cost_object_type, cost_object_id) | 成本帰集一意 |
-| 20 | `uk_fin_wip_balance` | fin_wip_balance | UNIQUE | (company_id, period_code, work_order_id) | WIP 一意 |
+| 16 | `uk_fin_bank_journal_ref` | fin_bank_journal | UNIQUE 部分 | (tenant_id, company_id, bank_account_id, bank_ref_no) | 流水一意 |
+| 17 | `uk_fin_bank_statement_hash` | fin_bank_statement | UNIQUE | (tenant_id, company_id, file_sha256) | 重複取込防止 |
+| 18 | `uk_fin_tax_accrual` | fin_tax_accrual | UNIQUE | (tenant_id, company_id, period_code, tax_code) | 计提二重防止 |
+| 19 | `uk_fin_cost_collection` | fin_cost_collection | UNIQUE | (tenant_id, company_id, period_code, cost_object_type, cost_object_id) | 成本帰集一意 |
+| 20 | `uk_fin_wip_balance` | fin_wip_balance | UNIQUE | (tenant_id, company_id, period_code, work_order_id) | WIP 一意 |
+| 21 | `uk_fin_standard_cost_version` | fin_standard_cost | UNIQUE | (tenant_id, company_id, material_id, cost_version) | 版本一意 |
+| 22 | `uk_fin_standard_cost_period` | fin_standard_cost | UNIQUE 部分 | (tenant_id, company_id, material_id, period_from) WHERE status=40 | 発行済み版の重複防止 |
+| 23 | `idx_fin_standard_cost_lookup` | fin_standard_cost | B-Tree | (company_id, material_id, status, period_from DESC) | 適用版検索（G2-20） |
+| 24 | その他の業務 `uk_` | §4〜§6 DDL | UNIQUE | DDL 本文のとおり（`tenant_id`, `company_id` 先頭） | `uk_fin_period_code`、`uk_fin_aux_balance`、`uk_fin_voucher_template_code`、`uk_fin_cash_flow_item_code`、`uk_fin_aging_config`、`uk_fin_close_checklist`、`uk_fin_statement_*`、`uk_fin_bank_account_no`、`uk_fin_receivable_no`、`uk_fin_payable_no`、`uk_fin_payment_request_no`、`uk_fin_payment_no`、`uk_fin_receipt_no`、`uk_fin_bank_statement_account_period`、`uk_fin_bank_reconciliation`、`uk_fin_vat_return`、`uk_fin_asset_no`、`uk_fin_asset_depreciation`、`uk_fin_expense_claim_no`、`uk_fin_budget_no`、`uk_fin_exchange_reval`、`uk_fin_cash_plan_no` |
 
 > 追記専用ログ（`fin_auto_voucher_log`、`fin_close_checklist`）は更新系索引を最小限にし、`(status, next_retry_at)` 等の処理用索引のみ付与する。
+
+### 7.1 一意索引の先頭列ルールと例外（2026-10-21、05-inventory・04-purchase と同一方針）
+
+- 業務一意索引（`uk_`）は DDL 本文・§3／§7 一覧とも `(tenant_id, company_id, 業務キー)` で始める。
+- `tenant_id` は `NOT NULL DEFAULT current_setting('app.tenant_id')::bigint`（字面量默认租户禁止）。`company_id` は `NOT NULL`・既定値なし。
+- **例外（親 ID 先頭。親行が tenant/company を保証するため、親 ID 単独で一意範囲が確定する）**：
+  - 明細行番号：`uk_fin_voucher_line`（`voucher_id`）、`uk_fin_voucher_template_line`（`template_id`）、`uk_fin_receivable_line`（`receivable_id`）、`uk_fin_invoice_line`（`invoice_id`）、`uk_fin_payment_request_line`（`request_id`）、`uk_fin_write_off_line`（`write_off_id`）、`uk_fin_bank_statement_line`（`statement_id`）、`uk_fin_vat_return_line`（`return_id`）、`uk_fin_expense_claim_line`（`claim_id`）、`uk_fin_cash_plan_line`（`plan_id`）。
+  - 子設定：`uk_fin_account_aux`（`account_id`：科目行が tenant/company を保証）。
+  - 自己参照：`uk_fin_voucher_reversal`（`reversal_of_voucher_id`：1 凭证に有効な冲销凭证は 1 件。元凭证が tenant/company を保証）。
+  - イベント ID：`uk_fin_auto_voucher_log_event`（`event_id`：Outbox の eventId は UUID で全体一意、[09 §10](../00-common/09-cross-domain-flow.md)）。
+- **G2-20**：非一意の照会索引（`idx_`）は `(company_id, …)` 先頭としてよい。`uk_` を `company_id` 先頭と書いてはならない。
 
 ---
 
@@ -1744,7 +1843,7 @@ COMMENT ON TABLE fin_cash_plan IS '资金计划（P2）';
 | テーブル | 初期 | 年間増加 | 5 年後 | 保存期間 | 備考 |
 |---|---|---|---|---|---|
 | `fin_voucher` | — | 80,000 | 400,000 | 30 年 | 年 60 万行（明細） |
-| `fin_voucher_line` | — | 800,000 | 4,000,000 | 30 年 | Phase 2 パーティション検討 |
+| `fin_voucher_line` | — | 800,000 | 4,000,000 | 30 年 | パーティション検討（第一版・実装順 P2） |
 | `fin_account_balance` | — | 360,000 | 1,800,000 | 30 年 | 800 科目 × 12 月 |
 | `fin_aux_balance` | — | 600,000 | 3,000,000 | 30 年 | 補助核算対象 |
 | `fin_receivable` / `_line` | — | 120,000 / 600,000 | 60 万 / 300 万 | 10 年 | 会計関連は 30 年 |
@@ -1754,6 +1853,7 @@ COMMENT ON TABLE fin_cash_plan IS '资金计划（P2）';
 | `fin_auto_voucher_log` | — | 800,000 | 4,000,000 | 3 年（アーカイブ可） | 監査ログ扱い |
 | `fin_statement_snapshot` | — | 40,000 | 200,000 | 10 年（年度は永久） | 版数含む |
 | `fin_cost_collection` | — | 30,000 | 150,000 | 10 年 | — |
+| `fin_standard_cost` | 300 | 300 | 1,800 | 10 年 | 版管理（失効版も保持） |
 
 ---
 
@@ -1772,6 +1872,7 @@ COMMENT ON TABLE fin_cash_plan IS '资金计划（P2）';
 | `fin_vat_return` / `_line` | 生成 | 確認 | status=90 |
 | `fin_period` | 年度初期化 | 開帳/月結/再開/年結 | なし |
 | `fin_cost_*` | 成本計算 | 確定 | status=90 |
+| `fin_standard_cost` | 成本卷算・版登録 | 発行（10→40、`fin_publish_standard_cost`） | status=90（失効。物理削除なし） |
 
 ---
 
@@ -1781,3 +1882,4 @@ COMMENT ON TABLE fin_cash_plan IS '资金计划（P2）';
 |---|---|---|---|
 | v1.0 | 2026-10-20 | 初版：52 表（科目/期間/凭证/残高/AR/AP/发票/核销/出纳/税務/成本/报表/P2）、インデックス 20、容量見積、更新タイミング | finance-designer |
 | v1.1 | 2026-10-20 | 红队修复：科目コードを 4 桁+2 桁補助（2 階層）に統一、`fin_statement_*` の `statement_type` に SCE（所有者权益变动表）を追加 | finance-designer |
+| v1.2 | 2026-10-21 | 第一版全量化：`company_id` 既定値 1 を削除、業務一意索引を `(tenant_id, company_id, …)` 先頭に統一（DDL・一覧）、§7.1 例外一覧、RLS（ENABLE+FORCE、tenant_id）明記、段階表記を削除。§6.12 `fin_standard_cost` 追加（53 表）、成本表に委外要素・標準版参照を追加、`fin_payable.source_type` を `PURCHASE_RECEIPT` に統一、P2 表の番号一意索引を追加 | 业务分析 |

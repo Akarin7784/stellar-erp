@@ -59,7 +59,7 @@
 | BR-13 | 凭证附件张数 `attachment_count` 必须与实际附件数一致（可为 0）；审核时提示不一致 | 会计档案要求 | `attachment_count` |
 | BR-14 | 现金/银行科目分录必须选择现金流量项目（`cash_flow_item_code`），用于现金流量表直接法取数 | CAS 31 现金流量表 | `cash_flow_item_code` |
 | BR-15 | 数量核算科目（`is_qty_managed=true`）分录必须录入数量与单价，且 数量×单价＝金额（允许 2 位内差异） | 存货核算要求 | `quantity`、`unit_price` |
-| BR-16 | 外币分录保存币种、原币金额、汇率与折算后本位币金额（Phase 2）；Phase 1 仅 CNY | 08 章 4.2 | `currency_code` 等 |
+| BR-16 | 外币分录保存币种、原币金额、汇率与折算后本位币金额（第一版・実装順 P2）；P0 実装時点 仅 CNY | 08 章 4.2 | `currency_code` 等 |
 | BR-17 | 自动生成凭证必须带 `source_type` + `source_id`，同一来源只允许一张有效凭证（索引唯一） | 09 章 10.2 双计上防止 | `source_type`、`source_id` |
 | BR-18 | 凭证模板分为「手工模板」与「自动凭证模板」；手工模板在录入时可调出并修改金额；自动模板由 06 章定义，不可在凭证画面修改 | 本域設計 | `fin_voucher_template` |
 | BR-19 | 凭证查询/打印/导出必须记录审计日志；跨年度查询只允许财务经理以上 | 会计档案 + 権限 | `sys_audit_log` |
@@ -166,7 +166,7 @@ stateDiagram-v2
 | 17 | credit_amount | 贷方金额 | 数値 | NUMERIC(18,2) | △ | 0.00 | ≥0（赤伝は負可） | 手入力 | `credit_amount` | 同上 |
 | 18 | customer_id / supplier_id / department_id / employee_id / project_id / material_id | 辅助核算 | 選択 | BIGINT | △ | 空 | 科目の绑定维度に従い必須 | 各マスタ | 同名カラム | 名称もスナップショット保存 |
 | 19 | quantity / unit_price | 数量/単価 | 数値 | NUMERIC(18,4)/(18,6) | △ | 空 | 数量核算科目は必須 | 手入力 | `quantity`、`unit_price` | BR-15 |
-| 20 | currency_code | 幣種 | 選択 | VARCHAR(3) | ○ | CNY | ISO 4217 | `mdm_currency` | `currency_code` | Phase 1 は CNY 固定 |
+| 20 | currency_code | 幣種 | 選択 | VARCHAR(3) | ○ | CNY | ISO 4217 | `mdm_currency` | `currency_code` | P0 実装時点 は CNY 固定 |
 | 21 | cash_flow_item_code | 现金流量项目 | 選択 | VARCHAR(32) | △ | 空 | 现金/银行科目は必須 | `fin_cash_flow_item` | `cash_flow_item_code` | BR-14 |
 | 22 | remark | 備考 | テキスト | VARCHAR(200) | — | 空 | ≤200 | 手入力 | `remark` | — |
 
@@ -488,7 +488,7 @@ stateDiagram-v2
 |---|---|---|---|---|---|
 | 1 | 记账人と审核人の分離要否 | 小規模財務チームでは兼任が必要な場合がある | パラメータ `finance.sod.post_separate`（既定 true）。無効化は財務総監承認 + 監査ログ | 財務総監 | 2026-10-24 |
 | 2 | 凭证字の自動判定 | 自動凭证テンプレートで收/付/转をどう決めるか | 現金/銀行科目の方向から自動判定（借方=收、贷方=付、なし=转） | 財務経理 | 2026-10-24 |
-| 3 | 反记账の承認フロー | 財務経理の単独実行可否 | Phase 1 は権限+理由+監査ログで統制、Phase 2 で WF 承認追加 | 財務総監 | Phase 2 |
+| 3 | 反记账の承認フロー | 財務経理の単独実行可否 | P0 実装時点 は権限+理由+監査ログで統制、実装順 P2 で WF 承認追加 | 財務総監 | 実装順 P2 |
 | 4 | 凭证帳票の様式 | 社内様式（A4 縦・3 段）未確定 | PRT-FIN-001 は [92](92-report-batch-design.md) のレイアウトで暫定 | 財務経理 | 2026-10-30 |
 
 ---

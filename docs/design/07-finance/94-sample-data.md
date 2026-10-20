@@ -270,7 +270,7 @@
 | [90-data/sources.md](../90-data/sources.md) | 全出典（URL・参照日） | 第 2 章の出典詳細 | 参照可能 |
 | [90-data/accounting-subjects.csv](../90-data/accounting-subjects.csv) | CAS 会計科目（データ 86 行・補助核算付き） | [01](01-accounting-subjects.md) の最終出典 | 参照可能（突合済み） |
 | [90-data/code-lists/tax.csv](../90-data/code-lists/tax.csv) | 税目・税率（基礎税率码 21 件） | 第 3.5 節、[05](05-cashier-tax.md) | 参照可能 |
-| [90-data/code-lists/currency.csv](../90-data/code-lists/currency.csv) | 通貨（ISO 4217） | CNY、Phase 2 外貨 | 参照可能 |
+| [90-data/code-lists/currency.csv](../90-data/code-lists/currency.csv) | 通貨（ISO 4217） | CNY、実装順 P2 外貨 | 参照可能 |
 | [90-data/code-lists/payment-terms.csv](../90-data/code-lists/payment-terms.csv) | 決済方法・支払条件 | AR/AP の到期日計算 | 参照可能 |
 | [90-data/code-lists/bank.csv](../90-data/code-lists/bank.csv) | 銀行・聯行号 | 銀行口座 | 参照可能 |
 | [90-data/demo-company.md](../90-data/demo-company.md) | 示例企業画像・組織 | 第 3.1 節 | 参照可能 |
@@ -284,10 +284,10 @@
 
 | # | 事項 | 理由 | 暫定仕様 | 担当 | 期限 |
 |---|---|---|---|---|---|
-| 1 | 税会差异（R&D 加计扣除等）と年度汇算清缴 | Phase 1 月次は会計利潤×25% の簡便法。納税調整（R&D 100% 加計、交際費、広告費、罰金、虧損繰越）は年次で調整 | [05](05-cashier-tax.md) BR-20。差異は 6901 以前年度损益调整で処理。詳細は Phase 2 | 财务总监 | Phase 2 启动前 |
-| 2 | 增值税留抵退税 | Phase 1 は留抵を 2221.01 借方残で繰越のみ。増量留抵退税は未実装 | Phase 2 で「申請→受領→申報表反映」を設計（[05](05-cashier-tax.md) BR-22） | 税務会計 | Phase 2 |
-| 3 | 所有者权益变动表の完全様式 | Phase 1 は簡表（期首・純利益・利益処分・期末）。その他包括收益の内訳・株主別変動は Phase 2 | [07](07-period-reporting.md) §7.5 / PRT-FIN-039 で簡表を実装 | 财务总监 | Phase 2 |
-| 4 | 標準原価データの正式運用 | Phase 1 は BOM・routing の標準（778.20）を参照。標準原価の改定プロセスは Phase 2 | 実際原価との差異 −6.45 を `fin_cost_variance` に記録 | 財務総監 | Phase 2 |
+| 1 | 税会差异（R&D 加计扣除等）と年度汇算清缴 | P0 実装時点 月次は会計利潤×25% の簡便法。納税調整（R&D 100% 加計、交際費、広告費、罰金、虧損繰越）は年次で調整 | [05](05-cashier-tax.md) BR-20。差異は 6901 以前年度损益调整で処理。詳細は 実装順 P2 | 财务总监 | P2 実装着手前 |
+| 2 | 增值税留抵退税 | P0 実装時点 は留抵を 2221.01 借方残で繰越のみ。増量留抵退税は未実装 | 実装順 P2 で「申請→受領→申報表反映」を設計（[05](05-cashier-tax.md) BR-22） | 税務会計 | 実装順 P2 |
+| 3 | 所有者权益变动表の完全様式 | P0 実装時点 は簡表（期首・純利益・利益処分・期末）。その他包括收益の内訳・株主別変動は 実装順 P2 | [07](07-period-reporting.md) §7.5 / PRT-FIN-039 で簡表を実装 | 财务总监 | 実装順 P2 |
+| 4 | 標準原価データの版運用 | 第一版で `fin_standard_cost` を運用。サンプルは YE3 の 1 版（778.20 = 材料 659.95 + 人工 53.75 + 製造費用 64.50） | 実際原価との差異 −6.45 を `fin_cost_variance` に記録（[06](06-auto-voucher-costing.md) CALC-A7/A8） | 財務総監 | 実装順 P0 着手前 |
 | 5 | 銀行口座・聯行号の実在性 | 架空口座のため CNAPS は未設定 | 実装時に顧客企業の実口座を登録。CNAPS は MDM で検証 | 導入担当 | 実装時 |
 
 ---
