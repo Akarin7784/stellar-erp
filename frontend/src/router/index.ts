@@ -19,6 +19,12 @@ const router = createRouter({
           component: () => import('@/views/system/UserListView.vue'),
           meta: { title: '用户管理' },
         },
+        {
+          path: 'production/work-orders/new',
+          name: 'production-work-order-create',
+          component: () => import('@/views/production/WorkOrderCreateView.vue'),
+          meta: { title: '生产订单登録' },
+        },
       ],
     },
   ],
