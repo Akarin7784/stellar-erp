@@ -432,7 +432,7 @@ V{yyyyMMdd}{NNNN}__{module}_{description}.sql     # バージョンは 12 桁
 | v1.0 | 2026-10-20 | 初版：命名、型、制約、索引、パーティション、Flyway、排他、履歴、容量、多租戸、レビュー観点 | Lead |
 | v1.1 | 2026-10-20 | 第一版全量範囲（分期表記削除）、§8.1 パーティション表 FK 不可、§11.1 ロック順序（RLS・DB ロールは [10](10-rls-and-db-roles.md)、`ON CONFLICT` は #50） | 业务分析 |
 | v1.2 | 2026-10-21 | §6.2 跨域外键规则を新設（跨域は `*_id` のみ・FK なし・サービス層で同一 TX 検証、sys/mdm は例外、将来 FK は NOT VALID→VALIDATE・複合 `(tenant_id, x_id)`）、§6 外部キー行に 6.2 参照を追記 | 业务分析 |
-| v1.3 | 2026-10-21 | §7 に btree 普通索引の `tenant_id` 先頭規則と GIN 例外（`btree_gin` 不導入、租户隔離は RLS・`tenant_id` 条件で保証）を追記（#35） | 业务分析 |
+| v1.3 | 2026-10-21 | §7 に btree 普通索引の `tenant_id` 先頭規則と GIN 例外（`btree_gin` 不導入、租户隔離は RLS・`tenant_id` 条件で保証）を追記（#35） | 数据库与运维 |
 
 ## Flowable 引擎表の schema 分離（issue #7）
 

@@ -49,18 +49,19 @@ SELECT ok((SELECT count(*) FROM information_schema.columns
           'prd_work_order 含 G2-18 使用的 14 列');
 SELECT has_table('prd_overproduction_approval', 'prd_overproduction_approval 存在');
 
--- 唯一索引首列：tenant_id，或设计书 §8 列出的父 ID 明细例外（company_id 打头）
+-- 唯一索引首列：(tenant_id, company_id)（sys/V202610210708 起不再有父 ID 打头的例外）
 SELECT is((SELECT count(*)::int FROM pg_index i
-            JOIN pg_class ic ON ic.oid = i.indexrelid JOIN pg_class tc ON tc.oid = i.indrelid
-            JOIN pg_attribute a ON a.attrelid = tc.oid AND a.attnum = i.indkey[0]
+            JOIN pg_class tc ON tc.oid = i.indrelid
+            LEFT JOIN pg_attribute a ON a.attrelid = tc.oid AND a.attnum = i.indkey[0]
             WHERE tc.relname LIKE 'prd\_%' AND i.indisunique AND NOT i.indisprimary
-              AND a.attname NOT IN ('tenant_id', 'company_id')),
-          0, 'prd_ 唯一索引首列均为 tenant_id 或 company_id（例外）');
+              AND a.attname IS DISTINCT FROM 'tenant_id'),
+          0, 'prd_ 唯一索引首列均为 tenant_id');
 SELECT is((SELECT count(*)::int FROM pg_index i
-            JOIN pg_class ic ON ic.oid = i.indexrelid JOIN pg_class tc ON tc.oid = i.indrelid
-            JOIN pg_attribute a ON a.attrelid = tc.oid AND a.attnum = i.indkey[0]
-            WHERE tc.relname LIKE 'prd\_%' AND i.indisunique AND NOT i.indisprimary AND a.attname = 'company_id'),
-          16, '以 company_id 打头的 prd_ 唯一索引恰为设计书 §8 的 16 个例外');
+            JOIN pg_class tc ON tc.oid = i.indrelid
+            LEFT JOIN pg_attribute a ON a.attrelid = tc.oid AND a.attnum = i.indkey[1]
+            WHERE tc.relname LIKE 'prd\_%' AND i.indisunique AND NOT i.indisprimary
+              AND a.attname IS DISTINCT FROM 'company_id'),
+          0, 'prd_ 唯一索引第二列均为 company_id（无父 ID 打头例外）');
 
 -- RLS 行为（prd_defect_code，无跨表 FK）
 SET ROLE erp_app;

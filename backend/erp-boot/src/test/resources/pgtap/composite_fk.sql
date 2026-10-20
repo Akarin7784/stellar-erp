@@ -1,6 +1,6 @@
 -- pgTAP：复合外键（sys/V202610210707）。指向 sys_/mdm_ 的 FK 必须为 (tenant_id, x_id)，跨租户引用被拒。
 BEGIN;
-SELECT plan(8);
+SELECT plan(9);
 
 SELECT is((SELECT count(*)::int FROM pg_constraint k JOIN pg_class r ON r.oid = k.confrelid
             WHERE k.contype = 'f' AND array_length(k.conkey, 1) = 1 AND r.relname ~ '^(sys|mdm)_'),
@@ -21,6 +21,21 @@ SELECT is((SELECT count(*)::int FROM pg_index i JOIN pg_class tc ON tc.oid = i.i
             WHERE n.nspname = 'public' AND tc.relname ~ '^(sys|mdm|sal|fin|prd)_' AND am.amname = 'btree' AND NOT i.indisprimary AND NOT i.indisunique
               AND a.attname IS DISTINCT FROM 'tenant_id'),
           0, 'sys/mdm/sal/fin/prd 全部普通 btree 索引以 tenant_id 打头（GIN 除外）');
+-- 唯一键：有 company_id 的表以 (tenant_id, company_id) 打头，无 company_id 的表以 tenant_id 打头（int 域暂不覆盖）
+-- 豁免：复合 FK 被引用的 UNIQUE (tenant_id, id)；uk_sys_company_code / uk_sys_company_credit（待定）
+SELECT is((SELECT count(*)::int FROM pg_index i
+            JOIN pg_class tc ON tc.oid = i.indrelid JOIN pg_class ic ON ic.oid = i.indexrelid
+            JOIN pg_namespace n ON n.oid = tc.relnamespace
+            LEFT JOIN pg_attribute a0 ON a0.attrelid = tc.oid AND a0.attnum = i.indkey[0]
+            LEFT JOIN pg_attribute a1 ON a1.attrelid = tc.oid AND a1.attnum = i.indkey[1]
+            WHERE n.nspname = 'public' AND tc.relname ~ '^(sys|mdm|sal|fin|prd)_'
+              AND i.indisunique AND NOT i.indisprimary
+              AND ic.relname NOT IN ('uk_sys_company_code', 'uk_sys_company_credit')
+              AND NOT (i.indnatts = 2 AND a0.attname = 'tenant_id' AND a1.attname = 'id')
+              AND (a0.attname IS DISTINCT FROM 'tenant_id'
+                   OR (EXISTS (SELECT 1 FROM pg_attribute c WHERE c.attrelid = tc.oid AND c.attname = 'company_id' AND NOT c.attisdropped)
+                       AND a1.attname IS DISTINCT FROM 'company_id'))),
+          0, '唯一键以 (tenant_id, company_id) 打头（无 company_id 的表以 tenant_id 打头）');
 SELECT ok(EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_prd_bom_effective'
                    AND indexdef LIKE '%(tenant_id, company_id, effective_status, valid_from, valid_to)%'),
           'idx_prd_bom_effective = (tenant_id, company_id, effective_status, valid_from, valid_to)');
