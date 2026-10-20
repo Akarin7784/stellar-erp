@@ -343,13 +343,12 @@ BEGIN
     END IF;
 
     -- (4) 单张工单上限：工单 allowed_qty（MTO 为受注行快照/超产审批后值）；
-    --     未快照（MTS）时按同一规则算：floor(order_qty × (1+rate))，rate NULL 走容许率链，不跳过
+    --     未快照（MTS）时按同一规则算：floor(order_qty × (1+rate))，不跳过。
+    --     工单 over_receipt_rate NOT NULL、无 DEFAULT，建单时已写快照，直接用，不再走容许率链
+    --     （蓝色大肥鱼 2026-10-21 定稿；NULL 继承只在受注行/物料/分类层）
     v_wo_allowed := v_wo.allowed_qty;
     IF v_wo_allowed IS NULL THEN
-        v_wo_allowed := g2_18_calc_allowed_qty(
-            v_wo.order_qty,
-            g2_18_resolve_over_receipt_rate(v_wo.over_receipt_rate, v_wo.material_id),
-            v_wo.material_id);
+        v_wo_allowed := g2_18_calc_allowed_qty(v_wo.order_qty, v_wo.over_receipt_rate, v_wo.material_id);
     END IF;
     IF v_wo.completed_qty + p_qty > v_wo_allowed THEN
         PERFORM g2_18_raise(60040, format('work_order %s: %s + %s > allowed %s',
