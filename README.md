@@ -3,6 +3,7 @@
 智能制造 ERP 系统 —— 模块化单体架构，面向私有化部署与快速交付。
 
 [![CI](https://github.com/Stellar0502/stellar-erp/actions/workflows/ci.yml/badge.svg)](https://github.com/Stellar0502/stellar-erp/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ## 技术栈
 
@@ -112,4 +113,10 @@ but teardown       # 退出 GitButler 模式，回到普通 Git
 
 ## 许可
 
-私有项目，未经授权禁止外传。
+本项目采用 [MIT License](LICENSE) 开源许可。
+
+Copyright (c) 2026 Stellar0502
+
+在遵守 MIT 许可证（保留版权声明与许可声明）的前提下，可自由使用、复制、修改、合并、发布、分发、再许可和/或销售本软件的副本。本软件按「原样」提供，不附带任何明示或暗示的担保。
+
+> 说明：代码与原创文档适用 MIT 许可；文档中引用的国家标准、法律法规、会计准则、公开产品资料等，其权利归原权利人，引用仅用于设计说明，不改变其原有授权。

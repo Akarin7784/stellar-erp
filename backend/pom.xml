@@ -18,6 +18,14 @@
     <name>Stellar ERP Backend</name>
     <description>智能制造 ERP 后端（模块化单体，Spring Modulith）</description>
 
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>https://opensource.org/licenses/MIT</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
     <modules>
         <module>erp-common</module>
         <module>erp-system</module>
