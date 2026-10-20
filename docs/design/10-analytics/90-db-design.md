@@ -655,6 +655,7 @@ CREATE INDEX idx_rpt_etl_job_date ON rpt_etl_job (tenant_id, company_id, biz_dat
 CREATE TABLE rpt_etl_error (
     id              BIGINT       NOT NULL,
     tenant_id       BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
+    company_id              BIGINT       NOT NULL,                 -- 公司 ID（親と同値を冗長保持。2026-10-21 決定）
     job_id          BIGINT       NOT NULL,
     row_no          BIGINT,
     column_name     VARCHAR(100),
@@ -665,7 +666,7 @@ CREATE TABLE rpt_etl_error (
     CONSTRAINT pk_rpt_etl_error PRIMARY KEY (id),
     CONSTRAINT fk_rpt_etl_error_job FOREIGN KEY (job_id) REFERENCES rpt_etl_job (id)
 );
-CREATE INDEX idx_rpt_etl_error_job ON rpt_etl_error (tenant_id, job_id, row_no);
+CREATE INDEX idx_rpt_etl_error_job ON rpt_etl_error (tenant_id, company_id, job_id, row_no);
 ```
 
 ### 3.21 `rpt_data_quality_check`（数据质量検査）
@@ -789,5 +790,7 @@ CREATE INDEX idx_rpt_query_log_screen ON rpt_query_log (tenant_id, company_id, s
 | 版数 | 日付 | 変更内容 | 変更者 |
 |---|---|---|---|
 | v1.0 | 2026-10-20 | 初版：22 テーブルの DDL・索引・制約・容量・更新タイミング | analytics-designer |
-| v1.1 | 2026-10-21 | rpt 一意制約・索引 23 件を `(tenant_id, company_id, …)` 先頭に統一（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
-| v1.2 | 2026-10-21 | 非一意 btree 索引（`idx_`）31 箇所を `tenant_id` 先頭（`company_id` がある表は次に `company_id`）に変更（DDL・索引一覧。既存迁移の索引は sys/V202610210707 と同一列。GIN は対象外。蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.1 | 2026-10-21 | 明細 `rpt_etl_error` に `company_id` を付与（明細も親と同値を冗長保持） | 业务分析 |
+| v1.2 | 2026-10-21 | rpt 一意制約・索引 23 件を `(tenant_id, company_id, …)` 先頭に統一（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.3 | 2026-10-21 | 非一意 btree 索引（`idx_`）31 箇所を `tenant_id` 先頭（`company_id` がある表は次に `company_id`）に変更（DDL・索引一覧。既存迁移の索引は sys/V202610210707 と同一列。GIN は対象外。蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.4 | 2026-10-21 | main（#31）取込み後の再整合：一意索引・非一意 btree 索引を `tenant_id`（＋`company_id`）先頭に再適用、テナント級一意は 00-common/04 §6.1 第 4 条に従う（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

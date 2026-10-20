@@ -21,7 +21,7 @@
 |---|---|---|
 | 1 | プレフィックス | 全テーブル `pur_`（[04 §2.1](../00-common/04-common-db-spec.md)） |
 | 2 | 論理削除なし | 本域はすべて取引・履歴・ログ・設定テーブル。取消は `*_status=90` で表現し、物理削除・論理削除を行わない（01 §2.3、04 §3）。`deleted` 列は付与しない |
-| 3 | 監査カラム | `id`／`tenant_id`／`company_id`（ヘッダのみ）／`created_at`／`created_by`／`updated_at`／`updated_by`／`version` を全テーブルに付与（追記専用ログは `version`・`updated_*` を省略） |
+| 3 | 監査カラム | `id`／`tenant_id`／`company_id`（明細・関連・履歴も親と同値を冗長保持。2026-10-21 決定）／`created_at`／`created_by`／`updated_at`／`updated_by`／`version` を全テーブルに付与（追記専用ログは `version`・`updated_*` を省略） |
 | 4 | 金額・数量 | `NUMERIC(18,2)`（金額）／`NUMERIC(18,6)`（単価）／`NUMERIC(18,4)`（数量）／`NUMERIC(7,4)`（率）。`FLOAT`/`DOUBLE` 禁止（01 §6） |
 | 5 | スナップショット | 取引先名・品名・仕様・税码・税率・単位・為替レートは伝票に保持し、マスタ変更の影響を排除（04 §12） |
 | 6 | 累計項目 | 伝票明細に `received_qty`／`accepted_qty`／`rejected_qty`／`returned_qty`／`invoiced_qty`／`cancelled_qty` を持ち、進捗を JOIN なしで参照可能とする。`remain_qty` は導出（保存しない） |
@@ -254,7 +254,7 @@ CREATE TABLE pur_purchase_requisition (
 CREATE TABLE pur_purchase_requisition_line (
     id                      BIGINT       NOT NULL,
     tenant_id               BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id              BIGINT       NOT NULL,
+    company_id              BIGINT       NOT NULL,                 -- 公司 ID（親と同値を冗長保持。2026-10-21 決定）
     purchase_requisition_id BIGINT       NOT NULL,
     line_no                 INT          NOT NULL,
     material_id             BIGINT       NOT NULL,
@@ -401,7 +401,7 @@ CREATE TABLE pur_rfq (
 CREATE TABLE pur_rfq_line (
     id                  BIGINT       NOT NULL,
     tenant_id           BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id          BIGINT       NOT NULL,
+    company_id              BIGINT       NOT NULL,                 -- 公司 ID（親と同値を冗長保持。2026-10-21 決定）
     rfq_id              BIGINT       NOT NULL,
     line_no             INT          NOT NULL,
     purchase_requisition_line_id BIGINT,
@@ -466,7 +466,7 @@ CREATE TABLE pur_rfq_line (
 CREATE TABLE pur_rfq_supplier (
     id              BIGINT       NOT NULL,
     tenant_id       BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id      BIGINT       NOT NULL,
+    company_id              BIGINT       NOT NULL,                 -- 公司 ID（親と同値を冗長保持。2026-10-21 決定）
     rfq_id          BIGINT       NOT NULL,
     supplier_id     BIGINT       NOT NULL,
     supplier_code   VARCHAR(20)  NOT NULL,
@@ -518,7 +518,7 @@ CREATE TABLE pur_rfq_supplier (
 CREATE TABLE pur_supplier_quotation (
     id                  BIGINT       NOT NULL,
     tenant_id           BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id          BIGINT       NOT NULL,
+    company_id              BIGINT       NOT NULL,                 -- 公司 ID（親と同値を冗長保持。2026-10-21 決定）
     rfq_id              BIGINT       NOT NULL,
     supplier_id         BIGINT       NOT NULL,
     quotation_no        VARCHAR(64),                  -- 供应商側の見積番号（外部）
@@ -578,7 +578,7 @@ CREATE TABLE pur_supplier_quotation (
 CREATE TABLE pur_supplier_quotation_line (
     id                   BIGINT       NOT NULL,
     tenant_id            BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id           BIGINT       NOT NULL,
+    company_id              BIGINT       NOT NULL,                 -- 公司 ID（親と同値を冗長保持。2026-10-21 決定）
     quotation_id         BIGINT       NOT NULL,
     rfq_line_id          BIGINT       NOT NULL,
     material_id          BIGINT       NOT NULL,
@@ -767,7 +767,7 @@ CREATE TABLE pur_purchase_order (
 CREATE TABLE pur_purchase_order_line (
     id                       BIGINT       NOT NULL,
     tenant_id                BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id               BIGINT       NOT NULL,
+    company_id              BIGINT       NOT NULL,                 -- 公司 ID（親と同値を冗長保持。2026-10-21 決定）
     purchase_order_id        BIGINT       NOT NULL,
     line_no                  INT          NOT NULL,
     purchase_requisition_line_id BIGINT,
@@ -857,7 +857,7 @@ CREATE TABLE pur_purchase_order_line (
 CREATE TABLE pur_purchase_order_his (
     id               BIGINT       NOT NULL,
     tenant_id        BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id       BIGINT       NOT NULL,
+    company_id              BIGINT       NOT NULL,                 -- 公司 ID（親と同値を冗長保持。2026-10-21 決定）
     purchase_order_id BIGINT      NOT NULL,
     version_no       INT          NOT NULL,
     change_type      SMALLINT     NOT NULL,          -- 1数量/2単価/3交期/4取消行/5行追加/9その他
@@ -975,7 +975,7 @@ CREATE TABLE pur_receipt (
 CREATE TABLE pur_receipt_line (
     id                    BIGINT       NOT NULL,
     tenant_id             BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id            BIGINT       NOT NULL,
+    company_id              BIGINT       NOT NULL,                 -- 公司 ID（親と同値を冗長保持。2026-10-21 決定）
     receipt_id            BIGINT       NOT NULL,
     line_no               INT          NOT NULL,
     purchase_order_line_id BIGINT      NOT NULL,
@@ -1146,7 +1146,7 @@ CREATE TABLE pur_return (
 CREATE TABLE pur_return_line (
     id                    BIGINT       NOT NULL,
     tenant_id             BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id            BIGINT       NOT NULL,
+    company_id              BIGINT       NOT NULL,                 -- 公司 ID（親と同値を冗長保持。2026-10-21 決定）
     return_id             BIGINT       NOT NULL,
     line_no               INT          NOT NULL,
     receipt_id            BIGINT,
@@ -1299,7 +1299,7 @@ CREATE UNIQUE INDEX uk_pur_invoice_number ON pur_invoice
 CREATE TABLE pur_invoice_line (
     id                     BIGINT       NOT NULL,
     tenant_id              BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id             BIGINT       NOT NULL,
+    company_id              BIGINT       NOT NULL,                 -- 公司 ID（親と同値を冗長保持。2026-10-21 決定）
     invoice_id             BIGINT       NOT NULL,
     line_no                INT          NOT NULL,
     purchase_order_id      BIGINT,
@@ -1368,7 +1368,7 @@ CREATE TABLE pur_invoice_line (
 CREATE TABLE pur_invoice_match (
     id                    BIGINT       NOT NULL,
     tenant_id             BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id            BIGINT       NOT NULL,
+    company_id              BIGINT       NOT NULL,                 -- 公司 ID（親と同値を冗長保持。2026-10-21 決定）
     invoice_id            BIGINT       NOT NULL,
     invoice_line_id       BIGINT       NOT NULL,
     purchase_order_id     BIGINT       NOT NULL,
@@ -1517,7 +1517,7 @@ CREATE TABLE pur_statement (
 CREATE TABLE pur_statement_line (
     id                BIGINT       NOT NULL,
     tenant_id         BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id        BIGINT       NOT NULL,
+    company_id              BIGINT       NOT NULL,                 -- 公司 ID（親と同値を冗長保持。2026-10-21 決定）
     statement_id      BIGINT       NOT NULL,
     line_no           INT          NOT NULL,
     source_type       VARCHAR(32)  NOT NULL,        -- RECEIPT/PURCHASE_ORDER/RETURN/INVOICE/PAYMENT
@@ -1640,7 +1640,7 @@ CREATE UNIQUE INDEX uk_pur_tolerance_rule ON pur_tolerance_rule
 CREATE TABLE pur_delivery_followup (
     id                  BIGINT       NOT NULL,
     tenant_id           BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id          BIGINT       NOT NULL,
+    company_id              BIGINT       NOT NULL,                 -- 公司 ID（親と同値を冗長保持。2026-10-21 決定）
     purchase_order_id   BIGINT       NOT NULL,
     purchase_order_line_id BIGINT    NOT NULL,
     followup_date       DATE         NOT NULL,
@@ -1767,8 +1767,8 @@ CREATE TABLE pur_supplier_performance (
 
 - 業務一意索引（`uk_`）は DDL 本文・本一覧とも `(tenant_id, company_id, 業務キー)` で始める。
 - `tenant_id` は `NOT NULL DEFAULT current_setting('app.tenant_id')::bigint`（字面量默认租户禁止）。`company_id` は NOT NULL・既定値なし（全テーブル。明細・関連・履歴を含む）。
-- **例外なし**：「親 ID 先頭」の例外は全域で廃止（蓝色大肥鱼 2026-10-21 決定、sys/V202610210708 と整合）。例外は [00-common/04](../00-common/04-common-db-spec.md) §6.1 第 4 条（`company_id` を持たないテナント共有表、`(tenant_id, …)` 先頭）のみ：`uk_sys_company_code`、`uk_sys_company_credit`、`uk_sys_menu_code`、`uk_sys_menu_permission`、`uk_sys_dict_type_code`、`uk_sys_outbox_event_id`、`uk_sys_idempotency_key`、`uk_sys_user_username`（ログイン ID はテナント単位（蓝色大肥鱼 2026-10-21 決定））、`uk_mdm_exchange_rate`。親 ID・イベント ID 先頭の例外は廃止。明細・関連・履歴テーブル 13 表（`pur_delivery_followup` を含む）にも `company_id BIGINT NOT NULL` を持たせ、旧「親 ID 先頭」一意制約 12 件は `(tenant_id, company_id, 親 ID, …)` 先頭（例：`UNIQUE (tenant_id, company_id, purchase_requisition_id, line_no)`）（蓝色大肥鱼 2026-10-21 決定）。
-- **G2-20**：非一意の btree 索引（`idx_`）も `tenant_id` 先頭（`company_id` を持つ表は次に `company_id`）とする（sys/V202610210707）。GIN 索引は対象外。`uk_` を company_id 先頭と書いてはならない（蓝色大肥鱼 2026-10-21 決定）。
+- **例外なし**：「親 ID 先頭」の例外は全域で廃止（蓝色大肥鱼 2026-10-21 決定）。明細・関連・履歴テーブル 13 表（`pur_delivery_followup` を含む）も `company_id BIGINT NOT NULL` を持ち、旧「親 ID 先頭」一意制約 12 件は `(tenant_id, company_id, 親 ID, …)` 先頭（例：`UNIQUE (tenant_id, company_id, purchase_requisition_id, line_no)`）。テナント級一意の例外は [00-common/04](../00-common/04-common-db-spec.md) §6.1 第 4 条のとおり（本域は該当なし）。
+- **G2-20**：非一意の btree 索引（`idx_`）も `tenant_id` 先頭（次に `company_id`）とする（sys/V202610210707）。GIN 索引は対象外。`uk_` を company_id 先頭と書いてはならない（蓝色大肥鱼 2026-10-21 決定）。
 
 ---
 
@@ -1862,6 +1862,8 @@ CREATE TABLE pur_supplier_performance (
 | v1.1 | 2026-10-20 | 红队第 2 轮修复：invoice_type コードを 10/20/30/40/50 に統一、pur_tolerance_rule を MDM 既定への上書き規則に限定（二重定義解消）、E16/E35 金額項目を 09 改訂に追従 | purchase-designer |
 | v1.2 | 2026-10-21 | 第一版全量化：`company_id` 既定値 1 を削除、業務一意索引を `(tenant_id, company_id, …)` 先頭に統一（DDL・一覧）、§6.1 例外一覧追加、段階表記を削除 | 业务分析 |
 | v1.3 | 2026-10-21 | 明細・関連・履歴 12 一意制約を `(tenant_id, …)` 先頭に変更し §6.1 例外を廃止；PO ヘッダに `change_approved_at` 追加；ER 図列名を DDL に統一；`uk_pur_tolerance_rule` を `scope_id` NULLS NOT DISTINCT に変更；`prd_planned_order`→`prd_mrp_plan_order` | 业务分析 |
-| v1.4 | 2026-10-21 | sys/mdm への単列 FK 33 件を複合 FK `(tenant_id, x_id) → (tenant_id, id)` に変更（0707 規約）、§6.1 例外記述を更新、§7 #9 を複合 FK に（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
-| v1.5 | 2026-10-21 | 明細・関連・履歴 13 表に `company_id BIGINT NOT NULL` を追加、親 ID 先頭の一意制約 12 件を `(tenant_id, company_id, …)` 先頭に変更（§4 一覧・§7 #11 含む）、§6.1 注記削除・例外一覧に `uk_sys_user_username`（`(tenant_id, username)`、テナント単位）を追加（蓝色大肥鱼 2026-10-21 決定）。G2-20：非一意 btree `idx_` も `tenant_id` 先頭（次に `company_id`）、GIN 除外に修正 | 业务分析 |
-| v1.6 | 2026-10-21 | 非一意 btree 索引（`idx_`）35 箇所を `tenant_id` 先頭（`company_id` がある表は次に `company_id`）に変更（DDL・索引一覧。既存迁移の索引は sys/V202610210707 と同一列。GIN は対象外。蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.4 | 2026-10-21 | 明細・関連・履歴 13 テーブルに `company_id` を付与（明細も親と同値を冗長保持、06 と同じ書き方に全域統一） | 业务分析 |
+| v1.5 | 2026-10-21 | sys/mdm への単列 FK 33 件を複合 FK `(tenant_id, x_id) → (tenant_id, id)` に変更（0707 規約）、§6.1 例外記述を更新、§7 #9 を複合 FK に（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.6 | 2026-10-21 | 明細・関連・履歴 13 表に `company_id BIGINT NOT NULL` を追加、親 ID 先頭の一意制約 12 件を `(tenant_id, company_id, …)` 先頭に変更（§4 一覧・§7 #11 含む）、§6.1 注記削除・例外一覧に `uk_sys_user_username`（`(tenant_id, username)`、テナント単位）を追加（蓝色大肥鱼 2026-10-21 決定）。G2-20：非一意 btree `idx_` も `tenant_id` 先頭（次に `company_id`）、GIN 除外に修正 | 业务分析 |
+| v1.7 | 2026-10-21 | 非一意 btree 索引（`idx_`）35 箇所を `tenant_id` 先頭（`company_id` がある表は次に `company_id`）に変更（DDL・索引一覧。既存迁移の索引は sys/V202610210707 と同一列。GIN は対象外。蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.8 | 2026-10-21 | main（#31）取込み後の再整合：一意索引・非一意 btree 索引を `tenant_id`（＋`company_id`）先頭に再適用、テナント級一意は 00-common/04 §6.1 第 4 条に従う（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

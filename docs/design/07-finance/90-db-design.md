@@ -24,7 +24,7 @@
 | 5 | 状態・区分 | `SMALLINT` + `COMMENT`。名称は DB に持たない（共有コードで解決） |
 | 6 | スナップショット | 取引先名・科目名・税率・通貨は伝票にコピー保存（マスタ変更の影響を排除） |
 | 7 | 外部キー | マスタ・親子関係は FK（`ON DELETE RESTRICT`）。取引先など論理削除対象は FK を張らずアプリ検証 |
-| 8 | 一意制約 | 業務一意索引（`uk_`）は `(tenant_id, company_id, 業務キー)` 先頭（例外は §7.1。00-common §6.1 第 4 条のみ）。論理削除・取消を伴う業務キーは部分一意（`WHERE deleted = FALSE` または状態条件付き） |
+| 8 | 一意制約 | 業務一意索引（`uk_`）は `(tenant_id, company_id, 業務キー)` 先頭（例外なし、§7.1）。論理削除・取消を伴う業務キーは部分一意（`WHERE deleted = FALSE` または状態条件付き） |
 | 9 | 金額の符号 | `debit_amount` / `credit_amount` は赤伝のみ負数を許可（`is_red=true`）。CHECK で `is_red OR amount >= 0` |
 | 10 | 履歴・ログ | 監査は `sys_audit_log`、自動凭证は `fin_auto_voucher_log`、月結は `fin_close_checklist`。追記専用 |
 | 11 | パーティション | 初期は単一テーブル。`fin_voucher_line` は `period_code` レンジパーティションを第一版の範囲で検討する（年 80 万行、実装順 P2） |
@@ -271,7 +271,9 @@ CREATE TABLE fin_period (
     updated_by     BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_fin_period PRIMARY KEY (id),
     CONSTRAINT uk_fin_period_code UNIQUE (tenant_id, company_id, period_code),
-    CONSTRAINT ck_fin_period_status CHECK (status IN ('FUTURE','OPEN','CLOSED','YEAR_CLOSED'))
+    CONSTRAINT ck_fin_period_status CHECK (status IN ('FUTURE','OPEN','CLOSED','YEAR_CLOSED')),
+    CONSTRAINT ck_fin_period_date CHECK (start_date <= end_date),
+    CONSTRAINT ck_fin_period_no CHECK (period_no BETWEEN 1 AND 12)
 );
 CREATE INDEX idx_fin_period_status ON fin_period (tenant_id, company_id, fiscal_year, status);
 COMMENT ON TABLE fin_period IS '会计期间（期间状态机）';
@@ -1664,7 +1666,7 @@ CREATE TABLE fin_standard_cost (
     updated_by            BIGINT        NOT NULL DEFAULT 0,
     CONSTRAINT pk_fin_standard_cost PRIMARY KEY (id),
     CONSTRAINT uk_fin_standard_cost_version UNIQUE (tenant_id, company_id, material_id, cost_version),
-    CONSTRAINT fk_fin_standard_cost_material FOREIGN KEY (material_id) REFERENCES mdm_material (id),
+    CONSTRAINT fk_fin_standard_cost_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
     CONSTRAINT ck_fin_standard_cost_status CHECK (status IN (10,40,90)),
     CONSTRAINT ck_fin_standard_cost_method CHECK (cost_method IN (1,2)),
     CONSTRAINT ck_fin_standard_cost_period CHECK (EXTRACT(day FROM period_from) = 1
@@ -1819,6 +1821,8 @@ COMMENT ON TABLE fin_cash_plan IS '资金计划（実装順 P2）';
 | 2 | `uk_fin_account_balance` | fin_account_balance | UNIQUE | (tenant_id, company_id, period_code, account_id, balance_type) | 残高 UPSERT |
 | 3 | `uk_fin_voucher_no` | fin_voucher | UNIQUE | (tenant_id, company_id, period_code, voucher_no) | 凭证号一意 |
 | 4 | `uk_fin_voucher_source` | fin_voucher | UNIQUE 部分 | (tenant_id, company_id, source_type, source_id) | 自動凭证の二重計上防止 |
+| 4a | `uk_fin_period_code` | fin_period | UNIQUE | (tenant_id, company_id, period_code) | 期間コード一意 |
+| 4b | `idx_fin_period_status` | fin_period | B-Tree | (tenant_id, company_id, fiscal_year, status) | 年度別期間状態照会・関帳チェック |
 | 5 | `idx_fin_voucher_period_status` | fin_voucher | B-Tree | (tenant_id, company_id, period_code, status) | 一覧・月結チェック |
 | 6 | `uk_fin_voucher_line` | fin_voucher_line | UNIQUE | (tenant_id, company_id, voucher_id, line_no) | 行一意 |
 | 7 | `idx_fin_voucher_line_account` | fin_voucher_line | B-Tree | (tenant_id, company_id, account_id, voucher_id) | 明細帳 |
@@ -1838,17 +1842,17 @@ COMMENT ON TABLE fin_cash_plan IS '资金计划（実装順 P2）';
 | 21 | `uk_fin_standard_cost_version` | fin_standard_cost | UNIQUE | (tenant_id, company_id, material_id, cost_version) | 版本一意 |
 | 22 | `uk_fin_standard_cost_period` | fin_standard_cost | UNIQUE 部分 | (tenant_id, company_id, material_id, period_from) WHERE status=40 | 同一開始期間の重複防止 |
 | 22a | `ex_fin_standard_cost_period` | fin_standard_cost | EXCLUDE gist 部分 | (tenant_id =, company_id =, material_id =, daterange(period_from, period_to+1 月, '[)') &&) WHERE status=40 | 発行済み版の期間重複禁止（btree_gist） |
-| 23 | `idx_fin_standard_cost_lookup` | fin_standard_cost | B-Tree | (tenant_id, company_id, material_id, status, period_from DESC) | 適用版検索（G2-20。0707:347 と一致） |
+| 23 | `idx_fin_standard_cost_lookup` | fin_standard_cost | B-Tree | (tenant_id, company_id, material_id, status, period_from DESC) | 適用版検索（G2-20） |
 | 24 | その他の業務 `uk_` | §4〜§6 DDL | UNIQUE | DDL 本文のとおり（`tenant_id`, `company_id` 先頭） | `uk_fin_period_code`、`uk_fin_aux_balance`、`uk_fin_voucher_template_code`、`uk_fin_cash_flow_item_code`、`uk_fin_aging_config`、`uk_fin_close_checklist`、`uk_fin_statement_*`、`uk_fin_bank_account_no`、`uk_fin_receivable_no`、`uk_fin_payable_no`、`uk_fin_payment_request_no`、`uk_fin_payment_no`、`uk_fin_receipt_no`、`uk_fin_bank_statement_account_period`、`uk_fin_bank_reconciliation`、`uk_fin_vat_return`、`uk_fin_asset_no`、`uk_fin_asset_depreciation`、`uk_fin_expense_claim_no`、`uk_fin_budget_no`、`uk_fin_exchange_reval`、`uk_fin_cash_plan_no` |
 
 > 追記専用ログ（`fin_auto_voucher_log`、`fin_close_checklist`）は更新系索引を最小限にし、`(status, next_retry_at)` 等の処理用索引のみ付与する。
 
-### 7.1 一意索引の先頭列ルールと例外（2026-10-21、05-inventory・04-purchase と同一方針）
+### 7.1 一意索引の先頭列ルール（2026-10-21、05-inventory・04-purchase と同一方針）
 
 - 業務一意索引（`uk_`）は DDL 本文・§3／§7 一覧とも `(tenant_id, company_id, 業務キー)` で始める。
 - `tenant_id` は `NOT NULL DEFAULT current_setting('app.tenant_id')::bigint`（字面量默认租户禁止）。`company_id` は `NOT NULL`・既定値なし。
-- **例外**：例外は [00-common/04](../00-common/04-common-db-spec.md) §6.1 第 4 条（`company_id` を持たないテナント共有表、`(tenant_id, …)` 先頭）のみ：`uk_sys_company_code`、`uk_sys_company_credit`、`uk_sys_menu_code`、`uk_sys_menu_permission`、`uk_sys_dict_type_code`、`uk_sys_outbox_event_id`、`uk_sys_idempotency_key`、`uk_sys_user_username`（ログイン ID はテナント単位（蓝色大肥鱼 2026-10-21 決定））、`uk_mdm_exchange_rate`。親 ID・イベント ID 先頭の例外は廃止（蓝色大肥鱼 2026-10-21 決定、sys/V202610210708 と整合）。明細行番号（`uk_fin_*_line`）・子設定 `uk_fin_account_aux`・自己参照 `uk_fin_voucher_reversal`・イベント ID `uk_fin_auto_voucher_log_event` も `(tenant_id, company_id, …)` 先頭。
-- **G2-20**：非一意の btree 索引（`idx_`）も `tenant_id` 先頭（`company_id` を持つ表は次に `company_id`）とする（sys/V202610210707）。GIN 索引は対象外（蓝色大肥鱼 2026-10-21 決定）。`uk_` を `company_id` 先頭と書いてはならない。
+- **無例外（2026-10-21 蓝色大肥鱼决定）**：明細行番号・子設定（`uk_fin_account_aux`）・自己参照（`uk_fin_voucher_reversal`）・イベント ID（`uk_fin_auto_voucher_log_event`）を含め、すべての `uk_` を `(tenant_id, company_id, …)` 先頭とする。例外登記は廃止。
+- **G2-20（2026-10-21 改訂）**：btree 索引（`idx_` を含む）は必ず `tenant_id` 先頭とし、続けて `company_id` とする（`(tenant_id, company_id, …)`）。GIN は除く。`company_id` 先頭の索引は認めない。
 
 ---
 
@@ -1900,7 +1904,13 @@ COMMENT ON TABLE fin_cash_plan IS '资金计划（実装順 P2）';
 | v1.3 | 2026-10-21 | `fin_standard_cost.period_from/to` を月初 DATE 化、`ex_fin_standard_cost_period`（EXCLUDE gist、btree_gist 前提）、発行時の自動打切りと MSG-FIN-134 | 业务分析 |
 | v1.4 | 2026-10-21 | 発行の並行制御（`mdm_material` 行 `FOR NO KEY UPDATE`、ロック後に有効版取得）、`23P01`→MSG-FIN-134（422） | 业务分析 |
 | v1.5 | 2026-10-21 | `mdm_material.standard_cost` は当月有効版のみ反映、将来月開始版は期間開帳時に刷新（蓝色大肥鱼決定、#14） | 业务分析 |
-| v1.6 | 2026-10-21 | fin 明細・子設定・自己参照・イベント ID 14 件を 一意索引を `(tenant_id, company_id, …)` 先頭に統一（sys/V202610210707・0708 と整合）、「親 ID 先頭」例外一覧を削除。例外は 00-common/04 §6.1 第 4 条のテナント共有表のみ（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
-| v1.7 | 2026-10-21 | 例外一覧に `uk_sys_user_username`（`(tenant_id, username)`、テナント単位）を追加（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
-| v1.8 | 2026-10-21 | `idx_fin_standard_cost_lookup` を 0707:347 と同じ `(tenant_id, company_id, material_id, status, period_from DESC)` に修正、§7.1 G2-20 を btree tenant_id 先頭・GIN 除外に修正（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
-| v1.9 | 2026-10-21 | 非一意 btree 索引（`idx_`）46 箇所を `tenant_id` 先頭（`company_id` がある表は次に `company_id`）に変更（DDL・索引一覧。既存迁移の索引は sys/V202610210707 と同一列。GIN は対象外。蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.6 | 2026-10-21 | `uk_fin_receivable_line` を `(tenant_id, company_id, receivable_id, line_no)` 先頭に変更し §7.1 例外一覧から削除 | 业务分析 |
+| v1.7 | 2026-10-21 | `fin_period` を migration fin/V202610210706（PR #27）に一致：`idx_fin_period_status` を `(tenant_id, company_id, fiscal_year, status)` に変更、`ck_fin_period_date`・`ck_fin_period_no` を追加、§7 索引一覧に追記 | 业务分析 |
+| v1.8 | 2026-10-21 | §7.1 例外登記を廃止し残り 12 本の一意索引（明細行番号 9 本、`uk_fin_account_aux`、`uk_fin_voucher_reversal`、`uk_fin_auto_voucher_log_event`）を `(tenant_id, company_id, …)` 先頭へ変更（全表 company_id 保有を確認済み）、§7 一覧同期 | 业务分析 |
+| v1.9 | 2026-10-21 | G2-20 を改訂：btree 索引は `tenant_id` 先頭（続けて `company_id`）、GIN 除く。`company_id` 先頭を許容していた記述を削除。§4〜§6 DDL と §7 索引一覧の非一意 btree 索引 40 本（`idx_fin_voucher_period_status`・`idx_fin_standard_cost_lookup` ほか）を `(tenant_id, company_id, …)` 先頭に変更（蓝色大肥鱼 2026-10-21 決定、#31 評審） | 业务分析 |
+| v1.10 | 2026-10-21 | #35 迁移に整合：`fk_fin_standard_cost_material` を複合外键 `(tenant_id, material_id)`→`mdm_material (tenant_id, id)` に変更 | 业务分析 |
+| v1.11 | 2026-10-21 | fin 明細・子設定・自己参照・イベント ID 14 件を 一意索引を `(tenant_id, company_id, …)` 先頭に統一（sys/V202610210707・0708 と整合）、「親 ID 先頭」例外一覧を削除。例外は 00-common/04 §6.1 第 4 条のテナント共有表のみ（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.12 | 2026-10-21 | 例外一覧に `uk_sys_user_username`（`(tenant_id, username)`、テナント単位）を追加（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.13 | 2026-10-21 | `idx_fin_standard_cost_lookup` を 0707:347 と同じ `(tenant_id, company_id, material_id, status, period_from DESC)` に修正、§7.1 G2-20 を btree tenant_id 先頭・GIN 除外に修正（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.14 | 2026-10-21 | 非一意 btree 索引（`idx_`）46 箇所を `tenant_id` 先頭（`company_id` がある表は次に `company_id`）に変更（DDL・索引一覧。既存迁移の索引は sys/V202610210707 と同一列。GIN は対象外。蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.15 | 2026-10-21 | main（#31）取込み後の再整合：一意索引・非一意 btree 索引を `tenant_id`（＋`company_id`）先頭に再適用、テナント級一意は 00-common/04 §6.1 第 4 条に従う（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

@@ -28041,8 +28041,8 @@
     {
       "method": "POST",
       "path": "/api/production/work-orders/{id}/approve",
-      "name": "承認（20→25。08 WF E32 コールバックと同一サービス。詳細 §3.11）",
-      "permission": "production:work-order:approve（TODO：権限チェック未実装）",
+      "name": "承認（20→25。08 WF E32 コールバックと同一サービス。詳細 §3.11）。TODO：権限チェック未実装、Flowable 接入後に閉鎖",
+      "permission": "production:work-order:approve",
       "domain": "PRD",
       "source": "06-production/91-api-design.md"
     },

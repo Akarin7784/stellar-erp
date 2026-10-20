@@ -77,13 +77,13 @@ erDiagram
 
 ### 1.3 共通カラム
 
-全テーブル（明細は `company_id` を除く）に以下の共通カラムを付与する。定義は [01 共通項目定義 §2](../00-common/01-common-item-definitions.md) を正とする。
+全テーブル（明細を含む）に以下の共通カラムを付与する。定義は [01 共通項目定義 §2](../00-common/01-common-item-definitions.md) を正とする。
 
 ```sql
 -- 全テーブル共通（各テーブル DDL に展開する。以下は雛形）
 id          BIGINT       NOT NULL,                          -- 主キー（雪花 ID）
 tenant_id   BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,                -- 租户 ID（RLS。DEFAULT 0 禁止）
-company_id  BIGINT       NOT NULL,                          -- 公司 ID（既定値なし。明細は親で保持）
+company_id  BIGINT       NOT NULL,                          -- 公司 ID（既定値なし。明細も親と同値を冗長保持）
 created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),            -- 作成日時
 created_by  BIGINT       NOT NULL DEFAULT 0,                -- 作成者
 updated_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),            -- 更新日時
@@ -95,7 +95,7 @@ CONSTRAINT pk_{table} PRIMARY KEY (id)
 ```
 
 - `updated_at`/`updated_by` はアプリ層で自動充填する（DB トリガ禁止）。
-- 明細テーブルは `company_id` を省略し、親ヘッダで保持する。
+- 明細テーブルも `company_id` を持ち、親ヘッダと同値を冗長保持する（2026-10-21 決定、06-production と同じ書き方に全域統一）。RLS・会社フィルタで親 JOIN を不要にし、複合外键 `(tenant_id, company_id, …)` を張りやすくするため。
 - `sal_credit_check_log`・`sal_receivable_snapshot`・`sal_delivery_serial` など追記・投影系は `version`/`remark`/`ext_data` を省略可。
 
 ## 2. テーブル一覧
@@ -164,7 +164,7 @@ CREATE TABLE sal_inquiry (
     answer_note         VARCHAR(1000),                         -- 回答内容
     quotation_id        BIGINT,                                -- 見積ID（論理参照）
     CONSTRAINT pk_sal_inquiry PRIMARY KEY (id),
-    CONSTRAINT fk_sal_inquiry_customer FOREIGN KEY (customer_id) REFERENCES mdm_customer (id)
+    CONSTRAINT fk_sal_inquiry_customer FOREIGN KEY (tenant_id, customer_id) REFERENCES mdm_customer (tenant_id, id)
 );
 ```
 
@@ -188,6 +188,7 @@ CREATE TABLE sal_inquiry (
 
 ```sql
 CREATE TABLE sal_inquiry_line (
+    company_id          BIGINT       NOT NULL,                 -- 公司 ID（親ヘッダと同値を冗長保持。2026-10-21 決定）
     inquiry_id          BIGINT       NOT NULL,                 -- 親（sal_inquiry.id）
     line_no             INT          NOT NULL,                 -- 行番号（10刻み）
     material_id         BIGINT       NOT NULL,                 -- 物料ID（mdm_material.id）
@@ -201,7 +202,7 @@ CREATE TABLE sal_inquiry_line (
     line_remark         VARCHAR(500),                          -- 明細備考
     CONSTRAINT pk_sal_inquiry_line PRIMARY KEY (id),
     CONSTRAINT fk_sal_inquiry_line_inquiry FOREIGN KEY (inquiry_id) REFERENCES sal_inquiry (id),
-    CONSTRAINT fk_sal_inquiry_line_material FOREIGN KEY (material_id) REFERENCES mdm_material (id),
+    CONSTRAINT fk_sal_inquiry_line_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
     CONSTRAINT ck_sal_inquiry_line_qty CHECK (qty > 0)
 );
 ```
@@ -254,7 +255,7 @@ CREATE TABLE sal_quotation (
     tax_amount          NUMERIC(18,2) NOT NULL DEFAULT 0,      -- 税額合計
     grand_total         NUMERIC(18,2) NOT NULL DEFAULT 0,      -- 税込合計
     CONSTRAINT pk_sal_quotation PRIMARY KEY (id),
-    CONSTRAINT fk_sal_quotation_customer FOREIGN KEY (customer_id) REFERENCES mdm_customer (id),
+    CONSTRAINT fk_sal_quotation_customer FOREIGN KEY (tenant_id, customer_id) REFERENCES mdm_customer (tenant_id, id),
     CONSTRAINT fk_sal_quotation_inquiry FOREIGN KEY (inquiry_id) REFERENCES sal_inquiry (id)
 );
 ```
@@ -279,6 +280,7 @@ CREATE TABLE sal_quotation (
 
 ```sql
 CREATE TABLE sal_quotation_line (
+    company_id          BIGINT       NOT NULL,                 -- 公司 ID（親ヘッダと同値を冗長保持。2026-10-21 決定）
     quotation_id        BIGINT       NOT NULL,                 -- 親
     line_no             INT          NOT NULL,                 -- 行番号
     material_id         BIGINT       NOT NULL,                 -- 物料ID
@@ -327,6 +329,7 @@ CREATE TABLE sal_quotation_line (
 
 ```sql
 CREATE TABLE sal_quotation_version (
+    company_id          BIGINT       NOT NULL,                 -- 公司 ID（親ヘッダと同値を冗長保持。2026-10-21 決定）
     quotation_id        BIGINT       NOT NULL,                 -- 親
     revision_no         INT          NOT NULL,                 -- 版数
     version_status      SMALLINT     NOT NULL DEFAULT 10,      -- 版状態（10作成中/30発行済/90無効）
@@ -416,7 +419,7 @@ CREATE TABLE sal_sales_order (
     packing_list_no     VARCHAR(50),                           -- 梱包明細番号
     foreign_currency_code VARCHAR(3),                          -- 外貨通貨
     CONSTRAINT pk_sal_sales_order PRIMARY KEY (id),
-    CONSTRAINT fk_sal_sales_order_customer FOREIGN KEY (customer_id) REFERENCES mdm_customer (id),
+    CONSTRAINT fk_sal_sales_order_customer FOREIGN KEY (tenant_id, customer_id) REFERENCES mdm_customer (tenant_id, id),
     CONSTRAINT fk_sal_sales_order_quotation FOREIGN KEY (quotation_id) REFERENCES sal_quotation (id),
     CONSTRAINT ck_sal_sales_order_status CHECK (order_status IN (10,20,25,30,35,40,90,95)),
     CONSTRAINT ck_sal_sales_order_amt CHECK (grand_total >= 0)
@@ -444,6 +447,7 @@ CREATE TABLE sal_sales_order (
 
 ```sql
 CREATE TABLE sal_sales_order_line (
+    company_id          BIGINT       NOT NULL,                 -- 公司 ID（親ヘッダと同値を冗長保持。2026-10-21 決定）
     sales_order_id      BIGINT       NOT NULL,                 -- 親（sal_sales_order.id）
     line_no             INT          NOT NULL,                 -- 行番号（10刻み・安定キー）
     material_id         BIGINT       NOT NULL,                 -- 物料ID
@@ -476,7 +480,7 @@ CREATE TABLE sal_sales_order_line (
     shipped_base_qty    NUMERIC(18,4) NOT NULL DEFAULT 0,      -- 出荷済数量（基本単位。= shipped_qty × conversion_rate の累計）
     cancelled_qty       NUMERIC(18,4) NOT NULL DEFAULT 0,      -- 取消数量
     completed_qty       NUMERIC(18,4) NOT NULL DEFAULT 0,      -- 完工累計（基本単位。G2-18、生産過帳が更新）
-    allowed_qty         NUMERIC(18,4) NOT NULL DEFAULT 0,      -- 許容完工上限（基本単位。確定時にスナップショット）
+    allowed_qty         NUMERIC(18,4),                         -- 許容完工上限（基本単位。確定時にスナップショット。NULL=未スナップショット、既定値なし）
     completion_over_rate NUMERIC(5,4),                         -- 完工超収容差スナップショット（比率。NULL=チェーン継承結果を確定時に展開）
     shortage_qty        NUMERIC(18,4) NOT NULL DEFAULT 0,      -- 引当不足数量
     return_qty          NUMERIC(18,4) NOT NULL DEFAULT 0,      -- 返品済数量（E11）
@@ -490,9 +494,10 @@ CREATE TABLE sal_sales_order_line (
     line_remark         VARCHAR(500),                          -- 明細備考
     CONSTRAINT pk_sal_sales_order_line PRIMARY KEY (id),
     CONSTRAINT fk_sal_sales_order_line_o FOREIGN KEY (sales_order_id) REFERENCES sal_sales_order (id),
-    CONSTRAINT fk_sal_sales_order_line_m FOREIGN KEY (material_id) REFERENCES mdm_material (id),
+    CONSTRAINT fk_sal_sales_order_line_m FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
     CONSTRAINT ck_sal_sales_order_line_qty CHECK (ordered_qty > 0 AND reserved_qty >= 0 AND shipped_qty >= 0 AND shipped_base_qty >= 0 AND cancelled_qty >= 0 AND completed_qty >= 0 AND allowed_qty >= 0),
-    CONSTRAINT ck_sal_sales_order_line_price CHECK (unit_price >= 0)
+    CONSTRAINT ck_sal_sales_order_line_price CHECK (unit_price >= 0),
+    CONSTRAINT ck_sal_sol_completed_qty CHECK (completed_qty >= 0 AND completed_qty <= allowed_qty)  -- G2-18 累計完工上限（30-review/R3-对抗性评审-第2轮-异常路径.md:89）。違反時 SQLSTATE 23514 は本制約名で 60040 に変換（5000 にしない）
 );
 ```
 
@@ -509,7 +514,10 @@ CREATE TABLE sal_sales_order_line (
 - `conversion_rate` は受注確定時のスナップショット。単位換算後の基本単位数量は `base_qty` / `shipped_base_qty`。
 - `allowed_qty` / `completed_qty` は基本単位。`allowed_qty = floor(ordered_qty × conversion_rate × (1 + rate))`（`mdm_uom.decimal_places` で切捨て）。容差チェーンは受注行 > 物料 > 物料分類 > 会社（`sys_param.prd.completion_over_rate`）。確定時にスナップショットし、承認済の受注変更または超産承認時のみ再計算。
 - 跨表ロック順序：受注行 → 工单（同一表は id 昇順）。過帳は行ロックのみ（[04 §11.1](../00-common/04-common-db-spec.md)）。
+- **完工上報処理（2026-10-21）**：受注行を `SELECT … FOR UPDATE` でロックした直後に `allowed_qty IS NULL` を判定し、NULL（未スナップショット）なら 5000 を返して処理を中断する（0 とみなして比較しない）。非 NULL の場合のみ `completed_qty + 今回 ≤ allowed_qty` を検証する。超産承認時も同様。
 - 工单の物料は受注行の物料と一致しなければならない（生産ドメインで検証）。
+- **`allowed_qty` の NULL（2026-10-21 決定）**：NULL 可・既定値なし。NULL＝受注確定時のスナップショット未取得。超産承認・完工上報・工单下达で NULL を読んだ場合はサービス層が 5000 を返す（下达は工单ロック前に受注行で判定。蓝色大肥鱼 2026-10-21 決定）（G2-18 S1 と同じ扱い。0 とみなさない）。`ck_sal_sol_completed_qty` および `ck_sal_sales_order_line_qty` の `allowed_qty` 条件は NULL を通過させる（SQL CHECK の UNKNOWN＝通過）。
+- **完工上限 CHECK（2026-10-21 決定）**：`ck_sal_sol_completed_qty CHECK (completed_qty >= 0 AND completed_qty <= allowed_qty)` を受注明細に付与する（G2-18 承認済設計、[30-review/R3-对抗性评审-第2轮-异常路径.md:89](../30-review/R3-对抗性评审-第2轮-异常路径.md)）。サービス層が先に 60040／60100 で拒否し、本制約は DB 層の最終防衛線。SQLSTATE 23514 を受けた場合、制約名 `ck_sal_sol_completed_qty` で判定して 60040 に変換する（OPA と同じ方式。5000 に落とさない）。
 
 
 ### 3.8 `sal_sales_order_version`（销售订单版本）
@@ -524,6 +532,7 @@ CREATE TABLE sal_sales_order_line (
 
 ```sql
 CREATE TABLE sal_sales_order_version (
+    company_id          BIGINT       NOT NULL,                 -- 公司 ID（親ヘッダと同値を冗長保持。2026-10-21 決定）
     sales_order_id      BIGINT       NOT NULL,                 -- 親受注
     version_no          INT          NOT NULL,                 -- 業務版数（2 以降）
     change_status       SMALLINT     NOT NULL DEFAULT 10,      -- 変更状態
@@ -558,6 +567,7 @@ CREATE INDEX idx_sal_sales_order_version_status ON sal_sales_order_version (tena
 
 ```sql
 CREATE TABLE sal_sales_order_line_version (
+    company_id          BIGINT       NOT NULL,                 -- 公司 ID（親ヘッダと同値を冗長保持。2026-10-21 決定）
     sales_order_id      BIGINT       NOT NULL,                 -- 親受注
     version_no          INT          NOT NULL,                 -- 業務版数
     line_no             INT          NOT NULL,                 -- 行番号
@@ -618,7 +628,7 @@ CREATE TABLE sal_delivery_note (
     cancel_reason       VARCHAR(500),                          -- 取消理由
     CONSTRAINT pk_sal_delivery_note PRIMARY KEY (id),
     CONSTRAINT fk_sal_delivery_note_order FOREIGN KEY (sales_order_id) REFERENCES sal_sales_order (id),
-    CONSTRAINT fk_sal_delivery_note_wh FOREIGN KEY (warehouse_id) REFERENCES mdm_warehouse (id),
+    CONSTRAINT fk_sal_delivery_note_wh FOREIGN KEY (tenant_id, warehouse_id) REFERENCES mdm_warehouse (tenant_id, id),
     CONSTRAINT ck_sal_delivery_note_status CHECK (delivery_status IN (25,30,35,40,90))
 );
 ```
@@ -642,6 +652,7 @@ CREATE TABLE sal_delivery_note (
 
 ```sql
 CREATE TABLE sal_delivery_note_line (
+    company_id          BIGINT       NOT NULL,                 -- 公司 ID（親ヘッダと同値を冗長保持。2026-10-21 決定）
     delivery_note_id    BIGINT       NOT NULL,                 -- 親
     line_no             INT          NOT NULL,                 -- 行番号
     sales_order_line_id BIGINT       NOT NULL,                 -- 受注明細ID
@@ -694,6 +705,7 @@ CREATE TABLE sal_delivery_note_line (
 
 ```sql
 CREATE TABLE sal_pick_detail (
+    company_id          BIGINT       NOT NULL,                 -- 公司 ID（親ヘッダと同値を冗長保持。2026-10-21 決定）
     delivery_note_id    BIGINT       NOT NULL,                 -- 親 DN
     delivery_note_line_id BIGINT     NOT NULL,                 -- 親 DN 明細
     pick_seq            INT          NOT NULL,                 -- ピッキング連番
@@ -729,6 +741,7 @@ CREATE INDEX idx_sal_pick_detail_batch ON sal_pick_detail (tenant_id, company_id
 
 ```sql
 CREATE TABLE sal_delivery_serial (
+    company_id          BIGINT       NOT NULL,                 -- 公司 ID（親ヘッダと同値を冗長保持。2026-10-21 決定）
     delivery_note_id    BIGINT       NOT NULL,                 -- 親 DN
     delivery_note_line_id BIGINT     NOT NULL,                 -- 親 DN 明細
     material_id         BIGINT       NOT NULL,                 -- 物料ID
@@ -811,6 +824,7 @@ CREATE INDEX idx_sal_sales_return_delivery ON sal_sales_return (tenant_id, compa
 
 ```sql
 CREATE TABLE sal_sales_return_line (
+    company_id          BIGINT       NOT NULL,                 -- 公司 ID（親ヘッダと同値を冗長保持。2026-10-21 決定）
     return_id           BIGINT       NOT NULL,                 -- 親返品
     line_no             INT          NOT NULL,                 -- 行番号
     original_delivery_line_id BIGINT NOT NULL,                 -- 元出荷明細ID
@@ -860,6 +874,7 @@ CREATE INDEX idx_sal_return_line_dn_line ON sal_sales_return_line (tenant_id, co
 
 ```sql
 CREATE TABLE sal_return_inspection (
+    company_id          BIGINT       NOT NULL,                 -- 公司 ID（親ヘッダと同値を冗長保持。2026-10-21 決定）
     return_id           BIGINT       NOT NULL,                 -- 親返品
     return_line_id      BIGINT       NOT NULL,                 -- 返品明細
     inspection_seq      INT          NOT NULL,                 -- 検品連番
@@ -919,7 +934,7 @@ CREATE TABLE sal_invoice_application (
     cancelled_at        TIMESTAMPTZ,                           -- 取消日時
     cancel_reason       VARCHAR(500),                          -- 取消理由
     CONSTRAINT pk_sal_invoice_application PRIMARY KEY (id),
-    CONSTRAINT fk_sal_iva_customer FOREIGN KEY (customer_id) REFERENCES mdm_customer (id),
+    CONSTRAINT fk_sal_iva_customer FOREIGN KEY (tenant_id, customer_id) REFERENCES mdm_customer (tenant_id, id),
     CONSTRAINT ck_sal_iva_period CHECK (period_from <= period_to)
 );
 CREATE UNIQUE INDEX uk_sal_iva_no ON sal_invoice_application (tenant_id, company_id, application_no);
@@ -938,6 +953,7 @@ CREATE INDEX idx_sal_iva_status ON sal_invoice_application (tenant_id, company_i
 
 ```sql
 CREATE TABLE sal_invoice_application_line (
+    company_id          BIGINT       NOT NULL,                 -- 公司 ID（親ヘッダと同値を冗長保持。2026-10-21 決定）
     application_id      BIGINT       NOT NULL,                 -- 親申請
     line_no             INT          NOT NULL,                 -- 行番号
     delivery_id         BIGINT       NOT NULL,                 -- 出荷ID（sal_delivery_note.id）
@@ -1005,7 +1021,7 @@ CREATE TABLE sal_invoice (
     reissue_count       INT          NOT NULL DEFAULT 0,       -- 再発行回数
     attachment_id       BIGINT,                                -- 発票 PDF/OFD（sys_attachment.id）
     CONSTRAINT pk_sal_invoice PRIMARY KEY (id),
-    CONSTRAINT fk_sal_invoice_customer FOREIGN KEY (customer_id) REFERENCES mdm_customer (id),
+    CONSTRAINT fk_sal_invoice_customer FOREIGN KEY (tenant_id, customer_id) REFERENCES mdm_customer (tenant_id, id),
     CONSTRAINT fk_sal_invoice_application FOREIGN KEY (application_id) REFERENCES sal_invoice_application (id)
 );
 CREATE UNIQUE INDEX uk_sal_invoice_no ON sal_invoice (tenant_id, company_id, COALESCE(invoice_code, ''), invoice_no);
@@ -1025,6 +1041,7 @@ CREATE INDEX idx_sal_invoice_original ON sal_invoice (tenant_id, company_id, ori
 
 ```sql
 CREATE TABLE sal_invoice_line (
+    company_id          BIGINT       NOT NULL,                 -- 公司 ID（親ヘッダと同値を冗長保持。2026-10-21 決定）
     invoice_id          BIGINT       NOT NULL,                 -- 親発票
     line_no             INT          NOT NULL,                 -- 行番号
     delivery_id         BIGINT,                                -- 出荷ID
@@ -1062,6 +1079,7 @@ CREATE INDEX idx_sal_invoice_line_material ON sal_invoice_line (tenant_id, compa
 
 ```sql
 CREATE TABLE sal_invoice_relation (
+    company_id          BIGINT       NOT NULL,                 -- 公司 ID（親ヘッダと同値を冗長保持。2026-10-21 決定）
     invoice_id          BIGINT       NOT NULL,                 -- 発票ID
     relate_type         VARCHAR(30)  NOT NULL,                 -- 関連種別（ORIGINAL_INVOICE/DELIVERY/ORDER/RECEIVABLE/RETURN）
     relate_id           BIGINT       NOT NULL,                 -- 関連ID
@@ -1109,7 +1127,7 @@ CREATE TABLE sal_statement (
     confirmed_at        TIMESTAMPTZ,                           -- 顧客確認日時
     confirmed_by        BIGINT,                                -- 確認記録者
     CONSTRAINT pk_sal_statement PRIMARY KEY (id),
-    CONSTRAINT fk_sal_statement_customer FOREIGN KEY (customer_id) REFERENCES mdm_customer (id)
+    CONSTRAINT fk_sal_statement_customer FOREIGN KEY (tenant_id, customer_id) REFERENCES mdm_customer (tenant_id, id)
 );
 CREATE UNIQUE INDEX uk_sal_statement_version ON sal_statement (tenant_id, company_id, customer_id, period_code, statement_version);
 CREATE INDEX idx_sal_statement_status ON sal_statement (tenant_id, company_id, statement_status, period_code DESC);
@@ -1126,6 +1144,7 @@ CREATE INDEX idx_sal_statement_status ON sal_statement (tenant_id, company_id, s
 
 ```sql
 CREATE TABLE sal_statement_line (
+    company_id          BIGINT       NOT NULL,                 -- 公司 ID（親ヘッダと同値を冗長保持。2026-10-21 決定）
     statement_id        BIGINT       NOT NULL,                 -- 親対账单
     line_no             INT          NOT NULL,                 -- 行番号
     transaction_type    SMALLINT     NOT NULL,                 -- 区分（10前期繰越/20売上/30赤伝/40入金/50前受金/90その他）
@@ -1172,7 +1191,7 @@ CREATE TABLE sal_credit_ledger_snapshot (
     release_reason      VARCHAR(30),                           -- 解放理由（SHIP/RECEIPT/CANCEL/WRITE_OFF）
     release_event_id    VARCHAR(64),                           -- 解放イベントID（冪等）
     CONSTRAINT pk_sal_credit_ledger_snapshot PRIMARY KEY (id),
-    CONSTRAINT fk_sal_credit_occ_customer FOREIGN KEY (customer_id) REFERENCES mdm_customer (id),
+    CONSTRAINT fk_sal_credit_occ_customer FOREIGN KEY (tenant_id, customer_id) REFERENCES mdm_customer (tenant_id, id),
     CONSTRAINT ck_sal_credit_occ_amt CHECK (amount >= 0 AND released_amount >= 0 AND released_amount <= amount)
 );
 CREATE UNIQUE INDEX uk_sal_credit_occ_source ON sal_credit_ledger_snapshot (tenant_id, company_id, source_type, source_id, release_seq);
@@ -1212,7 +1231,7 @@ CREATE TABLE sal_credit_check_log (
     checked_by          BIGINT,                                -- 判定者
     checked_at          TIMESTAMPTZ  NOT NULL DEFAULT now(),   -- 判定日時
     CONSTRAINT pk_sal_credit_check_log PRIMARY KEY (id),
-    CONSTRAINT fk_sal_credit_log_customer FOREIGN KEY (customer_id) REFERENCES mdm_customer (id)
+    CONSTRAINT fk_sal_credit_log_customer FOREIGN KEY (tenant_id, customer_id) REFERENCES mdm_customer (tenant_id, id)
 );
 CREATE INDEX idx_sal_credit_log_customer ON sal_credit_check_log (tenant_id, company_id, customer_id, checked_at DESC);
 CREATE INDEX idx_sal_credit_log_order ON sal_credit_check_log (tenant_id, company_id, sales_order_id, check_type);
@@ -1299,8 +1318,8 @@ CREATE TABLE sal_special_price (
     closed_at           TIMESTAMPTZ,                           -- 終了日時
     cancel_reason       VARCHAR(500),                          -- 取消理由
     CONSTRAINT pk_sal_special_price PRIMARY KEY (id),
-    CONSTRAINT fk_sal_special_price_cust FOREIGN KEY (customer_id) REFERENCES mdm_customer (id),
-    CONSTRAINT fk_sal_special_price_mat FOREIGN KEY (material_id) REFERENCES mdm_material (id),
+    CONSTRAINT fk_sal_special_price_cust FOREIGN KEY (tenant_id, customer_id) REFERENCES mdm_customer (tenant_id, id),
+    CONSTRAINT fk_sal_special_price_mat FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
     CONSTRAINT ck_sal_special_price_price CHECK (special_unit_price > 0),
     CONSTRAINT ck_sal_special_price_valid CHECK (valid_from <= valid_to)
 );
@@ -1334,7 +1353,7 @@ CREATE TABLE sal_sales_forecast (
     confirmed_at        TIMESTAMPTZ,                           -- 確定日時
     confirmed_by        BIGINT,                                -- 確定者
     CONSTRAINT pk_sal_sales_forecast PRIMARY KEY (id),
-    CONSTRAINT fk_sal_forecast_dept FOREIGN KEY (department_id) REFERENCES sys_department (id),
+    CONSTRAINT fk_sal_forecast_dept FOREIGN KEY (tenant_id, department_id) REFERENCES sys_department (tenant_id, id),
     CONSTRAINT ck_sal_forecast_period CHECK (period_code ~ '^[0-9]{4}-[0-9]{2}$')
 );
 CREATE UNIQUE INDEX uk_sal_forecast_ver ON sal_sales_forecast (tenant_id, company_id, forecast_no, forecast_version);
@@ -1352,6 +1371,7 @@ CREATE INDEX idx_sal_forecast_period ON sal_sales_forecast (tenant_id, company_i
 
 ```sql
 CREATE TABLE sal_sales_forecast_line (
+    company_id          BIGINT       NOT NULL,                 -- 公司 ID（親ヘッダと同値を冗長保持。2026-10-21 決定）
     forecast_id         BIGINT       NOT NULL,                 -- 親予測
     line_no             INT          NOT NULL,                 -- 行番号
     material_id         BIGINT       NOT NULL,                 -- 物料ID
@@ -1391,7 +1411,7 @@ CREATE INDEX idx_sal_forecast_line_material ON sal_sales_forecast_line (tenant_i
 | # | 制約 | 実現方法 | エラーメッセージ |
 |---|---|---|---|
 | 1 | 傳票番號の一意 | UNIQUE (`tenant_id`, `company_id`, `*_no`) | MSG-COM-050 |
-| 2 | 明細行番號の一意 | UNIQUE (`tenant_id`, `company_id`, `*_id`, `line_no`)（親 ID 先頭の例外なし） | MSG-COM-050 |
+| 2 | 明細行番號の一意 | UNIQUE (`tenant_id`, `company_id`, `*_id`, `line_no`) | MSG-COM-050 |
 | 3 | 與信コミットの二重防止 | UNIQUE (`tenant_id`, `company_id`, `source_type`, `source_id`, `release_seq`) | MSG-COM-050 |
 | 4 | 受注転換の二重作成防止 | UNIQUE (`tenant_id`, `company_id`, `source_type`, `source_id`) WHERE `source_id` IS NOT NULL | MSG-COM-050 |
 | 5 | 特價の重複 | UNIQUE (`tenant_id`, `company_id`, `customer_id`, `material_id`, `valid_from`) WHERE `status=25` | MSG-SAL-093 |
@@ -1452,7 +1472,7 @@ CREATE INDEX idx_sal_forecast_line_material ON sal_sales_forecast_line (tenant_i
 
 ## 9. レビュー観点（本域）
 
-- [x] 共通カラム（§1.3）を全テーブルに付与（明細は `company_id` 省略）
+- [x] 共通カラム（§1.3）を全テーブルに付与（明細も `company_id` を保持）
 - [x] 金額 `NUMERIC(18,2)`・單價 `NUMERIC(18,6)`・數量 `NUMERIC(18,4)`・率 `NUMERIC(7,4)` に統一
 - [x] 傳票番號・業務キーの一意制約を定義
 - [x] 状態列に `CHECK` 制約を設定
@@ -1461,12 +1481,12 @@ CREATE INDEX idx_sal_forecast_line_material ON sal_sales_forecast_line (tenant_i
 - [x] 容量・保存期間・性能目標を記載
 - [x] 更新責任（本域のみ `sal_*` 更新、他域は参照/イベント投影）
 
-### 一意索引の先頭列ルールと例外（2026-10-20 決定）
+### 一意索引の先頭列ルール（2026-10-20 決定、2026-10-21 例外廃止）
 
 - 業務一意索引は `(tenant_id, company_id, 業務キー)` で始める（#43/#49 と同一）。
 - `ON CONFLICT` は同じ列を含め、採番は `sys_sequence.step` で増分する（`EXCLUDED.step` 禁止）。
 - `company_id` は既定値なし・必須。`tenant_id` は `DEFAULT current_setting('app.tenant_id')::bigint`（`DEFAULT 0` 禁止）。
-- **例外**：例外は [00-common/04](../00-common/04-common-db-spec.md) §6.1 第 4 条（`company_id` を持たないテナント共有表、`(tenant_id, …)` 先頭）のみ：`uk_sys_company_code`、`uk_sys_company_credit`、`uk_sys_menu_code`、`uk_sys_menu_permission`、`uk_sys_dict_type_code`、`uk_sys_outbox_event_id`、`uk_sys_idempotency_key`、`uk_sys_user_username`（ログイン ID はテナント単位（蓝色大肥鱼 2026-10-21 決定））、`uk_mdm_exchange_rate`。親 ID・イベント ID 先頭の例外は廃止（蓝色大肥鱼 2026-10-21 決定、sys/V202610210708 と整合）。明細・版表（`uk_sal_*_line_no`、`uk_sal_quotation_version_rev`、`uk_sal_sales_order_version_no`、`uk_sal_delivery_serial_line`）も `(tenant_id, company_id, 親 ID, …)` 先頭。
+- 例外は登録しない（2026-10-21 決定）。明細・版表の一意索引 12 本（`uk_sal_inquiry_line_no` ほか）も `(tenant_id, company_id, 親 ID, …)` 先頭とする。
 
 ## 10. 未決事項
 
@@ -1484,7 +1504,19 @@ CREATE INDEX idx_sal_forecast_line_material ON sal_sales_forecast_line (tenant_i
 |---|---|---|---|
 | v1.0 | 2026-10-20 | 初版作成：29 テーブルの物理設計（DDL・索引・制約・容量・更新責任）、共通カラム方針、イベント連動、Flyway 計画 | sales-designer |
 | v1.1 | 2026-10-20 | 紅隊修復第 2 輪：`sal_credit_ledger_snapshot` を FIN 與信台帳の読取投影へ再定義（SAL 直接更新禁止）、與信判定コードを 10/20/30/40/90 に統一、与信使用額の権威を FIN へ一本化 | sales-designer |
-| v1.2 | 2026-10-21 | sal 明細・版表 15 件を 一意索引を `(tenant_id, company_id, …)` 先頭に統一（sys/V202610210707・0708 と整合）、「親 ID 先頭」例外一覧を削除。例外は 00-common/04 §6.1 第 4 条のテナント共有表のみ（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
-| v1.3 | 2026-10-21 | 例外一覧に `uk_sys_user_username`（`(tenant_id, username)`、テナント単位）を追加（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
-| v1.4 | 2026-10-21 | §制約一覧 #1〜#7 の UNIQUE を `(tenant_id, company_id, …)` 先頭に修正（95:26 と整合、蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
-| v1.5 | 2026-10-21 | 非一意 btree 索引（`idx_`）60 箇所を `tenant_id` 先頭（`company_id` がある表は次に `company_id`）に変更（DDL・索引一覧。既存迁移の索引は sys/V202610210707 と同一列。GIN は対象外。蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.2 | 2026-10-21 | 蓝色大肥鱼 決定反映：①明細表 16 本に `company_id` を付与（§1.3 改訂）②受注明細に `ck_sal_sol_completed_qty`（G2-18、23514→60040）③親 ID 先頭の一意索引例外 12 本を `(tenant_id, company_id, …)` 先頭へ変更し例外登録を削除 | 業務分析 |
+| v1.3 | 2026-10-21 | `sal_sales_order_line.allowed_qty` を NULL 可・既定値なしに変更（NULL＝未スナップショット、承認／完工時に NULL なら 5000、CHECK は NULL 通過）。完工上報処理に「受注行ロック後 `allowed_qty IS NULL` は 5000」を追記 | 業務分析 |
+| v1.4 | 2026-10-21 | `uk_sal_sales_order_source`・`uk_sal_credit_occ_source`・`uk_sal_receivable_snapshot_fin` に `company_id` を追加（`(tenant_id, company_id, …)` 先頭）、§5 制約一覧を DDL に一致 | 業務分析 |
+| v1.5 | 2026-10-21 | `allowed_qty` NULL→5000 の対象に工单下达（MTO）を追加（工单ロック前に受注行で判定、蓝色大肥鱼 2026-10-21 決定） | 業務分析 |
+| v1.6 | 2026-10-21 | #35 迁移 `sys/V202610210707` に整合：sys/mdm 向け FK 14 本を複合外键に、普通 btree 索引を `(tenant_id, company_id, …)` 先頭に変更（DDL・各表索引表・§索引一覧） | 業務分析 |
+
+
+
+
+
+
+| v1.7 | 2026-10-21 | sal 明細・版表 15 件を 一意索引を `(tenant_id, company_id, …)` 先頭に統一（sys/V202610210707・0708 と整合）、「親 ID 先頭」例外一覧を削除。例外は 00-common/04 §6.1 第 4 条のテナント共有表のみ（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.8 | 2026-10-21 | 例外一覧に `uk_sys_user_username`（`(tenant_id, username)`、テナント単位）を追加（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.9 | 2026-10-21 | §制約一覧 #1〜#7 の UNIQUE を `(tenant_id, company_id, …)` 先頭に修正（95:26 と整合、蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.10 | 2026-10-21 | 非一意 btree 索引（`idx_`）60 箇所を `tenant_id` 先頭（`company_id` がある表は次に `company_id`）に変更（DDL・索引一覧。既存迁移の索引は sys/V202610210707 と同一列。GIN は対象外。蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.11 | 2026-10-21 | main（#31）取込み後の再整合：一意索引・非一意 btree 索引を `tenant_id`（＋`company_id`）先頭に再適用、テナント級一意は 00-common/04 §6.1 第 4 条に従う（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

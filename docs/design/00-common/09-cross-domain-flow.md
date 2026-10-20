@@ -464,7 +464,7 @@ CREATE TABLE sys_outbox_event (
     CONSTRAINT pk_sys_outbox_event PRIMARY KEY (id),
     CONSTRAINT uk_sys_outbox_event_id UNIQUE (tenant_id, event_id)
 );
-CREATE INDEX idx_sys_outbox_event_pending ON sys_outbox_event (status, next_retry_at);
+CREATE INDEX idx_sys_outbox_event_pending ON sys_outbox_event (tenant_id, company_id, status, next_retry_at);
 ```
 
 | 項目 | 内容 |
@@ -542,4 +542,6 @@ CREATE INDEX idx_sys_outbox_event_pending ON sys_outbox_event (status, next_retr
 |---|---|---|---|
 | v1.0 | 2026-10-20 | 初版：連携方針、イベントエンベロープ、領域事件 E01〜E34、P2P/O2C/P2M、在庫→会計仕訳 30 ルール、品質・WF 連携、Outbox・補償、月結チェック、マスタ参照、連携マトリクス | Lead |
 | v1.1 | 2026-10-20 | 設計レビュー反映：E35（受入取消）・E36（生産退料）・E37（在庫期間再開）・E38〜E43（組織/倉庫/税码/為替/与信/予測）を追加（計 43 件）。E06 に `warehouseId`、E10 に `taxRate`/`amount`/`taxAmount`、E12 に `invoiceCode`/`invoiceKind`/`deliveryIds`/`totalAmount`、E17 に `diffTreatment`/`lines[]`、E29 に `receiptDate`/`method`/`unappliedAmount`/`matched[]` を追加（後方互換、eventVersion=1）。承認マトリクスを `wf_approval_matrix` に統一 | Lead |
-| v1.2 | 2026-10-21 | `sys_outbox_event` の `uk_sys_outbox_event_id` を `(tenant_id, event_id)` に修正（0708 豁免と一致、蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.2 | 2026-10-21 | #35 迁移に整合：`idx_sys_outbox_event_pending` を `(tenant_id, company_id, status, next_retry_at)` に、`uk_sys_outbox_event_id` を `(tenant_id, event_id)`（テナント級一意、00-common §6.1）に変更 | 业务分析 |
+| v1.3 | 2026-10-21 | `sys_outbox_event` の `uk_sys_outbox_event_id` を `(tenant_id, event_id)` に修正（0708 豁免と一致、蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.4 | 2026-10-21 | main（#31）取込み後の再整合：一意索引・非一意 btree 索引を `tenant_id`（＋`company_id`）先頭に再適用、テナント級一意は 00-common/04 §6.1 第 4 条に従う（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
