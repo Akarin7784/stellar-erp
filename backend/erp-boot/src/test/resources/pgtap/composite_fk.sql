@@ -1,6 +1,6 @@
 -- pgTAP：复合外键（sys/V202610210707）。指向 sys_/mdm_ 的 FK 必须为 (tenant_id, x_id)，跨租户引用被拒。
 BEGIN;
-SELECT plan(6);
+SELECT plan(8);
 
 SELECT is((SELECT count(*)::int FROM pg_constraint k JOIN pg_class r ON r.oid = k.confrelid
             WHERE k.contype = 'f' AND array_length(k.conkey, 1) = 1 AND r.relname ~ '^(sys|mdm)_'),
@@ -13,6 +13,14 @@ SELECT is((SELECT count(*)::int FROM pg_constraint k JOIN pg_class r ON r.oid = 
           0, '指向 sys_/mdm_ 的外键全部以 (tenant_id, …) → (tenant_id, id)');
 SELECT ok(EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uk_mdm_material_tenant_id' AND contype = 'u'),
           'mdm_material 有 uk_mdm_material_tenant_id UNIQUE (tenant_id, id)');
+
+SELECT is((SELECT count(*)::int FROM pg_index i JOIN pg_class tc ON tc.oid = i.indrelid
+            LEFT JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = i.indkey[0]
+            WHERE tc.relname LIKE 'prd\_%' AND NOT i.indisprimary AND NOT i.indisunique AND a.attname IS DISTINCT FROM 'tenant_id'),
+          0, 'prd_ 全部普通索引以 tenant_id 打头');
+SELECT ok(EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_prd_bom_effective'
+                   AND indexdef LIKE '%(tenant_id, company_id, effective_status, valid_from, valid_to)%'),
+          'idx_prd_bom_effective = (tenant_id, company_id, effective_status, valid_from, valid_to)');
 
 -- 准备（owner）：租户 801 / 802 各一个物料
 INSERT INTO mdm_material_category (id, tenant_id, company_id, category_code, category_name, category_path, category_level, is_leaf, status)
