@@ -53,6 +53,7 @@
 - W：`inv_stock_txn_line` DDL。T：`txn_type VARCHAR(16) NOT NULL` あり。書込時トリガーで表頭 `txn_type` と一致（04 §8.1）。
 - W：同一 DDL。T：`ck_inv_stock_txn_line_insp_inbound`：`direction=1` かつ `inspection_flag=true` なら `stock_status=10`。
 - W：`direction`。T：`txn_type` から一意決定、CHECK `direction IN (1,-1)`。
+- G：入庫行で `inspection_flag=false`。W：過账。T：`stock_status=20`（CHECK は true→10 のみ強制。false→20 は過账サービスで保証し、本 AC のテストで検証）。
 
 ## AC-INV-08 状態変換対と可用量
 
