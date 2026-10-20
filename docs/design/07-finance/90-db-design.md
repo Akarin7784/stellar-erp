@@ -271,9 +271,11 @@ CREATE TABLE fin_period (
     updated_by     BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_fin_period PRIMARY KEY (id),
     CONSTRAINT uk_fin_period_code UNIQUE (tenant_id, company_id, period_code),
-    CONSTRAINT ck_fin_period_status CHECK (status IN ('FUTURE','OPEN','CLOSED','YEAR_CLOSED'))
+    CONSTRAINT ck_fin_period_status CHECK (status IN ('FUTURE','OPEN','CLOSED','YEAR_CLOSED')),
+    CONSTRAINT ck_fin_period_date CHECK (start_date <= end_date),
+    CONSTRAINT ck_fin_period_no CHECK (period_no BETWEEN 1 AND 12)
 );
-CREATE INDEX idx_fin_period_status ON fin_period (fiscal_year, status);
+CREATE INDEX idx_fin_period_status ON fin_period (tenant_id, company_id, fiscal_year, status);
 COMMENT ON TABLE fin_period IS '会计期间（期间状态机）';
 ```
 
@@ -1819,6 +1821,8 @@ COMMENT ON TABLE fin_cash_plan IS '资金计划（実装順 P2）';
 | 2 | `uk_fin_account_balance` | fin_account_balance | UNIQUE | (tenant_id, company_id, period_code, account_id, balance_type) | 残高 UPSERT |
 | 3 | `uk_fin_voucher_no` | fin_voucher | UNIQUE | (tenant_id, company_id, period_code, voucher_no) | 凭证号一意 |
 | 4 | `uk_fin_voucher_source` | fin_voucher | UNIQUE 部分 | (tenant_id, company_id, source_type, source_id) | 自動凭证の二重計上防止 |
+| 4a | `uk_fin_period_code` | fin_period | UNIQUE | (tenant_id, company_id, period_code) | 期間コード一意 |
+| 4b | `idx_fin_period_status` | fin_period | B-Tree | (tenant_id, company_id, fiscal_year, status) | 年度別期間状態照会・関帳チェック |
 | 5 | `idx_fin_voucher_period_status` | fin_voucher | B-Tree | (period_code, status) | 一覧・月結チェック |
 | 6 | `uk_fin_voucher_line` | fin_voucher_line | UNIQUE | (voucher_id, line_no) | 行一意 |
 | 7 | `idx_fin_voucher_line_account` | fin_voucher_line | B-Tree | (account_id, voucher_id) | 明細帳 |
@@ -1905,3 +1909,4 @@ COMMENT ON TABLE fin_cash_plan IS '资金计划（実装順 P2）';
 | v1.4 | 2026-10-21 | 発行の並行制御（`mdm_material` 行 `FOR NO KEY UPDATE`、ロック後に有効版取得）、`23P01`→MSG-FIN-134（422） | 业务分析 |
 | v1.5 | 2026-10-21 | `mdm_material.standard_cost` は当月有効版のみ反映、将来月開始版は期間開帳時に刷新（蓝色大肥鱼決定、#14） | 业务分析 |
 | v1.6 | 2026-10-21 | `uk_fin_receivable_line` を `(tenant_id, company_id, receivable_id, line_no)` 先頭に変更し §7.1 例外一覧から削除 | 业务分析 |
+| v1.7 | 2026-10-21 | `fin_period` を migration fin/V202610210706（PR #27）に一致：`idx_fin_period_status` を `(tenant_id, company_id, fiscal_year, status)` に変更、`ck_fin_period_date`・`ck_fin_period_no` を追加、§7 索引一覧に追記 | 业务分析 |
