@@ -23,6 +23,18 @@ PGTAP_DIR=backend/erp-boot/src/test/resources/pgtap
 PG_IMAGE=stellar-erp/postgres-pgtap:latest
 PG_NAME="stellar-local-ci-$$"
 
+# 展开 pgTAP 文件里的「--!include <classpath 路径>」（先找 main/resources，再找 test/resources），与 PgTapSuiteTest 一致
+expand_includes() {
+  local line p
+  while IFS= read -r line || [ -n "$line" ]; do
+    if [[ "$line" =~ ^--!include[[:space:]]+([^[:space:]]+) ]]; then p="${BASH_REMATCH[1]}"
+      if [ -f "backend/erp-boot/src/main/resources/$p" ]; then cat "backend/erp-boot/src/main/resources/$p"
+      elif [ -f "backend/erp-boot/src/test/resources/$p" ]; then cat "backend/erp-boot/src/test/resources/$p"
+      else echo "SELECT 'include not found: $p'::int;"; fi; echo
+    else printf '%s\n' "$line"; fi
+  done < "$1"
+}
+
 db_checks() {
   docker image inspect "$PG_IMAGE" >/dev/null 2>&1 || \
     docker build -q -t "$PG_IMAGE" backend/erp-boot/src/test/docker/postgres-pgtap || return 1
@@ -40,7 +52,7 @@ db_checks() {
   "${psql[@]}" -c 'CREATE EXTENSION IF NOT EXISTS pgtap' || return 1
   local t out bad=0
   for t in "$PGTAP_DIR"/*.sql; do
-    out=$("${psql[@]}" -At < "$t" 2>&1); local rc=$?
+    out=$(expand_includes "$t" | "${psql[@]}" -At 2>&1); local rc=$?
     echo "$out" | grep -E '^(not ok|# )' || true
     if [ $rc -ne 0 ] || echo "$out" | grep -qE '^not ok|Looks like'; then echo "pgTAP 失败: $t"; bad=1
     else echo "pgTAP OK: $(basename "$t") ($(echo "$out" | grep -c '^ok'))"; fi
