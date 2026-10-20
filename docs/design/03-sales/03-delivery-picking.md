@@ -22,7 +22,7 @@
 | 目的 | 承認済受注から出荷指示（DN）を作成し、引當在庫を批次/序列號単位でピッキングして出荷を確定する。出荷確定時に **E10 `sales.delivery.confirmed`** を発行し、在庫域の出庫（E18）と財務域の売上・売掛計上（E27）を起動する。O2C における「出荷事実の確定責任」は本域が持つ |
 | 利用者・ロール | 銷售員（DN 作成・出荷指示）、倉管員（ピッキング・出荷確定・送り状出力）、銷售經理（例外出荷承認）、経理（計上狀況確認） |
 | 利用シーン | ① 受注の納期に合わせた出荷指示 ② 倉庫でのピッキング（バーコード/批次/序列號） ③ 部分出荷 ④ 送り状・納品書の出力 ⑤ 出荷実績・未出荷残の照会 |
-| 優先度 | P0（Phase 1 MVP） |
+| 優先度 | P0（第一版 MVP） |
 | 画面 ID | SCR-SAL-014（発貨通知一覧）、SCR-SAL-015（発貨通知登録編集）、SCR-SAL-016（ピッキング作業）、SCR-SAL-017（出荷確定）、SCR-SAL-018（送り状プレビュー）、SCR-SAL-047（出荷実績照会） |
 | 関連 IF | E10（発行）、E09（引當結果参照）、E18（購読・出庫確認）、E27（購読・売掛計上確認）、INV 可用量/批次照会 API、E31（例外出荷承認） |
 
@@ -55,7 +55,7 @@
 | BR-DN-09 | 出荷確定前に與信再判定を行う。與信超限未承認の場合は出荷を保留し、営業・財務へ通知する | F-SAL-010、09 §5.3 | — |
 | BR-DN-10 | 出荷數量は受注數量を超えてはならない（超過出荷禁止）。不足出荷（部分出荷）は許容し、殘數量をバックオーダーとして保持する。設定 `sales_over_shipment_tolerance`（既定 0%）は將來拡張用 | 08 §5.3、本設計 | `planned_qty` |
 | BR-DN-11 | DN 取消は出荷確定前のみ可能。引當は解除せず受注に戻す（受注は 30 のまま）。出荷確定後の取消は返品処理（F-SAL-006） | 共通業務規則 3.3 | `delivery_status=90` |
-| BR-DN-12 | 送り状（納品書）は出荷確定後に PRT-SAL-004 を出力する。再出力可能。送り状番號は外部（物流）連携時のみ保持し、Phase 1 は自社採番の DN 番號を表示する | 業務慣行 | `carrier_no` |
+| BR-DN-12 | 送り状（納品書）は出荷確定後に PRT-SAL-004 を出力する。再出力可能。送り状番號は外部（物流）連携時のみ保持し、当面は自社採番の DN 番號を表示する | 業務慣行 | `carrier_no` |
 | BR-DN-13 | 出荷確定後の修正は禁止。誤出荷は返品→再出荷で処理する | 共通業務規則 3.3 | — |
 | BR-DN-14 | 出荷日は「出荷確定日」を既定とし、過去日は在庫域の最終取引日以降のみ許可する。未來日は不可 | 共通業務規則 6.1 | `delivery_date` |
 | BR-DN-15 | 出荷明細の単價・稅率は受注明細のスナップショットを使用する（再取價しない） | 共通項目定義 13 | `unit_price`、`tax_rate` |
@@ -254,8 +254,8 @@ stateDiagram-v2
 | 6 | `warehouseId` | 出荷倉 | 選択 | BIGINT | ○ | SO 既定 | 有効倉庫 | MDM | `warehouse_id` | — |
 | 7 | `deliveryStatus` | 狀態 | 表示 | SMALLINT | — | 25 | — | — | `delivery_status` | 25/30/35/40/90 |
 | 8 | `pickingRule` | ピッキングルール | 選択 | VARCHAR(10) | — | FEFO | FEFO/FIFO/MANUAL | sys_param | `picking_rule` | — |
-| 9 | `carrierCode` | 運送會社 | 選択 | VARCHAR(20) | △ | — | Phase2 | MDM | `carrier_code` | — |
-| 10 | `carrierNo` | 送り状番號 | テキスト | VARCHAR(50) | △ | — | Phase2 | 手入力 | `carrier_no` | — |
+| 9 | `carrierCode` | 運送會社 | 選択 | VARCHAR(20) | △ | — |  | MDM | `carrier_code` | — |
+| 10 | `carrierNo` | 送り状番號 | テキスト | VARCHAR(50) | △ | — |  | 手入力 | `carrier_no` | — |
 | 11 | `creditCheckResult` | 與信判定 | 表示 | SMALLINT | — | 出荷時判定 | — | FIN 與信台帳照会 | `credit_check_result` | 10 正常/20 注意/30 超限審査中/40 超限承認済/90 凍結・閉鎖 |
 | 12 | `isException` | 例外出荷 | チェック | BOOLEAN | — | false | 主管承認要 | — | `is_exception` | — |
 | 13 | `exceptionApprovalId` | 例外承認 ID | テキスト | VARCHAR(32) | △ | — | — | WF | `exception_approval_id` | — |
@@ -304,7 +304,7 @@ stateDiagram-v2
 | 9 | 與信再判定 | 自動（確定時） | FIN 與信使用額 + 今次出荷額 → 判定、超過は保留 | GET /api/sales/credits/{customerId}/check | — | MSG-SAL-085 |
 | 10 | 送り状出力 | ボタン | PRT-SAL-004 PDF 生成・再出力 | POST /api/sales/delivery-notes/{id}/print | SCR-SAL-018 | — |
 | 11 | DN 取消 | 取消ボタン | 理由必須・出荷確定前のみ | POST /api/sales/delivery-notes/{id}/cancel | 一覧へ | — |
-| 12 | 品質保留 | ボタン | OQC（任意）で出荷保留フラグ | — | — | Phase2 |
+| 12 | 品質保留 | ボタン | OQC（任意）で出荷保留フラグ | — | — |  |
 | 13 | 實績照会 | 一覧 | 出荷実績を検索・CSV/Excel 出力 | GET /api/sales/shipments | SCR-SAL-047 | — |
 | 14 | トレース照会 | 序列號入力 | 序列號→DN→SO→顧客の逆引き | GET /api/sales/shipments/trace?serialNo= | 同一 | — |
 
@@ -391,7 +391,7 @@ stateDiagram-v2
 4. 與信再判定（PRC-SAL-006-01 の出荷判定）を実行する。超過かつ超限承認なし → 出荷保留（`MSG-SAL-085`、ロールバック）。例外出荷の場合は例外承認を確認する。
 5. 會計期間 OPEN、出荷日が在庫最終取引日以降であることを確認する。
 6. DN 明細の `shipped_qty`（= `picked_qty`）、`line_status`、DN の `delivery_status`（全數なら 40、一部なら 35）、`confirmed_at/by` を更新する。
-7. SO 明細の `shipped_qty`・`line_status`・`shortage_qty` を更新し、SO の `order_status` を 35/40 に更新する（BR-DN-21）。
+7. SO 明細の `shipped_qty`（販売単位）と `shipped_base_qty`（基本単位、`+= 今回出荷販売数量 × conversion_rate`）・`line_status`・`shortage_qty` を**同時に**更新し、SO の `order_status` を 35/40 に更新する（BR-DN-21）。`shipped_base_qty` の更新漏れは不可。
 8. 出荷額分の與信台帳解放は FIN が実施する（SAL は `sal_credit_ledger_snapshot` 投影を E10 購読で更新、`RELEASE_SHIP`）。
 9. Outbox に **E10 `sales.delivery.confirmed`** を INSERT する（第 2.6 節の項目、header `amount`・`taxAmount`、lines `taxRate`・`amount`・`taxAmount`、`serialNos[]` 追加）。
 10. 監査ログ（出荷確定、DN 番號、SO 番號、金額、與信判定結果）を記錄し、`MSG-SAL-107/108` を返す。
@@ -648,7 +648,7 @@ stateDiagram-v2
 | `sal_pick_detail` | INSERT/UPDATE | 庫位、批次、數量、狀態 | ピッキング | PRC-SAL-003-03 |
 | `sal_delivery_serial` | INSERT | 序列號、狀態、出荷日 | ピッキング/確定 | PRC-SAL-003-03/04 |
 | `sal_sales_order` | UPDATE | `order_status`、`closed_at` | 出荷確定連動 | PRC-SAL-003-04 |
-| `sal_sales_order_line` | UPDATE | `shipped_qty`、`line_status`、`shortage_qty` | 出荷確定連動 | PRC-SAL-003-04 |
+| `sal_sales_order_line` | UPDATE | `shipped_qty`、`shipped_base_qty`、`line_status`、`shortage_qty` | 出荷確定連動（両数量を同時更新） | PRC-SAL-003-04 |
 | `sal_credit_ledger_snapshot` | UPDATE | 出荷分解放（投影） | E10 受信 | PRC-SAL-006-02 |
 | `sys_outbox_event` | INSERT | E10 | 出荷確定 | PRC-SAL-003-04 |
 | `sys_audit_log` | INSERT | 出荷確定・取消・印刷 | 各処理 | — |
@@ -730,10 +730,10 @@ stateDiagram-v2
 | # | 事項 | 理由 | 暫定仕様 | 担当 | 期限 |
 |---|---|---|---|---|---|
 | 1 | 出荷確定日（業務日付）と在庫取引日の関係 | INV は「最終取引日以降」制約、SAL は出荷確定日 | 出荷日=出荷確定日を既定。倉庫都合で遡及が必要な場合は主管承認 + INV と協議 | inventory-designer | 2026-10-27 |
-| 2 | 送り状番號の採番主体（自社/物流） | Phase 1 は自社、Phase 2 で物流 IF | Phase 1 は DN 番號を送り状番號として表示 | Lead | Phase 2 |
-| 3 | OQC（出荷検査）要否と出荷保留の連携 | 09 §8 に OQC 任意と記載 | Phase 1 は任意フラグのみ。品質域と詳細設計 | production-designer | 2026-11-01 |
+| 2 | 送り状番號の採番主体（自社/物流） | 当面は自社、第一版 で物流 IF | 当面は DN 番號を送り状番號として表示 | Lead | 第一版 |
+| 3 | OQC（出荷検査）要否と出荷保留の連携 | 09 §8 に OQC 任意と記載 | 当面は任意フラグのみ。品質域と詳細設計 | production-designer | 2026-11-01 |
 | 4 | 一括出荷確定の上限件數（200 件） | 性能目標から暫定 | 200 件。超過は非同期ジョブ | sales-designer | 2026-10-27 |
-| 5 | 運送會社・送り状 IF の詳細 | Phase 2 | `carrier_code`/`carrier_no` の予約項目のみ | integration-designer | Phase 2 |
+| 5 | 運送會社・送り状 IF の詳細 | 第一版 | `carrier_code`/`carrier_no` の予約項目のみ | integration-designer | 第一版 |
 | 6 | シリアル管理物料の返品時の序列號指定 | 返品設計（04-sales-return）と整合 | 返品明細に序列號を保持し、在庫戻入時に同一序列號を指定 | inventory-designer | 2026-10-30 |
 
 ## 14. 改訂履歴

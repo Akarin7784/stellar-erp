@@ -22,7 +22,7 @@
 | 目的 | 顧客注文を、価格・與信・可用量の 3 チェックを経て実行可能な受注として確定し、在庫引當（E06）、與信占有、賣上計上（E10 起点）へ引き渡す。承認済受注の変更は版數で管理し、引當増減（E07）と再承認を保証する |
 | 利用者・ロール | 銷售員（登録・提出）、銷售經理/銷售總監/財務總監/總經理（承認）、信用専員（與信確認）、倉管（引當・出荷狀況参照） |
 | 利用シーン | ① 顧客から注文書/注文メールを受領した時 ② 報價單から受注へ転換する時 ③ 承認済受注の數量・納期・価格変更 ④ 受注の取消・殘數量クローズ |
-| 優先度 | P0（Phase 1 MVP） |
+| 優先度 | P0（第一版 MVP） |
 | 畫面 ID | SCR-SAL-008（一覧）、SCR-SAL-009（登録編集）、SCR-SAL-010（參照詳細）、SCR-SAL-011（承認・WF）、SCR-SAL-012（変更ウィザード）、SCR-SAL-013（変更履歴）、SCR-SAL-034（與信超限承認申請） |
 | 関連 IF | E05/E06/E07/E08（発行）、E09/E31/E32（購読）、MDM 価格・與信參照 API、INV 可用量照會 API |
 
@@ -69,7 +69,7 @@
 | BR-15 | 取消は出荷実績がない場合のみ可能。取消時に E08 を発行し、**FIN が E08 を購読して與信台帳のコミットを解放する**（SAL は解放処理を行わない）。出荷済の場合は返品処理（F-SAL-006）で対応する | 共通業務規則 3.3、Lead 裁定 2026-10-20 | `status=90` |
 | BR-16 | 稅額は**明細行単位**で計算し、伝票合計は明細の合計とする（伝票全體での再丸め禁止）。端數は四捨五入（HALF_UP）2 桁 | 共通業務規則 4.2 | `tax_amount` |
 | BR-17 | 顧客名・稅號・住所・連絡先・物料名・仕様・單位・單價・稅率・為替レートは**登録時點のスナップショット**を保持する（マスタ変更の影響を受けない） | 共通項目定義 13 | 各 `*_name`、`*_code` |
-| BR-18 | Phase 1 の通貨は CNY のみ。外貨・Incoterms・通関情報は SO ヘッダの予約項目（Phase 2）に保存できるが、業務チェックは行わない | 出口銷售 F-SAL-016 | `currency_code`、`incoterms_code` |
+| BR-18 | 第一版 の通貨は CNY のみ。外貨・Incoterms・通関情報は SO ヘッダの予約項目に保存できるが、業務チェックは行わない | 出口銷售 F-SAL-016 | `currency_code`、`incoterms_code` |
 | BR-19 | 承認済金額・數量は監査ログの `before_data`/`after_data` に必ず記錄する | 共通項目定義 12 | `sys_audit_log` |
 | BR-20 | 與信チェックは「登録時（注意表示）」「提出時（判定）」「最終承認時（再判定）」「出荷時（再判定）」の 4 回行う。判定は FIN 與信台帳の使用額を照会して行い、判定根拠を `sal_credit_check_log` に記録する（コミットの更新は FIN が実施）。承認時に他傳票で與信が悪化した場合は承認を保留し、超限承認へ差し戻す | 與信規程、Lead 裁定 2026-10-20 | `credit_check_log` |
 | BR-21 | 與信コミットの解放は **FIN 與信台帳の責任**：① 出荷確定（E10）時に出荷分を解放（同時に FIN 應收が増加）② 入金（E29）時に應收減少分を解放 ③ 取消・却下（E08）時に全額解放。SAL は台帳を更新せず、必要に応じて `sal_credit_ledger_snapshot`（FIN 台帳の読取投影）を照会する | 09 §5.2、Lead 裁定 2026-10-20 | `sal_credit_ledger_snapshot` |
@@ -77,6 +77,7 @@
 | BR-23 | 承認待ち（20）中の編集は禁止。差戻し（20→10）後にのみ編集できる | 共通規則 3.3 | `status` |
 | BR-24 | 引當済（30）以降の受注は、引當數量の範圍內でのみ出荷指示できる。引當不足分の出荷は主管承認（例外出荷）を必要とする | 在庫域 06 | `reserved_qty` |
 | BR-25 | 受注番號は `SO{YYMMDD}{4桁日序}`（共通業務規則 2.1）。取消・再作成でも新しい番號を採番する | 共通業務規則 2 | `sales_order_no` |
+| BR-26 | 受注変更で數量を減らす場合、変更後の基本単位數量（`ordered_qty × conversion_rate`）は `completed_qty`（已完工）以上かつ `shipped_base_qty`（已出库）以上でなければならない。下限は `max(completed_qty, shipped_base_qty)`。違反時は HTTP 422・業務コード `30022`・`MSG-SAL-056`（販売単位の已出荷チェック `MSG-SAL-054` と併用可）。跨表ロックは受注行を先に `FOR UPDATE`（[04 §11.1](../00-common/04-common-db-spec.md)）。 | G2-08/#24、G2-18 | `ordered_qty`、`completed_qty`、`shipped_base_qty` |
 
 ### 2.3 計算式・判定式
 
@@ -261,7 +262,7 @@ stateDiagram-v2
 | 10 | `externalNo` | 顧客注文番號 | テキスト | VARCHAR(100) | △ | — | 桁數。同一顧客で重複警告 | 手入力 | `external_no` | 重複は警告のみ |
 | 11 | `salesDepartmentId` | 販売部門 | 選択 | BIGINT | ○ | ユーザ既定 | 組織存在 | SYS 組織 | `sales_department_id` | データ範圍 |
 | 12 | `ownerUserId` | 営業擔當 | 選択 | BIGINT | ○ | ログインユーザ | 有効ユーザ | SYS ユーザ | `owner_user_id` | — |
-| 13 | `currencyCode` | 通貨 | 選択 | VARCHAR(3) | ○ | CNY | Phase1 CNY のみ | MDM 通貨 | `currency_code` | Phase2 外貨 |
+| 13 | `currencyCode` | 通貨 | 選択 | VARCHAR(3) | ○ | CNY | 当面 CNY のみ（多币种第一版対象） | MDM 通貨 | `currency_code` |  外貨 |
 | 14 | `exchangeRate` | 為替レート | 數値 | NUMERIC(18,8) | △ | 1.00000000 | > 0 | MDM レート | `exchange_rate` | CNY は 1 |
 | 15 | `priceListId` | 價格表 | 選択 | BIGINT | △ | 顧客既定 | 有効 | MDM 價格表 | `price_list_id` | 未指定時は標準價 |
 | 16 | `paymentTermCode` | 付款條件 | 選択 | VARCHAR(20) | ○ | 顧客既定 | コード存在 | MDM | `payment_term_code` | 應收予定日算出 |
@@ -280,8 +281,8 @@ stateDiagram-v2
 | 29 | `orderStatus` | 狀態 | 表示 | SMALLINT | — | 10 | — | — | `order_status` | 共通バッジ |
 | 30 | `versionNo` | 業務版數 | 表示 | INT | — | 1 | — | — | `version_no` | 変更で +1 |
 | 31 | `remark` | 備考 | テキスト | VARCHAR(500) | △ | — | 500 桁 | 手入力 | `remark` | — |
-| 32 | `incotermsCode` | Incoterms | 選択 | VARCHAR(10) | △ | — | Phase2 | MDM | `incoterms_code` | 予約項目 |
-| 33 | `incotermsPlace` | 引渡場所 | テキスト | VARCHAR(100) | △ | — | Phase2 | 手入力 | `incoterms_place` | 予約項目 |
+| 32 | `incotermsCode` | Incoterms | 選択 | VARCHAR(10) | △ | — |  | MDM | `incoterms_code` | 予約項目 |
+| 33 | `incotermsPlace` | 引渡場所 | テキスト | VARCHAR(100) | △ | — |  | 手入力 | `incoterms_place` | 予約項目 |
 
 #### 4.4.2 明細項目（SCR-SAL-009 明細）
 
@@ -313,11 +314,13 @@ stateDiagram-v2
 | 24 | `deliveryDate` | 納期 | 日付 | DATE | ○ | 受注日+LT | 受注日以降 | — | `delivery_date` |
 | 25 | `warehouseId` | 出荷倉 | 選択 | BIGINT | ○ | ヘッダ既定 | 倉庫存在 | — | `warehouse_id` |
 | 26 | `reservedQty` | 引當済數量 | 表示 | NUMERIC(18,4) | — | 0 | — | E09 反映 | `reserved_qty` |
-| 27 | `shippedQty` | 出荷済數量 | 表示 | NUMERIC(18,4) | — | 0 | — | E10 反映 | `shipped_qty` |
+| 27 | `shippedQty` | 出荷済數量（販売単位） | 表示 | NUMERIC(18,4) | — | 0 | — | E10 反映 | `shipped_qty` |
+| 27b | `shippedBaseQty` | 出荷済數量（基本単位） | 表示 | NUMERIC(18,4) | — | 0 | — | E10 反映（`shipped_qty × conversion_rate` 累計） | `shipped_base_qty` |
+| 27c | `conversionRate` | 換算率（スナップショット） | 表示 | NUMERIC(18,8) | — | 1 | — | 確定時固定 | `conversion_rate` |
 | 28 | `cancelledQty` | 取消數量 | 表示 | NUMERIC(18,4) | — | 0 | — | — | `cancelled_qty` |
 | 29 | `remainingQty` | 受注殘 | 表示 | NUMERIC(18,4) | — | 自動 | — | CALC-13 | 計算のみ |
 | 30 | `shortageQty` | 引當不足 | 表示 | NUMERIC(18,4) | — | 0 | — | E09 反映 | `shortage_qty` |
-| 31 | `expectedAvailableDate` | 入荷/完成予定日 | 日付 | DATE | △ | — | — | PRD/PUR 照會（Phase1 は手入力） | `expected_available_date` |
+| 31 | `expectedAvailableDate` | 入荷/完成予定日 | 日付 | DATE | △ | — | — | PRD/PUR 照會（当面は手入力可。TODO：自動連係） | `expected_available_date` |
 | 32 | `customerMaterialNo` | 顧客品番 | テキスト | VARCHAR(100) | △ | — | 桁數 | — | `customer_material_no` |
 | 33 | `lineStatus` | 明細狀態 | 表示 | SMALLINT | — | 10 | — | 10 未引當/30 引當済/35 一部出荷/40 完了/90 取消 | `line_status` |
 | 34 | `lineRemark` | 明細備考 | テキスト | VARCHAR(500) | △ | — | 500 桁 | — | `line_remark` |
@@ -485,7 +488,7 @@ stateDiagram-v2
 2. 変更差分を計算する：追加行（INSERT）、削除行（`line_status=90`）、數量・納期・価格変更（UPDATE）。変更前値を `sal_sales_order_line_version` に保存する。
 3. 変更後金額で與信再判定（FIN 與信台帳照会）を行い、増加時は E07 発行後に FIN が台帳の差分コミットを更新する（SAL は判定のみ）。超過時は承認保留。
 4. `sal_sales_order.version_no` を +1、`sal_sales_order_version` を `change_status=25`、合計を更新する。
-5. 出荷済/引當済數量との整合チェック（変更後數量 ≥ 出荷済數量。引當済を下回る場合は INV へ E07 で減算指示）。
+5. 數量整合チェック：変更後の基本単位數量（`ordered_qty × conversion_rate`）≥ `max(completed_qty, shipped_base_qty)`。未満なら HTTP 422・`30022`・`MSG-SAL-056` で拒否。販売単位では変更後數量 ≥ `shipped_qty`（`MSG-SAL-054`）。引當済を下回る場合は INV へ E07 で減算指示。
 6. Outbox に E07 `sales.order.changed` を INSERT する。payload は第 7.3 節の通り（差分明細、version）。
 7. E07 を発行し（FIN が與信台帳の差額を更新）、`MSG-SAL-051` を返す。E09 受信で `change_status=40` に更新する。
 
@@ -852,6 +855,7 @@ stateDiagram-v2
 | MSG-SAL-052 | I | 变更已中止。 | 変更中止 | — | INFO |
 | MSG-SAL-053 | W | 变更后的引当数量将减少 {0}，已通知库存域释放引当。 | 引當減 | — | INFO |
 | MSG-SAL-054 | E | 变更后数量不能小于已出荷数量 {0}。 | 変更數量不正 | 數量修正 | WARN |
+| MSG-SAL-056 | E | 变更后数量（基本单位）不能小于已完工数量或已出库数量 {0}。 | 変更後基本単位數量 < `completed_qty` または < `shipped_base_qty` | 數量修正（≥ max(已完工, 已出库)） | WARN |
 | MSG-SAL-055 | W | 本次变更金额增加 {0}，超出与信余力，需要重新审批。 | 変更改信 | 再承認 | WARN |
 
 ## 10. 権限・セキュリティ
