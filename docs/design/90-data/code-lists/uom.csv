@@ -1,0 +1,22 @@
+uom_code,uom_name_cn,uom_name_en,uom_type,conversion_group,base_quantity,base_uom,decimal_digits,source,status,valid_from,remark
+C62,件,one / piece,计数,PCS,1,C62,0,【実データ】UN/ECE Rec20, A,2026-10-20,標準コード；画面表示は「件」
+PCE,件（内部慣用）,piece,计数,PCS,1,C62,0,【設計値】中国国内ERP慣用；C62と同値換算,A,2026-10-20,在庫・BOMの基本単位として多用
+SET,套,set,计数,SET,1,SET,0,【設計値】,A,2026-10-20,BOM組立単位
+DZN,打,dozen,计数,PCS,12,C62,0,【実データ】UN/ECE Rec20,A,2026-10-20,12個単位
+BOX,箱,box,包装,BOX,1,BOX,0,【実データ】UN/ECE Rec20,A,2026-10-20,中身数量は品目別
+PK,包,pack,包装,PK,1,PK,0,【設計値】,A,2026-10-20,
+ROL,卷,roll,计数,ROL,1,ROL,0,【設計値】,A,2026-10-20,電工鋼・電磁線・絶縁材の包装単位
+KGM,千克,kilogram,質量,MASS,1,KGM,3,【実データ】SI基本単位（GB 3100-1993）,A,2026-10-20,材料の基本単位
+GRM,克,gram,質量,MASS,0.001,KGM,3,【実データ】SI組立単位,A,2026-10-20,
+TNE,吨,tonne,質量,MASS,1000,KGM,3,【実データ】SI併用単位（t）,A,2026-10-20,鋼材・鋳物の購買単位
+MGM,毫克,milligram,質量,MASS,0.000001,KGM,3,【実データ】SI組立単位,A,2026-10-20,
+MTR,米,metre,長さ,LEN,1,MTR,3,【実データ】SI基本単位,A,2026-10-20,引接線・電線
+CMT,厘米,centimetre,長さ,LEN,0.01,MTR,2,【実データ】SI組立単位,A,2026-10-20,
+MMT,毫米,millimetre,長さ,LEN,0.001,MTR,2,【実データ】SI組立単位,A,2026-10-20,板厚・径
+MTK,平方米,square metre,面積,AREA,1,MTK,3,【実データ】SI組立単位,A,2026-10-20,板材面積
+MTQ,立方米,cubic metre,体積,VOL,1,MTQ,3,【実データ】SI組立単位,A,2026-10-20,
+LTR,升,litre,体積,VOL,0.001,MTQ,3,【実データ】SI併用単位（1L=1dm3）,A,2026-10-20,液体（絶縁漆等）
+MLT,毫升,millilitre,体積,VOL,0.000001,MTQ,3,【実データ】SI組立単位,A,2026-10-20,
+HUR,小时,hour,時間,TIME,1,HUR,2,【実データ】SI併用単位（h）,A,2026-10-20,工数・リードタイム
+DAY,天,day,時間,TIME,24,HUR,2,【実データ】SI併用単位（d）,A,2026-10-20,日程
+KWH,千瓦时,kilowatt hour,エネルギー,ENERGY,1,KWH,3,【実データ】SI併用単位,A,2026-10-20,電力（設備・原価）

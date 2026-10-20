@@ -1,0 +1,6 @@
+rule_code,object_type,number_pattern,example,reset_cycle,generator,status,remark
+BN-P,購買材料批号,{YYMMDD}P{3位流水},261020P001,日次,在庫域（入荷時採番）,A,【示例値】P=Purchase
+BN-M,製造半成品批号,{YYMMDD}M{3位流水},261020M001,日次,生産/在庫域（完工時採番）,A,【示例値】M=Manufacture
+BN-O,その他入庫批号,{YYMMDD}O{3位流水},261020O001,日次,在庫域（他入庫時採番）,A,【示例値】O=Other
+BN-SN,成品序列号,{YYMMDD}{機座号3桁}{4位流水},2610201000001,日次,生産/在庫域（成品完工時採番）,A,【示例値】機座号100＝100
+BN-LOT,材料受入ロット（仕入先ロット）,{仕入先コード}-{YYYYMMDD}-{2位},S000001-20261020-01,ロット単位,購買/在庫域（受入時登録）,A,【示例値】仕入先ロットを保持する場合

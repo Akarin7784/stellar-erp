@@ -22,6 +22,8 @@
 
 选型依据、对比矩阵与版本核查结果见 **[docs/tech-selection.md](docs/tech-selection.md)**。
 
+业务与功能的详细设计（日式「詳細設計書」规范、中文正文、真实资料基准）见 **[docs/design/README.md](docs/design/README.md)**：覆盖系统管理、主数据、销售、采购、库存、生产、财务、工作流、集成、报表共 10 个业务域，含機能一覧、画面項目定義、処理詳細、DB 設計、API 設計、帳票・バッチ、メッセージ、権限、テスト観点。
+
 ## 目录结构
 
 ```
@@ -35,7 +37,8 @@ stellar-erp/
 ├── frontend/                   # Vue 3 + Vite 前端
 ├── docs/
 │   ├── tech-selection.md       # 技术选型方案
-│   └── adr/                    # 架构决策记录
+│   ├── adr/                    # 架构决策记录
+│   └── design/                 # 业务详细设计书体系（共通设计/10 业务域/矩阵/真实资料）
 ├── docker-compose.yml          # 本地依赖：PostgreSQL / Redis / RabbitMQ
 └── .github/workflows/ci.yml    # 持续集成
 ```

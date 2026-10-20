@@ -1,0 +1,21 @@
+country_code,country_code_alpha3,country_name_cn,country_name_en,region_group,status,valid_from,remark
+CN,CHN,中国,China,亚洲,A,2026-10-20,主対象；国内取引先の国コード
+JP,JPN,日本,Japan,亚洲,A,2026-10-20,Phase 2
+KR,KOR,韩国,Republic of Korea,亚洲,A,2026-10-20,Phase 2
+US,USA,美国,United States of America,北美洲,A,2026-10-20,Phase 2
+DE,DEU,德国,Germany,欧洲,A,2026-10-20,Phase 2
+FR,FRA,法国,France,欧洲,A,2026-10-20,Phase 2
+GB,GBR,英国,United Kingdom of Great Britain and Northern Ireland,欧洲,A,2026-10-20,Phase 2
+IT,ITA,意大利,Italy,欧洲,A,2026-10-20,Phase 2
+IN,IND,印度,India,亚洲,A,2026-10-20,Phase 2
+VN,VNM,越南,Viet Nam,亚洲,A,2026-10-20,Phase 2
+TH,THA,泰国,Thailand,亚洲,A,2026-10-20,Phase 2
+MY,MYS,马来西亚,Malaysia,亚洲,A,2026-10-20,Phase 2
+SG,SGP,新加坡,Singapore,亚洲,A,2026-10-20,Phase 2
+RU,RUS,俄罗斯,Russian Federation,欧洲,A,2026-10-20,Phase 2
+BR,BRA,巴西,Brazil,南美洲,A,2026-10-20,Phase 2
+AU,AUS,澳大利亚,Australia,大洋洲,A,2026-10-20,Phase 2
+CA,CAN,加拿大,Canada,北美洲,A,2026-10-20,Phase 2
+HK,HKG,中国香港,Hong Kong,亚洲,A,2026-10-20,Phase 2
+MO,MAC,中国澳门,Macao,亚洲,A,2026-10-20,Phase 2
+TW,TWN,中国台湾,Taiwan (Province of China),亚洲,A,2026-10-20,Phase 2；ISO 4217 表記に準拠

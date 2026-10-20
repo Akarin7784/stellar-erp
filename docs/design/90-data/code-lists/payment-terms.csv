@@ -1,0 +1,19 @@
+record_type,code,name_cn,name_en,settlement_type,settlement_basis,payment_day_type,prepay_ratio,net_days,due_rule,status,remark
+SETTLEMENT,BANK_TRANSFER,电汇（银行转账）,Bank Transfer,20,,,0,0,銀行振込,A,【示例値】settlement_type 20=转账
+SETTLEMENT,ACCEPTANCE_BANK,银行承兑汇票,Bank Acceptance,30,,,0,0,銀行引受手形,A,【示例値】settlement_type 30=票据
+SETTLEMENT,ACCEPTANCE_COMMERCIAL,商业承兑汇票,Commercial Acceptance,30,,,0,0,商業引受手形,A,【示例値】30=票据
+SETTLEMENT,CASH,现金,Cash,10,,,0,0,現金,A,【示例値】10=現金
+SETTLEMENT,CHEQUE,支票,Cheque,30,,,0,0,小切手,A,【示例値】30=票据
+SETTLEMENT,LC,信用证,Letter of Credit,40,,,0,0,信用状,A,【示例値】40=信用证
+SETTLEMENT,COLLECTION_DP,付款交单,D/P,50,,,0,0,D/P,A,【示例値】50=その他
+SETTLEMENT,COLLECTION_DA,承兑交单,D/A,50,,,0,0,D/A,A,【示例値】50=その他
+SETTLEMENT,ONLINE,在线支付,Online Payment,20,,,0,0,ネット決済,A,【示例値】20=转账
+SETTLEMENT,OFFSET,冲抵,Offset,50,,,0,0,相殺（要承認）,A,【示例値】50=その他
+PAYMENT_TERM,PREPAY100,预付100%,Prepay 100%,,50,50,100,0,発注時全額前払,A,【示例値】basis 50=注文日/day 50=即時
+PAYMENT_TERM,PREPAY30_AR70,预付30%・验收后70%,Prepay 30% / 70% on acceptance,,20,50,30,0,発注時30%＋検収後70%,A,【示例値】basis 20=検収日
+PAYMENT_TERM,NET30,月结30天,Net 30,,40,20,0,30,月末締め翌月末払い,A,【示例値】basis 40=月末/day 20=次月末
+PAYMENT_TERM,NET60,月结60天,Net 60,,40,30,0,60,月末締め翌々月末払い,A,【示例値】day 30=再次月末
+PAYMENT_TERM,NET90,月结90天,Net 90,,40,30,0,90,月末締め3か月後払い,A,【示例値】3か月後（DDLの支払日区分は近似）
+PAYMENT_TERM,COD,货到付款,Cash on Delivery,,30,50,0,0,納品時払い,A,【示例値】basis 30=発貨日
+PAYMENT_TERM,EOM,当月月末払い,End of Month,,40,10,0,0,月末締め当月払い,A,【示例値】day 10=当月末
+PAYMENT_TERM,CUSTOM,自定义,Custom,,40,40,0,0,個別契約による期日,A,【示例値】day 40=固定日（fixed_payment_day 使用）
