@@ -516,7 +516,7 @@ CREATE TABLE sal_sales_order_line (
 - 跨表ロック順序：受注行 → 工单（同一表は id 昇順）。過帳は行ロックのみ（[04 §11.1](../00-common/04-common-db-spec.md)）。
 - **完工上報処理（2026-10-21）**：受注行を `SELECT … FOR UPDATE` でロックした直後に `allowed_qty IS NULL` を判定し、NULL（未スナップショット）なら 5000 を返して処理を中断する（0 とみなして比較しない）。非 NULL の場合のみ `completed_qty + 今回 ≤ allowed_qty` を検証する。超産承認時も同様。
 - 工单の物料は受注行の物料と一致しなければならない（生産ドメインで検証）。
-- **`allowed_qty` の NULL（2026-10-21 決定）**：NULL 可・既定値なし。NULL＝受注確定時のスナップショット未取得。超産承認・完工上報で NULL を読んだ場合はサービス層が 5000 を返す（G2-18 S1 と同じ扱い。0 とみなさない）。`ck_sal_sol_completed_qty` および `ck_sal_sales_order_line_qty` の `allowed_qty` 条件は NULL を通過させる（SQL CHECK の UNKNOWN＝通過）。
+- **`allowed_qty` の NULL（2026-10-21 決定）**：NULL 可・既定値なし。NULL＝受注確定時のスナップショット未取得。超産承認・完工上報・工单下达で NULL を読んだ場合はサービス層が 5000 を返す（下达は工单ロック前に受注行で判定。蓝色大肥鱼 2026-10-21 決定）（G2-18 S1 と同じ扱い。0 とみなさない）。`ck_sal_sol_completed_qty` および `ck_sal_sales_order_line_qty` の `allowed_qty` 条件は NULL を通過させる（SQL CHECK の UNKNOWN＝通過）。
 - **完工上限 CHECK（2026-10-21 決定）**：`ck_sal_sol_completed_qty CHECK (completed_qty >= 0 AND completed_qty <= allowed_qty)` を受注明細に付与する（G2-18 承認済設計、[30-review/R3-对抗性评审-第2轮-异常路径.md:89](../30-review/R3-对抗性评审-第2轮-异常路径.md)）。サービス層が先に 60040／60100 で拒否し、本制約は DB 層の最終防衛線。SQLSTATE 23514 を受けた場合、制約名 `ck_sal_sol_completed_qty` で判定して 60040 に変換する（OPA と同じ方式。5000 に落とさない）。
 
 
@@ -1507,6 +1507,7 @@ CREATE INDEX idx_sal_forecast_line_material ON sal_sales_forecast_line (material
 | v1.2 | 2026-10-21 | 蓝色大肥鱼 決定反映：①明細表 16 本に `company_id` を付与（§1.3 改訂）②受注明細に `ck_sal_sol_completed_qty`（G2-18、23514→60040）③親 ID 先頭の一意索引例外 12 本を `(tenant_id, company_id, …)` 先頭へ変更し例外登録を削除 | 業務分析 |
 | v1.3 | 2026-10-21 | `sal_sales_order_line.allowed_qty` を NULL 可・既定値なしに変更（NULL＝未スナップショット、承認／完工時に NULL なら 5000、CHECK は NULL 通過）。完工上報処理に「受注行ロック後 `allowed_qty IS NULL` は 5000」を追記 | 業務分析 |
 | v1.4 | 2026-10-21 | `uk_sal_sales_order_source`・`uk_sal_credit_occ_source`・`uk_sal_receivable_snapshot_fin` に `company_id` を追加（`(tenant_id, company_id, …)` 先頭）、§5 制約一覧を DDL に一致 | 業務分析 |
+| v1.5 | 2026-10-21 | `allowed_qty` NULL→5000 の対象に工单下达（MTO）を追加（工单ロック前に受注行で判定、蓝色大肥鱼 2026-10-21 決定） | 業務分析 |
 
 
 
