@@ -287,7 +287,7 @@ CREATE TABLE mdm_material (
     cost_category         SMALLINT     NULL,           -- 成本分类
     cost_method           SMALLINT     NOT NULL DEFAULT 1, -- 成本核算方法 1品种法/2分批法（FIN直接参照）
     valuation_method      SMALLINT     NOT NULL,       -- 10移动平均/20标准成本（R1：MTS 自制品 20、MTO 产品・外购料 10。既定値なし）
-    standard_cost         NUMERIC(18,6) NULL,          -- 标准成本（スナップショット。原価卷算の発行処理のみ書込、他の UPDATE はトリガーで拒否。正は fin_standard_cost）
+    standard_cost         NUMERIC(18,6) NULL,          -- 标准成本（スナップショット。fin_publish_standard_cost（所有者 erp_cost_publisher）のみ更新可、他はトリガーで拒否。正は fin_standard_cost）
     standard_price        NUMERIC(18,6) NULL,          -- 标准销售价（参考）
     tax_classification_code VARCHAR(32) NULL,          -- 税收分类编码
     -- 质量视图
@@ -332,13 +332,18 @@ CREATE INDEX gin_mdm_material_ext ON mdm_material USING gin (ext_data jsonb_path
 
 **T1 確定事項（2026-10-20 決定、G2-18 前提）**：
 
-- **容差は比率**（`NUMERIC(5,4)`、`0.05` = 5%）。
+- **容差は比率**（`NUMERIC(5,4)`、`0.05` = 5%）。全ての容差・率列は NULL 可・既定値なし。**NULL = チェーンの次段を継承、0 = 明示的に 0%**。
   - 完工超収：受注行 > 物料（`completion_over_rate`）> 物料分類（`mdm_material_category.completion_over_rate`）> 会社既定（`sys_param` の `prd.completion_over_rate`、既定 `0.05`（`sys_param` はテナント単位・RLS 対象。テナント作成時に `sys_init_tenant(tenant_id)` が投入、既存の種テナントはマイグレーションで明示投入。未設定時はエラー 5000）、[01-system 90 §3.15](../01-system/90-db-design.md)）。
   - 出荷超過：受注行 > 物料（`ship_over_rate`）> 会社既定 0。
   - 購買受入（`over_receipt_tolerance_pct`）は別系統で従来どおり 物料 > 分類 > 仕入先 > 会社（05 §2.4）。この列も比率 `NUMERIC(5,4)`（0.05=5%）に統一。列名は 04-purchase（`90-db-design.md`、`04-receipt-iqc.md`）が参照しているため `_pct` のまま据え置く（TODO：購買ドメインの PR で `_rate` への改名と参照側の比率化を行う）。
 - **数量は基本単位**。`allowed_qty = floor(ordered_qty × (1 + rate))`（基本単位の精度 `mdm_uom.decimal_places` で切捨て）。受注行確定時にスナップショットし、承認済み受注変更・超産承認の時のみ再計算（詳細は販売・生産ドメイン）。
 - **検査フラグ**：`mdm_material` に `inspection_required` 列は**作らない**。入庫明細の `inspection_flag` は `inspection_stage` から導出し、明細にスナップショットとして書き込む（導出規則は 05-inventory 文書で確定）。
-- **標準原価**：唯一の正は `fin_standard_cost`（版管理・有効期間付き、DDL は 07-finance で定義。TODO：07-finance 側の DDL が未作成）。`mdm_material.standard_cost` は**スナップショット列**で、原価卷算結果の発行（cost roll-up release）処理のみが書き込む。それ以外の UPDATE はトリガーで拒否する。工单下达時は `prd_work_order.standard_cost` にスナップショットする（Refs #32、#8）。
+- **標準原価**：唯一の正は `fin_standard_cost`（版管理・有効期間付き、DDL は 07-finance で定義。TODO：07-finance 側の DDL が未作成）。`mdm_material.standard_cost` は**スナップショット列**で、原価卷算結果の発行関数 `fin_publish_standard_cost` のみが書き込む（下記の保護方式）。工单下达時は `prd_work_order.standard_cost` にスナップショットする（Refs #32、#8）。
+- **`standard_cost` の更新保護**（関数 `fin_publish_standard_cost` の DDL は 07-finance で定義。本書は相互参照のみ）：
+  - 専用の NOLOGIN ロール `erp_cost_publisher` が `SECURITY DEFINER` 関数 `fin_publish_standard_cost` を所有する。関数は `search_path` を固定し、最初に `set_config('app.tenant_id', 対象 tenant, true)` を設定する（FORCE RLS が適用される）。
+  - `erp_cost_publisher` には `mdm_material` の列単位 `UPDATE (standard_cost)` のみを付与する。
+  - トリガーは `standard_cost` の変更を `current_user = 'erp_cost_publisher'` の場合のみ許可し、それ以外は拒否する。`app.cost_publish` 等のセッションフラグは使わない。
+  - `erp_app` には `mdm_material` の表単位 `UPDATE` を付与しない。`standard_cost` 以外の全列に列単位 `UPDATE` を付与する。`ALTER DEFAULT PRIVILEGES` による一括 UPDATE 付与から本表を除外する（または付与後に REVOKE して列単位付与を再適用する）。
 - `valuation_method` は `NOT NULL`、既定値なし（R1：MTS 自制品 20、MTO 产品・外购料 10）。
 
 **项目定义补足（01 との対応）**：各列の論理名・必須・入力チェックは [01-material-master.md](01-material-master.md) 2.5.1〜2.5.7 を正とする。DB では `material_type`=10〜80、`inspection_stage`=0〜40、`approval_status`=10/20/25/90/95、`status`=0/1。`default_bom_code`/`default_routing_code`/`inspection_standard_id` は PRD 域のマスタをコード/ID 参照（FK は張らない）。

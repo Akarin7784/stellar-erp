@@ -49,7 +49,7 @@
 | BR-MDM-04 | 批次・序列号・保質期・质检の各フラグは在庫・生產・质量域の動作を決める。登録後の変更は「关键項目变更」として審批必須 | 08 第 6 章、09 第 8 章 | `is_batch_managed`、`is_serial_managed`、`shelf_life_days`、`inspection_stage` |
 | BR-MDM-05 | 倒冲（`is_backflush`）は「製造品かつ BOM 必須」の品目のみ設定可。倒冲倉庫は必須 | プル型生産の業務慣行 | `is_backflush`、`backflush_warehouse_id` |
 | BR-MDM-06 | 安全在庫・再訂貨点・最大在庫は 0 以上。`safety_stock_qty <= reorder_point_qty <= max_stock_qty` を満たすこと（0 は未設定扱い） | INV 補充発注の運用 | `safety_stock_qty` 等 |
-| BR-MDM-07 | 標準原価（`standard_cost`）は財務が費用計上に使う参考値。移動平均法運用中は原価計算に使用しない。標準原価の正は `fin_standard_cost`（版管理・有効期間付き、07-finance）で、本列はスナップショット（原価卷算の発行処理のみ書込、他の更新はトリガーで拒否） | 08 第 6 章 | `valuation_method`、`standard_cost` |
+| BR-MDM-07 | 標準原価（`standard_cost`）は財務が費用計上に使う参考値。移動平均法運用中は原価計算に使用しない。標準原価の正は `fin_standard_cost`（版管理・有効期間付き、07-finance）で、本列はスナップショット（`fin_publish_standard_cost` のみ更新可、`erp_app` は列権限なし・トリガーで拒否。[90 §4.1.2](90-db-design.md)） | 08 第 6 章 | `valuation_method`、`standard_cost` |
 | BR-MDM-08 | 采购・销售・库存の各「使用停止」フラグ（`is_purchase_stopped` 等）は業務停止のみ。マスタ全体の使用停止は `status=0`（承認必須） | 08 第 11 章 | `status`、`is_*_stopped` |
 | BR-MDM-09 | 使用中の物料は論理削除不可。参照チェック（未完了伝票・在庫残・BOM 使用・価格表行）で 1 件でも参照があれば `status=0`（使用停止）を案内する | 01 共通項目定義 11.2、[04 DB 共通規格](../00-common/04-common-db-spec.md) 第 6 章 | `status` |
 | BR-MDM-10 | 物料名称・規格・材質・品牌・執行標準は技術部の図面・標準に一致すること。材料牌号（例 50W470、HT200、45#）は GB/JB 標準の表記をそのまま使用する | 国家標準表記の慣行 | `material_grade`、`standard_code` |
@@ -155,7 +155,7 @@ stateDiagram-v2
 | P06 | `default_supplier_id` | 既定供應商 | BIGINT | NULL | — | NULL | 有効供應商 | マスタ | MRP 計画発注 | 参考値。発注時に変更可 |
 | P07 | `supplier_material_no` | 供應商品番 | VARCHAR(64) | NULL | — | NULL | ≤ 64 字 | 入力 | PUR 発注書・対照 | — |
 | P08 | `purchase_tax_code` | 購買税码 | VARCHAR(32) | NULL | △ | 分類既定 | 有効税码・`tax_type=11` 進項 | マスタ | PUR/FIN 進項税 | 例 VAT13-IN（基礎税率コード VAT13） |
-| P09 | `over_receipt_tolerance_pct` | 過入荷容差 | NUMERIC(5,4) | NULL | — | 0 | 0〜1（比率） | 入力 | PUR 受入 | 比率で保存（0.05=5%。列名は PUR 参照のため据え置き）。品目>分類>仕入先>会社既定の優先順（05 §2.4 BR-SET-11） |
+| P09 | `over_receipt_tolerance_pct` | 過入荷容差 | NUMERIC(5,4) | NULL | — | NULL | 0〜1（比率） | 入力 | PUR 受入 | 比率で保存（0.05=5%。列名は PUR 参照のため据え置き）。NULL＝次段を継承、0＝明示 0%。品目>分類>仕入先>会社既定の優先順（05 §2.4 BR-SET-11） |
 | P10 | `buyer_id` | 購買担当 | BIGINT | NULL | — | NULL | 有効ユーザ | マスタ | PUR 割当 | — |
 | P11 | `is_purchase_stopped` | 購買停止 | BOOLEAN | NN | — | FALSE | — | 入力 | PUR 新規発注可否 | TRUE で警告・ブロック |
 
@@ -171,7 +171,7 @@ stateDiagram-v2
 | S06 | `sales_lead_time_days` | 販売可能日数 | INT | NULL | — | 0 | 0〜365 | 入力 | SAL 納期回答 | 受注〜出荷 |
 | S07 | `return_limit_days` | 返品期限日数 | INT | NULL | — | 30 | 0〜365 | 入力 | SAL 返品受付 | 出荷日基準 |
 | S08 | `is_sales_stopped` | 販売停止 | BOOLEAN | NN | — | FALSE | — | 入力 | SAL 新規受注可否 | TRUE で警告・ブロック |
-| S09 | `ship_over_rate` | 出荷超過容差 | NUMERIC(5,4) | NULL | — | NULL | 0〜1（比率） | 入力 | SAL 出荷 | 比率で保存（0.05=5%）。NULL は次段（会社既定 0）を継承。優先順：受注行 > 物料 > 会社 |
+| S09 | `ship_over_rate` | 出荷超過容差 | NUMERIC(5,4) | NULL | — | NULL | 0〜1（比率） | 入力 | SAL 出荷 | 比率で保存（0.05=5%）。NULL＝次段（会社既定 0）を継承、0＝明示 0%。優先順：受注行 > 物料 > 会社 |
 
 #### 2.5.4 库存ビュー
 
@@ -210,7 +210,7 @@ stateDiagram-v2
 | M10 | `mrp_type` | MRP 类型 | SMALLINT | NULL | △ | 10 | 10 MTS/20 MTO | 入力 | PRD MRP | 計画方式 |
 | M11 | `planning_policy` | 補充方式 | SMALLINT | NULL | △ | 10 | 10 MRP/20 ROP/30 手動 | 入力 | PRD/INV 補充 | — |
 | M12 | `manufacturing_lead_time_days` | 製造提前期 | INT | NULL | — | 0 | 0〜365 | 入力 | MRP 逆算 | 日 |
-| M13 | `completion_over_rate` | 完工超収容差 | NUMERIC(5,4) | NULL | — | NULL | 0〜1（比率） | 入力 | PRD 完工・SAL `allowed_qty` | 比率で保存（0.05=5%）。NULL は次段を継承。優先順：受注行 > 物料 > 物料分類 > 会社（`sys_param` `prd.completion_over_rate`）。購買受入容差（P09）とは別系統 |
+| M13 | `completion_over_rate` | 完工超収容差 | NUMERIC(5,4) | NULL | — | NULL | 0〜1（比率） | 入力 | PRD 完工・SAL `allowed_qty` | 比率で保存（0.05=5%）。NULL＝次段を継承、0＝明示 0%。優先順：受注行 > 物料 > 物料分類 > 会社（`sys_param` `prd.completion_over_rate`）。購買受入容差（P09）とは別系統 |
 
 #### 2.5.6 财务ビュー
 
@@ -221,7 +221,7 @@ stateDiagram-v2
 | F03 | `cogs_account_code` | 売上原価科目 | VARCHAR(32) | NULL | △ | NULL | FIN 科目存在・末級 | FIN 照会 | FIN 原価計上 | 例 6401 |
 | F04 | `cost_category` | 成本分類 | SMALLINT | NULL | △ | 10 | 10 直接材料/20 直接人工/30 製造間接費/40 期間費用 | 入力 | FIN 原価集計 | — |
 | F05 | `valuation_method` | 評価方法 | SMALLINT | NN | ○ | なし | 10 移動平均/20 標準原価 | 入力 | INV/FIN 原価 | 会社政策と矛盾不可 |
-| F06 | `standard_cost` | 標準原価 | NUMERIC(18,6) | NULL | — | 0 | ≥ 0 | 入力 | FIN 参考原価 | スナップショット（原価卷算の発行処理のみ書込、読取専用） |
+| F06 | `standard_cost` | 標準原価 | NUMERIC(18,6) | NULL | — | 0 | ≥ 0 | 入力 | FIN 参考原価 | スナップショット（`fin_publish_standard_cost` のみ更新、画面は読取専用） |
 | F07 | `tax_classification_code` | 税収分類編碼 | VARCHAR(32) | NULL | △ | NULL | 有効分類（税） | マスタ | FIN/INT 発票 | 商品和服务税收分类编码 |
 | F08 | `cost_method` | 成本核算方法 | SMALLINT | NN | ○ | 1 | 1 品種法/2 分批法（1 のみ/2 のみ） | 入力 | FIN 原価計算（直接参照） | 標準機（MTS）は 1、MTO・非標は 2 可 |
 
@@ -402,7 +402,7 @@ stateDiagram-v2
 | 25 | 采购 | `default_supplier_id` | 既定供應商 | 選択ダイアログ | — | 空 | 有効供應商 | 同上 | 計画購買の参考 |
 | 26 | 采购 | `supplier_material_no` | 供應商品番 | テキスト | — | 空 | ≤ 64 字 | 同上 | 発注書・照合に使用 |
 | 27 | 采购 | `purchase_tax_code` | 購買税码 | 選択 | △ | 分類既定 | 有効税码（進項） | 同上 | 13% 等 |
-| 28 | 采购 | `over_receipt_tolerance_pct` | 過入荷容差 | 数値（%） | — | 0 | 0〜100、小数 2 桁（画面は % で入出力、保存は比率 `NUMERIC(5,4)`、フロントで換算） | 同上 | 5.00 % = 0.05 |
+| 28 | 采购 | `over_receipt_tolerance_pct` | 過入荷容差 | 数値（%） | — | 空 | 0〜100、小数 2 桁（画面は % で入出力、保存は比率 `NUMERIC(5,4)`、フロントで換算） | 同上 | 5.00 % = 0.05。空＝次段を継承、0＝明示 0% |
 | 29 | 采购 | `buyer_id` | 購買担当 | 選択 | — | 空 | 有効ユーザ | 同上 | 業務割当 |
 | 30 | 采购 | `is_purchase_stopped` | 購買停止 | チェック | — | false | — | 同上 | true で新規発注不可 |
 | 31 | 销售 | `sales_uom_code` | 販売単位 | 選択 | △ | 基本単位 | 有効単位・換算率必須 | `mdm:material:update` | 販売停止時は非表示 |
@@ -413,7 +413,7 @@ stateDiagram-v2
 | 36 | 销售 | `sales_lead_time_days` | 販売可能日数 | 数値 | — | 0 | 0〜365 整数 | 同上 | 受注から出荷まで |
 | 37 | 销售 | `return_limit_days` | 返品期限日数 | 数値 | — | 30 | 0〜365 整数 | 同上 | 出荷日基準（SAL 使用） |
 | 38 | 销售 | `is_sales_stopped` | 販売停止 | チェック | — | false | — | 同上 | true で新規受注不可 |
-| 38-1 | 销售 | `ship_over_rate` | 出荷超過容差 | 数値（%） | — | 空 | 0〜100、小数 2 桁（画面は % で入出力、保存は比率 `NUMERIC(5,4)`、フロントで ÷100/×100 換算） | 同上 | 空＝会社既定（0）を継承 |
+| 38-1 | 销售 | `ship_over_rate` | 出荷超過容差 | 数値（%） | — | 空 | 0〜100、小数 2 桁（画面は % で入出力、保存は比率 `NUMERIC(5,4)`、フロントで ÷100/×100 換算） | 同上 | 空＝次段（会社既定 0）を継承、0＝明示 0% |
 | 39 | 库存 | `default_warehouse_id` | 既定倉庫 | 選択 | △ | 空 | 有効倉庫 | `mdm:material:update` | 在庫・購買・生産の既定倉庫 |
 | 40 | 库存 | `default_bin_id` | 既定庫位 | 選択 | — | 空 | 倉庫に属する有効庫位 | 同上 | 入庫提案 |
 | 41 | 库存 | `is_batch_managed` | 批次管理 | チェック | ○ | false | — | 同上（关键項目） | true で批次必須 |
@@ -442,7 +442,7 @@ stateDiagram-v2
 | 64 | 生产 | `mrp_type` | MRP 类型 | 選択 | △ | 10 MTS | 10 MTS / 20 MTO | 同上 | 計画方式 |
 | 65 | 生产 | `planning_policy` | 補充方式 | 選択 | △ | 10 MRP | 10 MRP / 20 ROP / 30 手動 | 同上 | — |
 | 66 | 生产 | `manufacturing_lead_time_days` | 製造提前期 | 数値 | — | 0 | 0〜365 整数 | 同上 | 日 |
-| 66-1 | 生产 | `completion_over_rate` | 完工超収容差 | 数値（%） | — | 空 | 0〜100、小数 2 桁（画面は % で入出力、保存は比率 `NUMERIC(5,4)`、フロントで換算） | 同上 | 空＝物料分類 → 会社既定の順に継承 |
+| 66-1 | 生产 | `completion_over_rate` | 完工超収容差 | 数値（%） | — | 空 | 0〜100、小数 2 桁（画面は % で入出力、保存は比率 `NUMERIC(5,4)`、フロントで換算） | 同上 | 空＝物料分類 → 会社既定の順に継承、0＝明示 0% |
 | 67 | 财务 | `inventory_account_code` | 在庫（存貨）科目 | 選択 | △ | 空 | FIN 科目存在・末級 | `mdm:material:update`（关键項目） | 例 1403/1405 |
 | 68 | 财务 | `revenue_account_code` | 売上（収入）科目 | 選択 | △ | 空 | FIN 科目存在・末級 | 同上 | 例 6001（販売品） |
 | 69 | 财务 | `cogs_account_code` | 売上原価科目 | 選択 | △ | 空 | FIN 科目存在・末級 | 同上 | 例 6401 |
@@ -468,7 +468,7 @@ stateDiagram-v2
 
 | No | 区分 | 項目 ID | 項目名 | 型 | 必須 | 既定値 | 入力チェック | 権限 | 備考 |
 |---|---|---|---|---|---|---|---|---|---|
-| 1 | 生产 | `completion_over_rate` | 完工超収容差 | 数値（%） | — | 空 | 0〜100、小数 2 桁（画面は % で入出力、保存は `mdm_material_category.completion_over_rate` に比率 `NUMERIC(5,4)`、フロントで換算） | `mdm:material-category:update`（SCR-MDM-004） | 空＝会社既定（`prd.completion_over_rate`）を継承。物料に値があれば物料を優先 |
+| 1 | 生产 | `completion_over_rate` | 完工超収容差 | 数値（%） | — | 空 | 0〜100、小数 2 桁（画面は % で入出力、保存は `mdm_material_category.completion_over_rate` に比率 `NUMERIC(5,4)`、フロントで換算） | `mdm:material-category:update`（SCR-MDM-004） | 空＝会社既定（`prd.completion_over_rate`）を継承、0＝明示 0%。物料に値があれば物料を優先 |
 
 ### 4.5 イベント処理
 

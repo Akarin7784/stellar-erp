@@ -47,13 +47,17 @@
 ## AC1-8 容差は比率、優先順位（G2-18 前提、Refs #29）
 
 - W：`completion_over_rate = -0.01` で INSERT。T：CHECK 違反。
+- G：物料 `completion_over_rate = 0`、分類 0.03。W：受注行確定。T：採用率 0（0 は明示値で、分類へ継承しない）。
 - G：受注行・物料が未設定、分類 0.03、会社 `prd.completion_over_rate=0.05`。W：受注行確定。T：採用率 0.03。分類も未設定なら 0.05。
 - G：基本単位の小数 0 桁、`ordered_qty=30`、率 0.05。W：確定。T：`allowed_qty = floor(31.5) = 31`。
 - 購買受入の容差（物料 > 分類 > 仕入先 > 会社）は別系統で、完工の計算に使わない。
 
 ## AC1-9 標準原価のスナップショット列（Refs #32）
 
-- G：`mdm_material.standard_cost` はスナップショット列で、原価卷算の発行処理のみが書き込む。W：発行処理以外のセッションで `UPDATE mdm_material SET standard_cost = ...`。T：トリガーにより拒否される。
+- W：`fin_publish_standard_cost`（所有者 `erp_cost_publisher`、SECURITY DEFINER）で YE3 の `standard_cost` を発行。T：更新に成功する。
+- W：`erp_app` で `UPDATE mdm_material SET standard_cost = ...`。T：権限エラー（列権限なし）。
+- W：`erp_app` で `set_config('app.cost_publish','on',true)` 等のフラグを設定してから同じ UPDATE。T：やはり拒否される（フラグは判定に使わない）。
+- W：`SELECT has_column_privilege('erp_app','mdm_material','standard_cost','UPDATE')`。T：`false`。
 
 ## AC1-10 検査フラグの導出
 
