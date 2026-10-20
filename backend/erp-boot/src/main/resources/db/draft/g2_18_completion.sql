@@ -478,8 +478,8 @@ BEGIN
     IF v_old IS NULL THEN
         PERFORM g2_18_raise(5000, 'sales_order_line allowed_qty not snapshotted: ' || p_sales_order_line_id);
     END IF;
-    -- 超产增量不合法（NULL 或 ≤ 0）：60103 / MSG-PRD-103（HTTP 422，蓝色大肥鱼 2026-10-21 定稿）
-    IF p_delta_qty IS NULL OR p_delta_qty <= 0 THEN
+    -- 超产增量 ≤ 0：60103 / MSG-PRD-103（HTTP 422）。NULL 校验移到服务层（蓝色大肥鱼 2026-10-21 定稿）
+    IF p_delta_qty <= 0 THEN
         PERFORM g2_18_raise(60103, format('over-production delta %s must be > 0', p_delta_qty));   -- MSG-PRD-103 / HTTP 422
     END IF;
     -- 增量按基本单位精度向下取整（rate 传 0）；取整后为 0 同样不合法
