@@ -310,3 +310,7 @@ docs/design/
 | v1.0 | 2026-10-20 | 初版：建立详细设计书体系总览、目录结构、ID 体系、真实资料方针、完成定义 | Lead |
 | v1.1 | 2026-10-20 | 全 10 域・共通・90-data 完成に伴い「覆盖状况与自动校验结果」を追記（件数・規模・検証 PASS・DoD 達成状況） | Lead |
 | v1.2 | 2026-10-20 | 対抗性評审（红队）第 1 轮 126 指摘・第 2 轮修复を反映。件数更新（表 326／帳票 149／メッセージ 827）、30-review 追記、§11.5 追加 | Lead |
+
+---
+
+[![](https://img.shields.io/badge/powered_by-dsh-4D6BFE?style=flat-square&logo=deepseek&logoColor=white)](https://github.com/deepseek-ai/deepseek-harness)
