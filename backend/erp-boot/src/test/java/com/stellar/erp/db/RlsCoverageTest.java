@@ -3,6 +3,7 @@ package com.stellar.erp.db;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
+import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -68,6 +69,42 @@ class RlsCoverageTest {
                 ORDER BY 1
                 """, String.class);
         assertThat(violations).as("以下策略缺少 USING 或 WITH CHECK").isEmpty();
+    }
+
+    /** 一意インデックス先頭列規則の例外（親 id 先頭の明細表）。04-common-db-spec.md §6.1 例外一覧と同期。 */
+    static final Set<String> UNIQUE_INDEX_EXCEPTIONS = Set.of(
+            "uk_mdm_material_factory",
+            "uk_mdm_substitute",
+            "uk_mdm_warehouse_zone_code",
+            "uk_mdm_price_line_no",
+            "uk_mdm_quotation_line_no",
+            "uk_mdm_payment_term_line",
+            "uk_mdm_evaluation",
+            "uk_mdm_eval_item",
+            "uk_mdm_change_line_no"
+    );
+
+    /** 业务 schema 中所有非主键唯一索引的第一列必须是 tenant_id（唯一约束检查不经过 RLS）。 */
+    @Test
+    void everyUniqueIndexStartsWithTenantId() {
+        List<String> violations = jdbc.queryForList("""
+                SELECT n.nspname || '.' || ic.relname || ' ON ' || tc.relname
+                       || ' (first=' || coalesce(a.attname, '<expr>') || ')'
+                FROM pg_index i
+                JOIN pg_class ic ON ic.oid = i.indexrelid
+                JOIN pg_class tc ON tc.oid = i.indrelid
+                JOIN pg_namespace n ON n.oid = tc.relnamespace
+                LEFT JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = i.indkey[0]
+                WHERE i.indisunique AND NOT i.indisprimary
+                  AND n.nspname NOT IN ('flowable', 'pg_catalog', 'information_schema', 'pg_toast')
+                  AND n.nspname NOT LIKE 'pg_temp%'
+                  AND tc.relname <> 'flyway_schema_history'
+                  AND NOT tc.relispartition
+                  AND ic.relname <> ALL (?::text[])
+                  AND (a.attname IS DISTINCT FROM 'tenant_id')
+                ORDER BY 1
+                """, String.class, (Object) UNIQUE_INDEX_EXCEPTIONS.toArray(String[]::new));
+        assertThat(violations).as("以下唯一索引第一列不是 tenant_id，且不在例外 %s", UNIQUE_INDEX_EXCEPTIONS).isEmpty();
     }
 
     @Test

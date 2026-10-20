@@ -118,6 +118,7 @@
 CREATE TABLE sys_sequence (
     id          BIGINT       NOT NULL,
     tenant_id   BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
+    company_id  BIGINT       NOT NULL,   -- 既定値なし（DEFAULT 1 禁止）
     sequence_key VARCHAR(64) NOT NULL,   -- 例 'SAL_SALES_ORDER'
     sequence_date DATE       NOT NULL,   -- 日次リセット用（月次は月初日）
     current_value BIGINT     NOT NULL DEFAULT 0,
@@ -128,11 +129,11 @@ CREATE TABLE sys_sequence (
     updated_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_by  BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_sys_sequence PRIMARY KEY (id),
-    CONSTRAINT uk_sys_sequence_key_date UNIQUE (sequence_key, sequence_date)
+    CONSTRAINT uk_sys_sequence_key_date UNIQUE (tenant_id, company_id, sequence_key, sequence_date)
 );
 ```
 
-- 採番は `UPDATE ... SET current_value = current_value + step WHERE sequence_key=? AND sequence_date=? RETURNING current_value` で原子的に取得する（行ロック）。
+- 採番は `INSERT ... ON CONFLICT (tenant_id, company_id, sequence_key, sequence_date) DO UPDATE SET current_value = sys_sequence.current_value + sys_sequence.step RETURNING current_value` で原子的に取得する（行ロック）。増分は既存行の `sys_sequence.step` を使い、`EXCLUDED.step` は使わない。
 - 欠番許容（トランザクションロールバック時）。重複は絶対に許さない。
 - 日次採番は `sequence_date` = 当日、月次は月初日を入れる。
 
@@ -142,7 +143,7 @@ CREATE TABLE sys_sequence (
 |---|---|
 | 主キー | 全テーブル必須。`pk_{table}` 命名 |
 | 外部キー | マスタ参照・親子関係は FK を張る（`ON DELETE RESTRICT`、CASCADE 禁止）。参照先が論理削除対象の場合は FK を張らずアプリで検証（削除は使用停止で運用） |
-| 一意 | 業務キーは `UNIQUE INDEX WHERE deleted = FALSE`（部分一意）。複数公司対応のキーは `company_id` を含める |
+| 一意 | 業務キーは `UNIQUE INDEX WHERE deleted = FALSE`（部分一意）。先頭列は必ず `tenant_id`、原則 `(tenant_id, company_id, ...)`。詳細は 6.1 |
 | CHECK | 列挙値（status/txn_type）、符号（数量 > 0、金額 >= 0）、日付整合（有効期間）に付与。可変の区分値は付けない |
 | NOT NULL | 業務上必須の項目は DB でも NOT NULL。NULL 許容は「未設定」に意味がある場合のみ |
 | DEFAULT | 共通カラムの既定値のみ DB に置く。業務既定値はアプリで設定（変更可能なため） |
@@ -155,17 +156,43 @@ CONSTRAINT fk_sal_sales_order_line_order
 
 -- 部分一意インデックスの例
 CREATE UNIQUE INDEX uk_mdm_material_company_code
-    ON mdm_material (company_id, material_code) WHERE deleted = FALSE;
+    ON mdm_material (tenant_id, company_id, material_code) WHERE deleted = FALSE;
 ```
 
-- **部分一意インデックスに対する `ON CONFLICT`**：衝突対象（arbiter）として推論させるには、インデックスと**同じ列と同じ `WHERE` 述語**を `ON CONFLICT` に書く必要がある。述語を省くと一致するインデックスがなく `there is no unique or exclusion constraint matching the ON CONFLICT specification` で失敗する。部分インデックスは `ON CONFLICT ON CONSTRAINT` では指定できない（制約ではないため）。
+- **部分一意インデックスに対する `ON CONFLICT`**：衝突対象（arbiter）として推論させるには、インデックスと**同じ列と同じ `WHERE` 述語**を `ON CONFLICT` に書く必要がある。述語を省くと一致するインデックスがなく `there is no unique or exclusion constraint matching the ON CONFLICT specification` で失敗する。部分インデックスは `ON CONFLICT ON CONSTRAINT` では指定できない（制約ではないため）。衝突列は 6.1 に従い `tenant_id` を先頭に含める。
 
 ```sql
-INSERT INTO mdm_material (id, company_id, material_code, ...)
+INSERT INTO mdm_material (id, tenant_id, company_id, material_code, ...)
 VALUES (...)
-ON CONFLICT (company_id, material_code) WHERE deleted = FALSE
+ON CONFLICT (tenant_id, company_id, material_code) WHERE deleted = FALSE
 DO UPDATE SET material_name = EXCLUDED.material_name;
 ```
+
+### 6.1 一意キーの先頭列規則（tenant_id 先頭）
+
+PostgreSQL の一意制約チェックは RLS を経由しないため、`tenant_id` を含まない一意キーは租户間の衝突と、重複エラーによる他租户データの存在探知を許す。以下を必須とする。
+
+1. すべての業務一意キー（`UNIQUE` 制約・一意インデックス・部分一意インデックスを含む。主キーを除く）の**先頭列は `tenant_id`**。原則 `(tenant_id, company_id, 業務キー...)`。
+2. `company_id` は `NOT NULL`、**既定値なし（`DEFAULT 1` 禁止）**。アプリが明示的に設定する。
+3. `ON CONFLICT` の衝突対象列・`WHERE` 条件は対応する一意インデックスと**完全一致**させ、`tenant_id` を含める。
+4. 租户内で全公司共有のデータ（例：汇率 `uk_mdm_exchange_rate`）は `(tenant_id, ...)` とし、`company_id` を含めなくてよい。
+5. 例外：全局一意の親テーブル id（雪花 BIGINT）を先頭列とする明細テーブルの一意インデックスのみ。下表に登録したものに限る。`uk_mdm_bank_account_owner_no` は例外に該当しない（`tenant_id` 先頭にする）。
+6. `sys_sequence` の増分は `DO UPDATE SET current_value = sys_sequence.current_value + sys_sequence.step`（`EXCLUDED.step` 禁止）。
+7. CI：`RlsCoverageTest.everyUniqueIndexStartsWithTenantId` が業務 schema の全一意インデックス（主キー除く）を検査する。例外は同テストの `UNIQUE_INDEX_EXCEPTIONS` と下表の両方に登録する。
+
+**例外一覧（親 id 先頭の明細一意インデックス）**
+
+| インデックス名 | テーブル | 列 | 先頭の親 id（参照先） | 登録 PR |
+|---|---|---|---|---|
+| `uk_mdm_material_factory` | mdm_material_factory | (material_id, factory_id) WHERE deleted=FALSE | material_id → mdm_material | #49 |
+| `uk_mdm_substitute` | mdm_material_substitute | (material_id, substitute_material_id, valid_from) WHERE deleted=FALSE | material_id → mdm_material | #49 |
+| `uk_mdm_warehouse_zone_code` | mdm_warehouse_zone | (warehouse_id, zone_code) WHERE deleted=FALSE | warehouse_id → mdm_warehouse | #49 |
+| `uk_mdm_price_line_no` | mdm_price_list_line | (price_list_id, line_no) WHERE deleted=FALSE | price_list_id → mdm_price_list | #49 |
+| `uk_mdm_quotation_line_no` | mdm_supplier_quotation_line | (quotation_id, line_no) WHERE deleted=FALSE | quotation_id → mdm_supplier_quotation | #49 |
+| `uk_mdm_payment_term_line` | mdm_payment_term_line | (payment_term_id, seq_no) WHERE deleted=FALSE | payment_term_id → mdm_payment_term | #49 |
+| `uk_mdm_evaluation` | mdm_supplier_evaluation | (supplier_id, evaluation_period) WHERE deleted=FALSE | supplier_id → mdm_partner | #49 |
+| `uk_mdm_eval_item` | mdm_supplier_eval_item | (evaluation_id, dimension_code) | evaluation_id → mdm_supplier_evaluation | #49 |
+| `uk_mdm_change_line_no` | mdm_change_request_line | (request_id, line_no) | request_id → mdm_change_request | #49 |
 
 ## 7. インデックス方針
 
@@ -337,7 +364,7 @@ V{yyyyMMdd}{DD}{NN}__{module}_{description}.sql     # バージョンは 12 桁
 
 - 全業務テーブルに `tenant_id`（租户＝部署客户、RLS の唯一の隔離キー）と `company_id`（租户内の法人主体、業務キー・索引の先頭列）を保持。1 tenant ⊇ N company。列名は `tenant_id` に統一。
 - `tenant_id` の既定値は `current_setting('app.tenant_id')::bigint`（**`DEFAULT 0` 禁止**）。租户上下文なしの INSERT は失敗する。Flyway/owner のシード投入は `tenant_id` を明示する。
-- 一意制約は `(company_id, business_key)` を基本とする。
+- 一意制約は `(tenant_id, company_id, business_key)` を基本とする（6.1）。`company_id` は NOT NULL・既定値なし。
 - Phase 2 多公司：会社間取引・会社別会計期間・会社別採番を追加。第一版（首批業務テーブルと同時）：`tenant_id` + RLS（ENABLE + FORCE、`USING` と `WITH CHECK` の両方に `tenant_id = current_setting('app.tenant_id')::bigint`）。テンプレート・DB ロール（owner / `erp_app`）・租户上下文は [10 RLS・数据库角色](10-rls-and-db-roles.md) を正とする（`sys_user` で実装済み）。
 - 本設計では `company_id` の付与を全業務テーブルで必須とし、後からの追加を不要にする。
 

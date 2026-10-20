@@ -446,7 +446,7 @@ sequenceDiagram
 -- 正本 DDL は 01-system/90-db-design.md。本表は論理定義（共通カラム L + company_id を含む）。
 CREATE TABLE sys_outbox_event (
     id             BIGINT       NOT NULL,
-    tenant_id      BIGINT       NOT NULL DEFAULT 0,
+    tenant_id      BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id     BIGINT       NOT NULL DEFAULT 1,
     event_id       UUID         NOT NULL,
     event_type     VARCHAR(100) NOT NULL,

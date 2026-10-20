@@ -21,7 +21,7 @@
 ```sql
 CREATE TABLE {prefix}_{entity} (
     id              BIGINT       NOT NULL,
-    tenant_id       BIGINT       NOT NULL DEFAULT 0,
+    tenant_id       BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id      BIGINT       NOT NULL DEFAULT 1,
     {column}        {type}       {NULL/NOT NULL} {DEFAULT ...},
     ...
