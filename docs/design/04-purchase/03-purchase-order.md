@@ -72,7 +72,7 @@
 | BR-15 | PO 承認前の取消・却下時は、请购由来数量を请购へ戻す（[01](01-requisition.md) PRC-PUR-003-02）。承認後取消は戻さない | 08 §3.3、01 §BR-11 | `converted_qty` |
 | BR-16 | 外貨订单（第一版・実装順 P2）は為替レートを伝票に保持し、換算は CNY 換算額を会計に渡す。P0 実装時点は CNY のみ | 09 §11、06 §3 | `currency_code`、`exchange_rate` |
 | BR-17 | 税込/税抜：単価は税抜を基本。税込入力時は税抜換算（08 §4.2-7）し、税込単価も保持可 | 08 §4.1 | `tax_rate`、`price_terms` |
-| BR-18 | 発注後の入荷・請求進捗は PO 明細の累計項目で管理する：`received_qty`（入荷）・`accepted_qty`（合格）・`rejected_qty`（不合格）・`returned_qty`（退货）・`invoiced_qty`（请求）・`remain_qty`（残） | 本域设计 | 各数量項目 |
+| BR-18 | 発注後の入荷・請求進捗は PO 明細の累計項目で管理する：`received_qty`（入荷）・`accepted_qty`（合格）・`rejected_qty`（不合格）・`returned_qty`（退货）・`invoiced_qty`（请求）・`remain_qty`（残。**派生・不落库**：`quantity − received_qty − cancelled_qty`、90 §5 `pur_purchase_order_line`） | 本域设计 | 各数量項目 |
 | BR-19 | 全数量入荷（部分取消含む）で PO を 40 完了とする。入荷数量が発注数量を超える場合は超收容差（[04](04-receipt-iqc.md) BR-05）に従う | 09 §4.3 | `po_status` |
 | BR-20 | 帳票・送信・変更・取消は監査ログと变更履歴に記録する。承認後の発注書は版数（`version_no`）を印字する | 01 §12、01 §13 | — |
 
@@ -239,7 +239,7 @@ stateDiagram-v2
 | No | 項目 ID | 項目名 | 種別 | 型/桁 | 必須 | 初期値 | 入力チェック | データソース | DB 項目 | 備考 |
 |---|---|---|---|---|---|---|---|---|---|---|
 | 1 | `lineNo` | 行番号 | 数値 | INT | 自動 | 10 刻み | — | — | `line_no` | 保存時振り直し |
-| 2 | `prLineId` | 来源请购行 | テキスト | BIGINT | △ | 空 | 请购行存在 | `pur_purchase_requisition_line` | `pr_line_id` | 请购由来 |
+| 2 | `prLineId` | 来源请购行 | テキスト | BIGINT | △ | 空 | 请购行存在 | `pur_purchase_requisition_line` | `purchase_requisition_line_id` | 请购由来 |
 | 3 | `rfqQuotationLineId` | 来源报价行 | テキスト | BIGINT | △ | 空 | 报价行存在 | `pur_supplier_quotation_line` | `rfq_quotation_line_id` | 询价由来 |
 | 4 | `materialId`/`materialCode`/`materialName`/`spec` | 物料 | 選択ダイアログ | BIGINT/VARCHAR | ○ | 请购/询价由来 | 有効・采购品（`MSG-PUR-002`） | `mdm_material` | 同名項目 | スナップショット |
 | 5 | `uomCode` | 采购单位 | 選択 | VARCHAR(8) | ○ | 物料采购单位 | 同一单位组 | `mdm_uom` | `uom_code` | — |
@@ -376,7 +376,7 @@ stateDiagram-v2
 4. MOQ・交期・取价差異の警告判定を行う（CHK-08～11）。
 5. `sys_sequence` から `PO{YYMMDD}{4桁}` を採番する（`sequence_key=PUR_PURCHASE_ORDER`）。
 6. `pur_purchase_order`（`po_status=10`、`version_no=1`）と `pur_purchase_order_line` を INSERT する。
-7. 請购/询价由来の場合は `source_type`/`source_id` と明細の `pr_line_id`/`rfq_quotation_line_id` を設定する。
+7. 請购/询价由来の場合は `source_type`/`source_id` と明細の `purchase_requisition_line_id`/`rfq_quotation_line_id` を設定する。
 8. 監査ログ（CREATE）を記録し、詳細を返す。
 
 **PRC-PUR-008-01 提出・撤回**
@@ -666,7 +666,7 @@ stateDiagram-v2
 
 | No | 観点 ID | 分類 | 観点 | 期待結果 |
 |---|---|---|---|---|
-| 1 | TST-F-PUR-007-01 | 正常系 | 请购由来 PO 登録 | `source_type=REQUISITION`、`pr_line_id` 設定、金額計算一致 |
+| 1 | TST-F-PUR-007-01 | 正常系 | 请购由来 PO 登録 | `source_type=REQUISITION`、`purchase_requisition_line_id` 設定、金額計算一致 |
 | 2 | TST-F-PUR-007-02 | 正常系 | 取价優先順位（价格表あり） | `price_source_type=1`、単価が価格表と一致 |
 | 3 | TST-F-PUR-007-03 | 境界値 | 价格表なし・最近成交あり | `price_source_type=3`、単価が最近成交价 |
 | 4 | TST-F-PUR-007-04 | 異常系 | 手工定价で理由なし | `MSG-PUR-066` |
@@ -703,3 +703,4 @@ stateDiagram-v2
 |---|---|---|---|
 | v1.0 | 2026-10-20 | 初版：F-PUR-007～010（訂单登録・承認・変更・取消）、取价優先順位、状態遷移、画面項目定義、E13、テスト観点 | purchase-designer |
 | v1.1 | 2026-10-20 | 红队第 2 轮修复：E13 購読者を INT のみに更新、MOQ 参照・超收容差既定を MDM 正本へ（上書きのみ）、E13 payload とサンプル金額を整合 | purchase-designer |
+| v1.2 | 2026-10-21 | `pr_line_id`→`purchase_requisition_line_id`；`remain_qty` を派生・不落库と明記；`change_approved_at` を 90 DDL に追加 | 业务分析 |

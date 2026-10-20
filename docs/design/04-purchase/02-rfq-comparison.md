@@ -55,7 +55,7 @@
 | BR-01 | 询价单须邀请 2 家以上供应商；不足 2 家时保存/发出需填写「单一来源理由」并由采购经理承认（例外承认记录 `exception_reason`・`exception_approver`） | 社内采购规程（示例企业）：竞争性原则 | `rfq_supplier` |
 | BR-02 | 报价截止日期时间必须晚于询价发出日期时间；截止后不得登记/修改报价（采购经理可延期，须记录） | 本域设计 | `quote_deadline` |
 | BR-03 | 报价须包含：单价（税抜为基础）、税码、报价数量、MOQ、交货天数、报价有效期、付款条件、运费承担方式；缺项不可提交报价 | 比价公平性要求 | `pur_supplier_quotation_line` |
-| BR-04 | 报价比较口径统一为「CNY 税抜单价 + 买方承担时按数量分摊的运费」＝**可比单价**；外币按报价日 MDM 汇率换算为 CNY（第一版・実装順 P2） | 08 §4、本域设计 | `comparable_unit_price` |
+| BR-04 | 报价比较口径统一为「CNY 税抜单价 + 买方承担时按数量分摊的运费」＝**可比单价**；外币按报价日 MDM 汇率换算为 CNY（第一版・実装順 P2） | 08 §4、本域设计 | `comparison_unit_price` |
 | BR-05 | 综合评分满分 100：价格分 60 + 交期分 20 + 质量分 20。计算规则见 2.3，权重通过 `sys_param`（`pur.rfq.weight.price/delivery/quality`）可配置 | 本域设计（示例企业评分办法） | `price_score` 等 |
 | BR-06 | 中选规则：默认按「综合得分最高」；若最低价与中选价差 > 5% 且交期差 ≤ 3 日，则改为「最低价优先」（规则参数 `pur.rfq.award_rule = SCORE / LOWEST_PRICE`） | 本域设计 | `is_selected` |
 | BR-07 | 允许按物料行分拆中选（不同供应商）；P0 実装時点は同一物料行只能中选 1 家（数量分拆は実装順 P2、いずれも第一版） | 本域设计 | `selected_qty` |
@@ -182,7 +182,7 @@ stateDiagram-v2
 | 6 | `priceTerms` | 报价基准 | ラジオ | SMALLINT | ○ | 1 税抜 | 1 税抜/2 税込 | 固定値 | `price_terms` | 税込時は税抜換算 |
 | 7 | `freightBearer` | 运费承担 | ラジオ | SMALLINT | ○ | 1 买方 | 1 买方/2 卖方/3 到付 | 固定値 | `freight_bearer` | 买方承担时计运费 |
 | 8 | `quoteDeadline` | 报价截止 | 日時 | TIMESTAMPTZ | ○ | 当日 + 7 日 17:00 | > 发出日時 | — | `quote_deadline` | 截止后不可录报价 |
-| 9 | `sourcePrIds` | 来源请购 | 複数選択 | BIGINT[] | △ | 空 | 承认済・未转单 | `pur_purchase_requisition` | `pr_id`（単一） | 手工询价可空 |
+| 9 | `sourcePrIds` | 来源请购 | 複数選択 | BIGINT[] | △ | 空 | 承认済・未转单 | `pur_purchase_requisition` | `purchase_requisition_id`（単一） | 手工询价可空 |
 | 10 | `rfqStatus` | 状态 | バッジ | SMALLINT | 自動 | 10 | — | — | `rfq_status` | 10/30/35/40/90 |
 | 11 | `totalEstAmount` | 预计金额合计 | 数値 | NUMERIC(18,2) | 自動 | 0.00 | — | Σ 明細目安金額 | `total_est_amount` | 参照のみ |
 | 12 | `exceptionReason` | 单一来源理由 | テキストエリア | VARCHAR(500) | △ | 空 | 供应商 < 2 家时必填 | — | `exception_reason` | 需采购经理承认记录 |
@@ -193,7 +193,7 @@ stateDiagram-v2
 | No | 項目 ID | 項目名 | 種別 | 型/桁 | 必須 | 初期値 | 入力チェック | データソース | DB 項目 | 備考 |
 |---|---|---|---|---|---|---|---|---|---|---|
 | 1 | `lineNo` | 行番号 | 数値 | INT | 自動 | 10 刻み | — | — | `line_no` | — |
-| 2 | `prLineId` | 来源请购行 | テキスト | BIGINT | △ | 空 | 请购行の未転単残量に適合 | `pur_purchase_requisition_line` | `pr_line_id` | 请购由来时必填 |
+| 2 | `prLineId` | 来源请购行 | テキスト | BIGINT | △ | 空 | 请购行の未転単残量に適合 | `pur_purchase_requisition_line` | `purchase_requisition_line_id` | 请购由来时必填 |
 | 3 | `materialId` | 物料 | 選択ダイアログ | BIGINT | ○ | 空 | 存在・有効・采购品 | `mdm_material` | `material_id` | — |
 | 4 | `materialCode`/`materialName`/`spec` | 物料编码・品名・规格 | テキスト | VARCHAR(20/200/200) | 自動 | 空 | — | `mdm_material` | 同名項目 | スナップショット |
 | 5 | `quantity` | 询价数量 | 数値 | NUMERIC(18,4) | ○ | 请购残量 | > 0 | — | `quantity` | — |
@@ -346,7 +346,7 @@ stateDiagram-v2
 1. 状態 40 の RFQ を取得し、`is_selected=true` の报价明细を中选供应商単位に集約する。
 2. 供应商准入状態と MOQ を再検証する（`MSG-PUR-003`/`MSG-PUR-026`）。
 3. 供应商単位に PO を採番（`PO{YYMMDD}{4桁}`）し、`po_status=10`、`source_type=RFQ`、`source_id=rfq_id` で `pur_purchase_order` を登録する。
-4. PO 明細に `rfq_quotation_line_id`・`pr_line_id`（RFQ 明細由来）・`unit_price`（中选单价）・`price_source_type=2 RFQ` を設定する。
+4. PO 明細に `rfq_quotation_line_id`・`purchase_requisition_line_id`（RFQ 明細由来）・`unit_price`（中选单价）・`price_source_type=2 RFQ` を設定する。
 5. 請购行の `converted_qty` を中选数量で加算し、請购状態を再計算する（[01](01-requisition.md) PRC-PUR-003-01 手順 7～8 と同一ロジック）。
 6. 生成 PO の ID・番号・件数を返却し、監査ログ（CREATE）を記録する。
 7. 冪等性：`Idempotency-Key` で再送を排除。同一 RFQ から再度 PO 生成しようとした場合は既存 PO を返す（`MSG-PUR-047`）。
@@ -488,7 +488,7 @@ stateDiagram-v2
 | `pur_rfq_line` | INSERT/UPDATE | 明细項目、`line_status`、`selected_supplier_id` | 登録・中选 | PRC-PUR-004/006 |
 | `pur_rfq_supplier` | INSERT/UPDATE | `sent_at`、`response_status`、`quotation_id` | 邀请・发出・报价 | PRC-PUR-004/005 |
 | `pur_supplier_quotation` | INSERT/UPDATE | 报价ヘッダ、`exchange_rate`、`freight_amount`、`valid_from/to` | 报价保存 | PRC-PUR-005-01 |
-| `pur_supplier_quotation_line` | INSERT/UPDATE | 报价明細、`comparable_unit_price`、`price_score` 等、`is_selected`、`selected_qty` | 报价保存・比价・中选 | PRC-PUR-005/006 |
+| `pur_supplier_quotation_line` | INSERT/UPDATE | 报价明細、`comparison_unit_price`、`price_score` 等、`is_selected`、`selected_qty` | 报价保存・比价・中选 | PRC-PUR-005/006 |
 | `pur_purchase_order` | INSERT | 全項目（`source_type=RFQ`） | PO 生成 | PRC-PUR-006-03 |
 | `pur_purchase_order_line` | INSERT | 全項目（`rfq_quotation_line_id`） | PO 生成 | PRC-PUR-006-03 |
 | `pur_purchase_requisition(_line)` | UPDATE | `converted_qty`、`pr_status`、`line_status` | PO 生成 | PRC-PUR-006-03 |
@@ -586,3 +586,4 @@ stateDiagram-v2
 | 版数 | 日付 | 変更内容 | 変更者 |
 |---|---|---|---|
 | v1.0 | 2026-10-20 | 初版：F-PUR-004～006（询价・报价・比价中选）、評分式・中选規則・比价表項目定義・API・テスト観点 | purchase-designer |
+| v1.1 | 2026-10-21 | `pr_line_id`/`pr_id`→`purchase_requisition_line_id`/`purchase_requisition_id`、`comparable_unit_price`→`comparison_unit_price`（90 DDL に統一） | 业务分析 |

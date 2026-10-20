@@ -56,7 +56,7 @@
 
 | # | ルール | 根拠 | 関連項目 |
 |---|---|---|---|
-| BR-01 | 跟踪対象：`po_status ∈ {30,35}` かつ `remain_qty > 0` の PO 明細。完了・取消・全入荷は対象外 | 本域设计 | `remain_qty` |
+| BR-01 | 跟踪対象：`po_status ∈ {30,35}` かつ `remain_qty > 0` の PO 明細。完了・取消・全入荷は対象外 | 本域设计 | `remain_qty`（派生・不落库：`quantity − received_qty − cancelled_qty`） |
 | BR-02 | 基準日：`supplier_promised_date` があればそれを優先、なければ `delivery_date`（約定交期）を使用 | 本域设计 | `delivery_date` |
 | BR-03 | 遅延日数 = `基準日 − 当サーバ日`（負値が遅延）。分類：正常（> 3 日）/ 臨期（0～3 日）/ 遅延（−1～−7 日）/ 厳重遅延（< −7 日）/ 超期未入荷（< −30 日、取消候補） | 本域设计 | `delay_days`、`delay_level` |
 | BR-04 | 催货记录：电话・メール・门户・現場・その他の手段で、日付・内容・供应商新承诺交期・次回フォロー日・担当者を記録する。1 PO 明細に複数記録可 | 本域设计 | `pur_delivery_followup` |
@@ -81,7 +81,7 @@
 
 | # | ルール | 根拠 | 関連項目 |
 |---|---|---|---|
-| BR-16 | 计划采购的输入：PRD 的 MRP 计划订单（`prd_planned_order`、購入品のみ）和安全库存补货建议。PUR 不自行计算 MRP | 09 §6.1 | `source_type=MRP/SAFETY_STOCK` |
+| BR-16 | 计划采购的输入：PRD 的 MRP 计划订单（`prd_mrp_plan_order`、購入品のみ）和安全库存补货建议。PUR 不自行计算 MRP | 09 §6.1 | `source_type=MRP/SAFETY_STOCK` |
 | BR-17 | PUR 提供两种转换方式：① PRD 调用 PUR API 自动生成请购草稿（`POST /api/purchase/purchase-requisitions/from-plan`，`Idempotency-Key = plannedOrderId`）；② 采购员在 SCR-PUR-027 选择计划订单批量转换 | 本域设计 | `source_id` |
 | BR-18 | 批量转换规则：同一供应商・同一收货仓库・同一希望交期（±3 日）的计划订单合并为 1 张请购；不同供应商分单。合并后行项目保留计划订单号（`source_id`） | 本域设计 | — |
 | BR-19 | 转换后的请购为 10 草稿，采购员可调整数量（≥ 计划订单建议量、受 MOQ/批量规则约束）后提交审批。已转换的计划订单不可重复转换（幂等） | 本域设计 | — |
@@ -260,7 +260,7 @@ stateDiagram-v2
 
 | No | 項目 ID | 項目名 | 種別 | 型/桁 | 必須 | 初期値 | データソース | 備考 |
 |---|---|---|---|---|---|---|---|---|
-| 1 | `planOrderNo` | 計画オーダー番号 | テキスト | VARCHAR(32) | — | — | `prd_planned_order` | — |
+| 1 | `planOrderNo` | 計画オーダー番号 | テキスト | VARCHAR(32) | — | — | `prd_mrp_plan_order` | — |
 | 2 | `materialCode`/`materialName` | 物料 | テキスト | — | — | — | PRD | — |
 | 3 | `requiredQty` | 推奨発注数量 | 数値 | NUMERIC(18,4) | ○ | 計画数量 | PRD MRP | 調整可 |
 | 4 | `requiredDate` | 希望交期 | 日付 | DATE | ○ | 計画納期 | PRD MRP | — |
@@ -384,7 +384,7 @@ stateDiagram-v2
 
 **PRC-PUR-025-01 計画→請購変換**
 
-1. 選択された計画オーダー（`prd_planned_order`、購入品・承認済・未変換）を取得し、ロックする。
+1. 選択された計画オーダー（`prd_mrp_plan_order`、購入品・承認済・未変換）を取得し、ロックする。
 2. 変換済チェック（`source_type=MRP` かつ `source_id=plannedOrderId` の PR が存在しないこと）を行う。
 3. 合并規則（BR-18）に従い、供应商・倉庫・希望交期でグループ化する。
 4. グループごとに `PR{YYMMDD}{4桁}` を採番し、`pur_purchase_requisition`（`source_type=MRP`、`source_id` はグループ先頭計画番号、`pr_type=2 计划采购`）と明細（`source_line_id` に計画オーダー行）を作成する。
@@ -631,3 +631,4 @@ stateDiagram-v2
 | 版数 | 日付 | 変更内容 | 変更者 |
 |---|---|---|---|
 | v1.0 | 2026-10-20 | 初版：F-PUR-023～027（交期跟踪・価格管理・計画採購・績效・采購報表）、指標算式・変換規則・画面項目定義・API・テスト観点 | purchase-designer |
+| v1.1 | 2026-10-21 | `remain_qty` を派生・不落库と明記；`prd_planned_order`→`prd_mrp_plan_order` | 业务分析 |
