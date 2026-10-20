@@ -360,7 +360,7 @@ COMMENT ON TABLE sys_user IS '用户（ログインアカウント＋社員属�
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
 | uk_sys_user_code | UNIQUE | (tenant_id, company_id, user_code) | WHERE deleted=FALSE | 工号一意 |
-| uk_sys_user_username | UNIQUE | (tenant_id, username) | WHERE deleted=FALSE | ログイン ID 一意。テナント単位の豁免（蓝色大肥鱼 2026-10-21 決定）。※ 現行 DB では `V1__baseline.sql:18` の `uk_sys_user_tenant_username`（`tenant_id DEFAULT 0`）。sys_user の正式迁移時に本名へ改名し、`DEFAULT 0` を `current_setting('app.tenant_id')::bigint` に修正、pgTAP 豁免に追加する |
+| uk_sys_user_username | UNIQUE | (tenant_id, username) | WHERE deleted=FALSE | ログイン ID 一意。テナント単位の豁免（蓝色大肥鱼 2026-10-21 決定）。※ 現行 DB では `V1__baseline.sql:18` の `uk_sys_user_tenant_username`（租户列の既定値が字面量 0）。sys_user の正式迁移時に本名へ改名し、字面量 0 の既定値を `current_setting('app.tenant_id')::bigint` に修正、pgTAP 豁免に追加する |
 | idx_sys_user_dept_status | B-Tree | (department_id, status) | — | 部門別ユーザ一覧 |
 | idx_sys_user_name_trgm | GIN | (real_name gin_trgm_ops) | — | 氏名曖昧検索 |
 | idx_sys_user_mobile | B-Tree | (mobile) | — | 電話番号検索 |
@@ -1603,4 +1603,4 @@ COMMENT ON TABLE sys_data_maintenance_log IS '数据维护历史（初期化・�
 | v1.3 | 2026-10-21 | §3.15 `uk_sys_param_key` を `(tenant_id, company_id, param_key) WHERE deleted=FALSE` に修正（迁移 V202610210103 に一致）、`param_key` 注釈を「テナント・会社内で一意」に、`idx_sys_param_group` を `(tenant_id, company_id, param_group, sort_no)` に修正（迁移 :167 に一致）、参照範囲を当該会社のみ・`company_id=0` フォールバックなし・欠落は 5000 と明記（迁移 :165 注釈は廃止） | 业务分析 |
 | v1.4 | 2026-10-21 | sys 一意索引 23 件を 0708 に合わせ `(tenant_id, company_id, …)` 先頭に変更、豁免 7 件（company/menu/dict_type/outbox/idempotency）は `(tenant_id, …)`（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.5 | 2026-10-21 | `uk_sys_user_username` を `(tenant_id, username)` に戻しテナント単位の豁免とする（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
-| v1.6 | 2026-10-21 | `uk_sys_user_username (tenant_id, username)` を目標名として記載、現行 `V1__baseline.sql:18` `uk_sys_user_tenant_username` からの改名・DEFAULT 0 修正・pgTAP 豁免は sys_user 正式迁移時と注記（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.6 | 2026-10-21 | `uk_sys_user_username (tenant_id, username)` を目標名として記載、現行 `V1__baseline.sql:18` `uk_sys_user_tenant_username` からの改名・租户既定値（字面量 0）の修正・pgTAP 豁免は sys_user 正式迁移時と注記（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
