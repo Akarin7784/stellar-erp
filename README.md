@@ -120,3 +120,7 @@ Copyright (c) 2026 Stellar0502
 在遵守 MIT 许可证（保留版权声明与许可声明）的前提下，可自由使用、复制、修改、合并、发布、分发、再许可和/或销售本软件的副本。本软件按「原样」提供，不附带任何明示或暗示的担保。
 
 > 说明：代码与原创文档适用 MIT 许可；文档中引用的国家标准、法律法规、会计准则、公开产品资料等，其权利归原权利人，引用仅用于设计说明，不改变其原有授权。
+
+---
+
+[![](https://img.shields.io/badge/powered_by-dsh-4D6BFE?style=flat-square&logo=deepseek&logoColor=white)](https://github.com/deepseek-ai/deepseek-harness)
