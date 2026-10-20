@@ -360,7 +360,7 @@ COMMENT ON TABLE sys_user IS '用户（ログインアカウント＋社員属�
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
 | uk_sys_user_code | UNIQUE | (company_id, user_code) | WHERE deleted=FALSE | 工号一意 |
-| uk_sys_user_username | UNIQUE | (username) | WHERE deleted=FALSE | ログイン ID 一意 |
+| uk_sys_user_username | UNIQUE | (tenant_id, username) | WHERE deleted=FALSE | ログイン ID 一意 |
 | idx_sys_user_dept_status | B-Tree | (department_id, status) | — | 部門別ユーザ一覧 |
 | idx_sys_user_name_trgm | GIN | (real_name gin_trgm_ops) | — | 氏名曖昧検索 |
 | idx_sys_user_mobile | B-Tree | (mobile) | — | 電話番号検索 |
@@ -1601,4 +1601,4 @@ COMMENT ON TABLE sys_data_maintenance_log IS '数据维护历史（初期化・�
 | v1.1 | 2026-10-20 | Lead 裁决に伴う修正：承認マトリクスは `wf_approval_matrix`（WF 所有）に統一（本域は保存しない）。工厂主データを MDM（`mdm_factory`）へ移管し、SYS は `sys_factory` を `sys_factory_setting`（工厂组织设置）に変更。ER・テーブル一覧・コメントを更新 | system-workflow |
 | v1.2 | 2026-10-20 | 红队第 2 轮修复：REV-005（データ範囲に工場/倉庫次元 `factory_ids`/`warehouse_ids`、scope_type 6/7、GIN 索引、ER 追加）、REV-006（監査ログは重要操作を同一 TX で同期 INSERT・破棄禁止・ローカル退避+アラート）、REV-026（`sys_sequence` DDL を 04-common §5 に一致）、Outbox DDL 正本を本ファイルと明記し `event_version` 追加 | system-workflow |
 | v1.3 | 2026-10-21 | §3.15 `uk_sys_param_key` を `(tenant_id, company_id, param_key) WHERE deleted=FALSE` に修正（迁移 V202610210103 に一致）、`param_key` 注釈を「テナント・会社内で一意」に、`idx_sys_param_group` を `(tenant_id, company_id, param_group, sort_no)` に修正（迁移 :167 に一致）、参照範囲を当該会社のみ・`company_id=0` フォールバックなし・欠落は 5000 と明記（迁移 :165 注釈は廃止） | 业务分析 |
-| v1.4 | 2026-10-21 | 一意キー列を 00-common §6.1 に整合：テナント級一意（`uk_sys_company_code`/`_credit`・`uk_sys_menu_code`/`_permission`・`uk_sys_dict_type_code`・`uk_sys_outbox_event_id`・`uk_sys_idempotency_key`）は `(tenant_id, …)`、`uk_sys_role_code`・`uk_sys_number_rule_code` は `(tenant_id, company_id, …)` | 业务分析 |
+| v1.4 | 2026-10-21 | 一意キー列を 00-common §6.1 に整合：テナント級一意（`uk_sys_company_code`/`_credit`・`uk_sys_menu_code`/`_permission`・`uk_sys_user_username`・`uk_sys_dict_type_code`・`uk_sys_outbox_event_id`・`uk_sys_idempotency_key`）は `(tenant_id, …)`、`uk_sys_role_code`・`uk_sys_number_rule_code` は `(tenant_id, company_id, …)` | 业务分析 |
