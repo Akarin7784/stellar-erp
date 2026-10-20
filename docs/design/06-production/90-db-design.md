@@ -2605,7 +2605,7 @@ CREATE INDEX idx_prd_capacity_load_date ON prd_capacity_load (company_id, load_d
 - 業務一意索引は `(tenant_id, company_id, 業務キー)` で始める（#43/#49/#54 と同一）。
 - `ON CONFLICT` は同じ列を含め、採番は `sys_sequence.step` で増分（`EXCLUDED.step` 禁止）。
 - `company_id` は既定値なし・必須。`tenant_id` は `DEFAULT current_setting('app.tenant_id')::bigint`（禁止写死的默认租户。字面量 `0` を DEFAULT にしない）。
-- **例外**：例外は [00-common/04](../00-common/04-common-db-spec.md) §6.1 第 4 条（`company_id` を持たないテナント共有表、`(tenant_id, …)` 先頭）のみ：`uk_sys_company_code`、`uk_sys_company_credit`、`uk_sys_menu_code`、`uk_sys_menu_permission`、`uk_sys_dict_type_code`、`uk_sys_outbox_event_id`、`uk_sys_idempotency_key`、`uk_sys_user_tenant_username`（ログイン ID はテナント単位（蓝色大肥鱼 2026-10-21 決定））、`uk_mdm_exchange_rate`。親 ID・イベント ID 先頭の例外は廃止（蓝色大肥鱼 2026-10-21 決定、sys/V202610210708 と整合）。明細表 16 件（旧「親 ID 先頭」例外。0708 で `tenant_id` を前置）も `(tenant_id, company_id, 親 ID, …)` 先頭。
+- **例外**：例外は [00-common/04](../00-common/04-common-db-spec.md) §6.1 第 4 条（`company_id` を持たないテナント共有表、`(tenant_id, …)` 先頭）のみ：`uk_sys_company_code`、`uk_sys_company_credit`、`uk_sys_menu_code`、`uk_sys_menu_permission`、`uk_sys_dict_type_code`、`uk_sys_outbox_event_id`、`uk_sys_idempotency_key`、`uk_sys_user_username`（ログイン ID はテナント単位（蓝色大肥鱼 2026-10-21 決定））、`uk_mdm_exchange_rate`。親 ID・イベント ID 先頭の例外は廃止（蓝色大肥鱼 2026-10-21 決定、sys/V202610210708 と整合）。明細表 16 件（旧「親 ID 先頭」例外。0708 で `tenant_id` を前置）も `(tenant_id, company_id, 親 ID, …)` 先頭。
 
 
 ## 9. 改訂履歴
@@ -2628,4 +2628,4 @@ CREATE INDEX idx_prd_capacity_load_date ON prd_capacity_load (company_id, load_d
 | v1.5 | 2026-10-21 | `ck_prd_opa_qty` を `ck_prd_opa_request_qty`（request_qty > 0、違反は 60103）と `ck_prd_opa_allowed_qty`（current_allowed_qty >= 0）に分割（migration prd/V202610210704） | 数据库与运维 |
 | v1.6 | 2026-10-21 | §4 索引一覧 #1・#2 の対象列を DDL と一致（`tenant_id, company_id` / `company_id` を追加） | 业务分析 |
 | v1.7 | 2026-10-21 | prd 明細 16 件を 一意索引を `(tenant_id, company_id, …)` 先頭に統一（sys/V202610210707・0708 と整合）、「親 ID 先頭」例外一覧を削除。例外は 00-common/04 §6.1 第 4 条のテナント共有表のみ（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
-| v1.8 | 2026-10-21 | 例外一覧に `uk_sys_user_tenant_username`（`(tenant_id, username)`、テナント単位）を追加（蓝色大肥鱼 2026-10-21 決定）。G2-20：非一意 btree `idx_` も `tenant_id` 先頭（次に `company_id`）、GIN 除外に修正 | 业务分析 |
+| v1.8 | 2026-10-21 | 例外一覧に `uk_sys_user_username`（`(tenant_id, username)`、テナント単位）を追加（蓝色大肥鱼 2026-10-21 決定）。G2-20：非一意 btree `idx_` も `tenant_id` 先頭（次に `company_id`）、GIN 除外に修正 | 业务分析 |

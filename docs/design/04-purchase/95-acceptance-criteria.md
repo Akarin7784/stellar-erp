@@ -26,7 +26,7 @@
 ## AC-PUR-03 一意索引は tenant_id 先頭
 
 - W：業務一意索引（`uk_`）を DDL 本文・§4 テーブル一覧・§6 索引一覧・§7 制約一覧で確認。T：`(tenant_id, company_id, …)` で始まり、4 箇所の列順が一致する（`uk_pur_*_no`、`uk_pur_invoice_number`、`uk_pur_statement_period`、`uk_pur_tolerance_rule`、`uk_pur_supplier_performance`）。
-- T：`company_id` を持つ表の `uk_` はすべて `(tenant_id, company_id, …)` 先頭。親 ID 先頭の例外一覧は存在しない。明細・関連・履歴 13 表も `(tenant_id, company_id, 親 ID, …)` 先頭。非 tenant 先頭 `uk_` は 0 件。
+- T：`company_id` を持つ表の `uk_` はすべて `(tenant_id, company_id, …)` 先頭。親 ID 先頭の例外一覧は存在しない。明細・関連・履歴の一意制約 12 件も `(tenant_id, company_id, 親 ID, …)` 先頭。非 tenant 先頭 `uk_` は 0 件。
 - T（G2-20）：非一意 btree 索引（`idx_`）も `tenant_id` 先頭（次に `company_id`）。GIN 索引は対象外（蓝色大肥鱼 2026-10-21 決定）。
 
 ## AC-PUR-04 RLS

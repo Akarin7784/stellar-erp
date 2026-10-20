@@ -29,7 +29,7 @@
 - W：業務一意索引（`uk_`）を DDL 本文・§7 索引一覧で確認。T：`(tenant_id, company_id, …)` で始まり、両者の列順が一致する（例：`uk_fin_voucher_no`、`uk_fin_voucher_source`、`uk_fin_receivable_source`、`uk_fin_payable_source`、`uk_fin_cost_collection`）。
 - T：`fin_standard_cost` の `uk_fin_standard_cost_version` は `(tenant_id, company_id, material_id, cost_version)`、`uk_fin_standard_cost_period` は `(tenant_id, company_id, material_id, period_from) WHERE status=40`、`ex_fin_standard_cost_period` は `tenant_id, company_id, material_id` 先頭の EXCLUDE（90 §6.12・§7 #21/#22/#22a）。
 - T：明細行番号・子設定・自己参照・イベント ID の `uk_` もすべて `(tenant_id, company_id, …)` 先頭。親 ID／イベント ID 先頭の例外は存在しない（90 §7.1）。
-- T（G2-20）：`company_id` 先頭は非一意 `idx_` のみ（例：`idx_fin_standard_cost_lookup`）。
+- T（G2-20）：非一意 btree 索引（`idx_`）も `tenant_id` 先頭（次に `company_id`、例：`idx_fin_standard_cost_lookup (tenant_id, company_id, material_id, status, period_from DESC)`）。GIN は対象外（蓝色大肥鱼 2026-10-21 決定）。
 
 ## AC-FIN-04 RLS
 
@@ -133,3 +133,4 @@
 | v1.2 | 2026-10-21 | AC-FIN-09c に同時発行 2 件（初回発行・既存版あり）追加 | 业务分析 |
 | v1.3 | 2026-10-21 | AC-FIN-09 に将来月版の開帳時反映を追加 | 业务分析 |
 | v1.4 | 2026-10-21 | §7.1 例外一覧の前提を削除（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.5 | 2026-10-21 | G2-20 を btree `idx_` も tenant_id 先頭・GIN 除外に修正（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
