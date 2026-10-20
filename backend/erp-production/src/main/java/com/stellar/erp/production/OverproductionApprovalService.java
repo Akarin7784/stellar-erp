@@ -50,6 +50,7 @@ public class OverproductionApprovalService {
             throw new BizException(1001, "MSG-COM-040", "受注行必须指定。");
         }
 
+        // 申请时的快照仅供参考，上限在审批和报完工时先锁受注行再重读（此处不加锁）。
         SalesOrderLine line = salesOrderLines.find(company, cmd.salesOrderLineId())
                 .orElseThrow(() -> new BizException(ProductionErrorCode.NOT_FOUND, "受注行不存在"));
         if (cmd.workOrderId() != null) {
