@@ -145,7 +145,7 @@ erDiagram
 
 ## 4. テーブル定義
 
-> **前提**：本章の `gin_trgm_ops` 索引を作成する前に `CREATE EXTENSION IF NOT EXISTS pg_trgm;` を実行しておくこと（最初のマイグレーションで有効化。§9 参照）。
+> **前提**：本章の `gin_trgm_ops` 索引は `pg_trgm` 拡張に依存する。拡張は Flyway マイグレーション（owner ロール）が作成し、`erp_app` に CREATE 権限は不要。
 
 > 記法：`NOT NULL`/`NULL` は NULL 可否、`DEFAULT` は既定値、行末コメントは論理名。共通列セットは 2.2 を参照。索引は代表的なもののみ掲載し、全 FK に索引を張る。
 
