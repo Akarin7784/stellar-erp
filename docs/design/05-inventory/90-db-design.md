@@ -124,7 +124,7 @@ erDiagram
 -- 業務テーブル（伝票・残高・マスタ）に展開
 id          BIGINT       NOT NULL,              -- 雪花 ID（MyBatis-Plus ASSIGN_ID）
 tenant_id   BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-company_id  BIGINT       NOT NULL DEFAULT 1,
+company_id      BIGINT        NOT NULL,
 version     INT          NOT NULL DEFAULT 0,    -- 楽観排他
 remark      VARCHAR(500),
 ext_data    JSONB,
@@ -160,6 +160,8 @@ updated_by  BIGINT       NOT NULL DEFAULT 0
 
 - 索引：`idx_{table}_{cols}`（B-Tree）、`uk_{table}_{cols}`（一意）、`ck_{table}_{意味}`（CHECK）。部分索引 `WHERE` を活用する。
 - 一意制約：伝票は `(company_id, {伝票番号})`、残高は次元の全列、明細は親 + 行番号・次元。
+- **入庫検査**：明細 `inspection_flag BOOLEAN NOT NULL` は入庫点で收窄スナップショット（`PI`/`OSR`：`inspection_stage∈{10,40}`；`FGI`：`∈{30,40}`；他は false）。**true→stock_status=10、false→直入 20**。合格（E15）後は 10→20（ST_OUT+ST_IN）。CHECK `ck_inv_stock_txn_line_insp_inbound`。詳しくは [02 §2.6.1a](02-inbound-outbound.md)。
+- **冗余 txn_type**：明細に表頭と同一の `txn_type NOT NULL` を持ち、書込時トリガーで表頭一致を検証（[04](../00-common/04-common-db-spec.md) 8.1）。`direction` は `txn_type` から一意決定しアプリ＋CHECK で二重制約。
 - CHECK：状態値（`stock_status`/`txn_status` 等）、`txn_type`、符号（数量 > 0、残高 ≥ 0）、方向（`direction IN (1,-1)`）に付与する。
 - コメント：全テーブル・全列に `COMMENT ON` を付与する（本文件では代表例を記載し、実装時に全列へ展開する）。
 
@@ -189,7 +191,7 @@ updated_by  BIGINT       NOT NULL DEFAULT 0
 CREATE TABLE inv_stock_balance (
     id              BIGINT        NOT NULL,
     tenant_id       BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id      BIGINT        NOT NULL DEFAULT 1,
+    company_id      BIGINT        NOT NULL,
     warehouse_id    BIGINT        NOT NULL,
     location_id     BIGINT        NOT NULL DEFAULT 0,      -- 0 = 库位未管理
     material_id     BIGINT        NOT NULL,
@@ -217,7 +219,7 @@ CREATE TABLE inv_stock_balance (
 );
 
 CREATE UNIQUE INDEX uk_inv_stock_balance_key
-    ON inv_stock_balance (company_id, warehouse_id, material_id, batch_id, stock_status, location_id);
+    ON inv_stock_balance (tenant_id, company_id, warehouse_id, material_id, batch_id, stock_status, location_id);
 CREATE INDEX idx_inv_stock_balance_material_wh
     ON inv_stock_balance (company_id, material_id, warehouse_id, stock_status);
 CREATE INDEX idx_inv_stock_balance_wh_material
@@ -238,8 +240,8 @@ COMMENT ON COLUMN inv_stock_balance.avg_unit_cost IS '同一(倉庫,物料,批�
 | No | 物理名 | 論理名 | 型/桁 | NULL | PK | FK/参照先 | 既定値 | 備考 |
 |---|---|---|---|---|---|---|---|---|
 | 1 | `id` | 主キー | BIGINT | NOT NULL | ○ | — | アプリ採番 | 雪花 ID |
-| 2 | `tenant_id` | 租户 ID | BIGINT | NOT NULL | — | — | 0 | 首期固定 |
-| 3 | `company_id` | 公司 ID | BIGINT | NOT NULL | — | — | 1 | — |
+| 2 | `tenant_id` | 租户 ID | BIGINT | NOT NULL | — | — | current_setting(app.tenant_id) | 禁止写死的默认租户 |
+| 3 | `company_id` | 公司 ID | BIGINT | NOT NULL | — | — | — | — |
 | 4 | `warehouse_id` | 倉庫 ID | BIGINT | NOT NULL | — | `mdm_warehouse.id`（論理参照） | — | — |
 | 5 | `location_id` | 庫位 ID | BIGINT | NOT NULL | — | `mdm_warehouse_bin.id`（論理参照） | 0 | 0=库位未管理 |
 | 6 | `material_id` | 物料 ID | BIGINT | NOT NULL | — | `mdm_material.id`（論理参照） | — | — |
@@ -287,7 +289,7 @@ COMMENT ON COLUMN inv_stock_balance.avg_unit_cost IS '同一(倉庫,物料,批�
 | 更新元機能 | F-INV-002〜010、014、F-INV-017（沖销） |
 | データ量見積 | 初期 1,000 万 / 年間 +500 万 / 5 年後 3,500 万 |
 | 保存期間 | 10 年（[08 §12](../00-common/08-common-business-rules.md)） |
-| 備考 | 1 行 = 1 業務伝票（GRI/SDO/MII/MIR/FGI/OSI/OSR/TR/CNT/AOI/AOO/ST）。月次パーティションは Phase 2 |
+| 備考 | 1 行 = 1 業務伝票（GRI/SDO/MII/MIR/FGI/OSI/OSR/TR/CNT/AOI/AOO/ST）。月次パーティションは 第一版 |
 
 #### 4.2.1 概要
 
@@ -299,7 +301,7 @@ COMMENT ON COLUMN inv_stock_balance.avg_unit_cost IS '同一(倉庫,物料,批�
 CREATE TABLE inv_stock_txn (
     id                BIGINT        NOT NULL,
     tenant_id         BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id        BIGINT        NOT NULL DEFAULT 1,
+    company_id      BIGINT        NOT NULL,
     txn_no            VARCHAR(32)   NOT NULL,          -- GRI/SDO/MII/MIR/FGI/OSI/OSR/TR/CNT/AOI/AOO/ST
     txn_type          VARCHAR(16)   NOT NULL,
     txn_date          DATE          NOT NULL,
@@ -345,9 +347,9 @@ source_event_at   TIMESTAMPTZ,               -- 遅延イベントの原本業�
     CONSTRAINT ck_inv_stock_txn_reversal CHECK (is_reversal = FALSE OR reversal_of_txn_id IS NOT NULL)
 );
 
-CREATE UNIQUE INDEX uk_inv_stock_txn_no ON inv_stock_txn (company_id, txn_no);
+CREATE UNIQUE INDEX uk_inv_stock_txn_no ON inv_stock_txn (tenant_id, company_id, txn_no);
 CREATE UNIQUE INDEX uk_inv_stock_txn_source_posted
-    ON inv_stock_txn (company_id, source_type, source_id, txn_type)
+    ON inv_stock_txn (tenant_id, company_id, source_type, source_id, txn_type)
     WHERE txn_status = 30 AND source_id IS NOT NULL;
 CREATE UNIQUE INDEX uk_inv_stock_txn_reversal
     ON inv_stock_txn (reversal_of_txn_id)
@@ -367,13 +369,13 @@ COMMENT ON COLUMN inv_stock_txn.accounting_period IS 'txn_date から導出し�
 | No | 物理名 | 論理名 | 型/桁 | NULL | PK | FK/参照先 | 既定値 | 備考 |
 |---|---|---|---|---|---|---|---|---|
 | 1 | `id` | 主キー | BIGINT | NOT NULL | ○ | — | アプリ採番 | — |
-| 2-3 | `tenant_id`/`company_id` | — | BIGINT | NOT NULL | — | — | 0/1 | — |
+| 2-3 | `tenant_id`/`company_id` | — | BIGINT | NOT NULL | — | — | current_setting / 无 DEFAULT | — |
 | 4 | `txn_no` | 事務番号 | VARCHAR(32) | NOT NULL | — | `sys_sequence` | — | 一意（`uk_inv_stock_txn_no`） |
 | 5 | `txn_type` | 事務種別 | VARCHAR(16) | NOT NULL | — | — | — | 19 種（CHECK） |
 | 6 | `txn_date` | 事務日 | DATE | NOT NULL | — | — | — | 遡及禁止・期間 OPEN |
 | 7 | `factory_id` | 工場 ID | BIGINT | NOT NULL | — | `mdm_factory.id`（論理参照） | — | 倉庫の工場 |
 | 8 | `warehouse_id` | 倉庫 ID | BIGINT | NOT NULL | — | `mdm_warehouse.id` | — | 1 事務 1 倉庫 |
-| 9 | `source_type` | 来源種別 | VARCHAR(32) | NOT NULL | — | — | — | `PURCHASE_RECEIPT`/`SALES_DELIVERY`/`WORK_ORDER`/`OUTSOURCING_ORDER`/`TRANSFER`/`STOCKTAKE`/`SALES_RETURN`/`PURCHASE_RETURN`/`INSPECTION`/`MANUAL` |
+| 9 | `source_type` | 来源種別 | VARCHAR(32) | NOT NULL | — | — | — | 入庫過账：`PURCHASE_RECEIPT`/`OUTSOURCING_ORDER`/`PRODUCTION_COMPLETION`；状態変換：`INSPECTION`；他：`SALES_DELIVERY`/`WORK_ORDER`/`TRANSFER`/`STOCKTAKE`/`SALES_RETURN`/`PURCHASE_RETURN`/`MANUAL` |
 | 10 | `source_id` | 来源 ID | BIGINT | NULL | — | — | NULL | 来源伝票の ID |
 | 11 | `source_no` | 来源番号 | VARCHAR(32) | NULL | — | — | NULL | 来源伝票の番号 |
 | 12 | `partner_type` | 相手種別 | SMALLINT | NOT NULL | — | — | 0 | 0 なし/1 仕入先/2 顧客/3 部門/4 その他 |
@@ -389,7 +391,7 @@ COMMENT ON COLUMN inv_stock_txn.accounting_period IS 'txn_date から導出し�
 | 22-23 | `reversed_at/reversed_by` | 沖销日時/者 | TIMESTAMPTZ/BIGINT | NULL | — | — | NULL | — |
 | 24 | `txn_status` | 事務状態 | SMALLINT | NOT NULL | — | — | 10 | 10/20/25/30/90 |
 | 25-26 | `posted_at/posted_by` | 過账日時/者 | TIMESTAMPTZ/BIGINT | NULL | — | — | NULL | 過账時に設定 |
-| 27 | `currency_code` | 通貨 | VARCHAR(3) | NOT NULL | — | `mdm_currency` | CNY | Phase 1 は CNY |
+| 27 | `currency_code` | 通貨 | VARCHAR(3) | NOT NULL | — | `mdm_currency` | CNY | 当面は CNY |
 | 28 | `accounting_period` | 会計期間 | VARCHAR(7) | NOT NULL | — | — | — | `txn_date` から導出 |
 | 29 | `total_qty` | 合計数量 | NUMERIC(18,4) | NOT NULL | — | — | 0 | 明細合計 |
 | 30 | `total_amount` | 合計金額 | NUMERIC(18,2) | NOT NULL | — | — | 0 | 明細合計 |
@@ -439,7 +441,7 @@ COMMENT ON COLUMN inv_stock_txn.accounting_period IS 'txn_date から導出し�
 CREATE TABLE inv_stock_txn_line (
     id              BIGINT        NOT NULL,
     tenant_id       BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id      BIGINT        NOT NULL DEFAULT 1,
+    company_id      BIGINT        NOT NULL,
     txn_id          BIGINT        NOT NULL,
     line_no         INT           NOT NULL,
     material_id     BIGINT        NOT NULL,
@@ -452,6 +454,8 @@ CREATE TABLE inv_stock_txn_line (
     batch_id        BIGINT        NOT NULL DEFAULT 0,
     batch_no        VARCHAR(64)   NOT NULL DEFAULT '',
     stock_status    SMALLINT      NOT NULL,
+    inspection_flag BOOLEAN       NOT NULL,                -- inbound: PI/OSR stage in {10,40}; FGI in {30,40}; else false
+    txn_type        VARCHAR(16)   NOT NULL,                -- redundant with header; trigger enforces match (04 sec 8.1)
     location_id     BIGINT        NOT NULL DEFAULT 0,
     unit_cost       NUMERIC(18,6),
     amount          NUMERIC(18,2),
@@ -477,7 +481,10 @@ CREATE TABLE inv_stock_txn_line (
     CONSTRAINT ck_inv_stock_txn_line_qty CHECK (qty > 0),
     CONSTRAINT ck_inv_stock_txn_line_direction CHECK (direction IN (1, -1)),
     CONSTRAINT ck_inv_stock_txn_line_status CHECK (stock_status IN (10,20,30,40,50)),
-    CONSTRAINT ck_inv_stock_txn_line_amount CHECK (amount IS NULL OR amount >= 0)
+    CONSTRAINT ck_inv_stock_txn_line_amount CHECK (amount IS NULL OR amount >= 0),
+    CONSTRAINT ck_inv_stock_txn_line_insp_inbound CHECK (
+        direction <> 1 OR inspection_flag = FALSE OR stock_status = 10
+    )
 );
 
 CREATE UNIQUE INDEX uk_inv_stock_txn_line_no ON inv_stock_txn_line (txn_id, line_no);
@@ -508,7 +515,9 @@ COMMENT ON COLUMN inv_stock_txn_line.after_avg_cost IS '過账後の移動平均
 | 11 | `qty` | 数量 | NUMERIC(18,4) | NOT NULL | > 0（CHECK）。方向は `direction` |
 | 12 | `direction` | 方向 | SMALLINT | NOT NULL | +1/-1（CHECK）。`txn_type` から決定 |
 | 13-14 | `batch_id/batch_no` | 批次 | BIGINT/VARCHAR | NOT NULL | 非批次は 0/'' |
-| 15 | `stock_status` | 在庫状態 | SMALLINT | NOT NULL | 変動対象の状態 |
+| 15 | `stock_status` | 在庫状態 | SMALLINT | NOT NULL | 変動対象の状態。入庫かつ inspection_flag=true なら 10 |
+| 15a | `inspection_flag` | 検査要否 | BOOLEAN | NOT NULL | スナップショット。PI/OSR:`stage∈{10,40}`；FGI:`∈{30,40}`。ON→10 / OFF→20 |
+| 15b | `txn_type` | 事務種別（冗余） | VARCHAR(16) | NOT NULL | 表頭と一致（トリガー検証） |
 | 16 | `location_id` | 庫位 | BIGINT | NOT NULL | 0=未管理 |
 | 17 | `unit_cost` | 単価 | NUMERIC(18,6) | NULL | 入庫原価単価/出庫平均単価。草稿時 NULL |
 | 18 | `amount` | 金額 | NUMERIC(18,2) | NULL | — |
@@ -544,7 +553,7 @@ COMMENT ON COLUMN inv_stock_txn_line.after_avg_cost IS '過账後の移動平均
 CREATE TABLE inv_transfer (
     id               BIGINT        NOT NULL,
     tenant_id        BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id       BIGINT        NOT NULL DEFAULT 1,
+    company_id      BIGINT        NOT NULL,
     transfer_no      VARCHAR(32)   NOT NULL,
     transfer_type    SMALLINT      NOT NULL DEFAULT 20,   -- 10同倉移庫/20跨倉調撥/30跨工場(P2)
     transfer_date    DATE          NOT NULL,
@@ -577,7 +586,7 @@ CREATE TABLE inv_transfer (
         (transfer_type = 10 AND from_warehouse_id = to_warehouse_id)
         OR (transfer_type IN (20,30) AND from_warehouse_id <> to_warehouse_id))
 );
-CREATE UNIQUE INDEX uk_inv_transfer_no ON inv_transfer (company_id, transfer_no);
+CREATE UNIQUE INDEX uk_inv_transfer_no ON inv_transfer (tenant_id, company_id, transfer_no);
 CREATE INDEX idx_inv_transfer_status ON inv_transfer (company_id, transfer_status, transfer_date DESC);
 CREATE INDEX idx_inv_transfer_from_wh ON inv_transfer (company_id, from_warehouse_id, transfer_date DESC);
 CREATE INDEX idx_inv_transfer_to_wh ON inv_transfer (company_id, to_warehouse_id, transfer_date DESC);
@@ -604,7 +613,7 @@ COMMENT ON COLUMN inv_transfer.in_transit_qty IS '出庫済・未受入の数量
 CREATE TABLE inv_transfer_line (
     id              BIGINT        NOT NULL,
     tenant_id       BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id      BIGINT        NOT NULL DEFAULT 1,
+    company_id      BIGINT        NOT NULL,
     transfer_id     BIGINT        NOT NULL,
     line_no         INT           NOT NULL,
     material_id     BIGINT        NOT NULL,
@@ -654,7 +663,7 @@ COMMENT ON TABLE inv_transfer_line IS '库存调拨单明细。金額保存則 �
 CREATE TABLE inv_stocktake_plan (
     id                 BIGINT        NOT NULL,
     tenant_id          BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id         BIGINT        NOT NULL DEFAULT 1,
+    company_id      BIGINT        NOT NULL,
     plan_no            VARCHAR(32)   NOT NULL,
     plan_name          VARCHAR(100)  NOT NULL,
     plan_type          SMALLINT      NOT NULL DEFAULT 20,  -- 10全盤/20循環/30抽盤/40重点
@@ -680,7 +689,7 @@ CREATE TABLE inv_stocktake_plan (
     CONSTRAINT ck_inv_stocktake_plan_status CHECK (plan_status IN (10,20,25,30,40,90)),
     CONSTRAINT ck_inv_stocktake_plan_date CHECK (planned_start_date <= planned_end_date)
 );
-CREATE UNIQUE INDEX uk_inv_stocktake_plan_no ON inv_stocktake_plan (company_id, plan_no);
+CREATE UNIQUE INDEX uk_inv_stocktake_plan_no ON inv_stocktake_plan (tenant_id, company_id, plan_no);
 CREATE INDEX idx_inv_stocktake_plan_wh ON inv_stocktake_plan (company_id, warehouse_id, plan_status);
 COMMENT ON TABLE inv_stocktake_plan IS '盘点计划（全盤/循環/抽盤/重点）。scope_json に対象範囲を保持';
 COMMENT ON COLUMN inv_stocktake_plan.scope_json IS 'JSON: {"categoryCodes":[],"materialIds":[],"locationIds":[],"stockStatuses":[10,20,30,40,50]}';
@@ -702,7 +711,7 @@ COMMENT ON COLUMN inv_stocktake_plan.scope_json IS 'JSON: {"categoryCodes":[],"m
 CREATE TABLE inv_stocktake (
     id                BIGINT        NOT NULL,
     tenant_id         BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id        BIGINT        NOT NULL DEFAULT 1,
+    company_id      BIGINT        NOT NULL,
     stocktake_no      VARCHAR(32)   NOT NULL,
     plan_id           BIGINT        NOT NULL,
     warehouse_id      BIGINT        NOT NULL,
@@ -732,7 +741,7 @@ CREATE TABLE inv_stocktake (
     CONSTRAINT ck_inv_stocktake_status CHECK (take_status IN (10,20,30,35,40,90)),
     CONSTRAINT ck_inv_stocktake_lines CHECK (total_lines >= 0 AND counted_lines >= 0 AND diff_lines >= 0)
 );
-CREATE UNIQUE INDEX uk_inv_stocktake_no ON inv_stocktake (company_id, stocktake_no);
+CREATE UNIQUE INDEX uk_inv_stocktake_no ON inv_stocktake (tenant_id, company_id, stocktake_no);
 CREATE INDEX idx_inv_stocktake_wh_status ON inv_stocktake (company_id, warehouse_id, take_status);
 CREATE INDEX idx_inv_stocktake_open ON inv_stocktake (company_id, warehouse_id)
     WHERE take_status IN (10,20,30,35);
@@ -755,7 +764,7 @@ COMMENT ON COLUMN inv_stocktake.snapshot_txn_id IS 'スナップショット時�
 CREATE TABLE inv_stocktake_line (
     id               BIGINT        NOT NULL,
     tenant_id        BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id       BIGINT        NOT NULL DEFAULT 1,
+    company_id      BIGINT        NOT NULL,
     stocktake_id     BIGINT        NOT NULL,
     line_no          INT           NOT NULL,
     material_id      BIGINT        NOT NULL,
@@ -815,7 +824,7 @@ COMMENT ON COLUMN inv_stocktake_line.net_movement IS 'スナップショット�
 CREATE TABLE inv_batch (
     id               BIGINT        NOT NULL,
     tenant_id        BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id       BIGINT        NOT NULL DEFAULT 1,
+    company_id      BIGINT        NOT NULL,
     batch_no         VARCHAR(64)   NOT NULL,
     material_id      BIGINT        NOT NULL,
     batch_type       SMALLINT      NOT NULL DEFAULT 10,   -- 10采购/20制造/30期初/40其他
@@ -841,7 +850,7 @@ CREATE TABLE inv_batch (
     CONSTRAINT ck_inv_batch_status CHECK (batch_status IN (10,40,90)),
     CONSTRAINT ck_inv_batch_expiry CHECK (expiry_date IS NULL OR receipt_date IS NULL OR expiry_date >= receipt_date)
 );
-CREATE UNIQUE INDEX uk_inv_batch_material_no ON inv_batch (company_id, material_id, batch_no);
+CREATE UNIQUE INDEX uk_inv_batch_material_no ON inv_batch (tenant_id, company_id, material_id, batch_no);
 CREATE INDEX idx_inv_batch_expiry ON inv_batch (company_id, expiry_date, batch_status)
     WHERE expiry_date IS NOT NULL;
 CREATE INDEX idx_inv_batch_supplier_lot ON inv_batch (company_id, supplier_batch_no)
@@ -868,7 +877,7 @@ COMMENT ON COLUMN inv_batch.supplier_batch_no IS '供給者ロット番号（BN-
 CREATE TABLE inv_batch_genealogy (
     id                 BIGINT      NOT NULL,
     tenant_id          BIGINT      NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id         BIGINT      NOT NULL DEFAULT 1,
+    company_id      BIGINT        NOT NULL,
     parent_batch_id    BIGINT      NOT NULL,      -- 消費された原料/半成品の批次
     child_batch_id     BIGINT      NOT NULL,      -- 生成された製品/半製品の批次
     relation_type      SMALLINT    NOT NULL DEFAULT 10, -- 10生産消費/20委外/30拆分/40返工
@@ -907,7 +916,7 @@ COMMENT ON TABLE inv_batch_genealogy IS '批次系譜（父批次→子批次）
 CREATE TABLE inv_serial (
     id                BIGINT       NOT NULL,
     tenant_id         BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id        BIGINT       NOT NULL DEFAULT 1,
+    company_id      BIGINT        NOT NULL,
     serial_no         VARCHAR(64)  NOT NULL,
     external_serial_no VARCHAR(64),
     material_id       BIGINT       NOT NULL,
@@ -932,9 +941,9 @@ CREATE TABLE inv_serial (
     CONSTRAINT pk_inv_serial PRIMARY KEY (id),
     CONSTRAINT ck_inv_serial_status CHECK (serial_status IN (10,20,30,40,50))
 );
-CREATE UNIQUE INDEX uk_inv_serial_no ON inv_serial (company_id, serial_no);
+CREATE UNIQUE INDEX uk_inv_serial_no ON inv_serial (tenant_id, company_id, serial_no);
 CREATE UNIQUE INDEX uk_inv_serial_external
-    ON inv_serial (company_id, external_serial_no)
+    ON inv_serial (tenant_id, company_id, external_serial_no)
     WHERE external_serial_no IS NOT NULL;
 CREATE INDEX idx_inv_serial_material ON inv_serial (company_id, material_id, serial_status);
 CREATE INDEX idx_inv_serial_customer ON inv_serial (company_id, customer_id, outbound_date)
@@ -958,7 +967,7 @@ COMMENT ON COLUMN inv_serial.serial_no IS '成品: {YYMMDD}{機座号3桁}{4位�
 CREATE TABLE inv_serial_txn (
     id           BIGINT      NOT NULL,
     tenant_id    BIGINT      NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id   BIGINT      NOT NULL DEFAULT 1,
+    company_id      BIGINT        NOT NULL,
     serial_id    BIGINT      NOT NULL,
     txn_id       BIGINT      NOT NULL,
     txn_line_id  BIGINT,
@@ -996,7 +1005,7 @@ COMMENT ON TABLE inv_serial_txn IS '序列号状態変化履歴。追記専用';
 CREATE TABLE inv_reservation (
     id               BIGINT       NOT NULL,
     tenant_id        BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id       BIGINT       NOT NULL DEFAULT 1,
+    company_id      BIGINT        NOT NULL,
     reservation_no   VARCHAR(32)  NOT NULL,          -- RSV + YYMMDD + 4桁（08 §2.1）
     source_type      VARCHAR(32)  NOT NULL,          -- SALES_ORDER / WORK_ORDER / MANUAL
     source_id        BIGINT       NOT NULL,
@@ -1017,9 +1026,9 @@ CREATE TABLE inv_reservation (
     CONSTRAINT ck_inv_reservation_status CHECK (reservation_status IN (10,20,35,40,90)),
     CONSTRAINT ck_inv_reservation_shortage CHECK (shortage_qty >= 0)
 );
-CREATE UNIQUE INDEX uk_inv_reservation_no ON inv_reservation (company_id, reservation_no);
+CREATE UNIQUE INDEX uk_inv_reservation_no ON inv_reservation (tenant_id, company_id, reservation_no);
 CREATE UNIQUE INDEX uk_inv_reservation_source
-    ON inv_reservation (company_id, source_type, source_id)
+    ON inv_reservation (tenant_id, company_id, source_type, source_id)
     WHERE reservation_status <> 90;
 CREATE INDEX idx_inv_reservation_expire
     ON inv_reservation (company_id, expire_date)
@@ -1043,7 +1052,7 @@ COMMENT ON COLUMN inv_reservation.reservation_status IS '10有効(RESERVED)/20�
 CREATE TABLE inv_reservation_line (
     id              BIGINT        NOT NULL,
     tenant_id       BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id      BIGINT        NOT NULL DEFAULT 1,
+    company_id      BIGINT        NOT NULL,
     reservation_id  BIGINT        NOT NULL,
     line_no         INT           NOT NULL,
     material_id     BIGINT        NOT NULL,
@@ -1091,7 +1100,7 @@ COMMENT ON TABLE inv_reservation_line IS '库存预留明细（倉庫×物料×�
 CREATE TABLE inv_cost_layer (
     id                BIGINT        NOT NULL,
     tenant_id         BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id        BIGINT        NOT NULL DEFAULT 1,
+    company_id      BIGINT        NOT NULL,
     layer_type        SMALLINT      NOT NULL DEFAULT 10,  -- 10入庫層/20原価調整層/30期初層
     warehouse_id      BIGINT        NOT NULL,
     material_id       BIGINT        NOT NULL,
@@ -1150,7 +1159,7 @@ COMMENT ON COLUMN inv_cost_layer.remaining_amount IS 'Σ remaining_amount（cost
 CREATE TABLE inv_cost_adjustment (
     id                  BIGINT        NOT NULL,
     tenant_id           BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id          BIGINT        NOT NULL DEFAULT 1,
+    company_id      BIGINT        NOT NULL,
     adjustment_no       VARCHAR(32)   NOT NULL,          -- CA + YYMMDD + 4桁（08 §2.1）
     adjustment_type     SMALLINT      NOT NULL DEFAULT 10, -- 10暂估差异/20运费差异/30关税差异/40价格调整/50期間再計算
     adjustment_date     DATE          NOT NULL,
@@ -1177,7 +1186,7 @@ CREATE TABLE inv_cost_adjustment (
     CONSTRAINT ck_inv_cost_adjustment_type CHECK (adjustment_type IN (10,20,30,40,50)),
     CONSTRAINT ck_inv_cost_adjustment_status CHECK (adjustment_status IN (10,20,25,30,90))
 );
-CREATE UNIQUE INDEX uk_inv_cost_adjustment_no ON inv_cost_adjustment (company_id, adjustment_no);
+CREATE UNIQUE INDEX uk_inv_cost_adjustment_no ON inv_cost_adjustment (tenant_id, company_id, adjustment_no);
 CREATE INDEX idx_inv_cost_adjustment_period
     ON inv_cost_adjustment (company_id, period_code, adjustment_status);
 CREATE INDEX idx_inv_cost_adjustment_source
@@ -1195,7 +1204,7 @@ COMMENT ON TABLE inv_cost_adjustment IS '原価調整単（価格差異・運費
 CREATE TABLE inv_cost_adjustment_line (
     id                    BIGINT        NOT NULL,
     tenant_id             BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id            BIGINT        NOT NULL DEFAULT 1,
+    company_id      BIGINT        NOT NULL,
     adjustment_id         BIGINT        NOT NULL,
     line_no               INT           NOT NULL,
     material_id           BIGINT        NOT NULL,
@@ -1240,7 +1249,7 @@ COMMENT ON TABLE inv_cost_adjustment_line IS '原価調整明細。在庫分と�
 CREATE TABLE inv_period (
     id               BIGINT       NOT NULL,
     tenant_id        BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id       BIGINT       NOT NULL DEFAULT 1,
+    company_id      BIGINT        NOT NULL,
     period_code      VARCHAR(7)   NOT NULL,
     period_start_date DATE        NOT NULL,
     period_end_date  DATE         NOT NULL,
@@ -1265,7 +1274,7 @@ CREATE TABLE inv_period (
     CONSTRAINT ck_inv_period_status CHECK (period_status IN (10,20,40,90)),
     CONSTRAINT ck_inv_period_date CHECK (period_start_date <= period_end_date)
 );
-CREATE UNIQUE INDEX uk_inv_period_code ON inv_period (company_id, period_code);
+CREATE UNIQUE INDEX uk_inv_period_code ON inv_period (tenant_id, company_id, period_code);
 COMMENT ON TABLE inv_period IS '库存期间（月次）。FIN の fin_period と順序制御（在庫月结→原価→FIN 关账）';
 COMMENT ON COLUMN inv_period.recalc_lock IS '期間再計算の実行中フラグ。過账時にチェックしてブロック';
 ```
@@ -1285,7 +1294,7 @@ COMMENT ON COLUMN inv_period.recalc_lock IS '期間再計算の実行中フラ�
 CREATE TABLE inv_stock_summary (
     id              BIGINT        NOT NULL,
     tenant_id       BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id      BIGINT        NOT NULL DEFAULT 1,
+    company_id      BIGINT        NOT NULL,
     period_code     VARCHAR(7)    NOT NULL,
     warehouse_id    BIGINT        NOT NULL,
     material_id     BIGINT        NOT NULL,
@@ -1306,7 +1315,7 @@ CREATE TABLE inv_stock_summary (
     CONSTRAINT ck_inv_stock_summary_balance CHECK (closing_qty = opening_qty + in_qty - out_qty)
 );
 CREATE UNIQUE INDEX uk_inv_stock_summary_key
-    ON inv_stock_summary (company_id, period_code, warehouse_id, material_id);
+    ON inv_stock_summary (tenant_id, company_id, period_code, warehouse_id, material_id);
 CREATE INDEX idx_inv_stock_summary_period ON inv_stock_summary (company_id, period_code);
 COMMENT ON TABLE inv_stock_summary IS '月次收发存汇总。期初＋入庫−出庫＝期末（DB CHECK）';
 ```
@@ -1321,7 +1330,7 @@ COMMENT ON TABLE inv_stock_summary IS '月次收发存汇总。期初＋入庫�
 CREATE TABLE inv_age_snapshot (
     id             BIGINT        NOT NULL,
     tenant_id      BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id     BIGINT        NOT NULL DEFAULT 1,
+    company_id      BIGINT        NOT NULL,
     snapshot_date  DATE          NOT NULL,
     warehouse_id   BIGINT        NOT NULL,
     material_id    BIGINT        NOT NULL,
@@ -1339,7 +1348,7 @@ CREATE TABLE inv_age_snapshot (
     CONSTRAINT ck_inv_age_snapshot_qty CHECK (qty >= 0)
 );
 CREATE UNIQUE INDEX uk_inv_age_snapshot_key
-    ON inv_age_snapshot (snapshot_date, warehouse_id, material_id, batch_id, received_date, age_bucket);
+    ON inv_age_snapshot (tenant_id, company_id, snapshot_date, warehouse_id, material_id, batch_id, received_date, age_bucket);
 CREATE INDEX idx_inv_age_snapshot_date ON inv_age_snapshot (company_id, snapshot_date DESC);
 CREATE INDEX idx_inv_age_snapshot_slow
     ON inv_age_snapshot (company_id, snapshot_date) WHERE is_slow_moving = TRUE;
@@ -1354,7 +1363,7 @@ COMMENT ON TABLE inv_age_snapshot IS '日次庫齢スナップショット（BAT
 CREATE TABLE inv_replenishment (
     id                  BIGINT        NOT NULL,
     tenant_id           BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id          BIGINT        NOT NULL DEFAULT 1,
+    company_id      BIGINT        NOT NULL,
     as_of_date          DATE          NOT NULL,
     warehouse_id        BIGINT        NOT NULL,
     material_id         BIGINT        NOT NULL,
@@ -1379,7 +1388,7 @@ CREATE TABLE inv_replenishment (
         AND safety_stock >= 0 AND avg_daily_usage >= 0 AND suggested_qty >= 0)
 );
 CREATE UNIQUE INDEX uk_inv_replenishment_key
-    ON inv_replenishment (company_id, as_of_date, warehouse_id, material_id);
+    ON inv_replenishment (tenant_id, company_id, as_of_date, warehouse_id, material_id);
 CREATE INDEX idx_inv_replenishment_status
     ON inv_replenishment (company_id, as_of_date, replenishment_status);
 CREATE INDEX idx_inv_replenishment_shortage
@@ -1402,7 +1411,7 @@ COMMENT ON TABLE inv_replenishment IS '補貨建議（BAT-INV-004）。発注点
 CREATE TABLE inv_scan_log (
     id            BIGINT       NOT NULL,
     tenant_id     BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id    BIGINT       NOT NULL DEFAULT 1,
+    company_id      BIGINT        NOT NULL,
     device_id     VARCHAR(64)  NOT NULL,
     local_seq     BIGINT,                       -- PDA ローカル連番（冪等キー）
     session_id    VARCHAR(64)  NOT NULL,
@@ -1429,7 +1438,7 @@ CREATE TABLE inv_scan_log (
     CONSTRAINT ck_inv_scan_log_result CHECK (scan_result IN (0,1))
 );
 CREATE UNIQUE INDEX uk_inv_scan_log_device_seq
-    ON inv_scan_log (device_id, local_seq) WHERE local_seq IS NOT NULL;
+    ON inv_scan_log (tenant_id, company_id, device_id, local_seq) WHERE local_seq IS NOT NULL;
 CREATE INDEX idx_inv_scan_log_time ON inv_scan_log (company_id, scan_at DESC);
 CREATE INDEX idx_inv_scan_log_barcode ON inv_scan_log (company_id, barcode_value);
 CREATE INDEX idx_inv_scan_log_biz ON inv_scan_log (company_id, biz_type, biz_id);
@@ -1453,7 +1462,7 @@ COMMENT ON TABLE inv_scan_log IS 'PDA スキャン記録（成功・失敗の全
 CREATE TABLE inv_event_wait (
     id              BIGINT        NOT NULL,
     tenant_id       BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id      BIGINT        NOT NULL DEFAULT 1,
+    company_id      BIGINT        NOT NULL,
     event_id        UUID          NOT NULL,           -- 受信イベント ID（冪等キー）
     event_type      VARCHAR(100)  NOT NULL,           -- quality.inspection.completed
     source_type     VARCHAR(32)   NOT NULL,           -- PURCHASE_RECEIPT / INSPECTION
@@ -1493,10 +1502,10 @@ COMMENT ON COLUMN inv_event_wait.waiting_for IS 'PI=入荷待ち、FGI=完工入
 
 | # | 索引名 | テーブル | 種別 | 対象列 | 目的 |
 |---|---|---|---|---|---|
-| 1 | `uk_inv_stock_balance_key` | `inv_stock_balance` | UNIQUE | (company_id, warehouse_id, material_id, batch_id, stock_status, location_id) | 残高の一意キー（ロック対象） |
+| 1 | `uk_inv_stock_balance_key` | `inv_stock_balance` | UNIQUE | (tenant_id, company_id, warehouse_id, material_id, batch_id, stock_status, location_id) | 残高の一意キー（ロック対象） |
 | 2 | `idx_inv_stock_balance_material_wh` | 同上 | B-Tree | (company_id, material_id, warehouse_id, stock_status) | 物料別在庫照会 |
-| 3 | `uk_inv_stock_txn_no` | `inv_stock_txn` | UNIQUE | (company_id, txn_no) | 伝票番号一意 |
-| 4 | `uk_inv_stock_txn_source_posted` | 同上 | UNIQUE 部分 | (company_id, source_type, source_id, txn_type) WHERE txn_status=30 | 二重計上防止 |
+| 3 | `uk_inv_stock_txn_no` | `inv_stock_txn` | UNIQUE | (tenant_id, company_id, txn_no) | 伝票番号一意 |
+| 4 | `uk_inv_stock_txn_source_posted` | 同上 | UNIQUE 部分 | (tenant_id, company_id, source_type, source_id, txn_type) WHERE txn_status=30 | 二重計上防止 |
 | 5 | `uk_inv_stock_txn_reversal` | 同上 | UNIQUE 部分 | (reversal_of_txn_id) WHERE is_reversal | 二重沖销防止 |
 | 6 | `idx_inv_stock_txn_date_type` | 同上 | B-Tree | (company_id, txn_date DESC, txn_type) | 流水照会・月结集計 |
 | 7 | `idx_inv_stock_txn_line_material_date` | `inv_stock_txn_line` | B-Tree | (company_id, material_id, batch_id, txn_id) | 台帳・追溯 |
@@ -1506,19 +1515,19 @@ COMMENT ON COLUMN inv_event_wait.waiting_for IS 'PI=入荷待ち、FGI=完工入
 | 11 | `uk_inv_stocktake_line_key` | `inv_stocktake_line` | UNIQUE | (stocktake_id, material_id, batch_id, stock_status, location_id) | 明細一意 |
 | 12 | `uk_inv_batch_material_no` / `idx_inv_batch_expiry` | `inv_batch` | UNIQUE / B-Tree | — / (company_id, expiry_date) WHERE expiry_date IS NOT NULL | 批次・有效期 |
 | 13 | `uk_inv_batch_genealogy_key` | `inv_batch_genealogy` | UNIQUE | (parent_batch_id, child_batch_id, source_txn_line_id) | 系譜の二重登録防止 |
-| 14 | `uk_inv_serial_no` / `uk_inv_serial_external` | `inv_serial` | UNIQUE | — / (company_id, external_serial_no) WHERE NOT NULL | 序列号一意 |
-| 15 | `uk_inv_reservation_source` | `inv_reservation` | UNIQUE 部分 | (company_id, source_type, source_id) WHERE status <> 90 | 二重引当防止 |
+| 14 | `uk_inv_serial_no` / `uk_inv_serial_external` | `inv_serial` | UNIQUE | — / (tenant_id, company_id, external_serial_no) WHERE NOT NULL | 序列号一意 |
+| 15 | `uk_inv_reservation_source` | `inv_reservation` | UNIQUE 部分 | (tenant_id, company_id, source_type, source_id) WHERE status <> 90 | 二重引当防止 |
 | 16 | `idx_inv_reservation_expire` | 同上 | B-Tree 部分 | (company_id, expire_date) WHERE status IN (10,20,35) | 期限切れ解放 |
 | 17 | `idx_inv_cost_layer_remaining` | `inv_cost_layer` | B-Tree 部分 | (company_id, warehouse_id, material_id, batch_id, received_date) WHERE remaining_qty>0 | 庫齢・FIFO 減算 |
-| 18 | `uk_inv_cost_adjustment_no` | `inv_cost_adjustment` | UNIQUE | (company_id, adjustment_no) | 調整番号一意 |
-| 19 | `uk_inv_period_code` | `inv_period` | UNIQUE | (company_id, period_code) | 期間一意 |
-| 20 | `uk_inv_stock_summary_key` | `inv_stock_summary` | UNIQUE | (company_id, period_code, warehouse_id, material_id) | 汇总一意 |
-| 21 | `uk_inv_age_snapshot_key` | `inv_age_snapshot` | UNIQUE | (snapshot_date, warehouse_id, material_id, batch_id, received_date, age_bucket) | スナップショット一意 |
-| 22 | `uk_inv_replenishment_key` | `inv_replenishment` | UNIQUE | (company_id, as_of_date, warehouse_id, material_id) | 建議一意 |
-| 23 | `uk_inv_scan_log_device_seq` | `inv_scan_log` | UNIQUE 部分 | (device_id, local_seq) WHERE local_seq IS NOT NULL | 二重送信排除 |
+| 18 | `uk_inv_cost_adjustment_no` | `inv_cost_adjustment` | UNIQUE | (tenant_id, company_id, adjustment_no) | 調整番号一意 |
+| 19 | `uk_inv_period_code` | `inv_period` | UNIQUE | (tenant_id, company_id, period_code) | 期間一意 |
+| 20 | `uk_inv_stock_summary_key` | `inv_stock_summary` | UNIQUE | (tenant_id, company_id, period_code, warehouse_id, material_id) | 汇总一意 |
+| 21 | `uk_inv_age_snapshot_key` | `inv_age_snapshot` | UNIQUE | (tenant_id, company_id, snapshot_date, warehouse_id, material_id, batch_id, received_date, age_bucket) | スナップショット一意 |
+| 22 | `uk_inv_replenishment_key` | `inv_replenishment` | UNIQUE | (tenant_id, company_id, as_of_date, warehouse_id, material_id) | 建議一意 |
+| 23 | `uk_inv_scan_log_device_seq` | `inv_scan_log` | UNIQUE 部分 | (tenant_id, company_id, device_id, local_seq) WHERE local_seq IS NOT NULL | 二重送信排除 |
 | 24 | `uk_inv_event_wait_event` / `idx_inv_event_wait_pending` | `inv_event_wait` | UNIQUE / B-Tree 部分 | (event_id) / (company_id, wait_status, next_retry_at) WHERE wait_status=0 | 二重保留防止・未適用抽出 |
 
-> 1 テーブル 5 本以内を目安（[04 §7](../00-common/04-common-db-spec.md)）。`inv_stock_txn`/`inv_stock_txn_line` は参照頻度が高いため 5 本まで許容し、Phase 2 のパーティション化で `txn_date` 索引を見直す。
+> 1 テーブル 5 本以内を目安（[04 §7](../00-common/04-common-db-spec.md)）。`inv_stock_txn`/`inv_stock_txn_line` は参照頻度が高いため 5 本まで許容し、第一版 のパーティション化で `txn_date` 索引を見直す。
 
 ---
 
@@ -1570,7 +1579,7 @@ COMMENT ON COLUMN inv_event_wait.waiting_for IS 'PI=入荷待ち、FGI=完工入
 
 | テーブル | 初期 | 年間増加 | 5 年後 | 保存 | アーカイブ方針 |
 |---|---|---|---|---|---|
-| `inv_stock_txn` | 1,000 万 | 500 万 | 3,500 万 | 10 年 | Phase 2 で月次パーティション、10 年超は履歴 DB |
+| `inv_stock_txn` | 1,000 万 | 500 万 | 3,500 万 | 10 年 | 第一版 で月次パーティション、10 年超は履歴 DB |
 | `inv_stock_txn_line` | 3,000 万 | 1,500 万 | 1 億 | 10 年 | 同上 |
 | `inv_cost_layer` | 500 万 | 500 万 | 3,000 万 | 10 年 | 残存層のみ現行、枯渇層は 3 年後にアーカイブ検討 |
 | `inv_stock_balance` | 6 万 | — | 8 万 | 現行のみ | — |
@@ -1632,7 +1641,7 @@ COMMENT ON COLUMN inv_event_wait.waiting_for IS 'PI=入荷待ち、FGI=完工入
 
 - シード（コード表・初期マスタ）は [04 §10](../00-common/04-common-db-spec.md) に従い、`R__seed_inventory_*.sql`（冪等）または `V` スクリプトで投入する。**90-data の CSV を正**とする。
 - 一度適用したスクリプトは編集しない。破壊的変更は 2 段階。
-- `inv_stock_txn` のパーティション化（Phase 2）は新規マイグレーションで行い、`Phase 1` では単一テーブル + `txn_date` 索引とする（[未決](#10-未決事項)）。
+- `inv_stock_txn` のパーティション化は新規マイグレーションで行い、`第一版` では単一テーブル + `txn_date` 索引とする（[未決](#10-未決事項)）。
 
 ---
 
@@ -1640,14 +1649,25 @@ COMMENT ON COLUMN inv_event_wait.waiting_for IS 'PI=入荷待ち、FGI=完工入
 
 | # | 事項 | 理由 | 暫定仕様 | 担当 | 期限 |
 |---|---|---|---|---|---|
-| 1 | `inv_stock_txn` の月次パーティション化 | 年 500 万行の増加に対し、Phase 1 は単一テーブル | Phase 1 は単一テーブル + `txn_date` 索引。Phase 2 で `PARTITION BY RANGE (txn_date)` へ移行（アプリからは 1 テーブルに見える） | inventory-designer | 2026-11-15 |
-| 2 | `inv_stock_txn_line.amount` の NOT NULL 化 | 草稿時は原価未確定で NULL を許容 | 過账時に必ず設定する運用。NOT NULL 化は Phase 2（全伝票が過账前提になる場合） | inventory-designer | 2027-03-31 |
-| 3 | `inv_scan_log` の保存期間 | [08 §12](../00-common/08-common-business-rules.md) に規定なし。監査要件と容量のバランス | 1 年保存後に削除（アーカイブは Phase 2）。監査上必要なら延長 | inventory-designer / SYS 担当 | 2026-11-30 |
+| 1 | `inv_stock_txn` の月次パーティション化 | 年 500 万行の増加に対し、当面は単一テーブル | 第一版から `PARTITION BY RANGE (txn_date)`（月次）で作成する（アプリからは 1 テーブルに見える） | inventory-designer | 2026-11-15 |
+| 2 | `inv_stock_txn_line.amount` の NOT NULL 化 | 草稿時は原価未確定で NULL を許容 | 草稿時は NULL 許容、過账時に必須（アプリ＋過账トリガーで検証）。列の NOT NULL 化は全伝票が過账前提になった時点で再判断 | inventory-designer | 2027-03-31 |
+| 3 | `inv_scan_log` の保存期間 | [08 §12](../00-common/08-common-business-rules.md) に規定なし。監査要件と容量のバランス | 1 年保存後にアーカイブ（第一版で実装）。監査上必要なら延長 | inventory-designer / SYS 担当 | 2026-11-30 |
 | 4 | `inv_batch` の削除方針 | 参照実績のない誤登録批次を削除できるか | 在庫・事務参照がある限り削除禁止。参照ゼロかつ当日登録のみ取消可（`batch_status=90`） | inventory-designer | 2026-11-30 |
-| 5 | 寄售・组装拆卸用の列追加 | F-INV-022/023（Phase 2）で `owner_type` 等の追加が必要 | Phase 1 では列を追加しない。Phase 2 でマイグレーション追加 | inventory-designer / Lead | 2027-06-30 |
+| 5 | 寄售・组装拆卸用の列追加 | F-INV-022/023で `owner_type` 等の追加が必要 | 第一版で `owner_type` 等の列をマイグレーション追加（F-INV-022/023 設計と同時） | inventory-designer / Lead | 2027-06-30 |
 | 6 | `inv_event_wait` と `sys_event_wait` の物理名 | [09 §8](../00-common/09-cross-domain-flow.md) は `sys_event_wait`、[04 DB 規格](../00-common/04-common-db-spec.md) のプレフィックス規約では SYS 所有。INV 実装のため暫定 `inv_event_wait` | 暫定 `inv_event_wait`（INV 所有）。SYS 共通基盤提供時に移管 | Lead / system-workflow / inventory-designer | 2026-10-25 |
 
 ---
+
+
+### 一意索引の先頭列ルールと例外（2026-10-20 決定）
+
+- 業務一意索引は `(tenant_id, company_id, 業務キー)` で始める（Refs 43/49/54 と同一）。
+- `ON CONFLICT` は同じ列を含め、採番は `sys_sequence.step`（`EXCLUDED.step` 禁止）。
+- `company_id` は既定値なし・必須。`tenant_id` は `DEFAULT current_setting('app.tenant_id')::bigint`（禁止写死的默认租户）。
+- **例外（親 ID／グローバル ID 先頭。親行が tenant/company を保証）**：`uk_inv_cost_adjustment_line_no`, `uk_inv_event_wait_event`, `uk_inv_reservation_line_no`, `uk_inv_stock_txn_line_no`, `uk_inv_transfer_line_no`, `uk_inv_stock_txn_reversal`（`reversal_of_txn_id`）, `uk_inv_stocktake_line_key`（`stocktake_id`）, `uk_inv_batch_genealogy_key`（`parent_batch_id`）。
+- `uk_inv_age_snapshot_key`・`uk_inv_scan_log_device_seq` は業務キーのため `(tenant_id, company_id, …)` 先頭に改めた。
+- **G2-20**：非一意の照会索引（`idx_`）は `(company_id, …)` 先頭としてよい。一意索引（`uk_`）を company_id 先頭と書いてはならない。
+
 
 ## 11. 改訂履歴
 

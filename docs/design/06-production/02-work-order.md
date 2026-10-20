@@ -215,9 +215,9 @@ stateDiagram-v2
 | 12 | bom_no | 適用 BOM | ヘッダ | テキスト | VARCHAR(32) | — | 自動解決 | — | `prd_bom` | `bom_id`/`bom_no` | 参照のみ | 基準日で有效版を選択 |
 | 13 | routing_no | 適用工艺 | ヘッダ | テキスト | VARCHAR(40) | — | 自動解決 | — | `prd_routing` | `routing_id`/`routing_no` | 参照のみ | — |
 | 14 | sales_order_id | 受注 | ヘッダ | コード選択 | VARCHAR(32) | △ | 空 | MTO 時必須、承認済受注のみ | `sal_sales_order` | `sales_order_id` | 編集可 | MTO の紐付け |
-| 14a | sales_order_line_id | 受注明細 | ヘッダ | コード選択 | BIGINT | △(MTO○) | 空 | MTO 必須・品目一致（`MSG-PRD-056`） | `sal_sales_order_line` | `sales_order_line_id` | 編集可 |
-| 14b | allowed_qty | 許容完工上限 | ヘッダ | 数値 | NUMERIC(18,4) | — | 受注行／計算 | — | 受注行スナップショット | `allowed_qty` | 参照のみ |
-| 14c | completed_qty | 完工累計 | ヘッダ | 数値 | NUMERIC(18,4) | — | 0 | — | 完工入庫 | `completed_qty` | 参照のみ |
+| 14a | sales_order_line_id | 受注明細 | ヘッダ | コード選択 | BIGINT | △(MTO○) | 空 | MTO 必須・品目一致（`MSG-PRD-056`） | `sal_sales_order_line` | `sales_order_line_id` | 編集可 | G2-18 完工上限の基準 |
+| 14b | allowed_qty | 許容完工上限 | ヘッダ | 数値 | NUMERIC(18,4) | — | 受注行／計算 | — | 受注行スナップショット | `allowed_qty` | 参照のみ | floor(受注行残 × (1+許容率))、`uom.decimal_places` で切捨 |
+| 14c | completed_qty | 完工累計 | ヘッダ | 数値 | NUMERIC(18,4) | — | 0 | — | 完工入庫 | `completed_qty` | 参照のみ | 完工入庫・取消で増減 |
 | 15 | customer_id | 顧客 | ヘッダ | テキスト | VARCHAR(200) | — | 受注から引継 | — | `mdm_customer` | `customer_id`/名称 | 参照のみ | — |
 | 16 | source_type | 来源区分 | ヘッダ | テキスト | SMALLINT | ○ | 20 手工 | — | 固定値 | `source_type` | 参照のみ | 10 MRP/20 手工/30 受注/40 拆分/50 合并/60 返工 |
 | 17 | source_no | 来源单号 | ヘッダ | テキスト | VARCHAR(64) | — | 空 | — | — | `source_no` | 参照のみ | MRP 計画订单番号等 |
@@ -601,7 +601,7 @@ stateDiagram-v2
 | `MSG-PRD-020` | E | 有効な BOM がありません。BOM を登録・承認してください。 | BOM なし | BOM 登録 | ERROR |
 | `MSG-PRD-021` | E | 有効な工艺路线がありません。工艺路线を登録してください。 | 工艺なし | 工艺登録 | WARN |
 | `MSG-PRD-022` | E | BOM の単位と物料の基本単位が一致しません。 | 単位不整合 | BOM 修正 | ERROR |
-| `MSG-PRD-040` | E | 完工数量が許容上限（`allowed_qty`）を超えています。 | ハード超過 | 数量修正 | F-PRD-008 |
+| `MSG-PRD-040` | E | 完工数量が許容上限（`allowed_qty`）を超えています。 | ハード超過 | 数量修正 | ERROR |
 | `MSG-PRD-044` | E | 下达に失敗しました。時間をおいて再実行してください。 | E21 発行失敗 | 再実行 | ERROR |
 | `MSG-PRD-045` | W | 一部材料の引当が不足しています。不足分は補充手配が必要です。 | 引当不足 | 補充請購 | WARN |
 | `MSG-PRD-046` | E | 実績のある工单は取消できません。先に領料・報工・入庫を取消してください。 | 実績あり | 実績取消 | WARN |
@@ -655,7 +655,7 @@ stateDiagram-v2
 | 14 | TST-F-PRD-005-14 | 正常系 | 保留中の報工・入庫拒否、解除後は可 | `MSG-PRD-047` |
 | 15 | TST-F-PRD-005-15 | 冪等 | E09 の重複受信 | 二重更新されない |
 | 16 | TST-F-PRD-005-16 | 正常系 | 他域からの MRP 計画订单転送で工单が作成される | `source_type=10`、`source_no` 設定 |
-| 17 | TST-F-PRD-005-17 | 境界値 | `allowed_qty` ちょうどまで許可、超過は MTO 未承認なら `MSG-PRD-100`、ハード超過は `MSG-PRD-040` |
+| 17 | TST-F-PRD-005-17 | 境界値 | `allowed_qty` ちょうどまで許可、超過は MTO 未承認なら `MSG-PRD-100`、ハード超過は `MSG-PRD-040` | 上限ちょうどは成功、超過は所定コードで拒否 |
 | 18 | TST-F-PRD-005-18 | 正常系 | 子工单同時作成（多阶） | `parent_work_order_id` 設定、材料透過なし |
 
 ## 13. 未決事項

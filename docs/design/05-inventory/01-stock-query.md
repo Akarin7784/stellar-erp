@@ -216,7 +216,7 @@ stateDiagram-v2
 | 4 | `warehouseIds` | 倉庫 | 複数選択 | BIGINT[] | — | 既定倉庫 | コード存在 | `warehouse_id` | — |
 | 5 | `materialKeyword` | 物料 | テキスト | VARCHAR(100) | — | 空 | 部分一致 | 結合 `mdm_material` | — |
 | 6 | `batchNo` | 批次号 | テキスト | VARCHAR(64) | — | 空 | 前方一致 | `batch_no` | — |
-| 7 | `sourceNo` | 來源伝票番号 | テキスト | VARCHAR(64) | — | 空 | 前方一致 | `source_no` | GR/DN/WO… |
+| 7 | `sourceNo` | 來源伝票番号 | テキスト | VARCHAR(32) | — | 空 | 前方一致 | `source_no` | GR/DN/WO… |
 | 8 | `sourceTypes` | 來源種別 | 複数選択 | VARCHAR(32)[] | — | 全 | 固定値 | `source_type` | 下記 4.6.2 |
 | 9 | `txnStatuses` | 事務状態 | 複数選択 | SMALLINT[] | — | 30,90 | 10/20/30/90 | `txn_status` | 既定は確定分のみ |
 | 10 | `isReversal` | 沖销のみ | チェック | BOOLEAN | — | false | — | `is_reversal` | — |
@@ -712,7 +712,7 @@ SELECT b.material_id,
 | # | 事項 | 理由 | 暫定仕様 | 担当 | 期限 |
 |---|---|---|---|---|---|
 | 1 | 照会ログの記録範囲 | 全照会を監査ログに記録すると `sys_audit_log` が過負荷 | エクスポート・沖销のみ必須、照会はアプリログ（trace_id）のみ | inventory-designer / SYS 担当 | 2026-11-15 |
-| 2 | 可用量照会のキャッシュ | 高頻度呼出（受注・MRP）で DB 負荷が懸念 | Phase 1 は都度 SQL（残高 8 万行・索引で 200ms 以内を目標）。Phase 2 で Redis キャッシュ（無効化は E18/E19 契機） | inventory-designer | 2027-03-31 |
+| 2 | 可用量照会のキャッシュ | 高頻度呼出（受注・MRP）で DB 負荷が懸念 | 当面は都度 SQL（残高 8 万行・索引で 200ms 以内を目標）。第一版 で Redis キャッシュ（無効化は E18/E19 契機） | inventory-designer | 2027-03-31 |
 | 3 | 在庫 0 行の保持方針 | 残高が 0 になった行を削除するか保持するか | 保持する（`qty_on_hand=0` かつ `qty_reserved=0` の行は残す。履歴・最終取引日の参照のため）。物理削除しない | inventory-designer | 2026-11-15 |
 
 ---
