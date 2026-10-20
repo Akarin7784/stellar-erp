@@ -445,7 +445,8 @@ sequenceDiagram
 
 | 版数 | 日付 | 変更内容 | 変更者 |
 |---|---|---|---|
-| v1.0 | 2026-10-20 | 初版：業務概要、組織/ロール、業務フロー、機能 25 件、画面 53 件、帳票 15 件、バッチ 10 件、テーブル 53 件、IF 7 件、権限、用語、未決事項。同日追記：Lead 裁定（工厂主数据归 MDM＝F-MDM-025/SCR-MDM-098、信用占用は SAL/FIN 維持）を反映。第 2 次追記：WF 提出契約を `businessType=MASTER_DATA_CHANGE`＋`masterDataType`＋`processKey` 方式へ変更、承認経路を A16/A19/A20 に整合、未設計マスタ（`mdm_project`/`mdm_asset_category`）を登記。第 3 次追記：Phase 2 予約に `mdm_contract`/`mdm_material_warehouse`/`expiry_base` を追加、工作中心は PRD（`prd_work_center`）所有で MDM 対象外と明記 | mdm-designer |
+| v1.0 | 2026-10-20 | 初版：業務概要、組織/ロール、業務フロー、機能 25 件、画面 53 件、帳票 15 件、バッチ 10 件、テーブル 53 件、IF 7 件、権限、用語、未決事項。同日追記：Lead 裁定（工厂主数据归 MDM＝F-MDM-025/SCR-MDM-098、信用占用は SAL/FIN 維持）を反映。第 2 次追記：WF 提出契約を `businessType=MASTER_DATA_CHANGE`＋`masterDataType`＋`processKey` 方式へ変更、承認経路を A16/A19/A20 に整合、Phase 2 予約マスタ（`mdm_project`/`mdm_asset_category`）を登記。第 3 次追記：Phase 2 予約に `mdm_contract`/`mdm_material_warehouse`/`expiry_base` を追加、工作中心は PRD（`prd_work_center`）所有で MDM 対象外と明記 | mdm-designer |
+| v1.1 | 2026-10-20 | 第一版全量範囲（用户决定：不分期）。分期表記を削除し、未設計の機能・マスタは TODO として範囲内に残す | 业务分析 |
 | v1.1 | 2026-10-20 | Lead 追補 E39〜E42 を反映：イベント契約の記載を更新し、未決 #2 を已裁决に更新 | system-workflow（validator） |
 | v1.2 | 2026-10-20 | 红队第 2 轮修复：A16B（銀行口座変更、`APR-MDM-BANK`、財務总监承認の SoD）を承認経路表へ追加、FIN の購読に E39/E42 を追加、`mdm_tax_code` の件数を CSV 正（24 件）に変更 | mdm-designer |
 | v1.3 | 2026-10-20 | 06-code-list **v1.4**（VOL=MTQ／法令根拠更新／§7.4 業務税碼 24 件／§14 実測件数）と 90-data 実測（24 ファイル・CSV 483 行・科目 108・出典 109）に追従。未決 #1 の版数参照を v1.2→v1.4 に修正 | mdm-designer |
