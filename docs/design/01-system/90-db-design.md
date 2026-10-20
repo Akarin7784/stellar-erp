@@ -216,7 +216,7 @@ COMMENT ON TABLE sys_factory_setting IS '工厂组织设置（工厂主数据は
 | データ量見積 | `id=0` はシステムテナント。テナント数に応じて増加 |
 | 保存期間 | 無期限 |
 
-**概要**：マルチテナントの契約単位。画面・API は参照のみ。第一版から RLS（`tenant_id = current_setting('app.tenant_id')::bigint`）を有効化しており、その親テーブルとなる（[04 §14](../00-common/04-common-db-spec.md)）。
+**概要**：マルチテナントの契約単位。画面・API は参照のみ。第一版から RLS（`tenant_id = current_setting('app.tenant_id')::bigint`）を有効化しており、その親テーブルとなる（[04 §14](../00-common/04-common-db-spec.md)）。テナント作成時は同一トランザクションで `sys_init_tenant(tenant_id)` を呼び出し、テナント単位の既定パラメータ（§3.15「業務パラメータ」の一覧）を投入する（関数は DBA の T1 マイグレーションで定義、本書は参照のみ）。
 
 ```sql
 CREATE TABLE sys_tenant (
@@ -689,12 +689,15 @@ COMMENT ON TABLE sys_param IS '系统参数';
 
 **業務パラメータ（2026-10-20 決定）**：
 
-| param_key（**提案名**） | param_group | value_type | default_value | value_range | effective_scope | 説明 |
-|---|---|---|---|---|---|---|
-| `production.completion.over_rate` | production | 3 小数 | `0.05` | `0-1`（比率、`NUMERIC(5,4)` 相当） | 1 全社 | 完工超収容差の会社既定（比率。`0.05` = 5%） |
+| param_key | param_group | value_type | default_value | value_range | 説明 |
+|---|---|---|---|---|---|
+| `prd.completion_over_rate` | prd | 3 小数 | `0.05` | `0-1`（比率、`NUMERIC(5,4)` 相当） | 完工超収容差の会社既定（比率。`0.05` = 5%）。キー名はバックエンド PR #47 と一致 |
 
+- `sys_param` はテナント単位（`tenant_id` + RLS）。既定値は**テナント作成時**に `sys_init_tenant(tenant_id)` を呼び出して投入する。既存の種テナントにはマイグレーションで明示的に行を投入する。関数・DDL は DBA の T1 マイグレーションで定義（本書は参照のみ）。
+- `sys_init_tenant` が投入する既定パラメータ：`prd.completion_over_rate = 0.05`（今後追加する既定パラメータもこの表に列挙する）。
+- 値が存在しない場合は既定値で補わず、エラー `5000` を返す。
 - 完工超収の容差チェーン：受注行 > 物料 > 物料分類 > 会社既定（本パラメータ）。購買受入の容差チェーン（物料 > 分類 > 仕入先 > 会社）とは別系統。
-- `allowed_qty = floor(ordered_qty × (1 + rate))`（数量は基本単位、物料の基本単位の精度で切捨て）。受注行確定時にスナップショットし、承認済みの受注変更または超産承認の承認時のみ再計算する。
+- `allowed_qty = floor(ordered_qty × (1 + rate))`（数量は基本単位、`mdm_uom.decimal_places` の精度で切捨て）。受注行確定時にスナップショットし、承認済みの受注変更または超産承認の承認時のみ再計算する。
 - 超産承認は専用の承認表（承認番号、申請数量、承認後 `allowed_qty`、承認者、承認日時）を Flowable 承認で更新する。DDL は 06-production で定義予定（TODO、本書では相互参照のみ）。ロック順序は [04 §11.1](../00-common/04-common-db-spec.md)。
 
 **更新仕様**：更新時に `value_type` に基づく検証 + `value_range` 判定。`is_danger=true` は 2 名承認（申請者 ≠ 承認者）。更新後キャッシュ（Redis `sys:param:{key}`）更新 + 監査ログ。`is_readonly=true` は API でも更新拒否（`MSG-SYS-041`）。
