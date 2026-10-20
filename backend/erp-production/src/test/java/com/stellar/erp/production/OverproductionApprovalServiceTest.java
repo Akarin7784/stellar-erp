@@ -53,8 +53,22 @@ class OverproductionApprovalServiceTest {
                 new SQLException("null value in column \"request_qty\" violates not-null constraint", "23502"))))
                 .isTrue();
         assertThat(OverproductionApprovalService.isRequestQtyViolation(new DataIntegrityViolationException("x",
-                new SQLException("violates check constraint \"ck_prd_opa_qty\"", "23514")))).isTrue();
+                new SQLException("new row for relation \"prd_overproduction_approval\" violates check constraint \"ck_prd_opa_request_qty\"", "23514")))).isTrue();
         assertThat(OverproductionApprovalService.isRequestQtyViolation(new DataIntegrityViolationException("x",
                 new SQLException("null value in column \"material_id\"", "23502")))).isFalse();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource(delimiter = '|', value = {
+            "23514|violates check constraint \"ck_prd_opa_allowed_qty\"",
+            "23514|violates check constraint \"ck_prd_opa_qty\"",
+            "23514|violates check constraint \"ck_prd_opa_status\"",
+            "23514|violates check constraint \"ck_prd_opa_request_qty_x\"",
+            "23505|duplicate key value violates unique constraint \"uk_prd_overproduction_approval_no\"",
+            "23502|null value in column \"current_allowed_qty\""
+    })
+    void otherConstraintViolationsAreNot60103(String state, String message) {
+        assertThat(OverproductionApprovalService.isRequestQtyViolation(
+                new DataIntegrityViolationException("x", new SQLException(message, state)))).isFalse();
     }
 }
