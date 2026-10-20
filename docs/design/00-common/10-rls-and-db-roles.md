@@ -16,12 +16,13 @@
 
 | 角色 | 用途 | 属性 |
 |---|---|---|
-| owner（dev：`erp`；prod：DBA 指定） | Flyway 执行迁移，所有表的所有者 | 仅用于迁移，应用运行时不使用 |
+| owner（dev：`erp`；prod：DBA 指定） | Flyway 执行迁移，所有表的所有者 | 仅用于迁移，应用运行时不使用；**必须是 superuser 或带 `BYPASSRLS`**（生产要求：owner + `BYPASSRLS`，见下） |
 | `erp_app` | 应用运行账号（`spring.datasource.username`） | 非 owner、`NOSUPERUSER`、`NOBYPASSRLS`；仅 DML 权限 + `public`/`flowable` 的 USAGE；**无 CREATE**（自建表 owner 是自己会使 RLS 失效）。Flowable 表由 Flyway 预建在 schema `flowable`（#7，PR #46） |
 
 - 角色由迁移 `sys/V202610200101__sys_create_app_role.sql` 以 `NOLOGIN` 创建；之后 owner 新建的表通过 `ALTER DEFAULT PRIVILEGES` 自动授权。
 - 登录与密码由 Flyway 回调 `db/callback/afterMigrate.sql` 根据占位符 `erp_app_password`（环境变量 `DB_APP_PASSWORD`）设置；为空则保持 `NOLOGIN`。密码不得包含单引号。
 - 配置：`spring.datasource.username/password` ← `DB_APP_USER`/`DB_APP_PASSWORD`；`spring.flyway.user/password` ← `DB_USER`/`DB_PASSWORD`（owner）。
+- 生产 Flyway 账号必须是表的 owner 且带 `BYPASSRLS`（`ALTER ROLE <owner> BYPASSRLS`）。FORCE RLS 下 owner 自身也受租户策略约束，迁移里的数据校验/回填会被过滤而形同虚设。回调 `db/callback/beforeMigrate.sql` 在每次 migrate 前检查，执行账号既非 superuser 又无 `BYPASSRLS` 时直接报错中止。dev/CI 的 `erp`（docker 镜像 `POSTGRES_USER`）与 Testcontainers 默认账号均为 superuser，不受影响。
 - 因为表归 owner 所有且启用了 `FORCE ROW LEVEL SECURITY`，`erp_app` 必然受 RLS 约束。**超级用户和 BYPASSRLS 角色不受 RLS 约束**，不得用于应用连接。
 
 ## 3. 租户上下文
