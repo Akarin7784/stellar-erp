@@ -169,7 +169,7 @@ class WorkOrderDetailLookupIntegrationTest {
                 .andExpect(jsonPath("$.data.statusName").value("草稿"))
                 .andExpect(jsonPath("$.data.overReceiptRate").value(0.03))
                 .andExpect(jsonPath("$.data.standardCost").doesNotExist())
-                .andExpect(jsonPath("$.data.warehouseId").value(WH))
+                .andExpect(jsonPath("$.data.warehouseId").value(String.valueOf(WH)))
                 .andExpect(jsonPath("$.data.materials[0].materialCode").value("9950000012"));
         mvc.perform(post("/api/production/work-orders/" + id + "/submit").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"version\": 0}"))
@@ -228,9 +228,9 @@ class WorkOrderDetailLookupIntegrationTest {
                 .andExpect(status().isNotFound());
         mvc.perform(get("/api/mdm/materials").param("keyword", "部品"))
                 .andExpect(jsonPath("$.data.total").value(1))
-                .andExpect(jsonPath("$.data.list[0].id").value(COMP))
+                .andExpect(jsonPath("$.data.list[0].id").value(String.valueOf(COMP)))
                 .andExpect(jsonPath("$.data.list[0].baseUomCode").value("PCE"))
-                .andExpect(jsonPath("$.data.list[0].unitId").value(995071))
+                .andExpect(jsonPath("$.data.list[0].unitId").value("995071"))
                 .andExpect(jsonPath("$.data.list[0].unitName").value("个"));
         mvc.perform(get("/api/mdm/materials").param("pageSize", "1"))
                 .andExpect(jsonPath("$.data.total").value(2))
@@ -238,7 +238,7 @@ class WorkOrderDetailLookupIntegrationTest {
         mvc.perform(get("/api/production/boms/effective").param("materialId", String.valueOf(MAT)).param("date", "2026-11-01")
                         .param("factoryId", String.valueOf(FACTORY)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.id").value(995101));
+                .andExpect(jsonPath("$.data.id").value("995101"));
         mvc.perform(get("/api/production/boms/effective").param("materialId", String.valueOf(MAT_CO2)).param("date", "2026-11-01")
                         .param("factoryId", String.valueOf(FACTORY_CO2)))
                 .andExpect(status().isUnprocessableContent())
@@ -271,7 +271,7 @@ class WorkOrderDetailLookupIntegrationTest {
                         .content("{\"version\": 1}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.orderStatus").value(25))
-                .andExpect(jsonPath("$.data.approvedBy").value(APPROVER))
+                .andExpect(jsonPath("$.data.approvedBy").value(String.valueOf(APPROVER)))
                 .andExpect(jsonPath("$.data.version").value(2));
     }
 
@@ -322,5 +322,58 @@ class WorkOrderDetailLookupIntegrationTest {
         long id = createDraft(true);
         as(CREATOR, CO, () -> approvals.submit(id, new WorkOrderStateCommand(0, null)));
         raceOnce(id, APPROVER, () -> approvals.approve(id, new WorkOrderStateCommand(1, null)), 25);
+    }
+
+    /** 03-common-api-spec §8：BIGINT ID はレスポンスで文字列、リクエストは文字列・数値の双方を受理。 */
+    @Test
+    void apiBigintIdsAreJsonStringsAndStringIdsAreAccepted() throws Exception {
+        MockMvc mvc = MockMvcBuilders.webAppContextSetup(wac).build();
+        TenantContext.set(TENANT);
+        LoginContext.set(new LoginUser(CREATOR, CO));
+        String body = mvc.perform(post("/api/production/work-orders").contentType(MediaType.APPLICATION_JSON).content("""
+                {"factoryId": "%d", "materialId": "%d", "warehouseId": %d, "orderQty": "10", "uomCode": "PCE",
+                 "plannedStartDate": "2026-11-02", "plannedEndDate": "2026-11-09"}
+                """.formatted(FACTORY, MAT, WH)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.id").isString())
+                .andReturn().getResponse().getContentAsString();
+        String id = com.jayway.jsonpath.JsonPath.read(body, "$.data.id");
+        mvc.perform(get("/api/production/work-orders/" + id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(id))
+                .andExpect(jsonPath("$.data.materialId").value(String.valueOf(MAT)))
+                .andExpect(jsonPath("$.data.factoryId").value(String.valueOf(FACTORY)))
+                .andExpect(jsonPath("$.data.warehouseId").value(String.valueOf(WH)))
+                .andExpect(jsonPath("$.data.departmentId").doesNotExist())
+                .andExpect(jsonPath("$.data.orderStatus").isNumber())
+                .andExpect(jsonPath("$.data.version").isNumber());
+        mvc.perform(get("/api/mdm/factories"))
+                .andExpect(jsonPath("$.data[0].id").value(String.valueOf(FACTORY)));
+        mvc.perform(get("/api/mdm/warehouses/options").param("factoryId", String.valueOf(FACTORY)))
+                .andExpect(jsonPath("$.data[0].id").value(String.valueOf(WH)))
+                .andExpect(jsonPath("$.data[0].factoryId").value(String.valueOf(FACTORY)));
+        mvc.perform(get("/api/mdm/materials").param("keyword", "部品"))
+                .andExpect(jsonPath("$.data.list[0].id").isString())
+                .andExpect(jsonPath("$.data.list[0].unitId").isString())
+                .andExpect(jsonPath("$.data.total").isNumber())
+                .andExpect(jsonPath("$.data.pages").isNumber())
+                .andExpect(jsonPath("$.data.pageNum").isNumber())
+                .andExpect(jsonPath("$.data.pageSize").isNumber());
+    }
+
+    /** リクエストの ID は数値でも従来どおり受理される（文字列化はレスポンスのみ）。 */
+    @Test
+    void apiNumericIdsInRequestBodyStillDeserialize() throws Exception {
+        MockMvc mvc = MockMvcBuilders.webAppContextSetup(wac).build();
+        TenantContext.set(TENANT);
+        LoginContext.set(new LoginUser(CREATOR, CO));
+        mvc.perform(post("/api/production/work-orders").contentType(MediaType.APPLICATION_JSON).content("""
+                {"factoryId": %d, "materialId": %d, "warehouseId": %d, "orderQty": 10, "uomCode": "PCE",
+                 "plannedStartDate": "2026-11-02", "plannedEndDate": "2026-11-09"}
+                """.formatted(FACTORY, MAT, WH)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.id").isString());
+        assertThat(owner.queryForObject("SELECT warehouse_id FROM prd_work_order WHERE tenant_id = 305", Long.class))
+                .isEqualTo(WH);
     }
 }
