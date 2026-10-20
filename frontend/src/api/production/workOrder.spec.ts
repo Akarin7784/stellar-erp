@@ -1,12 +1,13 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('element-plus', () => ({
   ElMessage: { error: vi.fn(), warning: vi.fn(), success: vi.fn(), info: vi.fn() },
 }))
 
-import { ApiError } from '../http'
+import http, { ApiError } from '../http'
 import {
   buildCreateRequest,
+  createWorkOrder,
   formatRatePercent,
   MSG_GENERIC_ERROR,
   PRD_BUSINESS_CODES,
@@ -115,5 +116,41 @@ describe('workOrderRules', () => {
     expect(validateDateRange('2026-11-12', '2026-11-17')).toBeUndefined()
     expect(validateDateRange('2026-11-12', '2026-11-12')).toBeUndefined()
     expect(validateDateRange('2026-11-18', '2026-11-17')).toBeInstanceOf(Error)
+  })
+})
+
+describe('createWorkOrder 请求体', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  it('不带 companyId / overReceiptRate（由后端按登录公司和 sys_param 决定）', async () => {
+    const post = vi
+      .spyOn(http, 'post')
+      .mockResolvedValue({ data: { code: 0, message: 'ok', data: { id: 1 } } })
+    const form = {
+      factoryId: '1',
+      materialId: '2',
+      warehouseId: '3',
+      orderQty: '10',
+      uomCode: 'PCE',
+      plannedStartDate: '2026-11-12',
+      plannedEndDate: '2026-11-17',
+      // 即使画面状态里混入，也不得发送
+      companyId: '9',
+      overReceiptRate: '0.0500',
+    } as unknown as WorkOrderCreateRequest
+    await createWorkOrder(form)
+    const body = post.mock.calls[0]![1] as Record<string, unknown>
+    expect(post.mock.calls[0]![0]).toBe('/production/work-orders')
+    expect(body).not.toHaveProperty('companyId')
+    expect(body).not.toHaveProperty('overReceiptRate')
+    expect(body).toMatchObject({ warehouseId: '3', factoryId: '1', materialId: '2' })
+  })
+})
+
+describe('60104', () => {
+  it('下达日过去日 → 业务消息 MSG-PRD-104', () => {
+    expect(PRD_BUSINESS_CODES).toContain(60104)
+    const v = toCreateErrorView(bizErr(60104, 'MSG-PRD-104', '下达日不能早于今天。'))
+    expect(v).toEqual({ kind: 'business', message: '[MSG-PRD-104] 下达日不能早于今天。' })
   })
 })

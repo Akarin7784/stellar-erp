@@ -182,7 +182,7 @@ PostgreSQL の一意制約チェックは RLS を経由しないため、`tenant
 ### 6.2 跨域外键规则（2026-10-21 決定）
 
 1. **跨域は `*_id BIGINT` のみ保持し、FK は張らない**。参照先の存在性と租户（`tenant_id`・`company_id`）一致は、参照元ドメインのサービス層が**同一トランザクション内**で検証する。
-2. **例外**：主データ域 **sys**（`sys_*`）と **mdm**（`mdm_*`）は、他域から硬 FK で参照してよい（6 章「外部キー」の規則に従う）。
+2. **例外**：主データ域 **sys**（`sys_*`）と **mdm**（`mdm_*`）は、他域から硬 FK で参照してよい（6 章「外部キー」の規則に従う）。ただし**必ず複合外键 `FOREIGN KEY (tenant_id, x_id) REFERENCES 被参照表 (tenant_id, id)`** とし、`x_id` 単独の FK は禁止（同一域内の親子・自己参照も同じ）。被参照表には `UNIQUE (tenant_id, id)`（命名 `uk_<table>_tenant_id`）を付与する。適用済：`sys/V202610210707__sys_composite_tenant_fk.sql`（#35。被参照 17 表に `uk_<table>_tenant_id`、sys/mdm 向け単列 FK 76 本〔mdm 32／prd 29／sal 14／fin 1〕を複合 FK に再作成、原制約名・NO ACTION を維持）。
 3. **将来硬 FK を追加する場合**：後から建てた域の側で**別の迁移**を起こし、`ALTER TABLE … ADD CONSTRAINT … FOREIGN KEY … NOT VALID` で追加した後、別ステップで `ALTER TABLE … VALIDATE CONSTRAINT …` を実行する。前提として被参照列に一意制約が必要。租户を持つ表は**複合外键 `(tenant_id, x_id)` → 被参照側 `UNIQUE (tenant_id, id)`** とすること（`x_id` 単独の FK は租户隔离を迂回するため禁止）。
 4. **目的**：迁移順序が FK に縛られず、各域を単独で rebase／回滚できるようにする。
 5. **現状例（软引用）**：`prd_work_order.sales_order_line_id`（→ `sal_sales_order_line`、FK なし）、`05-inventory` の `work_order_id`（→ `prd_work_order`、FK なし）。
@@ -192,8 +192,9 @@ PostgreSQL の一意制約チェックは RLS を経由しないため、`tenant
 | 方針 | 内容 |
 |---|---|
 | 必須 | 主キー、全 FK 列、一意制約列 |
-| 先頭列 | btree 索引は必ず `tenant_id` を先頭とする（`company_id` を持つテーブルは続けて `company_id`）。GIN は除く（2026-10-21 蓝色大肥鱼 決定） |
-| 検索 | 一覧・帳票の WHERE/ORDER BY に使う列。`tenant_id`(, `company_id`) の後は選択性の高い列を先頭に |
+| 検索 | 一覧・帳票の WHERE/ORDER BY に使う列。複合索引は選択性の高い列を先頭に |
+| 先頭列（普通索引） | btree 索引は必ず `tenant_id` を先頭とし、`company_id` を持つ表は続けて `company_id`（`(tenant_id, company_id, ...)`）。GIN は除く（下行）。CI：`composite_fk.sql` が sys/mdm/sal/fin/prd の btree 普通索引を検査 |
+| 例外：GIN | **GIN 索引は `tenant_id` 先頭を要求しない**（`btree_gin` は導入しない）。理由：GIN は全文検索・jsonb 包含検索に用いるものであり、租户隔離は RLS とクエリ中の `tenant_id` 条件で保証される |
 | 部分索引 | `WHERE deleted = FALSE`、`WHERE status IN (10,20)` 等の頻出条件 |
 | 曖昧検索 | `pg_trgm` の GIN インデックス（`gin (name gin_trgm_ops)`）。`LIKE '%xx%'` 用 |
 | JSONB | `USING gin (ext_data jsonb_path_ops)`（必要なテーブルのみ） |
@@ -416,8 +417,10 @@ V{yyyyMMdd}{NNNN}__{module}_{description}.sql     # バージョンは 12 桁
 | v1.0 | 2026-10-20 | 初版：命名、型、制約、索引、パーティション、Flyway、排他、履歴、容量、多租戸、レビュー観点 | Lead |
 | v1.1 | 2026-10-20 | 第一版全量範囲（分期表記削除）、§8.1 パーティション表 FK 不可、§11.1 ロック順序（RLS・DB ロールは [10](10-rls-and-db-roles.md)、`ON CONFLICT` は #50） | 业务分析 |
 | v1.2 | 2026-10-21 | §6.2 跨域外键规则を新設（跨域は `*_id` のみ・FK なし・サービス層で同一 TX 検証、sys/mdm は例外、将来 FK は NOT VALID→VALIDATE・複合 `(tenant_id, x_id)`）、§6 外部キー行に 6.2 参照を追記 | 业务分析 |
-| v1.3 | 2026-10-21 | §3 明細テーブルの `company_id` 省略を廃止（親と同値を冗長保持） | 业务分析 |
-| v1.4 | 2026-10-21 | §6/§6.1：一意キー `(tenant_id, company_id, …)` を「原則」→「必須」に変更、§6.1 項 5（親 id 先頭の例外）と例外一覧表を削除（蓝色大肥鱼 決定）。項 4（`company_id` なしの租户共有テーブルは `(tenant_id, …)`）を唯一の例外として明記。§7 に btree 索引の先頭列規則（`tenant_id`→`company_id`、GIN 除く）を 1 行追加 | 业务分析 |
+| v1.3 | 2026-10-21 | §7 に btree 普通索引の `tenant_id` 先頭規則と GIN 例外（`btree_gin` 不導入、租户隔離は RLS・`tenant_id` 条件で保証）を追記（#35） | 业务分析 |
+| v1.4 | 2026-10-21 | §3 明細テーブルの `company_id` 省略を廃止（親と同値を冗長保持） | 业务分析 |
+| v1.5 | 2026-10-21 | §6/§6.1：一意キー `(tenant_id, company_id, …)` を「原則」→「必須」に変更、§6.1 項 5（親 id 先頭の例外）と例外一覧表を削除（蓝色大肥鱼 決定）。項 4（`company_id` なしの租户共有テーブルは `(tenant_id, …)`）を唯一の例外として明記。§7 に btree 索引の先頭列規則（`tenant_id`→`company_id`、GIN 除く）を 1 行追加 | 业务分析 |
+| v1.6 | 2026-10-21 | §6.2 項 2：sys/mdm 参照も複合外键 `(tenant_id, x_id)`→`(tenant_id, id)` 必須、被参照表に `UNIQUE (tenant_id, id)`（`uk_<table>_tenant_id`）を明記（#35 迁移 `sys/V202610210707` に整合）。§7 先頭列行を「btree は必ず tenant_id 先頭（company_id あれば続けて）、GIN 除く」に統一 | 业务分析 |
 
 ## Flowable 引擎表の schema 分離（issue #7）
 

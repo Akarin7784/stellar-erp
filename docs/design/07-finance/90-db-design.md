@@ -1666,7 +1666,7 @@ CREATE TABLE fin_standard_cost (
     updated_by            BIGINT        NOT NULL DEFAULT 0,
     CONSTRAINT pk_fin_standard_cost PRIMARY KEY (id),
     CONSTRAINT uk_fin_standard_cost_version UNIQUE (tenant_id, company_id, material_id, cost_version),
-    CONSTRAINT fk_fin_standard_cost_material FOREIGN KEY (material_id) REFERENCES mdm_material (id),
+    CONSTRAINT fk_fin_standard_cost_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
     CONSTRAINT ck_fin_standard_cost_status CHECK (status IN (10,40,90)),
     CONSTRAINT ck_fin_standard_cost_method CHECK (cost_method IN (1,2)),
     CONSTRAINT ck_fin_standard_cost_period CHECK (EXTRACT(day FROM period_from) = 1
@@ -1908,3 +1908,4 @@ COMMENT ON TABLE fin_cash_plan IS '资金计划（実装順 P2）';
 | v1.7 | 2026-10-21 | `fin_period` を migration fin/V202610210706（PR #27）に一致：`idx_fin_period_status` を `(tenant_id, company_id, fiscal_year, status)` に変更、`ck_fin_period_date`・`ck_fin_period_no` を追加、§7 索引一覧に追記 | 业务分析 |
 | v1.8 | 2026-10-21 | §7.1 例外登記を廃止し残り 12 本の一意索引（明細行番号 9 本、`uk_fin_account_aux`、`uk_fin_voucher_reversal`、`uk_fin_auto_voucher_log_event`）を `(tenant_id, company_id, …)` 先頭へ変更（全表 company_id 保有を確認済み）、§7 一覧同期 | 业务分析 |
 | v1.9 | 2026-10-21 | G2-20 を改訂：btree 索引は `tenant_id` 先頭（続けて `company_id`）、GIN 除く。`company_id` 先頭を許容していた記述を削除。§4〜§6 DDL と §7 索引一覧の非一意 btree 索引 40 本（`idx_fin_voucher_period_status`・`idx_fin_standard_cost_lookup` ほか）を `(tenant_id, company_id, …)` 先頭に変更（蓝色大肥鱼 2026-10-21 決定、#31 評審） | 业务分析 |
+| v1.10 | 2026-10-21 | #35 迁移に整合：`fk_fin_standard_cost_material` を複合外键 `(tenant_id, material_id)`→`mdm_material (tenant_id, id)` に変更 | 业务分析 |
