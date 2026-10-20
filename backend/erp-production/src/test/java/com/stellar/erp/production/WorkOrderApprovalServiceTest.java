@@ -39,6 +39,7 @@ class WorkOrderApprovalServiceTest {
     }
 
     void stub(int status, int version, long createdBy) {
+        when(repo.countWorkOrderOperations(CO, WO)).thenReturn(1L);
         when(repo.lockWorkOrderForApproval(CO, WO))
                 .thenReturn(Optional.of(new WorkOrderForApproval(WO, (short) status, version, createdBy)));
     }
@@ -50,22 +51,18 @@ class WorkOrderApprovalServiceTest {
     @Test
     void submitFromDraft() {
         stub(10, 2, CREATOR);
-        when(repo.countWorkOrderMaterials(CO, WO)).thenReturn(1L);
         when(repo.markSubmitted(CO, WO, 2, USER)).thenReturn(1);
         service.submit(WO, new WorkOrderStateCommand(2, null));
         verify(repo).markSubmitted(CO, WO, 2, USER);
     }
 
     @Test
-    void submitWithoutMaterialLinesIs1001() {
+    void submitWithoutMaterialLinesIsAllowed() {
         stub(10, 0, CREATOR);
-        when(repo.countWorkOrderMaterials(CO, WO)).thenReturn(0L);
-        assertThatThrownBy(() -> service.submit(WO, new WorkOrderStateCommand(0, null)))
-                .isInstanceOfSatisfying(BizException.class, e -> {
-                    assertThat(e.getCode()).isEqualTo(1001);
-                    assertThat(e.getMsgId()).isEqualTo("MSG-COM-040");
-                });
-        verify(repo, never()).markSubmitted(anyLong(), anyLong(), anyInt(), anyLong());
+        when(repo.markSubmitted(CO, WO, 0, USER)).thenReturn(1);
+        service.submit(WO, new WorkOrderStateCommand(0, null));
+        verify(repo).markSubmitted(CO, WO, 0, USER);
+        verify(repo, never()).countWorkOrderMaterials(anyLong(), anyLong());
     }
 
     @Test
@@ -121,5 +118,27 @@ class WorkOrderApprovalServiceTest {
         when(repo.markApproved(CO, WO, 1, USER)).thenReturn(0);
         assertThatThrownBy(() -> service.approve(WO, new WorkOrderStateCommand(1, null)))
                 .satisfies(e -> assertThat(code(e)).isEqualTo(4003));
+    }
+
+    @Test
+    void approveWithZeroMaterialLinesAndOneOperationIsOk() {
+        stub(20, 1, CREATOR);
+        when(repo.countWorkOrderMaterials(CO, WO)).thenReturn(0L);
+        when(repo.markApproved(CO, WO, 1, USER)).thenReturn(1);
+        service.approve(WO, new WorkOrderStateCommand(1, null));
+        verify(repo).markApproved(CO, WO, 1, USER);
+        verify(repo, never()).countWorkOrderMaterials(anyLong(), anyLong());
+    }
+
+    @Test
+    void approveWithoutOperationsIs60021() {
+        stub(20, 1, CREATOR);
+        when(repo.countWorkOrderOperations(CO, WO)).thenReturn(0L);
+        assertThatThrownBy(() -> service.approve(WO, new WorkOrderStateCommand(1, null)))
+                .isInstanceOfSatisfying(BizException.class, e -> {
+                    assertThat(e.getCode()).isEqualTo(60021);
+                    assertThat(e.getMsgId()).isEqualTo("MSG-PRD-021");
+                });
+        verify(repo, never()).markApproved(anyLong(), anyLong(), anyInt(), anyLong());
     }
 }

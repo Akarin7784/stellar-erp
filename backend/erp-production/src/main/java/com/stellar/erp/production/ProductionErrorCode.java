@@ -24,6 +24,10 @@ public final class ProductionErrorCode {
     public static final int BOM_NOT_FOUND = 60020;
     public static final String MSG_BOM_NOT_FOUND = "MSG-PRD-020";
 
+    /** 有効工艺なし／工序明細 0 件（CHK-PRD-002-08、93-messages MSG-PRD-021。60000 + NNN 規則）。 */
+    public static final int ROUTING_NOT_FOUND = 60021;
+    public static final String MSG_ROUTING_NOT_FOUND = "MSG-PRD-021";
+
     /**
      * 下达日が過去日（Asia/Shanghai 当日より前）。06 91 §3.2 / 93-messages MSG-PRD-104（蓝色大肥鱼 2026-10-21 確定）。
      */

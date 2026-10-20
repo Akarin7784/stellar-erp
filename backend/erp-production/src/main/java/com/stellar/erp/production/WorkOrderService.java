@@ -2,6 +2,7 @@ package com.stellar.erp.production;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,9 +36,11 @@ public class WorkOrderService {
     static final short SOURCE_SALES_ORDER = 30;
 
     private final ProductionRepository repo;
+    private final BomQueryService boms;
     private final SalesOrderLineLookup salesOrderLines;
 
-    public WorkOrderService(ProductionRepository repo, SalesOrderLineLookup salesOrderLines) {
+    public WorkOrderService(ProductionRepository repo, SalesOrderLineLookup salesOrderLines, BomQueryService boms) {
+        this.boms = boms;
         this.repo = repo;
         this.salesOrderLines = salesOrderLines;
     }
@@ -109,7 +112,14 @@ public class WorkOrderService {
                 Boolean.TRUE.equals(cmd.isBackflush()),
                 rate, cmd.remark()));
 
+        // 02 §6.1 第 3 項（AC-PRD-12）：有効 BOM がなくても登録は続行（材料明細 0 件）し、60020 を警告で返す。
+        // 基準日＝plannedStartDate（必須項目）。材料展開は下达時（WorkOrderReleaseService）。
+        List<WorkOrderReleased.Warning> warnings = boms.find(company, cmd.materialId(), cmd.factoryId(),
+                        cmd.plannedStartDate()).isPresent()
+                ? List.of()
+                : List.of(new WorkOrderReleased.Warning(ProductionErrorCode.BOM_NOT_FOUND,
+                        ProductionErrorCode.MSG_BOM_NOT_FOUND, "有効な BOM がありません。BOM を登録・承認してください。"));
         return new WorkOrderCreated(id, no, status, material.materialCode(), material.materialName(),
-                cmd.orderQty(), rate, allowedQty, null, 0);
+                cmd.orderQty(), rate, allowedQty, null, 0, warnings);
     }
 }
