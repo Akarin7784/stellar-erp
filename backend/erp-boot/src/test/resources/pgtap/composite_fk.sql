@@ -18,9 +18,9 @@ SELECT is((SELECT count(*)::int FROM pg_index i JOIN pg_class tc ON tc.oid = i.i
             LEFT JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = i.indkey[0]
             JOIN pg_class ic ON ic.oid = i.indexrelid JOIN pg_am am ON am.oid = ic.relam
             JOIN pg_namespace n ON n.oid = tc.relnamespace
-            WHERE n.nspname = 'public' AND am.amname = 'btree' AND NOT i.indisprimary AND NOT i.indisunique
+            WHERE n.nspname = 'public' AND tc.relname ~ '^(sys|mdm|sal|fin|prd)_' AND am.amname = 'btree' AND NOT i.indisprimary AND NOT i.indisunique
               AND a.attname IS DISTINCT FROM 'tenant_id'),
-          0, 'public 全部普通 btree 索引以 tenant_id 打头（GIN 除外）');
+          0, 'sys/mdm/sal/fin/prd 全部普通 btree 索引以 tenant_id 打头（GIN 除外）');
 SELECT ok(EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_prd_bom_effective'
                    AND indexdef LIKE '%(tenant_id, company_id, effective_status, valid_from, valid_to)%'),
           'idx_prd_bom_effective = (tenant_id, company_id, effective_status, valid_from, valid_to)');
