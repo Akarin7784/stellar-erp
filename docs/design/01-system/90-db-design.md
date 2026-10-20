@@ -1529,6 +1529,40 @@ COMMENT ON TABLE sys_data_maintenance_log IS '数据维护历史（初期化・�
 | idx_sys_data_maintenance_log_type | B-Tree | (maintenance_type, start_at DESC) | — | 種別別履歴 |
 | idx_sys_data_maintenance_log_operator | B-Tree | (operator_id, start_at DESC) | — | 実行者別履歴 |
 
+### 3.39 sys_company_param 公司业务参数（提案）
+
+| 項目 | 内容 |
+|---|---|
+| テーブル物理名 | sys_company_param（**提案**。名称・列名はレビューで確定） |
+| 種別 | マスタ（M セット） |
+| 更新元機能 | F-SYS-008（パラメータ設定、会社別タブとして追加。TODO：画面設計未作成） |
+| データ量見積 | 会社ごとに 1 件 |
+| 保存期間 | 無期限 |
+
+**概要**：会社ごとの業務既定値を型付き列で保持する（`sys_param` の文字列値ではなく、制約を掛けられる列とする）。容差はすべて**比率**（`0.05` = 5%）で `NUMERIC(5,4)`。各ドメインは許容値チェーンの最後の段として本表を参照する（[00-common 08 共通業務ルール](../00-common/08-common-business-rules.md) から参照）。
+
+```sql
+CREATE TABLE sys_company_param (
+    -- [共通カラム M]（company_id を含む）
+    completion_over_rate  NUMERIC(5,4)  NOT NULL DEFAULT 0.0500, -- 完工超収容差（会社既定、比率）
+    ship_over_rate        NUMERIC(5,4)  NOT NULL DEFAULT 0.0000, -- 出荷超過容差（会社既定、比率）
+    CONSTRAINT ck_sys_company_param_completion_over_rate CHECK (completion_over_rate >= 0),
+    CONSTRAINT ck_sys_company_param_ship_over_rate CHECK (ship_over_rate >= 0)
+);
+COMMENT ON TABLE sys_company_param IS '公司业务参数（会社別既定値）';
+```
+
+| 索引 | 種別 | 対象列 | 条件 | 目的 |
+|---|---|---|---|---|
+| uk_sys_company_param_company | UNIQUE | (company_id) | WHERE deleted=FALSE | 会社ごとに 1 件 |
+
+**利用仕様（完工超収、2026-10-20 決定）**：
+
+- 容差チェーン：受注行 > 物料 > 物料分類 > 会社（本表 `completion_over_rate`）。最初に値がある段を採用する。購買受入の容差チェーン（物料 > 分類 > 仕入先 > 会社）とは別系統。
+- `allowed_qty = floor(base_qty × (1 + rate))`（物料の基本単位の精度で切捨て）。数量はすべて基本単位、基準数量は受注行の `ordered_qty`。
+- `allowed_qty` は受注行確定時にスナップショットし、承認済みの受注変更または超産承認の承認時にのみ再計算する。
+- 超産承認は専用の承認表（承認番号、申請数量、承認後 `allowed_qty`、承認者、承認日時）を Flowable 承認で更新する。DDL は 06-production で定義予定（TODO、本書では相互参照のみ）。ロック順序は [04 §11.1](../00-common/04-common-db-spec.md)。
+
 ## 4. インデックス一覧（横断）
 
 | 目的 | 索引 | 対象テーブル |

@@ -218,18 +218,6 @@ CREATE INDEX gin_mdm_material_name
     ON mdm_material USING gin (material_name gin_trgm_ops);
 ```
 
-### 7.1 部分一意索引と `ON CONFLICT`（2026-10-20 決定）
-
-- 業務キーの一意索引は論理削除を考慮して部分一意索引 `CREATE UNIQUE INDEX uk_... ON t (company_id, xxx_no) WHERE deleted = FALSE` とする（Refs #31）。
-- `INSERT ... ON CONFLICT` で部分一意索引を対象にする場合、**同じ WHERE 句を必ず繰り返す**。書かないと推論対象の一意索引が見つからずエラーになる。
-
-```sql
-INSERT INTO mdm_material (company_id, material_code, ...)
-VALUES (...)
-ON CONFLICT (company_id, material_code) WHERE deleted = FALSE
-DO UPDATE SET ...;
-```
-
 ## 8. パーティション・アーカイブ
 
 | テーブル | 方針 | 理由 |
@@ -237,7 +225,7 @@ DO UPDATE SET ...;
 | `inv_stock_txn`（在庫取引） | 月次レンジパーティション（第一版から。他テーブルから FK 参照しない。§8.1 参照） | 年間 500 万行、期間検索中心 |
 | `sys_audit_log` | 月次レンジパーティション（第一版から。FK 参照しない） | 年間数百万行 |
 | `int_api_call_log` | 月次、6 か月保存後に削除/アーカイブ | 外部 API 呼出量 |
-| `wf_` 系 | Flowable 標準テーブル。専用スキーマ `flowable`（§14）。履歴は定期的にアーカイブ | 完了プロセス増加 |
+| `wf_` 系 | Flowable 標準テーブル。専用スキーマ `flowable`（[10-rls-and-db-roles.md](10-rls-and-db-roles.md)、PR #43）。履歴は定期的にアーカイブ | 完了プロセス増加 |
 | その他伝票 | 5 年保存。期間明細はアーカイブ（TODO：アーカイブ先スキーマ・手順の設計が未作成） | 会計保存年限に合わせる |
 
 - パーティション化する場合も、アプリからは 1 テーブルとして見える（PostgreSQL 宣言的パーティショニング）。
@@ -340,6 +328,7 @@ V{yyyyMMdd}{DD}{NN}__{module}_{description}.sql     # バージョンは 12 桁
 ### 11.1 跨表ロック順序（全域共通、2026-10-20 決定）
 
 - 過帳系パスで複数テーブルをロックする場合、**受注行（`sal_sales_order_line`）→ 工单（`prd_work_order`）** の順にロックする。同一テーブルの複数行は **id 昇順** でロックする。
+- 完工超収の上限 `allowed_qty`（基本単位、受注行 `ordered_qty` 基準）と容差チェーンは [01-system 90 §3.39 sys_company_param](../01-system/90-db-design.md) を参照。超産承認表の DDL は 06-production で定義予定。
 - 適用対象：完工報告、冲销（取消・反向伝票）、返工入庫、受注変更、超産承認。いずれのストアドプロシージャもこの順序に従う（詳細は G2-18、Refs #29）。
 - 受注変更のように受注行を起点としない処理も、先に受注行を `FOR UPDATE` し、その後関連工单を id 昇順で `FOR UPDATE` してから数量（已完工数・已発貨数）を検証する。
 - **過帳パスは行ロックのみ**（数量累加で `version` を検査しない。409 を返さない）。**楽観排他（`version`）は画面編集のみ**とし、競合時は HTTP `409` + `code=4003`（[03 API 規格 §10](03-common-api-spec.md)）。
@@ -405,7 +394,7 @@ V{yyyyMMdd}{DD}{NN}__{module}_{description}.sql     # バージョンは 12 桁
 | テナント設定 | トランザクション内で `SET LOCAL app.tenant_id`（`set_config(..., true)`）。テナント文脈が無い場合はエラーとし、**tenant 0 へフォールバックしない** |
 | `tenant_id` 既定値 | `current_setting('app.tenant_id')::bigint` |
 | Flowable | 専用スキーマ `flowable`。表の owner はマイグレーションロール（Flyway で事前作成、`database-schema-update=false`）。`erp_app` には `USAGE` + 表の `SELECT/INSERT/UPDATE/DELETE` + シーケンスの `USAGE` を `ALTER DEFAULT PRIVILEGES` で付与（Refs #7） |
-
+>>>>>>> de5dc74 (docs(common,system): 按评审调整：RLS/ON CONFLICT 改为引用，新增公司业务参数与完工超收规则)
 ## 15. バックアップ・リカバリ（設計前提）
 
 | 項目 | 内容 |
@@ -453,4 +442,4 @@ V{yyyyMMdd}{DD}{NN}__{module}_{description}.sql     # バージョンは 12 桁
 - アプリ側は `flowable.database-schema-update=false`（起動時は版本チェックのみ、DDL を発行しない）。よって应用账号 `erp_app` は schema `flowable` に対し `USAGE` と DML（`SELECT/INSERT/UPDATE/DELETE`、序列 `USAGE/SELECT`）のみを持ち、`CREATE` 権限は持たない。owner による `ALTER DEFAULT PRIVILEGES IN SCHEMA flowable` で今後の表・序列にも同じ権限を付与する。
 - 表の解決は接続ごとの `search_path = public, flowable`（`spring.datasource.hikari.connection-init-sql`）で行う。`flowable.database-schema` は設定しない（Flowable が接続に `setSchema()` を発行し、プール接続の `search_path` が `flowable` のみになるため）。
 - Flowable のバージョンアップ時は、新しい jar の `org/flowable/**/db/upgrade/*.postgres.upgradestep.*.sql` を新規 Flyway 迁移として追加する（`database-schema-update=true` に戻さない）。
-- RLS は業務 schema（`public`）の業務表のみ対象。Flowable 表は `tenant_id` を持たず RLS 対象外。
+- RLS は業務 schema（`public`）の業務表のみ対象。Flowable 表は `tenant_id` を持たず RLS 対象外。>>>>>>> de5dc74 (docs(common,system): 按评审调整：RLS/ON CONFLICT 改为引用，新增公司业务参数与完工超收规则)

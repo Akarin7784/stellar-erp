@@ -15,7 +15,7 @@
 
 ## #9 RLS 启用阶段不一致（Refs #9）
 
-- W：ADR-0003 と DB 共通規格の RLS 適用時期を grep。T：「第一版」の 1 通りのみ（`docs/adr/0003-database.md`、[04 §14 / §14.1](04-common-db-spec.md)）。
+- W：ADR-0003 と DB 共通規格の RLS 適用時期を grep。T：「第一版」の 1 通りのみ（`docs/adr/0003-database.md`、[04 §14](04-common-db-spec.md)、[10-rls-and-db-roles.md](10-rls-and-db-roles.md)（PR #43））。
 - G：首批業務テーブルが作成済み。W：`pg_class.relrowsecurity` / `relforcerowsecurity` を照会。T：`tenant_id` を持つ全業務テーブルで共に true。ポリシーは `USING` と `WITH CHECK` を両方持つ（`pg_policy.polqual` / `polwithcheck` が非 NULL）。
 - G：tenant 0 と tenant 9 にデータあり。W：`erp_app`（非 owner、NOBYPASSRLS）で `app.tenant_id=0` を設定し SELECT/INSERT/UPDATE/DELETE。T：tenant 9 の行は読めない。tenant 9 の行の書込は WITH CHECK で拒否。
 - W：`app.tenant_id` を設定せずに業務テーブルを照会。T：エラー（tenant 0 へフォールバックしない）。
