@@ -21,7 +21,9 @@
 --      60100 / MSG-PRD-100  MTO 未批超产（超过 allowed_qty 且超产审批未通过）；
 --      60040 / MSG-PRD-040  硬超 allowed_qty（MTS，或审批额度用尽后仍超；含单张工单上限）；
 --      60102 / MSG-PRD-102  报工冲销数量 > 已完工量；
---      30022 / MSG-SAL-056  受注改量低于已完工/已发货、超产调高值不合法；
+--      30022 / MSG-SAL-056  受注改量低于已完工/已发货；
+--      60101 / MSG-PRD-101  超产审批已驳回/取消后仍超；
+--      60103 / MSG-PRD-103  超产审批调高值不合法；
 --      5000 缺租户 / 缺 prd.completion_over_rate / 缺 UOM 精度；4002 仅真状态冲突（HTTP 409）。
 --   D5 蓝色大肥鱼 2026-10-20 追加裁定：
 --      - 上限按基本单位计算：allowed_qty / completed_qty 以基本单位存储，基数取 base_qty；
@@ -468,8 +470,8 @@ BEGIN
     v_new := g2_18_calc_allowed_qty(p_new_allowed_qty, 0, v_material);
     IF v_new IS NULL OR v_new <= v_old THEN
         -- 业务规则拒绝（HTTP 422），非并发冲突
-        -- TODO(待业务分析确认) 超产审批批准值不合法暂复用 30022 / MSG-SAL-056，是否另设 PRD 域码待确认
-        PERFORM g2_18_raise(30022, format('new allowed_qty %s must be > current %s', p_new_allowed_qty, v_old));   -- MSG-SAL-056 / HTTP 422
+        -- 超产审批批准值不合法：60103 / MSG-PRD-103（HTTP 422，蓝色大肥鱼 2026-10-21 定稿）
+        PERFORM g2_18_raise(60103, format('new allowed_qty %s must be > current %s', p_new_allowed_qty, v_old));   -- MSG-PRD-103 / HTTP 422
     END IF;
 
     UPDATE sal_sales_order_line
