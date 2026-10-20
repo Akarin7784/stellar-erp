@@ -310,7 +310,7 @@ CREATE INDEX idx_sal_sales_order_status_date ON sal_sales_order (order_status, o
 CREATE INDEX idx_sal_sales_order_customer ON sal_sales_order (customer_id, order_date DESC);
 CREATE INDEX idx_sal_sales_order_owner ON sal_sales_order (owner_user_id, order_status);
 CREATE INDEX idx_sal_sales_order_delivery ON sal_sales_order (delivery_date, order_status);
-CREATE UNIQUE INDEX uk_sal_sales_order_source ON sal_sales_order (tenant_id, source_type, source_id) WHERE source_id IS NOT NULL;
+CREATE UNIQUE INDEX uk_sal_sales_order_source ON sal_sales_order (tenant_id, company_id, source_type, source_id) WHERE source_id IS NOT NULL;
 
 -- sal_sales_order_line（傳票明細）
 CREATE TABLE sal_sales_order_line (

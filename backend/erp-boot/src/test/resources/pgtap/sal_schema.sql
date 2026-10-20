@@ -1,7 +1,7 @@
 -- pgTAP：03-sales 建表（sal/V202610210705）结构 / RLS / erp_app 权限 / 关键约束 / G2-18 列
 -- 约定：准备数据用 owner（暂停 FK 触发器，免建 mdm_customer 等前置数据），断言前 SET ROLE erp_app；以 ROLLBACK 结束。
 BEGIN;
-SELECT plan(22);
+SELECT plan(23);
 
 SELECT is((SELECT count(*)::int FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
             WHERE n.nspname = 'public' AND c.relkind = 'r' AND c.relname LIKE 'sal\_%'),
@@ -23,7 +23,7 @@ SELECT is((SELECT count(*)::int FROM pg_index i JOIN pg_class ic ON ic.oid = i.i
             JOIN pg_attribute a0 ON a0.attrelid = i.indrelid AND a0.attnum = i.indkey[0]
             LEFT JOIN pg_attribute a1 ON a1.attrelid = i.indrelid AND a1.attnum = i.indkey[1]
             WHERE i.indisunique AND NOT i.indisprimary AND tc.relname LIKE 'sal\_%'
-              AND (a0.attname <> 'tenant_id' OR (a1.attname IS DISTINCT FROM 'company_id' AND ic.relname NOT IN ('uk_sal_sales_order_source','uk_sal_credit_occ_source','uk_sal_receivable_snapshot_fin')))),
+              AND (a0.attname <> 'tenant_id' OR (a1.attname IS DISTINCT FROM 'company_id' AND ic.relname NOT IN ('uk_sal_credit_occ_source','uk_sal_receivable_snapshot_fin')))),
           0, '全部 sal_ 唯一索引以 tenant_id 打头（明细/版表为 tenant_id, company_id, 父 ID …）');
 SELECT ok(EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'uk_sal_sales_order_line_no'
                    AND indexdef LIKE '%(tenant_id, company_id, sales_order_id, line_no)%'), 'uk_sal_sales_order_line_no = (tenant_id, company_id, sales_order_id, line_no)');
@@ -42,6 +42,10 @@ SELECT col_type_is('sal_sales_order_line', 'completed_qty', 'numeric(18,4)', 'co
 SELECT ok(EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'uk_sal_sales_order_no'
                     AND indexdef LIKE '%(tenant_id, company_id, sales_order_no)%'),
           'uk_sal_sales_order_no 以 (tenant_id, company_id) 打头');
+
+SELECT ok(EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'uk_sal_sales_order_source'
+                   AND indexdef LIKE '%(tenant_id, company_id, source_type, source_id) WHERE (source_id IS NOT NULL)%'),
+          'uk_sal_sales_order_source = (tenant_id, company_id, source_type, source_id) WHERE source_id IS NOT NULL');
 
 -- 准备：两个租户各一张受注 + 行（owner，暂停 FK 触发器）
 SET LOCAL session_replication_role = replica;
