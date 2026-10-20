@@ -180,7 +180,7 @@ sequenceDiagram
 | F-MDM-024 | 汇率与标准代码导入 | 汇率、单位、货币、联行号等标准数据导入 | SCR-MDM-045 | 取込 | P1 | 設計済 | [04](04-uom-currency-tax.md) |
 | F-MDM-025 | 工厂主数据 | 工厂编码・名称・类型・负责人・公司组织参照（Lead 裁定：工厂主数据归 MDM、`mdm_factory`） | SCR-MDM-098 | 登録/一覧 | P0 | 設計済 | [03](03-warehouse-location.md) |
 
-> 優先度：P0 / P1 / P2 は実装順の目安であり、全て当面の範囲（用户决定：不分期）。状態：すべて設計済（本域詳細設計完了時点）。F-MDM-015/019/022/023 は P1/P2 のため詳細度を一部概要に留めるが、フィールド定義は省略しない。
+> 優先度：P0 / P1 / P2 は実装順の目安であり、全て第一版の範囲（用户决定：不分期）。状態：すべて設計済（本域詳細設計完了時点）。F-MDM-015/019/022/023 は P1/P2 のため詳細度を一部概要に留めるが、フィールド定義は省略しない。
 
 ## 5. 画面一覧
 
@@ -341,7 +341,7 @@ sequenceDiagram
 |---|---|---|---|---|
 | `mdm_project` | 項目マスタ（プロジェクト） | MDM（TODO：未設計） | FIN（項目輔助核算） | TODO：DDL 未作成。FIN の `PROJECT` 辅助核算（07-finance/01-accounting-subjects.md）が参照予定 |
 | `mdm_asset_category` | 固定資産分類マスタ | MDM（TODO：未設計） | FIN（固定資産） | TODO：DDL 未作成。耐用年数・残存率の分類は FIN が設定、分類マスタは MDM が所有予定 |
-| `mdm_contract` | 框架合同マスタ（フレーム契約） | MDM（TODO：未設計） | PUR（框架合同/一揽子订单） | Lead 裁定 2026-10-20：P2 框架合同は MDM 所有。TODO：DDL 未作成（PUR 00-overview の `CONTRACT` 区分が参照予定） |
+| `mdm_contract` | 框架合同マスタ（フレーム契約） | MDM（TODO：未設計） | PUR（框架合同/一揽子订单） | Lead 裁定 2026-10-20：框架合同（第一版対象）は MDM 所有。TODO：DDL 未作成（PUR 00-overview の `CONTRACT` 区分が参照予定） |
 | `mdm_material_warehouse` | 物料倉庫別パラメータ | MDM（TODO：未設計） | INV（倉庫別安全在庫） | Lead 裁定 2026-10-20：倉庫別安全在庫等は MDM 所有。DDL 作成までは `mdm_material`（全社値）+ `mdm_material_factory`（工場値）で運用 |
 
 **未設計フィールド（第一版対象、TODO）**：`mdm_material.expiry_base`（有効期限の基準日：製造日/入荷日切替。INV 04-batch-serial-status.md 未決 #4 が参照予定）。DDL 追加までは「製造日があれば製造日、無ければ入荷日」で運用し、フィールドは追加しない。
@@ -438,7 +438,7 @@ sequenceDiagram
 | 8 | 供应商评估数据源：质量（IQC 合格率）、交付（交期达成率）需 PUR/INV/PRD 提供 | 本域 BAT-MDM-004 需跨域数据 | 设计确定前先以「人工评分 + 采购收货达成率（INV 提供）」实现；质量与生产数据接入时间待定 | lead / PUR/INV 担当 | 2026-10-30 |
 | 9 | 未設計マスタ `mdm_project`（項目マスタ） | Lead 裁定 2026-10-20：主数据归 MDM（第一版対象、TODO：詳細設計未作成）。FIN（項目輔助核算）が参照予定 | 00-overview 第 8 章の「未設計マスタ」に登記済み。設計着手時に 90-db/91-api を追加 | mdm-designer | — |
 | 10 | 未設計マスタ `mdm_asset_category`（固定資産分類） | Lead 裁定 2026-10-20：主数据归 MDM（第一版対象、TODO：詳細設計未作成）。FIN（固定資産）が参照予定 | 同上 | mdm-designer | — |
-| 11 | 未設計マスタ `mdm_contract`（框架合同） | Lead 裁定 2026-10-20：P2 框架合同は MDM 所有、TODO：詳細設計未作成。PUR が参照予定 | 同上。PUR の `CONTRACT` 区分は未使用（TODO） | mdm-designer | — |
+| 11 | 未設計マスタ `mdm_contract`（框架合同） | Lead 裁定 2026-10-20：框架合同（第一版対象）は MDM 所有、TODO：詳細設計未作成。PUR が参照予定 | 同上。PUR の `CONTRACT` 区分は未使用（TODO） | mdm-designer | — |
 | 12 | 未設計マスタ `mdm_material_warehouse`（倉庫別パラメータ）/ 予約フィールド `mdm_material.expiry_base` | Lead 裁定 2026-10-20：倉庫別安全在庫・有効期限基準日は MDM 所有、TODO：詳細設計未作成 | DDL 作成までは `mdm_material`（全社値）+ `mdm_material_factory`（工場値）で運用。`expiry_base` は製造日/入荷日で暫定判定 | mdm-designer | — |
 
 ## 13. 改訂履歴

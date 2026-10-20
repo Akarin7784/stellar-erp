@@ -51,10 +51,9 @@
 - G：基本単位の小数 0 桁、`ordered_qty=30`、率 0.05。W：確定。T：`allowed_qty = floor(31.5) = 31`。
 - 購買受入の容差（物料 > 分類 > 仕入先 > 会社）は別系統で、完工の計算に使わない。
 
-## AC1-9 標準原価の唯一の正（Refs #32）
+## AC1-9 標準原価のスナップショット列（Refs #32）
 
-- G：`fin_standard_cost` に YE3 V1（778.20、2026-10-01 発効）。W：`mdm_material.standard_cost` を直接 UPDATE。T：拒否（トリガー）またはビュー列のため更新不可（方式は 07-finance の PR で決める、**待確認**）。
-- W：V2 が発効。T：`mdm_material.standard_cost` の参照値は V2。下达済み工单のスナップショットは変わらない。
+- G：`mdm_material.standard_cost` はスナップショット列で、原価卷算の発行処理のみが書き込む。W：発行処理以外のセッションで `UPDATE mdm_material SET standard_cost = ...`。T：トリガーにより拒否される。
 
 ## AC1-10 検査フラグの導出
 
