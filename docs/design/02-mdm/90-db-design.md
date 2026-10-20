@@ -341,7 +341,7 @@ CREATE INDEX gin_mdm_material_ext ON mdm_material USING gin (ext_data jsonb_path
 - **標準原価**：唯一の正は `fin_standard_cost`（版管理・有効期間付き、DDL は 07-finance で定義。TODO：07-finance 側の DDL が未作成）。`mdm_material.standard_cost` は**スナップショット列**で、原価卷算結果の発行関数 `fin_publish_standard_cost` のみが書き込む（下記の保護方式）。工单下达時は `prd_work_order.standard_cost` にスナップショットする（Refs #32、#8）。
 - **`standard_cost` の更新保護**（関数 `fin_publish_standard_cost` の DDL は 07-finance で定義。本書は相互参照のみ）：
   - 専用の NOLOGIN ロール `erp_cost_publisher` が `SECURITY DEFINER` 関数 `fin_publish_standard_cost` を所有する。関数は `search_path` を固定し、最初に `set_config('app.tenant_id', 対象 tenant, true)` を設定する（FORCE RLS が適用される）。
-  - `erp_cost_publisher` には `mdm_material` の列単位 `UPDATE (standard_cost)` のみを付与する。
+  - `erp_cost_publisher` には `mdm_material` の列単位 `UPDATE (standard_cost)` に加え、WHERE 句と RLS ポリシーで使う列の列単位 `SELECT`（少なくとも `id`、`tenant_id`、`company_id`）を付与する。さらに `fin_standard_cost` の `SELECT` を付与する（列 SELECT が無いと `UPDATE ... WHERE id = ?` は権限エラーになる）。
   - トリガーは `standard_cost` の変更を `current_user = 'erp_cost_publisher'` の場合のみ許可し、それ以外は拒否する。`app.cost_publish` 等のセッションフラグは使わない。
   - `erp_app` には `mdm_material` の表単位 `UPDATE` を付与しない。`standard_cost` 以外の全列に列単位 `UPDATE` を付与する。`ALTER DEFAULT PRIVILEGES` による一括 UPDATE 付与から本表を除外する（または付与後に REVOKE して列単位付与を再適用する）。
 - `valuation_method` は `NOT NULL`、既定値なし（R1：MTS 自制品 20、MTO 产品・外购料 10）。

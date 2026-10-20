@@ -54,7 +54,7 @@
 
 ## AC1-9 標準原価のスナップショット列（Refs #32）
 
-- W：`fin_publish_standard_cost`（所有者 `erp_cost_publisher`、SECURITY DEFINER）で YE3 の `standard_cost` を発行。T：更新に成功する。
+- G：`fin_standard_cost` に YE3 の有効版（778.20）。W：`fin_publish_standard_cost`（所有者 `erp_cost_publisher`、SECURITY DEFINER）を実行し、関数内で `fin_standard_cost` を参照して `UPDATE mdm_material SET standard_cost = ... WHERE id = :YE3の id` を行う。T：成功し、対象 1 行のみ 778.20 になる（`id`/`tenant_id`/`company_id` の列 SELECT または `fin_standard_cost` の SELECT が欠けていれば権限エラーで失敗する）。
 - W：`erp_app` で `UPDATE mdm_material SET standard_cost = ...`。T：権限エラー（列権限なし）。
 - W：`erp_app` で `set_config('app.cost_publish','on',true)` 等のフラグを設定してから同じ UPDATE。T：やはり拒否される（フラグは判定に使わない）。
 - W：`SELECT has_column_privilege('erp_app','mdm_material','standard_cost','UPDATE')`。T：`false`。
