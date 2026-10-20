@@ -183,7 +183,7 @@ PostgreSQL の一意制約チェックは RLS を経由しないため、`tenant
      |---|---|---|
      | `sys_company`（会社ルート表） | `uk_sys_company_code` | `(tenant_id, company_code) WHERE deleted=FALSE` |
      | `sys_company` | `uk_sys_company_credit` | `(tenant_id, unified_social_credit_code) WHERE deleted=FALSE AND unified_social_credit_code IS NOT NULL` |
-     | `sys_user` | `uk_sys_user_username`（目標名） | `(tenant_id, username)`。main 上は現在 `uk_sys_user_tenant_username`（`V1__baseline.sql:18`）。改名・`DEFAULT 0` 修正・pgTAP 例外登録は `sys_user` の正式迁移で行う |
+     | `sys_user` | `uk_sys_user_username`（目標名） | `(tenant_id, username)`。main 上は現在 `uk_sys_user_tenant_username`（`V1__baseline.sql:18`）。改名・`tenant_id` 既定値（0）の修正・pgTAP 例外登録は `sys_user` の正式迁移で行う |
      | `sys_menu` | `uk_sys_menu_code` | `(tenant_id, menu_code) WHERE deleted=FALSE` |
      | `sys_menu` | `uk_sys_menu_permission` | `(tenant_id, permission_code) WHERE deleted=FALSE AND permission_code IS NOT NULL` |
      | `sys_dict_type` | `uk_sys_dict_type_code` | `(tenant_id, dict_code) WHERE deleted=FALSE` |
@@ -439,7 +439,7 @@ V{yyyyMMdd}{NNNN}__{module}_{description}.sql     # バージョンは 12 桁
 | v1.6 | 2026-10-21 | §6.2 項 2：sys/mdm 参照も複合外键 `(tenant_id, x_id)`→`(tenant_id, id)` 必須、被参照表に `UNIQUE (tenant_id, id)`（`uk_<table>_tenant_id`）を明記（#35 迁移 `sys/V202610210707` に整合）。§6.1 項 4 の例外に `sys_company` 自身（`uk_sys_company_code`／`uk_sys_company_credit`）を追加。§7 先頭列行を「btree は必ず tenant_id 先頭（company_id あれば続けて）、GIN 除く」に統一 | 业务分析 |
 | v1.7 | 2026-10-21 | §6.1 項 4：例外を (a) `company_id` なし共有表／(b) テナント級一意 8 本（`sys_company` 2・`sys_menu` 2・`sys_dict_type`・`sys_outbox_event`・`sys_idempotency`・`mdm_exchange_rate`）に限定し表で列挙。`uk_sys_role_code`・`uk_sys_number_rule_code` は `(tenant_id, company_id, …)`（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.8 | 2026-10-21 | §6.1 項 6：#38 以降 pgTAP `composite_fk.sql` がテナント級一意を表名＋索引名で照合・許可することを追記 | 业务分析 |
-| v1.9 | 2026-10-21 | §6.1 項 4 (b) に `sys_user.uk_sys_user_username (tenant_id, username)` を追加（計 9 本、蓝色大肥鱼 2026-10-21 決定。main 上の現名 `uk_sys_user_tenant_username`、改名・DEFAULT 0 修正・pgTAP 例外は sys_user 正式迁移で対応）。項 6 の pgTAP 記述から本数を除去し、同キーは未検査と明記 | 业务分析 |
+| v1.9 | 2026-10-21 | §6.1 項 4 (b) に `sys_user.uk_sys_user_username (tenant_id, username)` を追加（計 9 本、蓝色大肥鱼 2026-10-21 決定。main 上の現名 `uk_sys_user_tenant_username`、改名・tenant_id 既定値（0）の修正・pgTAP 例外は sys_user 正式迁移で対応）。項 6 の pgTAP 記述から本数を除去し、同キーは未検査と明記 | 业务分析 |
 
 ## Flowable 引擎表の schema 分離（issue #7）
 
