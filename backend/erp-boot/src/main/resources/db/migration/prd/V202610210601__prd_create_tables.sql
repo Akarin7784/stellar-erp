@@ -1189,7 +1189,7 @@ CREATE TABLE prd_mrp_action (
     ref_doc_type        SMALLINT,                                -- 参照先種別 10:采购订单 20:工单 30:委外订单 40:请购 50:计划订单
     ref_doc_id          BIGINT,                                  -- 参照先 ID
     ref_doc_no          VARCHAR(64),                             -- 参照先单号
-    "current_date"      DATE,  -- 保留字，设计书列名原样加引号（待设计书改名）                                    -- 现日期（延期/提前の対象）
+    action_date         DATE,                                    -- 现日期（延期/提前の対象）。设计书列名 current_date 为保留字，按 2026-10-21 决定改名 action_date
     suggested_date      DATE,                                    -- 建议日期
     current_qty         NUMERIC(18,4),                           -- 现数量
     suggested_qty       NUMERIC(18,4),                           -- 建议数量
@@ -1224,6 +1224,7 @@ COMMENT ON COLUMN prd_mrp_action.plan_order_id IS '由来计划订单 ID → prd
 COMMENT ON COLUMN prd_mrp_action.ref_doc_type IS '参照先種別 10:采购订单 20:工单 30:委外订单 40:请购 50:计划订单';
 COMMENT ON COLUMN prd_mrp_action.ref_doc_id IS '参照先 ID';
 COMMENT ON COLUMN prd_mrp_action.ref_doc_no IS '参照先单号';
+COMMENT ON COLUMN prd_mrp_action.action_date IS '现日期（延期/提前の対象）。设计书列名 current_date（保留字）改名';
 COMMENT ON COLUMN prd_mrp_action.suggested_date IS '建议日期';
 COMMENT ON COLUMN prd_mrp_action.current_qty IS '现数量';
 COMMENT ON COLUMN prd_mrp_action.suggested_qty IS '建议数量';
@@ -1285,7 +1286,7 @@ CREATE TABLE prd_work_order (
     parent_work_order_id BIGINT,                                 -- 親工单 ID（多阶製造）
     root_work_order_id  BIGINT,                                  -- 最上位工单 ID（追溯用）
     is_backflush        BOOLEAN       NOT NULL DEFAULT FALSE,    -- 倒冲工单フラグ
-    over_receipt_rate   NUMERIC(5,4)  NOT NULL DEFAULT 0.05,     -- 完工超収容差スナップショット（比率 NUMERIC(5,4)。チェーン：受注行>物料>分類>会社 sys_param key prd.completion_over_rate）
+    over_receipt_rate   NUMERIC(5,4),                           -- NULL＝继承（2026-10-21 决定：可 NULL、无 DEFAULT）。完工超収容差スナップショット（比率 NUMERIC(5,4)。チェーン：受注行>物料>分類>会社 sys_param key prd.completion_over_rate）
     over_report_rate    NUMERIC(5,4)  NOT NULL DEFAULT 0.05,     -- 超報工容差（比率 NUMERIC(5,4)）
     is_hold             BOOLEAN       NOT NULL DEFAULT FALSE,    -- 保留フラグ（工程異常・品質問題）
     hold_reason         VARCHAR(500),                            -- 保留理由
@@ -1379,7 +1380,7 @@ COMMENT ON COLUMN prd_work_order.source_no IS '来源单号';
 COMMENT ON COLUMN prd_work_order.parent_work_order_id IS '親工单 ID（多阶製造）';
 COMMENT ON COLUMN prd_work_order.root_work_order_id IS '最上位工单 ID（追溯用）';
 COMMENT ON COLUMN prd_work_order.is_backflush IS '倒冲工单フラグ';
-COMMENT ON COLUMN prd_work_order.over_receipt_rate IS '完工超収容差スナップショット（比率 NUMERIC(5,4)。チェーン：受注行>物料>分類>会社 sys_param key prd.completion_over_rate）';
+COMMENT ON COLUMN prd_work_order.over_receipt_rate IS 'NULL＝继承（可 NULL、无 DEFAULT）。完工超収容差スナップショット（比率 NUMERIC(5,4)。チェーン：受注行>物料>分類>会社 sys_param key prd.completion_over_rate）';
 COMMENT ON COLUMN prd_work_order.over_report_rate IS '超報工容差（比率 NUMERIC(5,4)）';
 COMMENT ON COLUMN prd_work_order.is_hold IS '保留フラグ（工程異常・品質問題）';
 COMMENT ON COLUMN prd_work_order.hold_reason IS '保留理由';

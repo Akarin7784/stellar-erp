@@ -1,7 +1,7 @@
 -- pgTAP：06-production 建表（V202610210601）结构 / RLS / erp_app 权限 / standard_cost NULL 无默认
 -- 约定：准备数据用 owner，断言前 SET ROLE erp_app；以 ROLLBACK 结束。
 BEGIN;
-SELECT plan(19);
+SELECT plan(24);
 
 -- 结构
 SELECT is((SELECT count(*)::int FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -33,6 +33,13 @@ SELECT col_type_is('prd_work_order', 'standard_cost', 'numeric(18,6)', 'standard
 SELECT col_is_null('prd_work_order', 'standard_cost', 'standard_cost 允许 NULL');
 SELECT col_hasnt_default('prd_work_order', 'standard_cost', 'standard_cost 无 DEFAULT');
 SELECT col_default_is('prd_work_order', 'cost_variance', '0', 'cost_variance DEFAULT 0（NULL 判定靠 standard_cost IS NULL）');
+
+-- 2026-10-21 决定：over_receipt_rate 可 NULL 无默认（NULL＝继承）；order_status 默认 10；action_date 改名
+SELECT col_is_null('prd_work_order', 'over_receipt_rate', 'over_receipt_rate 允许 NULL（NULL＝继承）');
+SELECT col_hasnt_default('prd_work_order', 'over_receipt_rate', 'over_receipt_rate 无 DEFAULT');
+SELECT col_default_is('prd_work_order', 'order_status', '10', 'order_status DEFAULT 10');
+SELECT has_column('prd_mrp_action', 'action_date', 'prd_mrp_action 有 action_date');
+SELECT hasnt_column('prd_mrp_action', 'current_date', 'prd_mrp_action 无保留字列 current_date');
 
 -- G2-18 草稿 / 测试桩使用的工单列
 SELECT ok((SELECT count(*) FROM information_schema.columns
