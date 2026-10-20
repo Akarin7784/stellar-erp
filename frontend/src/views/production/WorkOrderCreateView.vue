@@ -40,13 +40,42 @@
           </el-form-item>
         </el-col>
         <el-col :span="8">
-          <el-form-item label="工厂ID" prop="factoryId">
-            <el-input v-model="form.factoryId" />
+          <el-form-item label="工厂" prop="factoryId">
+            <el-select
+              v-model="form.factoryId"
+              data-test="factory"
+              filterable
+              placeholder="请选择工厂"
+              @change="onFactoryChange"
+            >
+              <el-option
+                v-for="f in factories"
+                :key="String(f.id)"
+                :label="`${f.factoryCode} ${f.factoryName}`"
+                :value="String(f.id)"
+              />
+            </el-select>
           </el-form-item>
         </el-col>
         <el-col :span="8">
-          <el-form-item label="品目ID" prop="materialId" :error="fieldError('materialId')">
-            <el-input v-model="form.materialId" />
+          <el-form-item label="品目" prop="materialId" :error="fieldError('materialId')">
+            <el-select
+              v-model="form.materialId"
+              data-test="material"
+              filterable
+              remote
+              :remote-method="onMaterialSearch"
+              :loading="materialLoading"
+              placeholder="输入编码/名称检索"
+              @change="onMaterialChange"
+            >
+              <el-option
+                v-for="m in materials"
+                :key="String(m.id)"
+                :label="`${m.materialCode} ${m.materialName}`"
+                :value="String(m.id)"
+              />
+            </el-select>
           </el-form-item>
         </el-col>
         <el-col :span="8">
@@ -56,7 +85,11 @@
         </el-col>
         <el-col :span="8">
           <el-form-item label="单位" prop="uomCode">
-            <el-input v-model="form.uomCode" maxlength="16" />
+            <el-input v-model="form.uomCode" maxlength="16">
+              <template v-if="selectedMaterial?.unitName" #append>{{
+                selectedMaterial.unitName
+              }}</template>
+            </el-input>
           </el-form-item>
         </el-col>
         <el-col :span="8">
@@ -77,8 +110,21 @@
           </el-form-item>
         </el-col>
         <el-col :span="8">
-          <el-form-item label="完工入库倉庫ID" prop="warehouseId">
-            <el-input v-model="form.warehouseId" />
+          <el-form-item label="完工入库倉庫" prop="warehouseId">
+            <el-select
+              v-model="form.warehouseId"
+              data-test="warehouse"
+              filterable
+              :disabled="!form.factoryId"
+              placeholder="请先选择工厂"
+            >
+              <el-option
+                v-for="w in warehouses"
+                :key="String(w.id)"
+                :label="`${w.warehouseCode} ${w.warehouseName}`"
+                :value="String(w.id)"
+              />
+            </el-select>
           </el-form-item>
         </el-col>
         <el-col :span="8">
@@ -109,8 +155,16 @@
           </el-form-item>
         </el-col>
         <el-col :span="8">
+          <el-form-item label="有効 BOM">
+            <span data-test="bom">{{ bomText }}</span>
+          </el-form-item>
+        </el-col>
+        <el-col :span="8">
           <el-form-item label="倒冲">
-            <el-checkbox v-model="form.isBackflush" />
+            <el-checkbox
+              :model-value="!!form.isBackflush"
+              @update:model-value="(v) => (form.isBackflush = !!v)"
+            />
           </el-form-item>
         </el-col>
         <el-col :span="24">
@@ -122,7 +176,12 @@
     </el-form>
 
     <div class="actions">
-      <el-button type="primary" :loading="saving" :disabled="!!created" @click="onSave"
+      <el-button
+        type="primary"
+        data-test="save"
+        :loading="saving"
+        :disabled="!canSubmit"
+        @click="onSave"
         >保存</el-button
       >
       <el-button @click="onCancel">キャンセル</el-button>
@@ -131,7 +190,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import {
@@ -147,6 +206,15 @@ import {
   type WorkOrderCreated,
   type WorkOrderCreateRequest,
 } from '@/api/production/workOrder'
+import { getEffectiveBom, type EffectiveBom } from '@/api/production/bom'
+import {
+  listFactories,
+  listWarehouseOptions,
+  searchMaterials,
+  type FactoryOption,
+  type MaterialOption,
+  type WarehouseOption,
+} from '@/api/mdm/lookup'
 import { validateDateRange, validateOrderQty } from './workOrderRules'
 
 const router = useRouter()
@@ -175,6 +243,7 @@ const required = { required: true, message: '必須項目です', trigger: 'blur
 const rules: FormRules = {
   factoryId: [required],
   materialId: [required],
+  warehouseId: [{ ...required, trigger: 'change' }],
   orderQty: [required, { validator: (_r, v, cb) => cb(validateOrderQty(v)), trigger: 'blur' }],
   uomCode: [required],
   plannedStartDate: [required],
@@ -194,6 +263,94 @@ const statusLabel = computed(() => {
 // 只读：创建时由后端快照，画面不可编辑
 const overReceiptRateText = computed(() => formatRatePercent(created.value?.overReceiptRate))
 
+const factories = ref<FactoryOption[]>([])
+const warehouses = ref<WarehouseOption[]>([])
+const materials = ref<MaterialOption[]>([])
+const materialLoading = ref(false)
+const selectedMaterial = computed(
+  () => materials.value.find((m) => String(m.id) === form.materialId) ?? null,
+)
+
+/** undefined=未查询，null=无有效 BOM（60020），'error'=查询失败 */
+const bom = ref<EffectiveBom | null | undefined | 'error'>(undefined)
+const bomText = computed(() => {
+  if (bom.value === undefined) return '—'
+  if (bom.value === null) return '[MSG-PRD-020] 无有效 BOM'
+  if (bom.value === 'error') return 'BOM 查询失败'
+  return `${bom.value.bomNo} v${bom.value.versionNo}`
+})
+
+const REQUIRED_FIELDS = [
+  'factoryId',
+  'materialId',
+  'warehouseId',
+  'orderQty',
+  'uomCode',
+  'plannedStartDate',
+  'plannedEndDate',
+] as const
+const canSubmit = computed(
+  () => !created.value && !saving.value && REQUIRED_FIELDS.every((k) => !!form[k]),
+)
+
+async function onFactoryChange(factoryId: string) {
+  form.warehouseId = ''
+  warehouses.value = []
+  if (!factoryId) return
+  try {
+    warehouses.value = await listWarehouseOptions(factoryId)
+  } catch {
+    warehouses.value = []
+  }
+}
+
+async function onMaterialSearch(keyword: string) {
+  materialLoading.value = true
+  try {
+    materials.value = (await searchMaterials(keyword)).list
+  } catch {
+    materials.value = []
+  } finally {
+    materialLoading.value = false
+  }
+}
+
+function onMaterialChange() {
+  const m = selectedMaterial.value
+  if (m?.baseUomCode) form.uomCode = m.baseUomCode
+}
+
+let bomSeq = 0
+async function refreshBom() {
+  const { materialId, factoryId } = form
+  const date = form.plannedStartDate || todayShanghai()
+  if (!materialId || !factoryId) {
+    bom.value = undefined
+    return
+  }
+  const seq = ++bomSeq
+  try {
+    const r = await getEffectiveBom(materialId, factoryId, date)
+    if (seq === bomSeq) bom.value = r
+  } catch {
+    if (seq === bomSeq) bom.value = 'error'
+  }
+}
+watch(() => [form.materialId, form.factoryId, form.plannedStartDate], refreshBom)
+
+function todayShanghai(): string {
+  return new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Shanghai' }).format(new Date())
+}
+
+onMounted(async () => {
+  try {
+    factories.value = await listFactories()
+  } catch {
+    factories.value = []
+  }
+  void onMaterialSearch('')
+})
+
 function fieldError(field: keyof WorkOrderCreateRequest): string {
   return error.value?.field === field ? error.value.message : ''
 }
@@ -207,6 +364,10 @@ async function onSave() {
   try {
     created.value = await createWorkOrder(form)
     ElMessage.success(`工单 ${created.value.workOrderNo} を登録しました`)
+    await router.push({
+      name: 'production-work-order-detail',
+      params: { id: String(created.value.id) },
+    })
   } catch (e) {
     error.value = toCreateErrorView(e)
   } finally {
