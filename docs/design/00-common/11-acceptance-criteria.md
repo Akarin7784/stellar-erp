@@ -20,6 +20,7 @@
 - G：tenant 0 と tenant 9 にデータあり。W：`erp_app`（非 owner、NOBYPASSRLS）で `app.tenant_id=0` を設定し SELECT/INSERT/UPDATE/DELETE。T：tenant 9 の行は読めない。tenant 9 の行の書込は WITH CHECK で拒否。
 - W：`app.tenant_id` を設定せずに業務テーブルを照会。T：エラー（tenant 0 へフォールバックしない）。
 - W：`erp_app` で任意スキーマに `CREATE TABLE`。T：権限エラー。
+- W：`erp_app` で `SELECT sys_init_tenant(9)` を実行。T：権限エラー（`EXECUTE` は PUBLIC から REVOKE 済み、`erp_app` に未付与）。テナント払い出し用ロールでは成功し、tenant 9 に `prd.completion_over_rate = 0.05` が投入される。
 
 ## #10 tenant_id と company_id の関係（Refs #10）
 
