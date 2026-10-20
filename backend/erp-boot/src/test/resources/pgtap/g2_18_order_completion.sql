@@ -13,7 +13,8 @@ SELECT plan(67);
 -- ---------------------------------------------------------------- 准备数据（owner，显式 tenant_id）
 INSERT INTO mdm_material_category (id, tenant_id, company_id, category_code, category_name, category_path, category_level, is_leaf, completion_over_rate) VALUES
     (991001, 101, 1, '9G1', 'g218 无率分类', '/9G1/', 1, TRUE, NULL),
-    (991002, 101, 1, '9G2', 'g218 分类率',   '/9G2/', 1, TRUE, 0.0200);
+    (991002, 101, 1, '9G2', 'g218 分类率',   '/9G2/', 1, TRUE, 0.0200),
+    (991901, 202, 1, '9G1', 'g218 T202 分类', '/9G1/', 1, TRUE, NULL);
 INSERT INTO mdm_uom (id, tenant_id, company_id, uom_code, uom_name, conversion_group, is_base_uom, decimal_places) VALUES
     (991001, 101, 1, 'PCE', '个', 'CNT', TRUE, 0),
     (991002, 101, 1, 'KGM', '千克', 'WGT', TRUE, 2);
@@ -23,7 +24,8 @@ INSERT INTO mdm_material (id, tenant_id, company_id, material_code, material_nam
     (991003, 101, 1, '99G2180003', 'M3 物料率',    10, 991002, 's', 'PCE', 20, 1, 0.0300),
     (991004, 101, 1, '99G2180004', 'M4 继承分类',  10, 991002, 's', 'PCE', 20, 1, NULL),
     (991005, 101, 1, '99G2180005', 'M5 物料显式0', 10, 991002, 's', 'PCE', 20, 1, 0),
-    (991006, 101, 1, '99G2180006', 'M6 KGM',       10, 991001, 's', 'KGM', 20, 1, NULL);
+    (991006, 101, 1, '99G2180006', 'M6 KGM',       10, 991001, 's', 'KGM', 20, 1, NULL),
+    (991901, 202, 1, '99G2180001', 'M1 租户 202',  10, 991901, 's', 'PCE', 20, 1, NULL);  -- 复合 FK：租户 202 的行引用本租户物料
 INSERT INTO sys_param (id, tenant_id, company_id, param_key, param_name, param_group, param_value, value_type) VALUES
     (991001, 101, 1, 'prd.completion_over_rate', '完工超入库容许率', 'PRD', '0.05', 3);
 
@@ -46,7 +48,7 @@ FROM (VALUES
     (991015, 101, 991001, 5, 991001, 100, 0,  NULL::numeric, NULL::numeric, 0),   -- L5 allowed_qty 未快照
     (991016, 101, 991001, 6, 991001, 100, 50, 0.05, 105, 0),    -- L6 已发货 50
     (991017, 101, 991001, 7, 991001, 100, 0,  0,    100, 0),    -- L7 60103
-    (991901, 202, 991901, 1, 991001, 100, 0,  0.05, 105, 0)    -- 租户 202
+    (991901, 202, 991901, 1, 991901, 100, 0,  0.05, 105, 0)    -- 租户 202
 ) v(id, tenant_id, sales_order_id, line_no, material_id, base_qty, shipped_base_qty, completion_over_rate, allowed_qty, completed_qty)
 JOIN mdm_material m ON m.id = v.material_id;
 INSERT INTO mdm_factory (id, tenant_id, company_id, factory_code, factory_name) VALUES
@@ -67,7 +69,7 @@ FROM (VALUES
     (991302, 101, 1, 991013, 991001, 30, 40,  0,   42),
     (991105, 101, 1, 991015, 991001, 30, 10,  0,   10),   -- L5（allowed_qty 未快照）上的工单
     (991501, 101, 1, NULL,   991001, 35, 10,  0,   NULL), -- MTS，allowed 未快照 → 用工单快照 rate 0.05
-    (991901, 202, 1, 991901, 991001, 35, 100, 0,   105)
+    (991901, 202, 1, 991901, 991901, 35, 100, 0,   105)
 ) v(id, tenant_id, company_id, sales_order_line_id, material_id, order_status, order_qty, completed_qty, allowed_qty)
 JOIN mdm_material m ON m.id = v.material_id;
 
