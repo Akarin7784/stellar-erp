@@ -142,7 +142,7 @@ CREATE TABLE sys_sequence (
 | 制約 | 方針 |
 |---|---|
 | 主キー | 全テーブル必須。`pk_{table}` 命名 |
-| 外部キー | マスタ参照・親子関係は FK を張る（`ON DELETE RESTRICT`、CASCADE 禁止）。参照先が論理削除対象の場合は FK を張らずアプリで検証（削除は使用停止で運用） |
+| 外部キー | マスタ参照・親子関係は FK を張る（`ON DELETE RESTRICT`、CASCADE 禁止）。参照先が論理削除対象の場合は FK を張らずアプリで検証（削除は使用停止で運用）。**跨域参照は 6.2 に従う**（FK は同一域内と sys/mdm 参照のみ） |
 | 一意 | 業務キーは `UNIQUE INDEX WHERE deleted = FALSE`（部分一意）。先頭列は必ず `tenant_id`、原則 `(tenant_id, company_id, ...)`。詳細は 6.1 |
 | CHECK | 列挙値（status/txn_type）、符号（数量 > 0、金額 >= 0）、日付整合（有効期間）に付与。可変の区分値は付けない |
 | NOT NULL | 業務上必須の項目は DB でも NOT NULL。NULL 許容は「未設定」に意味がある場合のみ |
@@ -193,6 +193,14 @@ PostgreSQL の一意制約チェックは RLS を経由しないため、`tenant
 | `uk_mdm_evaluation` | mdm_supplier_evaluation | (supplier_id, evaluation_period) WHERE deleted=FALSE | supplier_id → mdm_partner | #49 |
 | `uk_mdm_eval_item` | mdm_supplier_eval_item | (evaluation_id, dimension_code) | evaluation_id → mdm_supplier_evaluation | #49 |
 | `uk_mdm_change_line_no` | mdm_change_request_line | (request_id, line_no) | request_id → mdm_change_request | #49 |
+
+### 6.2 跨域外键规则（2026-10-21 決定）
+
+1. **跨域は `*_id BIGINT` のみ保持し、FK は張らない**。参照先の存在性と租户（`tenant_id`・`company_id`）一致は、参照元ドメインのサービス層が**同一トランザクション内**で検証する。
+2. **例外**：主データ域 **sys**（`sys_*`）と **mdm**（`mdm_*`）は、他域から硬 FK で参照してよい（6 章「外部キー」の規則に従う）。
+3. **将来硬 FK を追加する場合**：後から建てた域の側で**別の迁移**を起こし、`ALTER TABLE … ADD CONSTRAINT … FOREIGN KEY … NOT VALID` で追加した後、別ステップで `ALTER TABLE … VALIDATE CONSTRAINT …` を実行する。前提として被参照列に一意制約が必要。租户を持つ表は**複合外键 `(tenant_id, x_id)` → 被参照側 `UNIQUE (tenant_id, id)`** とすること（`x_id` 単独の FK は租户隔离を迂回するため禁止）。
+4. **目的**：迁移順序が FK に縛られず、各域を単独で rebase／回滚できるようにする。
+5. **現状例（软引用）**：`prd_work_order.sales_order_line_id`（→ `sal_sales_order_line`、FK なし）、`05-inventory` の `work_order_id`（→ `prd_work_order`、FK なし）。
 
 ## 7. インデックス方針
 
@@ -421,6 +429,7 @@ V{yyyyMMdd}{NNNN}__{module}_{description}.sql     # バージョンは 12 桁
 |---|---|---|---|
 | v1.0 | 2026-10-20 | 初版：命名、型、制約、索引、パーティション、Flyway、排他、履歴、容量、多租戸、レビュー観点 | Lead |
 | v1.1 | 2026-10-20 | 第一版全量範囲（分期表記削除）、§8.1 パーティション表 FK 不可、§11.1 ロック順序（RLS・DB ロールは [10](10-rls-and-db-roles.md)、`ON CONFLICT` は #50） | 业务分析 |
+| v1.2 | 2026-10-21 | §6.2 跨域外键规则を新設（跨域は `*_id` のみ・FK なし・サービス層で同一 TX 検証、sys/mdm は例外、将来 FK は NOT VALID→VALIDATE・複合 `(tenant_id, x_id)`）、§6 外部キー行に 6.2 参照を追記 | 业务分析 |
 
 ## Flowable 引擎表の schema 分離（issue #7）
 
