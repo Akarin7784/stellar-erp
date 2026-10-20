@@ -23,7 +23,7 @@
 
 | 項目 | 内容 |
 |---|---|
-| 対象会社・拠点 | 华东精密电机股份有限公司 / 常州总装厂（P01）・无锡零部件厂（P02）；公司 ID=1，首期单租户（`tenant_id=0`） |
+| 対象会社・拠点 | 华东精密电机股份有限公司 / 常州总装厂（P01）・无锡零部件厂（P02）；公司 ID=1，租户隔离按 RLS（第一版） |
 | 対象機能範囲 | 物料分类与物料主数据（多视图）、客户/供应商主数据、仓库/库区/库位/货架、计量单位与换算、货币与汇率、税码与税率、销售价格表与折扣、采购价格与供应商报价、结算方式/付款条件/银行账户与联行号、客户信用额度与检查规则、供应商准入/评估/分级、物料替代、条码规则、主数据变更审批与版本历史、数据质量校验与批量维护、主数据数据权限 |
 | 対象外 | 会计科目表（FIN 管理，MDM 只引用科目代码）；BOM/工艺路线（PRD 管理，MDM 只引用默认 BOM/工艺路线编码）；**工作中心（PRD 所有 `prd_work_center`，MDM 不持有工作中心表、只引用 default_work_center_id）**；检验标准（PRD 质量管理）；客户信用占用的实时计算（SAL/FIN，MDM 只维护额度与规则）；组织/用户/角色（SYS）；价格审批的流程引擎（WF，MDM 只发起审批） |
 | 前提 | SYS 的公司/工厂/部门/用户/角色/权限/字典/编号/附件/导入导出中心已可用；FIN 会计科目表已初始化；WF 审批流已配置 |
@@ -176,11 +176,11 @@ sequenceDiagram
 | F-MDM-020 | 主数据数据权限 | 按公司/工厂/部门分配数据范围（委托 SYS 数据权限） | SCR-MDM-096 | 設定 | P0 | 設計済 | [07](07-substitute-barcode-governance.md) |
 | F-MDM-021 | 物料工厂视图参数 | 工厂级默认仓库、安全库存、提前期、批量规则 | SCR-MDM-006 | 登録 | P1 | 設計済 | [01](01-material-master.md) |
 | F-MDM-022 | 主数据检索与导出 | 跨对象统一检索、主数据门户、导出 | SCR-MDM-097 | 照会 | P1 | 設計済 | [07](07-substitute-barcode-governance.md) |
-| F-MDM-023 | 主数据分发与外部同步 | PLM 物料/BOM 同步（Phase2）、多工厂分发 | — | 連携 | P2 | 設計済（概要） | [07](07-substitute-barcode-governance.md) |
+| F-MDM-023 | 主数据分发与外部同步 | PLM 物料/BOM 同步、多工厂分发 | — | 連携 | P2 | 設計済（概要） | [07](07-substitute-barcode-governance.md) |
 | F-MDM-024 | 汇率与标准代码导入 | 汇率、单位、货币、联行号等标准数据导入 | SCR-MDM-045 | 取込 | P1 | 設計済 | [04](04-uom-currency-tax.md) |
 | F-MDM-025 | 工厂主数据 | 工厂编码・名称・类型・负责人・公司组织参照（Lead 裁定：工厂主数据归 MDM、`mdm_factory`） | SCR-MDM-098 | 登録/一覧 | P0 | 設計済 | [03](03-warehouse-location.md) |
 
-> 優先度：P0（Phase 1 MVP）/ P1（Phase 1.5）/ P2（Phase 2）。状態：すべて設計済（本域詳細設計完了時点）。F-MDM-015/019/022/023 は P1/P2 のため詳細度を一部概要に留めるが、フィールド定義は省略しない。
+> 優先度：P0 / P1 / P2 は実装順の目安であり、全て第一版の範囲（用户决定：不分期）。状態：すべて設計済（本域詳細設計完了時点）。F-MDM-015/019/022/023 は P1/P2 のため詳細度を一部概要に留めるが、フィールド定義は省略しない。
 
 ## 5. 画面一覧
 
@@ -272,10 +272,10 @@ sequenceDiagram
 | BAT-MDM-006 | 主数据质量月报 | 月次 | 毎月 1 日 04:00 | 品質指標集計・レポート出力・責任者通知 | 再実行可 |
 | BAT-MDM-007 | 资质・证照到期预警 | 日次 | 毎日 08:00 | 供應商資質/客户证照の到期 30/15/7 日前通知 | 再実行可（通知ログで重複排除） |
 | BAT-MDM-008 | 变更审批超时提醒 | 日次 | 毎日 09:00 | 承認待ち 24h/48h のリマインダ・エスカレーション | 再実行可（通知ログ） |
-| BAT-MDM-009 | 主数据分发导出（Phase2） | 日次 | 毎日 23:00 | 多工廠・外部システム向け主数据全量/差分抽出 | 再実行可（日付単位） |
+| BAT-MDM-009 | 主数据分发导出 | 日次 | 毎日 23:00 | 多工廠・外部システム向け主数据全量/差分抽出 | 再実行可（日付単位） |
 | BAT-MDM-010 | 编码空番・使用停止检查 | 月次 | 毎月 1 日 05:00 | 未使用コード・長期未使用主数据の検出、停止候補レポート | 再実行可 |
 
-## 8. テーブル一覧（実装 53 テーブル + Phase 2 予約 4 テーブル）
+## 8. テーブル一覧（実装 53 テーブル + 未設計 4 テーブル）
 
 | 物理名 | 論理名 | 種別 | 主な用途 | 更新元機能 ID | データ量見積 |
 |---|---|---|---|---|---|
@@ -335,16 +335,16 @@ sequenceDiagram
 
 > 全表设计详见 [90-db-design.md](90-db-design.md)（53 テーブルの完全 DDL・索引・制約）。業務域内表の参照関係は 90 の ER 図を正とし、接頭辞は `mdm_`（[04 DB 共通規格](../00-common/04-common-db-spec.md) 第 2.1 節）。
 
-**Phase 2 予約マスタ（本期未設計、Lead 裁定 2026-10-20）**
+**未設計マスタ（第一版対象。TODO：DDL 未作成）**
 
 | 物理名（予定） | 論理名 | 所有 | 参照予定域 | 備考 |
 |---|---|---|---|---|
-| `mdm_project` | 項目マスタ（プロジェクト） | MDM（Phase 2 予約） | FIN Phase 2（項目輔助核算） | 本期は未設計。FIN の `PROJECT` 辅助核算（07-finance/01-accounting-subjects.md）が参照予定 |
-| `mdm_asset_category` | 固定資産分類マスタ | MDM（Phase 2 予約） | FIN Phase 2（固定資産） | 本期は未設計。耐用年数・残存率の分類は FIN が設定、分類マスタは MDM が所有予定 |
-| `mdm_contract` | 框架合同マスタ（フレーム契約） | MDM（Phase 2 予約） | PUR Phase 2（框架合同/一揽子订单） | Lead 裁定 2026-10-20：P2 框架合同は MDM 予約。本期は未設計（PUR 00-overview の `CONTRACT` 区分が参照予定） |
-| `mdm_material_warehouse` | 物料倉庫別パラメータ | MDM（Phase 2 予約） | INV Phase 2（倉庫別安全在庫） | Lead 裁定 2026-10-20：倉庫別安全在庫等は MDM 予約。本期は `mdm_material`（全社値）+ `mdm_material_factory`（工場値）で運用 |
+| `mdm_project` | 項目マスタ（プロジェクト） | MDM（TODO：未設計） | FIN（項目輔助核算） | TODO：DDL 未作成。FIN の `PROJECT` 辅助核算（07-finance/01-accounting-subjects.md）が参照予定 |
+| `mdm_asset_category` | 固定資産分類マスタ | MDM（TODO：未設計） | FIN（固定資産） | TODO：DDL 未作成。耐用年数・残存率の分類は FIN が設定、分類マスタは MDM が所有予定 |
+| `mdm_contract` | 框架合同マスタ（フレーム契約） | MDM（TODO：未設計） | PUR（框架合同/一揽子订单） | Lead 裁定 2026-10-20：框架合同（第一版対象）は MDM 所有。TODO：DDL 未作成（PUR 00-overview の `CONTRACT` 区分が参照予定） |
+| `mdm_material_warehouse` | 物料倉庫別パラメータ | MDM（TODO：未設計） | INV（倉庫別安全在庫） | Lead 裁定 2026-10-20：倉庫別安全在庫等は MDM 所有。DDL 作成までは `mdm_material`（全社値）+ `mdm_material_factory`（工場値）で運用 |
 
-**Phase 2 予約フィールド**：`mdm_material.expiry_base`（有効期限の基準日：製造日/入荷日切替、Phase 2 追加。INV 04-batch-serial-status.md 未決 #4 が参照予定）。本期は「製造日があれば製造日、無ければ入荷日」で運用し、フィールドは追加しない。
+**未設計フィールド（第一版対象、TODO）**：`mdm_material.expiry_base`（有効期限の基準日：製造日/入荷日切替。INV 04-batch-serial-status.md 未決 #4 が参照予定）。DDL 追加までは「製造日があれば製造日、無ければ入荷日」で運用し、フィールドは追加しない。
 
 ## 9. 外部 IF 一覧
 
@@ -353,10 +353,10 @@ sequenceDiagram
 | IF-MDM-001 | 汇率导入 | 中国外汇交易中心 / 银行公开牌价（CSV） | 受信 | ファイル（CSV） | 日次 | BAT-MDM-001 |
 | IF-MDM-002 | 银行联行号（CNAPS）取込 | 人民银行支付系统公开行号表 | 受信 | ファイル（CSV） | 月次/随時 | F-MDM-024 |
 | IF-MDM-003 | 标准代码取込（货币/单位） | ISO 4217 / UN/ECE Rec20 公开代码表 | 受信 | ファイル（CSV） | 随時 | F-MDM-024 |
-| IF-MDM-004 | PLM 物料/设计 BOM 同步（Phase2） | PLM（如 Siemens Teamcenter） | 双方向 | REST | 随時 | F-MDM-023 |
-| IF-MDM-005 | 供应商工商信息核验（Phase2） | 国家企业信用信息公示系统 / 第三方（如企查查） | 受信 | REST | 随時 | F-MDM-005 |
-| IF-MDM-006 | 税码/税收分类编码取込（Phase2） | 国家税务总局公开代码表 | 受信 | ファイル（CSV） | 随時 | F-MDM-024 |
-| IF-MDM-007 | 庫位マスタ配信（PDA/WMS） | WMS/PDA（Phase 2） | 送信 | REST / ファイル | 日次/随時 | F-MDM-023 |
+| IF-MDM-004 | PLM 物料/设计 BOM 同步 | PLM（如 Siemens Teamcenter） | 双方向 | REST | 随時 | F-MDM-023 |
+| IF-MDM-005 | 供应商工商信息核验 | 国家企业信用信息公示系统 / 第三方（如企查查） | 受信 | REST | 随時 | F-MDM-005 |
+| IF-MDM-006 | 税码/税收分类编码取込 | 国家税务总局公开代码表 | 受信 | ファイル（CSV） | 随時 | F-MDM-024 |
+| IF-MDM-007 | 庫位マスタ配信（PDA/WMS） | WMS/PDA | 送信 | REST / ファイル | 日次/随時 | F-MDM-023 |
 
 > 外部参照先はすべて公開情報であり、個人情報・非公開情報を取得しない。IF 詳細は [92-report-batch-design.md](92-report-batch-design.md) 第 C 章。
 
@@ -434,18 +434,19 @@ sequenceDiagram
 | 4 | 客户信用「占用额」的计算与更新责任域（**已裁决**） | Lead 裁定 2026-10-20：维持 MDM 只维护额度/规则/状态，占用额由 SAL/FIN 保有，与 FIN/SAL 契约一致 | 与本域 [06](06-credit-supplier-eval.md)・[91](91-api-design.md) 的契约相同，无需变更 | 済（lead 裁定） | 2026-10-20 |
 | 5 | 物料主数据的会计科目映射字段（存货/收入/成本科目）与 FIN 科目表的校验接口 | 科目主数据归 FIN；MDM 需保存默认映射并校验科目存在且为末级 | 字段定义于 `mdm_material`（`inventory_account_code` 等），校验通过 FIN 模块公开接口 `GET /api/finance/accounts/{code}`；FIN 详细设计未完成前按「科目代码字符串 + 定期质量校验」实现 | mdm-designer / FIN 担当 | 2026-10-24 |
 | 6 | 批次/序列号编码规则由 MDM 定义还是 INV 定义 | 批次/序列号的实际采番发生在 INV 入库时；MDM 物料主数据需指定规则 | MDM 保存物料级的「管理标志 + 规则代码」（`batch_rule_code`/`serial_rule_code`），规则内容归 INV 域；交叉引用待 INV 设计确认 | lead / INV 担当 | 2026-10-24 |
-| 7 | 多币种汇率的取用口径：即期汇率 / 月初汇率 / 业务日汇率 | 财务域多币种 Phase 2；首期 CNY 单币种 | 首期仅 CNY，汇率表按「汇率类型（SPOT/PERIOD）+ 生效日」保留扩展；财务记账汇率类型由 FIN 指定 | lead / FIN 担当 | 2026-10-30 |
-| 8 | 供应商评估数据源：质量（IQC 合格率）、交付（交期达成率）需 PUR/INV/PRD 提供 | 本域 BAT-MDM-004 需跨域数据 | Phase 1 先以「人工评分 + 采购收货达成率（INV 提供）」实现；质量与生产数据接入时间待定 | lead / PUR/INV 担当 | 2026-10-30 |
-| 9 | Phase 2 予約マスタ `mdm_project`（項目マスタ） | Lead 裁定 2026-10-20：Phase 2 主数据归 MDM 予約、本期不詳細設計。FIN Phase 2（項目輔助核算）が参照予定 | 00-overview 第 8 章の「Phase 2 予約マスタ」に登記済み。Phase 2 着手時に 90-db/91-api を追加 | mdm-designer | Phase 2 |
-| 10 | Phase 2 予約マスタ `mdm_asset_category`（固定資産分類） | Lead 裁定 2026-10-20：Phase 2 主数据归 MDM 予約、本期不詳細設計。FIN Phase 2（固定資産）が参照予定 | 同上 | mdm-designer | Phase 2 |
-| 11 | Phase 2 予約マスタ `mdm_contract`（框架合同） | Lead 裁定 2026-10-20：P2 框架合同は MDM 予約、本期不詳細設計。PUR Phase 2 が参照予定 | 同上。PUR の `CONTRACT` 区分は本期は未使用 | mdm-designer | Phase 2 |
-| 12 | Phase 2 予約マスタ `mdm_material_warehouse`（倉庫別パラメータ）/ 予約フィールド `mdm_material.expiry_base` | Lead 裁定 2026-10-20：倉庫別安全在庫・有効期限基準日は MDM Phase 2 予約、本期不詳細設計 | 本期は `mdm_material`（全社値）+ `mdm_material_factory`（工場値）で運用。`expiry_base` は製造日/入荷日で暫定判定 | mdm-designer | Phase 2 |
+| 7 | 多币种汇率的取用口径：即期汇率 / 月初汇率 / 业务日汇率 | 财务域多币种为第一版对象 | 多币种为第一版对象，汇率表按「汇率类型（SPOT/PERIOD）+ 生效日」保留扩展；财务记账汇率类型由 FIN 指定 | lead / FIN 担当 | 2026-10-30 |
+| 8 | 供应商评估数据源：质量（IQC 合格率）、交付（交期达成率）需 PUR/INV/PRD 提供 | 本域 BAT-MDM-004 需跨域数据 | 设计确定前先以「人工评分 + 采购收货达成率（INV 提供）」实现；质量与生产数据接入时间待定 | lead / PUR/INV 担当 | 2026-10-30 |
+| 9 | 未設計マスタ `mdm_project`（項目マスタ） | Lead 裁定 2026-10-20：主数据归 MDM（第一版対象、TODO：詳細設計未作成）。FIN（項目輔助核算）が参照予定 | 00-overview 第 8 章の「未設計マスタ」に登記済み。設計着手時に 90-db/91-api を追加 | mdm-designer | — |
+| 10 | 未設計マスタ `mdm_asset_category`（固定資産分類） | Lead 裁定 2026-10-20：主数据归 MDM（第一版対象、TODO：詳細設計未作成）。FIN（固定資産）が参照予定 | 同上 | mdm-designer | — |
+| 11 | 未設計マスタ `mdm_contract`（框架合同） | Lead 裁定 2026-10-20：框架合同（第一版対象）は MDM 所有、TODO：詳細設計未作成。PUR が参照予定 | 同上。PUR の `CONTRACT` 区分は未使用（TODO） | mdm-designer | — |
+| 12 | 未設計マスタ `mdm_material_warehouse`（倉庫別パラメータ）/ 予約フィールド `mdm_material.expiry_base` | Lead 裁定 2026-10-20：倉庫別安全在庫・有効期限基準日は MDM 所有、TODO：詳細設計未作成 | DDL 作成までは `mdm_material`（全社値）+ `mdm_material_factory`（工場値）で運用。`expiry_base` は製造日/入荷日で暫定判定 | mdm-designer | — |
 
 ## 13. 改訂履歴
 
 | 版数 | 日付 | 変更内容 | 変更者 |
 |---|---|---|---|
-| v1.0 | 2026-10-20 | 初版：業務概要、組織/ロール、業務フロー、機能 25 件、画面 53 件、帳票 15 件、バッチ 10 件、テーブル 53 件、IF 7 件、権限、用語、未決事項。同日追記：Lead 裁定（工厂主数据归 MDM＝F-MDM-025/SCR-MDM-098、信用占用は SAL/FIN 維持）を反映。第 2 次追記：WF 提出契約を `businessType=MASTER_DATA_CHANGE`＋`masterDataType`＋`processKey` 方式へ変更、承認経路を A16/A19/A20 に整合、Phase 2 予約マスタ（`mdm_project`/`mdm_asset_category`）を登記。第 3 次追記：Phase 2 予約に `mdm_contract`/`mdm_material_warehouse`/`expiry_base` を追加、工作中心は PRD（`prd_work_center`）所有で MDM 対象外と明記 | mdm-designer |
+| v1.0 | 2026-10-20 | 初版：業務概要、組織/ロール、業務フロー、機能 25 件、画面 53 件、帳票 15 件、バッチ 10 件、テーブル 53 件、IF 7 件、権限、用語、未決事項。同日追記：Lead 裁定（工厂主数据归 MDM＝F-MDM-025/SCR-MDM-098、信用占用は SAL/FIN 維持）を反映。第 2 次追記：WF 提出契約を `businessType=MASTER_DATA_CHANGE`＋`masterDataType`＋`processKey` 方式へ変更、承認経路を A16/A19/A20 に整合、未設計マスタ（第一版対象、TODO）（`mdm_project`/`mdm_asset_category`）を登記。第 3 次追記：未設計（第一版対象、TODO）に `mdm_contract`/`mdm_material_warehouse`/`expiry_base` を追加、工作中心は PRD（`prd_work_center`）所有で MDM 対象外と明記 | mdm-designer |
 | v1.1 | 2026-10-20 | Lead 追補 E39〜E42 を反映：イベント契約の記載を更新し、未決 #2 を已裁决に更新 | system-workflow（validator） |
 | v1.2 | 2026-10-20 | 红队第 2 轮修复：A16B（銀行口座変更、`APR-MDM-BANK`、財務总监承認の SoD）を承認経路表へ追加、FIN の購読に E39/E42 を追加、`mdm_tax_code` の件数を CSV 正（24 件）に変更 | mdm-designer |
 | v1.3 | 2026-10-20 | 06-code-list **v1.4**（VOL=MTQ／法令根拠更新／§7.4 業務税碼 24 件／§14 実測件数）と 90-data 実測（24 ファイル・CSV 483 行・科目 108・出典 109）に追従。未決 #1 の版数参照を v1.2→v1.4 に修正 | mdm-designer |
+| v1.4 | 2026-10-20 | 第一版全量範囲（用户决定：不分期）。分期表記を削除し、未設計の機能・マスタは TODO として範囲内に残す | 业务分析 |

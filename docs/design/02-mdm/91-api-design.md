@@ -412,12 +412,12 @@
 | 項目 | 内容 |
 |---|---|
 | 性能 | 参照 API 200ms/件、一覧 2 秒/100 件、登録 3 秒（[00-overview](00-overview.md) 第 11 章） |
-| 認証 | Sa-Token（`Authorization` ヘッダ）。外部公開は `/api/open/v1`（Phase 2） |
+| 認証 | Sa-Token（`Authorization` ヘッダ）。外部公開は `/api/open/v1` |
 | 認可 | 全 API に権限コード。データ権限は SQL 強制注入。API 単体でも再チェック |
 | 冪等 | 登録・状態操作に `Idempotency-Key`。24 時間保持（`sys_idempotency`） |
 | 排他 | 更新系は `version` 必須。`409` + `code=4003` |
 | 監査 | 更新・承認・出力・印刷・取込を `sys_audit_log` に記録（口座・個人情報はマスキング） |
-| レート制限 | 内部 API はなし。外部 API は 600 req/分（Phase 2） |
+| レート制限 | 内部 API はなし。外部 API は 600 req/分 |
 | 入力検証 | Bean Validation + 業務チェック。SQL はパラメータバインドのみ |
 | CORS/CSRF | 同一オリジン（Nginx）、Authorization ヘッダ方式 |
 
@@ -428,7 +428,7 @@
 | 1 | 他域向け参照 API をモジュール公開 Service と REST のどちらで提供するか | Spring Modulith の内部呼出方式の決定待ち | 設計は REST を正とし、実装は公開 Service 呼出も可（同契約） | lead | 2026-10-24 |
 | 2 | 取价 API の一括呼出上限（500 件）と性能 | SAL の明細行数に依存 | 500 件/回。超過は分割 | lead / SAL | 2026-10-30 |
 | 3 | 口座番号の暗号化・マスク API の仕様 | セキュリティ要件待ち | 一覧は下 4 桁、詳細は権限者のみ全桁（監査ログ） | lead | 2026-11-06 |
-| 4 | 外部公開 API（`/api/open/v1/mdm/**`）の範囲 | Phase 2 要件 | Phase 2 で `mdm.read` スコープを設計 | lead | 2026-11-13 |
+| 4 | 外部公開 API（`/api/open/v1/mdm/**`）の範囲 | 第一版対象 | 第一版で（TODO：設計未作成） `mdm.read` スコープを設計 | lead | 2026-11-13 |
 
 ## 8. 改訂履歴
 

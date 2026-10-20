@@ -78,7 +78,7 @@
 | BR-SET-06 | 取引先銀行口座は「取引先 × 銀行」で複数登録でき、`is_default=TRUE` は 1 件のみ。口座変更は重要変更（WF 承認）とする | 08 第 9.2 節 SoD 8 | `mdm_partner_bank_account` |
 | BR-SET-07 | 聯行号は 12 桁。内容は「3 桁の**行別コード（銀行識別コード。102=中国工商银行、103=中国农业银行 等）** + 4 桁の都市コード + 4 桁の支店連番 + 1 桁の検証コード」で構成される（人民銀行の規則に従う）。MDM の `bank_category`（銀行類別）は行別コードとは別軸であり、混同しない。実在行番号は取込データを正とし、本設計では形式のみ検証する | 【実データ】CNAPS 行号規則（人民銀行）、红队第 2 轮 REV-FIN-002。個別行番号は【示例値】 | `cnaps_code`、`bank_category` |
 | BR-SET-10 | 支払条件の変更は既存取引先の AP 期日に影響するため、変更日以降の新規取引から適用し、既存未払の期日は変更しない | 08 第 4 章 | `valid_from` |
-| BR-SET-11 | **数量・納期・過入荷容差パラメータの解決優先順位（MDM 既定。上位が NULL/0 のときのみ下位を採用）**：①過入荷容差＝PUR `pur_tolerance_rule` の明示設定（業務上書き・理由を監査ログに記録）→ `mdm_material.over_receipt_tolerance_pct`（品目）→ `mdm_material_category.over_receipt_tolerance_pct`（分類）→ `mdm_supplier.over_receipt_tolerance_pct`（仕入先）→ 会社既定 **5%**。②MOQ＝`mdm_purchase_price.moq` → `mdm_supplier_material.moq` → `mdm_material.min_order_qty`。③購買提前期＝`mdm_purchase_price.lead_time_days` → `mdm_supplier_material.purchase_lead_time_days` → `mdm_supplier.default_lead_time_days` → `mdm_material_factory.purchase_lead_time_days` → `mdm_material.purchase_lead_time_days`。PUR は本表の既定値を参照し、同一パラメータを別途ハードコードしない | 红队第 2 轮 REV-PURDES-013、本設計 | 上記各項目 |
+| BR-SET-11 | **数量・納期・過入荷容差パラメータの解決優先順位（MDM 既定。上位が NULL のときのみ下位を採用。0 は明示値として採用し、下位へ進まない）**：①過入荷容差＝PUR `pur_tolerance_rule` の明示設定（業務上書き・理由を監査ログに記録）→ `mdm_material.over_receipt_tolerance_pct`（品目）→ `mdm_material_category.over_receipt_tolerance_pct`（分類）→ `mdm_supplier.over_receipt_tolerance_pct`（仕入先）→ 会社既定 **0.05（5%）**（容差はすべて比率 `NUMERIC(5,4)`。NULL＝次段を継承、0＝明示 0%）。②MOQ＝`mdm_purchase_price.moq` → `mdm_supplier_material.moq` → `mdm_material.min_order_qty`。③購買提前期＝`mdm_purchase_price.lead_time_days` → `mdm_supplier_material.purchase_lead_time_days` → `mdm_supplier.default_lead_time_days` → `mdm_material_factory.purchase_lead_time_days` → `mdm_material.purchase_lead_time_days`。PUR は本表の既定値を参照し、同一パラメータを別途ハードコードしない | 红队第 2 轮 REV-PURDES-013、本設計 | 上記各項目 |
 
 ### 2.5 計算式・判定式
 
@@ -626,7 +626,7 @@ stateDiagram-v2
 | 画面権限 | `mdm:price:view/update`、`mdm:purchase-price:view/update`、`mdm:supplier-quotation:view/update`、`mdm:settlement:*`、`mdm:payment-term:*`、`mdm:bank:*`、`mdm:bank-account:*` |
 | 操作権限 | 価格有効化=`mdm:change:approve`、報価採用=`mdm:purchase-price:update`、口座検証=`mdm:bank-account:verify` |
 | 項目権限 | 価格・原価は権限者のみ。口座番号は `mdm:bank-account:view` なしの場合下 4 桁 |
-| データ範囲 | 価格は全社共通（工場別価格は Phase 2）。顧客協議価格は営業担当が参照可 |
+| データ範囲 | 価格は全社共通（工場別価格も第一版対象、TODO：設計未作成）。顧客協議価格は営業担当が参照可 |
 | 監査ログ | 価格登録・有効化・報価採用・抽選・口座変更・検証を記録 |
 | SoD | 価格登録者と承認者は同一不可。口座変更の申請者と承認者は同一不可 |
 
@@ -664,12 +664,12 @@ stateDiagram-v2
 
 | # | 事項 | 理由 | 暫定仕様 | 担当 | 期限 |
 |---|---|---|---|---|---|
-| 1 | 価格表の適用範囲に「区域」を追加するか | 09/06 に区域コードの定義なし。Phase 1 は顧客・分類・物料で十分 | `scope_type=30 区域` は予約（未使用）。Phase 2 で `region_code` 追加 | lead | 2026-10-30 |
+| 1 | 価格表の適用範囲に「区域」を追加するか | 09/06 に区域コードの定義なし。設計確定までは顧客・分類・物料で十分 | `scope_type=30 区域` は予約（未使用）。第一版で（TODO：設計未作成） `region_code` 追加 | lead | 2026-10-30 |
 | 2 | 価格承認の閾値（標準価格 ±5%）と承認経路 | 08 §8.1 は販売価格承認を記載するが金額閾値が未定 | ±5% 超は销售经理→财务总监。`sys_param` で変更可 | lead / sales-designer | 2026-10-30 |
-| 3 | 折扣の累積適用可否（複数折扣の併用） | 販促運用の決定待ち | Phase 1 は優先度最上位の 1 件のみ適用。併用は Phase 2 | lead / sales-designer | 2026-11-06 |
-| 4 | 聯行号の全件データと検証方法 | data-researcher の bank.csv 待ち | 形式（12 桁）のみ検証。実在チェックは Phase 2（銀企照会） | data-researcher | 2026-10-27 |
+| 3 | 折扣の累積適用可否（複数折扣の併用） | 販促運用の決定待ち | 設計確定までは優先度最上位の 1 件のみ適用。併用も第一版対象（TODO：設計未作成） | lead / sales-designer | 2026-11-06 |
+| 4 | 聯行号の全件データと検証方法 | data-researcher の bank.csv 待ち | 形式（12 桁）のみ検証。実在チェックも第一版対象（TODO：設計未作成）（銀企照会） | data-researcher | 2026-10-27 |
 | 5 | 税込/税抜の購買価格慣行（国内仕入は税込が主流） | PUR/財務の運用確認待ち | `price_includes_tax=TRUE` を既定、税抜換算値を保持 | lead / PUR/FIN | 2026-10-30 |
-| 6 | 報価採用の自動化範囲 | 購買 WF 設計待ち | Phase 1 は手動採用（承認後）。自動反映は Phase 2 | lead / purchase-designer | 2026-11-06 |
+| 6 | 報価採用の自動化範囲 | 購買 WF 設計待ち | 設計確定までは手動採用（承認後）。自動反映も第一版対象（TODO：設計未作成） | lead / purchase-designer | 2026-11-06 |
 
 ## 14. 改訂履歴
 

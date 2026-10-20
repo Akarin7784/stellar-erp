@@ -24,7 +24,7 @@
 | 利用シーン | 新倉庫の開設、棚卸エリアの再編、保管条件別の庫区設定、庫位ラベルの一括発行、倉庫の使用停止 |
 | 優先度 | P0 |
 | 画面 ID | SCR-MDM-031〜034 |
-| 関連 IF | IF-MDM-007（PDA/WMS 庫位マスタ同期、Phase 2） |
+| 関連 IF | IF-MDM-007（PDA/WMS 庫位マスタ同期） |
 | 関連機能 | F-MDM-025 工厂主数据（本域 4.4.4。Lead 裁定 2026-10-20：工厂主数据归 MDM）/ F-MDM-021 工廠視図 |
 
 ## 2. 業務要件・業務ルール
@@ -158,7 +158,7 @@ stateDiagram-v2
 | 10 | `manager_user_id` | 倉庫責任者 | 編集 | ユーザ選択 | BIGINT | — | 空 | 有効ユーザ | SYS | manager_user_id | 同上 | — |
 | 11 | `phone` | 電話 | 編集 | テキスト | VARCHAR(32) | — | 空 | ≤ 32 字 | 入力 | phone | 同上 | マスキング |
 | 12 | `is_physical` | 物理倉庫 | 編集 | チェック | BOOLEAN | — | TRUE | — | 入力 | is_physical | 同上 | 仮想倉庫は FALSE |
-| 13 | `is_consignment` | 寄託倉庫 | 編集 | チェック | BOOLEAN | — | FALSE | — | 入力 | is_consignment | 同上 | Phase 2 |
+| 13 | `is_consignment` | 寄託倉庫 | 編集 | チェック | BOOLEAN | — | FALSE | — | 入力 | is_consignment | 同上 | — |
 | 14 | `allow_negative_stock` | マイナス在庫許可 | 編集 | チェック | BOOLEAN | — | FALSE | 物料設定と AND | 入力 | allow_negative_stock | 同上 | P0 は FALSE 推奨 |
 | 15 | `storage_condition` | 保管条件 | 編集 | 選択 | VARCHAR(32) | — | 常温 | 常温/防潮/防尘/冷藏/危险品 | 入力 | storage_condition | 同上 | — |
 | 16 | `default_receiving_bin_id` | 既定入庫庫位 | 編集 | 庫位選択 | BIGINT | — | 空 | 倉庫所属・有効 | マスタ | default_receiving_bin_id | 同上 | — |
@@ -241,7 +241,7 @@ stateDiagram-v2
 | ソート | 既定 `bin_code ASC`（物理配置順）。倉庫→庫区→棚→層→位の順にソート |
 | ページング | 20/50/100/200（既定 50） |
 | 一括操作 | 使用停止、ラベル一括印刷、エクスポート。上限 5,000 件 |
-| エクスポート | Excel、10,000 件まで。庫位マスタの外部連携用 CSV も可（Phase 2） |
+| エクスポート | Excel、10,000 件まで。庫位マスタの外部連携用 CSV も可 |
 | 印刷 | PRT-MDM-013 库位ラベル（A4 シート 24 面 or ラベルプリンタ） |
 
 ### 4.7 表示制御
@@ -451,10 +451,10 @@ stateDiagram-v2
 
 | # | 事項 | 理由 | 暫定仕様 | 担当 | 期限 |
 |---|---|---|---|---|---|
-| 1 | 倉庫コード体系（`WH01`〜）と 90-data の倉庫一覧の突合（**已解消**） | `90-data/demo-company.md` と `warehouse-location.csv` が納品済み（2026-10-20）。全 3 倉庫（`WH01 原料仓`／`WX01`、`WH02 半成品仓`／`CZ01`、`WH03 成品仓`／`CZ01`）のコード・名称・所属工場を確認済み | 06 §10 の `WH01/WH02/WH03` と一致。待機倉・不合格倉は `WH04/WH05` を Phase 2 で検討 | data-researcher（確認済み） | 完了 |
+| 1 | 倉庫コード体系（`WH01`〜）と 90-data の倉庫一覧の突合（**已解消**） | `90-data/demo-company.md` と `warehouse-location.csv` が納品済み（2026-10-20）。全 3 倉庫（`WH01 原料仓`／`WX01`、`WH02 半成品仓`／`CZ01`、`WH03 成品仓`／`CZ01`）のコード・名称・所属工場を確認済み | 06 §10 の `WH01/WH02/WH03` と一致。待機倉・不合格倉は `WH04/WH05` を 第一版で（TODO：設計未作成）検討 | data-researcher（確認済み） | 完了 |
 | 2 | 棚卸エリア・入荷エリアを倉庫種別で持つか庫区種別で持つか | INV の棚卸・入荷設計待ち | 倉庫種別（大分類）+ 庫区種別（詳細）の 2 段で表現。INV と再確認 | lead / INV 担当 | 2026-10-24 |
-| 3 | 庫位容量チェック（重量・容積）を INV 入庫時に強制するか | INV 設計待ち | Phase 1 は提案・警告のみ（強制しない）。Phase 2 で容量制約を有効化 | lead / INV 担当 | 2026-10-30 |
-| 4 | PDA/WMS との庫位マスタ同期方式 | IF-MDM-007（Phase 2） | Phase 1 は CSV 連携（F-MDM-022 エクスポート）で代替 | lead / INT 担当 | 2026-11-06 |
+| 3 | 庫位容量チェック（重量・容積）を INV 入庫時に強制するか | INV 設計待ち | 設計確定までは提案・警告のみ（強制しない）。第一版で（TODO：設計未作成）容量制約を有効化 | lead / INV 担当 | 2026-10-30 |
+| 4 | PDA/WMS との庫位マスタ同期方式 | IF-MDM-007 | 設計確定までは CSV 連携（F-MDM-022 エクスポート）で代替 | lead / INT 担当 | 2026-11-06 |
 
 ## 14. 改訂履歴
 
