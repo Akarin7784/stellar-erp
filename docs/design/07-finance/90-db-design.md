@@ -1638,8 +1638,8 @@ CREATE TABLE fin_standard_cost (
     material_id           BIGINT        NOT NULL,               -- mdm_material.id（製品・半製品）
     material_code         VARCHAR(64)   NOT NULL,               -- スナップショット
     cost_version          VARCHAR(16)   NOT NULL,               -- 版本（例 2026A）
-    period_from           VARCHAR(7)    NOT NULL,               -- 適用開始期間 YYYY-MM
-    period_to             VARCHAR(7),                           -- 適用終了期間（NULL＝無期限）
+    period_from           DATE          NOT NULL,               -- 適用開始期間（月初日で保存。画面・API は YYYY-MM）
+    period_to             DATE,                                 -- 適用終了期間（月初日。NULL＝無期限。後続版の発行で自動打切り）
     cost_method           SMALLINT      NOT NULL,               -- 1 品种法/2 分批法（mdm_material.cost_method のスナップショット、BC-01）
     bom_id                BIGINT,                               -- 卷算に用いた BOM
     routing_id            BIGINT,                               -- 卷算に用いた工艺路线
@@ -1667,11 +1667,17 @@ CREATE TABLE fin_standard_cost (
     CONSTRAINT fk_fin_standard_cost_material FOREIGN KEY (material_id) REFERENCES mdm_material (id),
     CONSTRAINT ck_fin_standard_cost_status CHECK (status IN (10,40,90)),
     CONSTRAINT ck_fin_standard_cost_method CHECK (cost_method IN (1,2)),
-    CONSTRAINT ck_fin_standard_cost_period CHECK (period_from ~ '^[0-9]{4}-[0-9]{2}$' AND (period_to IS NULL OR period_to >= period_from)),
+    CONSTRAINT ck_fin_standard_cost_period CHECK (EXTRACT(day FROM period_from) = 1
+        AND (period_to IS NULL OR (EXTRACT(day FROM period_to) = 1 AND period_to >= period_from))),
     CONSTRAINT ck_fin_standard_cost_nonneg CHECK (material_unit_cost >= 0 AND labor_unit_cost >= 0 AND overhead_unit_cost >= 0 AND outsourcing_unit_cost >= 0 AND base_qty > 0),
-    CONSTRAINT ck_fin_standard_cost_total CHECK (total_unit_cost = material_unit_cost + labor_unit_cost + overhead_unit_cost + outsourcing_unit_cost)
+    CONSTRAINT ck_fin_standard_cost_total CHECK (total_unit_cost = material_unit_cost + labor_unit_cost + overhead_unit_cost + outsourcing_unit_cost),
+    -- 発行済み版の適用期間重複を DB で禁止（btree_gist 拡張が必要。period_to NULL は上限なし）
+    CONSTRAINT ex_fin_standard_cost_period EXCLUDE USING gist (
+        tenant_id WITH =, company_id WITH =, material_id WITH =,
+        daterange(period_from, (period_to + interval '1 month')::date, '[)') WITH &&
+    ) WHERE (status = 40)
 );
--- 同一物料・同一開始期間の発行済み版は 1 件（期間重複はアプリ検証＋発行関数で拒否）
+-- 同一物料・同一開始期間の発行済み版は 1 件（重複全般は ex_fin_standard_cost_period が保証）
 CREATE UNIQUE INDEX uk_fin_standard_cost_period ON fin_standard_cost (tenant_id, company_id, material_id, period_from) WHERE status = 40;
 CREATE INDEX idx_fin_standard_cost_lookup ON fin_standard_cost (company_id, material_id, status, period_from DESC);
 ALTER TABLE fin_standard_cost ENABLE ROW LEVEL SECURITY;
@@ -1686,14 +1692,20 @@ COMMENT ON TABLE fin_standard_cost IS '标准成本（物料×版本×適用期�
 |---|---|---|---|---|---|
 | 1 | `material_id` / `material_code` | 物料 | BIGINT / VARCHAR(64) | NOT NULL | 原価対象製品 |
 | 2 | `cost_version` | 版本 | VARCHAR(16) | NOT NULL | 物料内一意 |
-| 3 | `period_from` / `period_to` | 適用期間 | VARCHAR(7) | NOT NULL / NULL | 発行済み版の期間は重複不可 |
+| 3 | `period_from` / `period_to` | 適用期間 | DATE（月初日） | NOT NULL / NULL | 画面・API は `YYYY-MM`、保存は月初日（CHECK 日=1）。発行済み版の期間重複は `ex_fin_standard_cost_period` で禁止。NULL＝無期限 |
 | 4 | `cost_method` | 成本核算方法 | SMALLINT | NOT NULL | 1 品种法（MTS）/2 分批法（MTO）（BC-01） |
 | 5 | `material_unit_cost` 他 3 要素 | 要素別標準単価 | NUMERIC(18,6) | NOT NULL | 単価精度 18,6（[01 第 6 章](../00-common/01-common-item-definitions.md)） |
 | 6 | `total_unit_cost` | 標準単位原価 | NUMERIC(18,6) | NOT NULL | 4 要素合計（CHECK）。例 YE3-100L1-4：659.95 + 53.75 + 64.50 + 0 = 778.20（[06](06-auto-voucher-costing.md) CALC-A7、[bom-demo §6](../90-data/bom-demo.md)） |
 | 7 | `std_labor_hours` / `std_labor_rate` / `std_overhead_rate` | 標準工時・賃率・配賦率 | NUMERIC(18,4) / NUMERIC(18,6) | NOT NULL | 例 2.15 h、25.00、30.00 元/h |
 | 8 | `status` | 状態 | SMALLINT | NOT NULL | 10→40 発行時に `fin_publish_standard_cost` が `mdm_material.standard_cost` を更新 |
 
-**発行**：`fin_publish_standard_cost`（所有者 `erp_cost_publisher`、`SECURITY DEFINER`、`search_path` 固定、最初に `set_config('app.tenant_id', …, true)`）が `status=40` の版を選び `mdm_material.standard_cost` を更新する（権限設計は [02-mdm 90 §4.1.2](../02-mdm/90-db-design.md)）。工单下达時は PRD が当該期間の発行済み版の `total_unit_cost` を `prd_work_order.standard_cost` にスナップショットする。標準差異（`fin_cost_variance`）は `standard_cost_id` で比較元の版を保持する。
+**前提（DBA）**：`CREATE EXTENSION IF NOT EXISTS btree_gist;` を本表作成マイグレーションより前に実行する（`EXCLUDE` で BIGINT の `=` を使うため）。
+
+**発行（自動打切り）**：`fin_publish_standard_cost(p_id)` は同一トランザクションで次を行う。
+1. 対象版（`status=10`）と、同一 `(tenant_id, company_id, material_id)` の現在有効な発行済み版（`status=40`、`period_to IS NULL` または最新）を `FOR UPDATE` する。
+2. 新版の `period_from` ≤ 有効版の `period_from`、または新版の `period_from` の月が成本計算済み・CLOSED 期間（`fin_period.status IN ('CLOSED','YEAR_CLOSED')`）なら `MSG-FIN-134`（70134）で拒否する。
+3. 有効版の `period_to` = 新版 `period_from` − 1 か月（自動打切り）に更新し、新版を `status=40`・`published_at/by` で更新する。`ex_fin_standard_cost_period` が最終防衛線。
+4. （以下従来どおり）`fin_publish_standard_cost`（所有者 `erp_cost_publisher`、`SECURITY DEFINER`、`search_path` 固定、最初に `set_config('app.tenant_id', …, true)`）が `status=40` の版を選び `mdm_material.standard_cost` を更新する（権限設計は [02-mdm 90 §4.1.2](../02-mdm/90-db-design.md)）。工单下达時は PRD が当該期間の発行済み版の `total_unit_cost` を `prd_work_order.standard_cost` にスナップショットする。標準差異（`fin_cost_variance`）は `standard_cost_id` で比較元の版を保持する。
 
 ### 6.11 実装順 P2 テーブル（概要 DDL、第一版で作成）
 
@@ -1824,7 +1836,8 @@ COMMENT ON TABLE fin_cash_plan IS '资金计划（実装順 P2）';
 | 19 | `uk_fin_cost_collection` | fin_cost_collection | UNIQUE | (tenant_id, company_id, period_code, cost_object_type, cost_object_id) | 成本帰集一意 |
 | 20 | `uk_fin_wip_balance` | fin_wip_balance | UNIQUE | (tenant_id, company_id, period_code, work_order_id) | WIP 一意 |
 | 21 | `uk_fin_standard_cost_version` | fin_standard_cost | UNIQUE | (tenant_id, company_id, material_id, cost_version) | 版本一意 |
-| 22 | `uk_fin_standard_cost_period` | fin_standard_cost | UNIQUE 部分 | (tenant_id, company_id, material_id, period_from) WHERE status=40 | 発行済み版の重複防止 |
+| 22 | `uk_fin_standard_cost_period` | fin_standard_cost | UNIQUE 部分 | (tenant_id, company_id, material_id, period_from) WHERE status=40 | 同一開始期間の重複防止 |
+| 22a | `ex_fin_standard_cost_period` | fin_standard_cost | EXCLUDE gist 部分 | (tenant_id =, company_id =, material_id =, daterange(period_from, period_to+1 月, '[)') &&) WHERE status=40 | 発行済み版の期間重複禁止（btree_gist） |
 | 23 | `idx_fin_standard_cost_lookup` | fin_standard_cost | B-Tree | (company_id, material_id, status, period_from DESC) | 適用版検索（G2-20） |
 | 24 | その他の業務 `uk_` | §4〜§6 DDL | UNIQUE | DDL 本文のとおり（`tenant_id`, `company_id` 先頭） | `uk_fin_period_code`、`uk_fin_aux_balance`、`uk_fin_voucher_template_code`、`uk_fin_cash_flow_item_code`、`uk_fin_aging_config`、`uk_fin_close_checklist`、`uk_fin_statement_*`、`uk_fin_bank_account_no`、`uk_fin_receivable_no`、`uk_fin_payable_no`、`uk_fin_payment_request_no`、`uk_fin_payment_no`、`uk_fin_receipt_no`、`uk_fin_bank_statement_account_period`、`uk_fin_bank_reconciliation`、`uk_fin_vat_return`、`uk_fin_asset_no`、`uk_fin_asset_depreciation`、`uk_fin_expense_claim_no`、`uk_fin_budget_no`、`uk_fin_exchange_reval`、`uk_fin_cash_plan_no` |
 
@@ -1888,3 +1901,4 @@ COMMENT ON TABLE fin_cash_plan IS '资金计划（実装順 P2）';
 | v1.0 | 2026-10-20 | 初版：52 表（科目/期間/凭证/残高/AR/AP/发票/核销/出纳/税務/成本/报表/P2）、インデックス 20、容量見積、更新タイミング | finance-designer |
 | v1.1 | 2026-10-20 | 红队修复：科目コードを 4 桁+2 桁補助（2 階層）に統一、`fin_statement_*` の `statement_type` に SCE（所有者权益变动表）を追加 | finance-designer |
 | v1.2 | 2026-10-21 | 第一版全量化：`company_id` 既定値 1 を削除、業務一意索引を `(tenant_id, company_id, …)` 先頭に統一（DDL・一覧）、§7.1 例外一覧、RLS（ENABLE+FORCE、tenant_id）明記、段階表記を削除。§6.12 `fin_standard_cost` 追加（53 表）、成本表に委外要素・標準版参照を追加、`fin_payable.source_type` を `PURCHASE_RECEIPT` に統一、P2 表の番号一意索引を追加 | 业务分析 |
+| v1.3 | 2026-10-21 | `fin_standard_cost.period_from/to` を月初 DATE 化、`ex_fin_standard_cost_period`（EXCLUDE gist、btree_gist 前提）、発行時の自動打切りと MSG-FIN-134 | 业务分析 |

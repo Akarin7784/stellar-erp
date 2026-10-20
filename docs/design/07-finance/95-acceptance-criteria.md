@@ -3,7 +3,8 @@
 | 項目 | 内容 |
 |---|---|
 | 文書名 | 财务管理域 验收标准 |
-| 版数 | v1.0 |
+| 文書番号 | DSN-FIN-095 |
+| 版数 | v1.1 |
 | 作成日 | 2026-10-21 |
 | 作成者 | 业务分析 |
 | 状態 | ドラフト（レビュー待ち） |
@@ -26,7 +27,7 @@
 ## AC-FIN-03 一意索引は tenant_id 先頭
 
 - W：業務一意索引（`uk_`）を DDL 本文・§7 索引一覧で確認。T：`(tenant_id, company_id, …)` で始まり、両者の列順が一致する（例：`uk_fin_voucher_no`、`uk_fin_voucher_source`、`uk_fin_receivable_source`、`uk_fin_payable_source`、`uk_fin_cost_collection`）。
-- T：`fin_standard_cost` の `uk_fin_standard_cost_version` は `(tenant_id, company_id, material_id, cost_version)`、`uk_fin_standard_cost_period` は `(tenant_id, company_id, material_id, period_from) WHERE status=40`（90 §6.12・§7 #21/#22）。
+- T：`fin_standard_cost` の `uk_fin_standard_cost_version` は `(tenant_id, company_id, material_id, cost_version)`、`uk_fin_standard_cost_period` は `(tenant_id, company_id, material_id, period_from) WHERE status=40`、`ex_fin_standard_cost_period` は `tenant_id, company_id, material_id` 先頭の EXCLUDE（90 §6.12・§7 #21/#22/#22a）。
 - T：親 ID／イベント ID 先頭の一意索引は 90 §7.1 の例外一覧に全て列挙され、理由が書かれている。一覧外の非 tenant 先頭 `uk_` は 0 件。
 - T（G2-20）：`company_id` 先頭は非一意 `idx_` のみ（例：`idx_fin_standard_cost_lookup`）。
 
@@ -62,7 +63,6 @@
 
 - W：[90](90-db-design.md) §6.12 を確認。T：`fin_standard_cost` が物料×版本×適用期間で定義され、要素は材料／人工／製造費用／委外の 4 区分、単価列は `NUMERIC(18,6)`、数量・工時は `NUMERIC(18,4)`（[01 第 6 章](../00-common/01-common-item-definitions.md)）。`total_unit_cost` = 4 要素合計（CHECK）。
 - G：YE3-100L1-4 の発行済み版。T：`total_unit_cost=778.20`（材料 659.95 + 人工 53.75 + 製造費用 64.50 + 委外 0）、標準原価 = 778.20 × 120 = 93,384.00（[06](06-auto-voucher-costing.md) CALC-A7、[bom-demo §6](../90-data/bom-demo.md)）。
-- G：同一物料・同一 `period_from` に発行済み版が既存。W：別版を発行（40）。T：`uk_fin_standard_cost_period` で拒否。
 - W：`fin_publish_standard_cost` を実行。T：`mdm_material.standard_cost` が発行版の値になる。`erp_app` による直接 UPDATE は権限エラー（[02-mdm 95](../02-mdm/95-acceptance-criteria.md)）。
 
 ## AC-FIN-09a 标准成本なし → 差異分析スキップ
@@ -70,6 +70,20 @@
 - G：対象製品に発行済み（`status=40`）の `fin_standard_cost` 版が存在しない（工单の `standard_cost` スナップショットも未設定）。W：成本計算（F-FIN-031／034）。T：`MSG-FIN-117`「未设定标准成本，本期不进行成本差异分析。」（W：警告）を返し、実際原価の計算・J16 は通常どおり完了する。
 - T：当該成本対象について `fin_cost_variance` は 0 行（差異分析は「標準原価が設定されている場合」のみ、[06](06-auto-voucher-costing.md) PRC 手順 6）。`fin_product_cost.standard_cost_id` / `standard_unit_cost` は NULL。
 - 対比：同じ製品に 778.20 の発行版がある場合は AC-FIN-11 の差異 −6.45 が記録される。
+
+## AC-FIN-09b 標準原価の登録・発行権限（SCR-FIN-062）
+
+- G：成本会計（`finance:standard-cost:register`）。W：`POST /api/finance/standard-costs`（YE3、2026A、2026-01、要素 659.95/53.75/64.50/0）。T：201、`status=10`、`totalUnitCost=778.200000`。
+- G：成本会計。W：`POST /api/finance/standard-costs/{id}/publish`。T：403、状態は 10 のまま（`finance:cost:*` に publish は含まれない）。
+- G：財務総監（`finance:standard-cost:publish`）。W：同 publish。T：`status=40`、`published_by`＝財務総監、`mdm_material.standard_cost=778.20`。財務総監は register 権限を持たず、`POST/PUT` は 403。
+- G：`status=40` の版。W：`PUT`。T：`MSG-FIN-135`（70135）。同一物料で版本「2026A」を再登録。T：`MSG-FIN-136`（70136）。
+
+## AC-FIN-09c 発行時の自動打切りと期間重複禁止
+
+- G：版 A（2026-01〜無期限、`status=40`）。W：版 B（`period_from=2026-03`）を発行。T：A の `period_to=2026-02`（DB は 2026-02-01）、B は 2026-03〜無期限で `status=40`。
+- G：上記 A・B。W：版 C（`period_from=2026-02`）を発行。T：`MSG-FIN-134`（70134）で拒否（有効版 B の開始 2026-03 以前）。C は `status=10` のまま。
+- G：発行関数を経由せず A（2026-01〜無期限）と重なる発行済み行を INSERT。T：`ex_fin_standard_cost_period`（EXCLUDE gist、`btree_gist`）違反で拒否。`period_from` が月初以外（例 2026-05-15）は `ck_fin_standard_cost_period` 違反。
+- G：2026-09 が CLOSED。W：`period_from=2026-09` の版を発行。T：`MSG-FIN-134`。
 
 ## AC-FIN-10 成本核算方法（BC-01/02）
 
@@ -102,3 +116,12 @@
 | 2 | `prd_work_order.standard_cost` の既定値 | **決定済（2026-10-21 蓝色大肥鱼）**：06-production で `DEFAULT 0` を削除し NULL 許容、下达時に `fin_standard_cost` 発行版をスナップショット。発行版なしは NULL のまま `MSG-FIN-117` で差異分析スキップ（AC-FIN-09a）。06-production DDL・バックエンドは本決定に追従する | 蓝色大肥鱼 |
 | 3 | 期中改版時の差異比較元 | **決定済（2026-10-21 蓝色大肥鱼）**：分批法（MTO）は下达時スナップショット、品种法（MTS）は計算期間の発行済み版。`fin_cost_variance.standard_cost_id` に記録 | 蓝色大肥鱼 |
 | 4 | 委外加工費暂估の `fin_payable.source_type` | **決定済（2026-10-21 蓝色大肥鱼）**：INV と同じ `OUTSOURCING_ORDER`、`uk_fin_payable_source` で冪等 | 蓝色大肥鱼 |
+
+---
+
+## 改訂履歴
+
+| 版数 | 日付 | 変更内容 | 変更者 |
+|---|---|---|---|
+| v1.0 | 2026-10-21 | 初版：AC-FIN-01〜12、09a、未決 4 件（決定済） | 业务分析 |
+| v1.1 | 2026-10-21 | AC-FIN-09b（登録・発行権限）、AC-FIN-09c（自動打切り・EXCLUDE・MSG-FIN-134）追加 | 业务分析 |

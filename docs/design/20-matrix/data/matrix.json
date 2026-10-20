@@ -33,7 +33,7 @@
       "reports": 18,
       "batches": 13,
       "interfaces": 6,
-      "messages": 140,
+      "messages": 141,
       "apis": 163
     },
     "PUR": {
@@ -65,24 +65,24 @@
       "folder": "06-production",
       "functions": 20,
       "screens": 33,
-      "tables": 47,
+      "tables": 48,
       "reports": 16,
       "batches": 11,
       "interfaces": 4,
-      "messages": 56,
+      "messages": 57,
       "apis": 112
     },
     "FIN": {
       "name": "财务管理",
       "folder": "07-finance",
-      "functions": 46,
-      "screens": 61,
-      "tables": 52,
+      "functions": 47,
+      "screens": 62,
+      "tables": 53,
       "reports": 39,
       "batches": 20,
       "interfaces": 6,
-      "messages": 99,
-      "apis": 171
+      "messages": 102,
+      "apis": 179
     },
     "WF": {
       "name": "工作流",
@@ -301,9 +301,9 @@
     {
       "id": "F-SYS-017",
       "name": "租户与数据隔离",
-      "summary": "租户マスタ予約、tenant_id 付与方針、RLS 将来対応",
+      "summary": "租户マスタ予約、tenant_id 付与方針、RLS 第一版有効",
       "screens": "SCR-SYS-013",
-      "priority": "P2",
+      "priority": "P0",
       "status": "設計済",
       "detail": "[03-org-position.md](03-org-position.md)",
       "domain": "SYS",
@@ -620,7 +620,7 @@
     {
       "id": "F-MDM-023",
       "name": "主数据分发与外部同步",
-      "summary": "PLM 物料/BOM 同步（Phase2）、多工厂分发",
+      "summary": "PLM 物料/BOM 同步、多工厂分发",
       "screens": "—",
       "priority": "P2",
       "status": "設計済（概要）",
@@ -840,7 +840,7 @@
     {
       "id": "F-SAL-007",
       "name": "销售发票与开票申请",
-      "summary": "开票申请（集約・税区分）、承認、发票登记（专票/普票/数电票）、赤伝、E12、AR 紐付け、金税 IF Phase 2",
+      "summary": "开票申请（集約・税区分）、承認、发票登记（专票/普票/数电票）、赤伝、E12、AR 紐付け、金税 IF 第一版",
       "screens": "SCR-SAL-023〜027",
       "priority": "P0（金税 IF は P2）",
       "status": "設計済",
@@ -906,7 +906,7 @@
     {
       "id": "F-SAL-013",
       "name": "销售预测",
-      "summary": "月度予測入力・確定、MRP 連携（Phase 2 詳細）",
+      "summary": "月度予測入力・確定、MRP 連携（第一版対象。TODO：詳細設計が未作成）",
       "screens": "SCR-SAL-040〜041",
       "priority": "P2",
       "status": "設計済（概要）",
@@ -939,7 +939,7 @@
     {
       "id": "F-SAL-016",
       "name": "出口销售预留",
-      "summary": "外貨・Incoterms・通関情報の項目予約（Phase 2 概要）",
+      "summary": "外貨・Incoterms・通関情報の項目予約（第一版対象。TODO：概要のみ、詳細設計が未作成）",
       "screens": "SCR-SAL-046",
       "priority": "P2",
       "status": "設計済（概要）",
@@ -1500,7 +1500,7 @@
     {
       "id": "F-INV-022",
       "name": "组装拆卸",
-      "summary": "组装/拆卸业务的库存处理（Phase 2 概要）",
+      "summary": "组装/拆卸业务的库存处理（第一版対象。TODO：設計が未作成）",
       "screens": "—",
       "priority": "P2",
       "status": "概要設計",
@@ -1511,7 +1511,7 @@
     {
       "id": "F-INV-023",
       "name": "寄售库存",
-      "summary": "供应商寄售/客户寄售库存（Phase 2 概要）",
+      "summary": "供应商寄售/客户寄售库存（第一版対象。TODO：設計が未作成）",
       "screens": "—",
       "priority": "P2",
       "status": "概要設計",
@@ -1643,7 +1643,7 @@
     {
       "id": "F-PRD-011",
       "name": "生产计划与排产",
-      "summary": "需求预测、MPS、粗能力负荷、日计划（甘特图为 Phase 2）",
+      "summary": "需求预测、MPS、粗能力负荷、日计划（甘特图为 第一版）",
       "screens": "SCR-PRD-024",
       "priority": "P1",
       "status": "設計済",
@@ -1709,7 +1709,7 @@
     {
       "id": "F-PRD-018",
       "name": "设备台账/点检/维修",
-      "summary": "设备台账、点检计划与记录、维修工单（Phase 2 概要）",
+      "summary": "设备台账、点检计划与记录、维修工单（第一版対象。TODO：設計が未作成）",
       "screens": "SCR-PRD-032",
       "priority": "P2",
       "status": "設計済（概要）",
@@ -1907,7 +1907,7 @@
     {
       "id": "F-FIN-022",
       "name": "应收账龄与坏账准备",
-      "summary": "应收账龄分析；坏账准备计提（Phase 2）",
+      "summary": "应收账龄分析；坏账准备计提（第一版・実装順 P2）",
       "screens": "SCR-FIN-029,030",
       "priority": "P0/P2",
       "status": "設計済",
@@ -2105,7 +2105,7 @@
     {
       "id": "F-FIN-040",
       "name": "费用报销与借款",
-      "summary": "报销单、借款/还款、差旅费（Phase 2 概要）",
+      "summary": "报销单、借款/还款、差旅费（第一版・実装順 P2、概要設計）",
       "screens": "SCR-FIN-054,055",
       "priority": "P2",
       "status": "設計中",
@@ -2116,7 +2116,7 @@
     {
       "id": "F-FIN-041",
       "name": "固定资产卡片与折旧",
-      "summary": "资产卡片、折旧计提、资产台账（Phase 2 概要）",
+      "summary": "资产卡片、折旧计提、资产台账（第一版・実装順 P2、概要設計）",
       "screens": "SCR-FIN-056",
       "priority": "P2",
       "status": "設計中",
@@ -2127,7 +2127,7 @@
     {
       "id": "F-FIN-042",
       "name": "固定资产处置",
-      "summary": "出售/报废/盘亏处置与凭证（Phase 2 概要）",
+      "summary": "出售/报废/盘亏处置与凭证（第一版・実装順 P2、概要設計）",
       "screens": "SCR-FIN-057",
       "priority": "P2",
       "status": "設計中",
@@ -2138,7 +2138,7 @@
     {
       "id": "F-FIN-043",
       "name": "预算管理",
-      "summary": "预算编制、控制、执行分析（Phase 2 概要）",
+      "summary": "预算编制、控制、执行分析（第一版・実装順 P2、概要設計）",
       "screens": "SCR-FIN-058",
       "priority": "P2",
       "status": "設計中",
@@ -2149,7 +2149,7 @@
     {
       "id": "F-FIN-044",
       "name": "多币种与汇兑损益",
-      "summary": "外币凭证、期末汇兑调整（Phase 2 概要）",
+      "summary": "外币凭证、期末汇兑调整（第一版・実装順 P2、概要設計）",
       "screens": "SCR-FIN-059",
       "priority": "P2",
       "status": "設計中",
@@ -2160,7 +2160,7 @@
     {
       "id": "F-FIN-045",
       "name": "资金计划与付款排程",
-      "summary": "资金计划编制、付款排程、资金缺口预警（Phase 2 概要）",
+      "summary": "资金计划编制、付款排程、资金缺口预警（第一版・実装順 P2、概要設計）",
       "screens": "SCR-FIN-060",
       "priority": "P2",
       "status": "設計中",
@@ -2171,11 +2171,22 @@
     {
       "id": "F-FIN-046",
       "name": "财务报表分析",
-      "summary": "同比/环比、结构分析、指标计算（Phase 2 概要）",
+      "summary": "同比/环比、结构分析、指标计算（第一版・実装順 P2、概要設計）",
       "screens": "SCR-FIN-061",
       "priority": "P2",
       "status": "設計中",
       "detail": "[07](07-period-reporting.md)",
+      "domain": "FIN",
+      "source": "07-finance/00-overview.md"
+    },
+    {
+      "id": "F-FIN-047",
+      "name": "标准成本维护",
+      "summary": "标准成本版本登记（物料×版本×适用期间、材料/人工/制造费用/委外）、提交、发布（自动截止旧版）",
+      "screens": "SCR-FIN-062",
+      "priority": "P1",
+      "status": "設計済",
+      "detail": "[06](06-auto-voucher-costing.md)",
       "domain": "FIN",
       "source": "07-finance/00-overview.md"
     },
@@ -3709,7 +3720,7 @@
     },
     {
       "id": "SCR-SAL-046",
-      "name": "出口销售信息（Phase2）",
+      "name": "出口销售信息",
       "type": "EDIT",
       "function": "F-SAL-016",
       "permission": "sales:export:update",
@@ -4501,7 +4512,7 @@
     },
     {
       "id": "SCR-PRD-032",
-      "name": "设备台账（Phase 2）",
+      "name": "设备台账",
       "type": "一覧検索",
       "function": "F-PRD-018",
       "permission": "production:equipment:view",
@@ -5063,6 +5074,15 @@
       "type": "DASH",
       "function": "F-FIN-046",
       "permission": "finance:statement:view",
+      "domain": "FIN",
+      "source": "07-finance/00-overview.md"
+    },
+    {
+      "id": "SCR-FIN-062",
+      "name": "標準原価メンテナンス",
+      "type": "LIST/EDIT",
+      "function": "F-FIN-047",
+      "permission": "finance:standard-cost:view/register/publish",
       "domain": "FIN",
       "source": "07-finance/00-overview.md"
     },
@@ -6905,6 +6925,12 @@
       "source": "06-production/90-db-design.md"
     },
     {
+      "name": "prd_overproduction_approval",
+      "logical": "",
+      "domain": "PRD",
+      "source": "06-production/90-db-design.md"
+    },
+    {
       "name": "fin_account",
       "logical": "会计科目",
       "domain": "FIN",
@@ -7159,6 +7185,12 @@
     {
       "name": "fin_cost_variance",
       "logical": "成本差异",
+      "domain": "FIN",
+      "source": "07-finance/90-db-design.md"
+    },
+    {
+      "name": "fin_standard_cost",
+      "logical": "标准成本（版管理）",
       "domain": "FIN",
       "source": "07-finance/90-db-design.md"
     },
@@ -7855,7 +7887,7 @@
     },
     {
       "id": "PRT-SAL-018",
-      "name": "出口发票・装箱单（Phase2）",
+      "name": "出口发票・装箱单",
       "timing": "出荷確定時",
       "domain": "SAL",
       "source": "03-sales/00-overview.md"
@@ -8753,7 +8785,7 @@
     },
     {
       "id": "BAT-MDM-009",
-      "name": "主数据分发导出（Phase2）",
+      "name": "主数据分发导出",
       "schedule": "日次",
       "domain": "MDM",
       "source": "02-mdm/00-overview.md"
@@ -8844,7 +8876,7 @@
     },
     {
       "id": "BAT-SAL-012",
-      "name": "数电票状态同步（Phase2）",
+      "name": "数电票状态同步",
       "schedule": "日次/イベント",
       "domain": "SAL",
       "source": "03-sales/00-overview.md"
@@ -8992,7 +9024,7 @@
     {
       "id": "BAT-INV-009",
       "name": "历史数据归档",
-      "schedule": "月次（Phase 2）",
+      "schedule": "月次",
       "domain": "INV",
       "source": "05-inventory/00-overview.md"
     },
@@ -9424,7 +9456,7 @@
     {
       "id": "IF-SYS-002",
       "name": "短信送信",
-      "target": "短信网关（Phase 2）",
+      "target": "短信网关",
       "direction": "送信",
       "mode": "REST",
       "frequency": "リアルタイム",
@@ -9434,7 +9466,7 @@
     {
       "id": "IF-SYS-003",
       "name": "企业微信/钉钉通知",
-      "target": "企业微信/钉钉開放平台（Phase 2）",
+      "target": "企业微信/钉钉開放平台",
       "direction": "送信",
       "mode": "REST（Webhook）",
       "frequency": "リアルタイム",
@@ -9444,7 +9476,7 @@
     {
       "id": "IF-SYS-004",
       "name": "统一身份认证",
-      "target": "LDAP/AD（Phase 2）",
+      "target": "LDAP/AD",
       "direction": "双方向",
       "mode": "LDAP",
       "frequency": "ログイン時",
@@ -9454,7 +9486,7 @@
     {
       "id": "IF-SYS-005",
       "name": "对象存储",
-      "target": "MinIO/S3（Phase 2）",
+      "target": "MinIO/S3",
       "direction": "双方向",
       "mode": "S3 API",
       "frequency": "リアルタイム",
@@ -9464,7 +9496,7 @@
     {
       "id": "IF-SYS-006",
       "name": "ウイルススキャン",
-      "target": "ClamAV（Phase 2）",
+      "target": "ClamAV",
       "direction": "送信",
       "mode": "clamd/ICAP",
       "frequency": "リアルタイム",
@@ -9513,7 +9545,7 @@
     },
     {
       "id": "IF-MDM-004",
-      "name": "PLM 物料/设计 BOM 同步（Phase2）",
+      "name": "PLM 物料/设计 BOM 同步",
       "target": "PLM（如 Siemens Teamcenter）",
       "direction": "双方向",
       "mode": "REST",
@@ -9523,7 +9555,7 @@
     },
     {
       "id": "IF-MDM-005",
-      "name": "供应商工商信息核验（Phase2）",
+      "name": "供应商工商信息核验",
       "target": "国家企业信用信息公示系统 / 第三方（如企查查）",
       "direction": "受信",
       "mode": "REST",
@@ -9533,7 +9565,7 @@
     },
     {
       "id": "IF-MDM-006",
-      "name": "税码/税收分类编码取込（Phase2）",
+      "name": "税码/税收分类编码取込",
       "target": "国家税务总局公开代码表",
       "direction": "受信",
       "mode": "ファイル（CSV）",
@@ -9544,7 +9576,7 @@
     {
       "id": "IF-MDM-007",
       "name": "庫位マスタ配信（PDA/WMS）",
-      "target": "WMS/PDA（Phase 2）",
+      "target": "WMS/PDA",
       "direction": "送信",
       "mode": "REST / ファイル",
       "frequency": "日次/随時",
@@ -9556,7 +9588,7 @@
       "name": "数电票/金税发票开具接口",
       "target": "国家税务总局电子发票服务平台（経由：INT 域）",
       "direction": "送信/受信",
-      "mode": "REST（Phase2。INT 域が実装）",
+      "mode": "REST（。INT 域が実装）",
       "frequency": "リアルタイム",
       "domain": "SAL",
       "source": "03-sales/00-overview.md"
@@ -9793,7 +9825,7 @@
     },
     {
       "id": "IF-PRD-004",
-      "name": "设备数据采集（Phase 2）",
+      "name": "设备数据采集",
       "target": "设备 IoT 网关",
       "direction": "受信",
       "mode": "MQTT/REST",
@@ -12467,6 +12499,15 @@
       "source": "03-sales/02-sales-order.md"
     },
     {
+      "id": "MSG-SAL-056",
+      "type": "E",
+      "body": "变更后数量（基本单位）不能小于已完工数量或已出库数量 {0}。",
+      "condition": "",
+      "action": "數量修正（≥ max(已完工, 已出库)）",
+      "domain": "SAL",
+      "source": "03-sales/02-sales-order.md"
+    },
+    {
       "id": "MSG-SAL-055",
       "type": "W",
       "body": "本次变更金额增加 {0}，超出与信余力，需要重新审批。",
@@ -13432,7 +13473,7 @@
     {
       "id": "MSG-PUR-044",
       "type": "E",
-      "body": "同一物料行只能中选 1 家供应商（Phase 1）。",
+      "body": "同一物料行只能中选 1 家供应商（数量分拆は実装順 P2）。",
       "condition": "複数中选",
       "action": "1 社に修正",
       "domain": "PUR",
@@ -15043,9 +15084,9 @@
     {
       "id": "MSG-PRD-040",
       "type": "E",
-      "body": "完工数量が注文数量＋容许率を超えています。",
-      "condition": "超過入庫",
-      "action": "数量確認",
+      "body": "完工数量が許容上限（allowed_qty）を超えています。",
+      "condition": "ハード超過",
+      "action": "数量修正",
       "domain": "PRD",
       "source": "06-production/02-work-order.md"
     },
@@ -15124,6 +15165,15 @@
     {
       "id": "MSG-PRD-060",
       "type": "業務",
+      "body": "",
+      "condition": "",
+      "action": "",
+      "domain": "PRD",
+      "source": "06-production/03-material-issue-reporting.md"
+    },
+    {
+      "id": "MSG-PRD-100",
+      "type": "範囲",
       "body": "",
       "condition": "",
       "action": "",
@@ -16254,6 +16304,33 @@
       "action": "—",
       "domain": "FIN",
       "source": "07-finance/07-period-reporting.md"
+    },
+    {
+      "id": "MSG-FIN-134",
+      "type": "",
+      "body": "",
+      "condition": "",
+      "action": "",
+      "domain": "FIN",
+      "source": "07-finance/91-api-design.md"
+    },
+    {
+      "id": "MSG-FIN-135",
+      "type": "",
+      "body": "",
+      "condition": "",
+      "action": "",
+      "domain": "FIN",
+      "source": "07-finance/91-api-design.md"
+    },
+    {
+      "id": "MSG-FIN-136",
+      "type": "",
+      "body": "",
+      "condition": "",
+      "action": "",
+      "domain": "FIN",
+      "source": "07-finance/91-api-design.md"
     },
     {
       "id": "MSG-WF-001",
@@ -19651,13 +19728,6 @@
       "source": "06-production/00-overview.md"
     },
     {
-      "code": "finance:cost:*",
-      "function": "F-FIN-031/032/033/034",
-      "scope": "",
-      "domain": "FIN",
-      "source": "07-finance/00-overview.md"
-    },
-    {
       "code": "finance:payment-request:create（数据范围：本部门）",
       "function": "F-FIN-013/015",
       "scope": "",
@@ -19982,6 +20052,13 @@
     {
       "code": "finance:budget:update",
       "function": "F-FIN-043",
+      "scope": "",
+      "domain": "FIN",
+      "source": "07-finance/00-overview.md"
+    },
+    {
+      "code": "finance:standard-cost:view/register/publish",
+      "function": "F-FIN-047",
       "scope": "",
       "domain": "FIN",
       "source": "07-finance/00-overview.md"
@@ -21118,7 +21195,7 @@
     {
       "method": "GET",
       "path": "/api/system/tenants",
-      "name": "租户一覧（P2）",
+      "name": "租户一覧",
       "permission": "system:tenant:view",
       "domain": "SYS",
       "source": "01-system/91-api-design.md"
@@ -24278,7 +24355,7 @@
     {
       "method": "GET",
       "path": "/api/sales/forecasts",
-      "name": "予測一覧（Phase2）",
+      "name": "予測一覧",
       "permission": "sales:forecast:view",
       "domain": "SAL",
       "source": "03-sales/07-tracking-reports.md"
@@ -24286,7 +24363,7 @@
     {
       "method": "POST",
       "path": "/api/sales/forecasts",
-      "name": "予測保存（Phase2）",
+      "name": "予測保存",
       "permission": "sales:forecast:create",
       "domain": "SAL",
       "source": "03-sales/07-tracking-reports.md"
@@ -24294,7 +24371,7 @@
     {
       "method": "POST",
       "path": "/api/sales/forecasts/{id}/confirm",
-      "name": "予測確定（Phase2）",
+      "name": "予測確定",
       "permission": "sales:forecast:create",
       "domain": "SAL",
       "source": "03-sales/07-tracking-reports.md"
@@ -24334,7 +24411,7 @@
     {
       "method": "PUT",
       "path": "/api/sales/sales-orders/{id}/export-info",
-      "name": "輸出販売情報（Phase2）",
+      "name": "輸出販売情報",
       "permission": "sales:export:update",
       "domain": "SAL",
       "source": "03-sales/07-tracking-reports.md"
@@ -28421,6 +28498,38 @@
     },
     {
       "method": "GET",
+      "path": "/api/finance/standard-costs",
+      "name": "標準原価版一覧",
+      "permission": "finance:standard-cost:view",
+      "domain": "FIN",
+      "source": "07-finance/06-auto-voucher-costing.md"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finance/standard-costs/{id}",
+      "name": "標準原価版詳細",
+      "permission": "finance:standard-cost:view",
+      "domain": "FIN",
+      "source": "07-finance/91-api-design.md"
+    },
+    {
+      "method": "POST/PUT",
+      "path": "/api/finance/standard-costs[/{id}]",
+      "name": "草稿登録・更新",
+      "permission": "finance:standard-cost:register",
+      "domain": "FIN",
+      "source": "07-finance/06-auto-voucher-costing.md"
+    },
+    {
+      "method": "POST",
+      "path": "/api/finance/standard-costs/{id}/publish",
+      "name": "発行（旧版自動打切り）",
+      "permission": "finance:standard-cost:publish",
+      "domain": "FIN",
+      "source": "07-finance/06-auto-voucher-costing.md"
+    },
+    {
+      "method": "GET",
       "path": "/api/finance/periods",
       "name": "期間一覧",
       "permission": "finance:period:view",
@@ -28896,6 +29005,38 @@
       "path": "/api/finance/costs/{jobId}/confirm",
       "name": "成本確定（J16）",
       "permission": "finance:cost:confirm",
+      "domain": "FIN",
+      "source": "07-finance/91-api-design.md"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finance/standard-costs",
+      "name": "標準原価版一覧（materialId,status,period）",
+      "permission": "finance:standard-cost:view",
+      "domain": "FIN",
+      "source": "07-finance/91-api-design.md"
+    },
+    {
+      "method": "POST",
+      "path": "/api/finance/standard-costs",
+      "name": "草稿登録（status=10）",
+      "permission": "finance:standard-cost:register",
+      "domain": "FIN",
+      "source": "07-finance/91-api-design.md"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/finance/standard-costs/{id}",
+      "name": "草稿更新（version 楽観ロック）",
+      "permission": "finance:standard-cost:register",
+      "domain": "FIN",
+      "source": "07-finance/91-api-design.md"
+    },
+    {
+      "method": "POST",
+      "path": "/api/finance/standard-costs/{id}/publish",
+      "name": "発行（fin_publish_standard_cost 呼出、旧版自動打切り）",
+      "permission": "finance:standard-cost:publish",
       "domain": "FIN",
       "source": "07-finance/91-api-design.md"
     },
@@ -30420,7 +30561,48 @@
       "source": "10-analytics/91-api-design.md"
     }
   ],
-  "issues": [],
+  "issues": [
+    {
+      "type": "doc_info",
+      "file": "02-mdm/95-acceptance-criteria.md",
+      "detail": "冒頭に文書情報（文書番号）がありません"
+    },
+    {
+      "type": "revision",
+      "file": "02-mdm/95-acceptance-criteria.md",
+      "detail": "改訂履歴がありません"
+    },
+    {
+      "type": "doc_info",
+      "file": "03-sales/95-acceptance-criteria.md",
+      "detail": "冒頭に文書情報（文書番号）がありません"
+    },
+    {
+      "type": "doc_info",
+      "file": "04-purchase/95-acceptance-criteria.md",
+      "detail": "冒頭に文書情報（文書番号）がありません"
+    },
+    {
+      "type": "revision",
+      "file": "04-purchase/95-acceptance-criteria.md",
+      "detail": "改訂履歴がありません"
+    },
+    {
+      "type": "doc_info",
+      "file": "05-inventory/95-acceptance-criteria.md",
+      "detail": "冒頭に文書情報（文書番号）がありません"
+    },
+    {
+      "type": "revision",
+      "file": "05-inventory/95-acceptance-criteria.md",
+      "detail": "改訂履歴がありません"
+    },
+    {
+      "type": "doc_info",
+      "file": "06-production/95-acceptance-criteria.md",
+      "detail": "冒頭に文書情報（文書番号）がありません"
+    }
+  ],
   "undecided": [
     {
       "file": "00-common/00-design-principles.md",
@@ -30524,8 +30706,8 @@
     },
     {
       "file": "07-finance/00-overview.md",
-      "line": 608,
-      "text": "> 上記はすべて Phase 1 の設計を進めるための暫定仕様であり、本文中の `【未決】` は本表に集約済み（本文に未処理マーカーを残さない）。"
+      "line": 612,
+      "text": "> 上記はすべて実装順 P0 の設計を進めるための暫定仕様であり（いずれも第一版の範囲内）、本文中の `【未決】` は本表に集約済み（本文に未処理マーカーを残さない）。"
     },
     {
       "file": "09-integration/02-tax-bank-interface.md",
@@ -30593,31 +30775,6 @@
       "text": "| **REV-SW-005** | **S2** | `00-common/08-common-business-rules.md:373`,`:377` | 保存期間の内部矛盾。`会計凭证・会计账簿=30 年`（79 号令）と同じ表で `发票及抵扣凭证=「現行実務 10 年」【要確認】`。発票は通常**原始凭证**として会計凭证に綴じられるため、同一書類"
     },
     {
-      "file": "90-data/bom-demo.md",
-      "line": 134,
-      "text": "| 35 | 2 | 2002000004 | 4002000010 | 轴用弹性挡圈 | φ25 | 2 | PCE | 2.0% | 2.0408 | S | 標準版【要確認】 |"
-    },
-    {
-      "file": "90-data/bom-demo.md",
-      "line": 278,
-      "text": "| 2 | 6640 NMN・引接線・擋圈の執行標準版数 | 【要確認】 | [sources.md](sources.md) §6 に従い確認 |"
-    },
-    {
-      "file": "90-data/demo-company.md",
-      "line": 170,
-      "text": "| 法定节假日 | 元旦、春节、清明节、劳动节、端午节、中秋节、国庆节（具体放假安排以国务院办公厅当年通知为准） | 【実データ】制度；【要確認】2026 年具体日期与调休安排 |"
-    },
-    {
-      "file": "90-data/demo-company.md",
-      "line": 202,
-      "text": "| 附加税费 | 城建税 7%（市区）、教育费附加 3%、地方教育附加 2% | 【実データ】城市维护建设税法、国务院令第 588 号；江苏 2% 待补省級文件【要確認】 |"
-    },
-    {
-      "file": "90-data/demo-company.md",
-      "line": 337,
-      "text": "| 1 | 2026 年法定节假日・调休の具体日程 | 【要確認】国務院弁公庁の当年通知待ち | 官方通知公布後に生産日历を確定 |"
-    },
-    {
       "file": "90-data/README.md",
       "line": 33,
       "text": "5. 未確定の標準・URL・税率は**【要確認】**と表示し、確定値として使用しない（[sources.md](sources.md) §6）。"
@@ -30651,6 +30808,31 @@
       "file": "90-data/README.md",
       "line": 224,
       "text": "| 7 | 一部企業公式サイト URL | 【要確認】 | sources.md §6 #10 |"
+    },
+    {
+      "file": "90-data/bom-demo.md",
+      "line": 134,
+      "text": "| 35 | 2 | 2002000004 | 4002000010 | 轴用弹性挡圈 | φ25 | 2 | PCE | 2.0% | 2.0408 | S | 標準版【要確認】 |"
+    },
+    {
+      "file": "90-data/bom-demo.md",
+      "line": 278,
+      "text": "| 2 | 6640 NMN・引接線・擋圈の執行標準版数 | 【要確認】 | [sources.md](sources.md) §6 に従い確認 |"
+    },
+    {
+      "file": "90-data/demo-company.md",
+      "line": 170,
+      "text": "| 法定节假日 | 元旦、春节、清明节、劳动节、端午节、中秋节、国庆节（具体放假安排以国务院办公厅当年通知为准） | 【実データ】制度；【要確認】2026 年具体日期与调休安排 |"
+    },
+    {
+      "file": "90-data/demo-company.md",
+      "line": 202,
+      "text": "| 附加税费 | 城建税 7%（市区）、教育费附加 3%、地方教育附加 2% | 【実データ】城市维护建设税法、国务院令第 588 号；江苏 2% 待补省級文件【要確認】 |"
+    },
+    {
+      "file": "90-data/demo-company.md",
+      "line": 337,
+      "text": "| 1 | 2026 年法定节假日・调休の具体日程 | 【要確認】国務院弁公庁の当年通知待ち | 官方通知公布後に生産日历を確定 |"
     },
     {
       "file": "90-data/sources.md",

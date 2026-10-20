@@ -8,7 +8,7 @@
 | 作成日 | 2026-10-20 |
 | 作成者 | Lead（生成工具 gen_matrix.py） |
 | 状態 | ドラフト（自动生成・最終レビュー前） |
-| 備考 | 全 221 件。機能ID/名称/概要/画面/優先度/状態/詳細設計書/域/提取元 |
+| 備考 | 全 222 件。機能ID/名称/概要/画面/優先度/状態/詳細設計書/域/提取元 |
 
 > 本文件由 `20-matrix/tools/gen_matrix.py` 从各域设计书中自动提取生成。修改设计书后重新运行即可更新。
 
@@ -35,7 +35,7 @@
 | F-FIN-019 | 应收单管理 | 应收单确认/取消、发票纽付け状态、余额维护 | SCR-FIN-026 | P0 | 設計済 | 04 | FIN | 07-finance/00-overview.md |
 | F-FIN-020 | 收款登记 | 收款单（银行/现金/票据）、预收、到账确认 | SCR-FIN-027 | P0 | 設計済 | 04 | FIN | 07-finance/00-overview.md |
 | F-FIN-021 | 应收核销 | 收款与应收/预收的核销、部分核销、反核销 | SCR-FIN-028 | P0 | 設計済 | 04 | FIN | 07-finance/00-overview.md |
-| F-FIN-022 | 应收账龄与坏账准备 | 应收账龄分析；坏账准备计提（Phase 2） | SCR-FIN-029,030 | P0/P2 | 設計済 | 04 | FIN | 07-finance/00-overview.md |
+| F-FIN-022 | 应收账龄与坏账准备 | 应收账龄分析；坏账准备计提（第一版・実装順 P2） | SCR-FIN-029,030 | P0/P2 | 設計済 | 04 | FIN | 07-finance/00-overview.md |
 | F-FIN-023 | 现金日记账 | 现金收付登记、日结、现金盘点 | SCR-FIN-031 | P0 | 設計済 | 05 | FIN | 07-finance/00-overview.md |
 | F-FIN-024 | 银行日记账与银行对账 | 银行日记账、对账单导入、自动/手工匹配、余额调节表 | SCR-FIN-032～035 | P0 | 設計済 | 05 | FIN | 07-finance/00-overview.md |
 | F-FIN-025 | 资金日报 | 现金/银行账户余额、当日收支、资金头寸 | SCR-FIN-036 | P0 | 設計済 | 05 | FIN | 07-finance/00-overview.md |
@@ -53,13 +53,14 @@
 | F-FIN-037 | 年度结转 | 本年利润→利润分配、次年期间开启 | SCR-FIN-051 | P0 | 設計済 | 07 | FIN | 07-finance/00-overview.md |
 | F-FIN-038 | 财务报表 | 资产负债表、利润表、现金流量表（简表）取数与快照 | SCR-FIN-052 | P0 | 設計済 | 07 | FIN | 07-finance/00-overview.md |
 | F-FIN-039 | 科目余额表 | 科目余额表/试算平衡表输出 | SCR-FIN-053 | P0 | 設計済 | 07 | FIN | 07-finance/00-overview.md |
-| F-FIN-040 | 费用报销与借款 | 报销单、借款/还款、差旅费（Phase 2 概要） | SCR-FIN-054,055 | P2 | 設計中 | 07 | FIN | 07-finance/00-overview.md |
-| F-FIN-041 | 固定资产卡片与折旧 | 资产卡片、折旧计提、资产台账（Phase 2 概要） | SCR-FIN-056 | P2 | 設計中 | 07 | FIN | 07-finance/00-overview.md |
-| F-FIN-042 | 固定资产处置 | 出售/报废/盘亏处置与凭证（Phase 2 概要） | SCR-FIN-057 | P2 | 設計中 | 07 | FIN | 07-finance/00-overview.md |
-| F-FIN-043 | 预算管理 | 预算编制、控制、执行分析（Phase 2 概要） | SCR-FIN-058 | P2 | 設計中 | 07 | FIN | 07-finance/00-overview.md |
-| F-FIN-044 | 多币种与汇兑损益 | 外币凭证、期末汇兑调整（Phase 2 概要） | SCR-FIN-059 | P2 | 設計中 | 07 | FIN | 07-finance/00-overview.md |
-| F-FIN-045 | 资金计划与付款排程 | 资金计划编制、付款排程、资金缺口预警（Phase 2 概要） | SCR-FIN-060 | P2 | 設計中 | 07 | FIN | 07-finance/00-overview.md |
-| F-FIN-046 | 财务报表分析 | 同比/环比、结构分析、指标计算（Phase 2 概要） | SCR-FIN-061 | P2 | 設計中 | 07 | FIN | 07-finance/00-overview.md |
+| F-FIN-040 | 费用报销与借款 | 报销单、借款/还款、差旅费（第一版・実装順 P2、概要設計） | SCR-FIN-054,055 | P2 | 設計中 | 07 | FIN | 07-finance/00-overview.md |
+| F-FIN-041 | 固定资产卡片与折旧 | 资产卡片、折旧计提、资产台账（第一版・実装順 P2、概要設計） | SCR-FIN-056 | P2 | 設計中 | 07 | FIN | 07-finance/00-overview.md |
+| F-FIN-042 | 固定资产处置 | 出售/报废/盘亏处置与凭证（第一版・実装順 P2、概要設計） | SCR-FIN-057 | P2 | 設計中 | 07 | FIN | 07-finance/00-overview.md |
+| F-FIN-043 | 预算管理 | 预算编制、控制、执行分析（第一版・実装順 P2、概要設計） | SCR-FIN-058 | P2 | 設計中 | 07 | FIN | 07-finance/00-overview.md |
+| F-FIN-044 | 多币种与汇兑损益 | 外币凭证、期末汇兑调整（第一版・実装順 P2、概要設計） | SCR-FIN-059 | P2 | 設計中 | 07 | FIN | 07-finance/00-overview.md |
+| F-FIN-045 | 资金计划与付款排程 | 资金计划编制、付款排程、资金缺口预警（第一版・実装順 P2、概要設計） | SCR-FIN-060 | P2 | 設計中 | 07 | FIN | 07-finance/00-overview.md |
+| F-FIN-046 | 财务报表分析 | 同比/环比、结构分析、指标计算（第一版・実装順 P2、概要設計） | SCR-FIN-061 | P2 | 設計中 | 07 | FIN | 07-finance/00-overview.md |
+| F-FIN-047 | 标准成本维护 | 标准成本版本登记（物料×版本×适用期间、材料/人工/制造费用/委外）、提交、发布（自动截止旧版） | SCR-FIN-062 | P1 | 設計済 | 06 | FIN | 07-finance/00-overview.md |
 | F-INT-001 | 接口配置管理 | 相手先・エンドポイント・認証・マッピング・タイムアウト・リトライの登録と有効化 | SCR-INT-001〜003 | P0 | 設計済 | 01-integration-config.md | INT | 09-integration/00-overview.md |
 | F-INT-002 | 数电票开具与交付 | 蓝票/红票开具、交付状态取得、票面查询、赤伝 | SCR-INT-008、009 | P1（Phase 2 本格） | 設計済 | 02-tax-bank-interface.md | INT | 09-integration/00-overview.md |
 | F-INT-003 | 进项发票查验 | 发票查验、用途确认、异常发票提醒 | SCR-INT-010 | P1 | 設計済 | 02-tax-bank-interface.md | INT | 09-integration/00-overview.md |
@@ -101,8 +102,8 @@
 | F-INV-019 | 库存预留/锁定 | 受注/工单引当、释放、消耗、过期自动释放 | SCR-INV-024 | P0 | 設計済 | 06-reservation-barcode-close.md | INV | 05-inventory/00-overview.md |
 | F-INV-020 | 库存期间月结/关账 | 月结检查、收发存汇总、期间关账/重开 | SCR-INV-025 | P0 | 設計済 | 06-reservation-barcode-close.md | INV | 05-inventory/00-overview.md |
 | F-INV-021 | 库存报表 | 收发存汇总、明细账、库龄、周转、流水、追溯报告 | SCR-INV-020、003 | P0 | 設計済 | 07-reports.md | INV | 05-inventory/00-overview.md |
-| F-INV-022 | 组装拆卸 | 组装/拆卸业务的库存处理（Phase 2 概要） | — | P2 | 概要設計 | 07-reports.md | INV | 05-inventory/00-overview.md |
-| F-INV-023 | 寄售库存 | 供应商寄售/客户寄售库存（Phase 2 概要） | — | P2 | 概要設計 | 07-reports.md | INV | 05-inventory/00-overview.md |
+| F-INV-022 | 组装拆卸 | 组装/拆卸业务的库存处理（第一版対象。TODO：設計が未作成） | — | P2 | 概要設計 | 07-reports.md | INV | 05-inventory/00-overview.md |
+| F-INV-023 | 寄售库存 | 供应商寄售/客户寄售库存（第一版対象。TODO：設計が未作成） | — | P2 | 概要設計 | 07-reports.md | INV | 05-inventory/00-overview.md |
 | F-MDM-001 | 物料分类树与分类属性 | 多阶分类树、分类属性模板、分类编码 4 桁 | SCR-MDM-004 | P0 | 設計済 | 01 | MDM | 02-mdm/00-overview.md |
 | F-MDM-002 | 物料主数据（多视图） | 基本/采购/销售/库存/生产/财务/质量多视图字段级维护 | SCR-MDM-001/002/003 | P0 | 設計済 | 01 | MDM | 02-mdm/00-overview.md |
 | F-MDM-003 | 物料编码规则与自动编码 | 分类 4 + 流水 6 自动采番、手動指定、空番检查 | SCR-MDM-005 | P0 | 設計済 | 01 | MDM | 02-mdm/00-overview.md |
@@ -125,7 +126,7 @@
 | F-MDM-020 | 主数据数据权限 | 按公司/工厂/部门分配数据范围（委托 SYS 数据权限） | SCR-MDM-096 | P0 | 設計済 | 07 | MDM | 02-mdm/00-overview.md |
 | F-MDM-021 | 物料工厂视图参数 | 工厂级默认仓库、安全库存、提前期、批量规则 | SCR-MDM-006 | P1 | 設計済 | 01 | MDM | 02-mdm/00-overview.md |
 | F-MDM-022 | 主数据检索与导出 | 跨对象统一检索、主数据门户、导出 | SCR-MDM-097 | P1 | 設計済 | 07 | MDM | 02-mdm/00-overview.md |
-| F-MDM-023 | 主数据分发与外部同步 | PLM 物料/BOM 同步（Phase2）、多工厂分发 | — | P2 | 設計済（概要） | 07 | MDM | 02-mdm/00-overview.md |
+| F-MDM-023 | 主数据分发与外部同步 | PLM 物料/BOM 同步、多工厂分发 | — | P2 | 設計済（概要） | 07 | MDM | 02-mdm/00-overview.md |
 | F-MDM-024 | 汇率与标准代码导入 | 汇率、单位、货币、联行号等标准数据导入 | SCR-MDM-045 | P1 | 設計済 | 04 | MDM | 02-mdm/00-overview.md |
 | F-MDM-025 | 工厂主数据 | 工厂编码・名称・类型・负责人・公司组织参照（Lead 裁定：工厂主数据归 MDM、mdm_factory） | SCR-MDM-098 | P0 | 設計済 | 03 | MDM | 02-mdm/00-overview.md |
 | F-PRD-001 | BOM 管理 | 多阶 BOM 的登记/修改/复制/版本/生效期/损耗率/替代料/承认；BOM 比较 | SCR-PRD-001〜003 | P1 | 設計済 | 01-bom-routing-workcenter.md | PRD | 06-production/00-overview.md |
@@ -138,14 +139,14 @@
 | F-PRD-008 | 生产入库 | 成品/半成品完工入库、批次、超量检查、取消 | SCR-PRD-016 | P1 | 設計済 | 同上 | PRD | 06-production/00-overview.md |
 | F-PRD-009 | 委外加工管理 | 委外订单、委外发料（OSI）、委外收货（OSR）、加工费结算与对账 | SCR-PRD-017〜020 | P2 | 設計済 | 04-outsourcing.md | PRD | 06-production/00-overview.md |
 | F-PRD-010 | MRP 物料需求计划 | 需求收集、毛需求→净需求→计划订单→动作消息、运行履历、计划订单确认 | SCR-PRD-021〜023 | P1 | 設計済 | 05-mrp-planning.md | PRD | 06-production/00-overview.md |
-| F-PRD-011 | 生产计划与排产 | 需求预测、MPS、粗能力负荷、日计划（甘特图为 Phase 2） | SCR-PRD-024 | P1 | 設計済 | 05-mrp-planning.md | PRD | 06-production/00-overview.md |
+| F-PRD-011 | 生产计划与排产 | 需求预测、MPS、粗能力负荷、日计划（甘特图为 第一版） | SCR-PRD-024 | P1 | 設計済 | 05-mrp-planning.md | PRD | 06-production/00-overview.md |
 | F-PRD-012 | 检验标准管理 | 品目×工程×顾客的检验标准、检验项目、规格、抽样与判定基准 | SCR-PRD-025 | P1 | 設計済 | 06-quality-management.md | PRD | 06-production/00-overview.md |
 | F-PRD-013 | 检验实施（IQC/IPQC/FQC/OQC） | 检验单起票/登记/判定、E15 発行、結果照会 | SCR-PRD-026〜027 | P1 | 設計済 | 同上 | PRD | 06-production/00-overview.md |
 | F-PRD-014 | 不合格品处置（NCR） | NCR 起票、返工/特采/报废/返品处置、再检、处置履历 | SCR-PRD-028 | P1 | 設計済 | 同上 | PRD | 06-production/00-overview.md |
 | F-PRD-015 | 质量追溯 | 批次/序列的正向・逆向追溯、受入ロット→完成品ロット→出荷先 | SCR-PRD-029 | P1 | 設計済 | 同上 | PRD | 06-production/00-overview.md |
 | F-PRD-016 | 生产进度看板 | 工单进度、日产量、工序滞留、缺料、异常工单 | SCR-PRD-030 | P1 | 設計済 | 07-dashboard-reports.md | PRD | 06-production/00-overview.md |
 | F-PRD-017 | 工时与效率统计 | 工时汇总、工数/产量/良率/效率、工作中心负荷与利用率 | SCR-PRD-031 | P1 | 設計済 | 同上 | PRD | 06-production/00-overview.md |
-| F-PRD-018 | 设备台账/点检/维修 | 设备台账、点检计划与记录、维修工单（Phase 2 概要） | SCR-PRD-032 | P2 | 設計済（概要） | 同上 | PRD | 06-production/00-overview.md |
+| F-PRD-018 | 设备台账/点检/维修 | 设备台账、点检计划与记录、维修工单（第一版対象。TODO：設計が未作成） | SCR-PRD-032 | P2 | 設計済（概要） | 同上 | PRD | 06-production/00-overview.md |
 | F-PRD-019 | 生产报表 | 工单执行、产量、良率、效率、委外回收等报表 | SCR-PRD-033 | P1 | 設計済 | 92-report-batch-design.md | PRD | 06-production/00-overview.md |
 | F-PRD-020 | 生产期末处理 | 工单结案、在制品结转、期间关闭检查、数据初始化 | —（バッチ） | P1 | 設計済 | 92-report-batch-design.md | PRD | 06-production/00-overview.md |
 | F-PUR-001 | 请购单登记 | 部门需求登记、预算检查、重複チェック、提出・撤回 | SCR-PUR-001、002 | P0 | 設計済 | 01-requisition.md | PUR | 04-purchase/00-overview.md |
@@ -191,16 +192,16 @@
 | F-SAL-004 | 订单变更 | 承認済受注の数量・納期・価格変更、版数管理、再承認、E07、引当増減 | SCR-SAL-012〜013 | P0 | 設計済 | 02-sales-order.md | SAL | 03-sales/00-overview.md |
 | F-SAL-005 | 发货通知与拣货 | DN 作成、批次指定（FIFO/FEFO/手工）、部分出荷、出荷確定（E10）、送り状 | SCR-SAL-014〜018 | P0 | 設計済 | 03-delivery-picking.md | SAL | 03-sales/00-overview.md |
 | F-SAL-006 | 销售退货管理 | 返品受付、期限チェック、承認、受入検品、E11、在庫戻入、赤伝売上/AR 戻し、原価戻し | SCR-SAL-019〜022 | P0 | 設計済 | 04-sales-return.md | SAL | 03-sales/00-overview.md |
-| F-SAL-007 | 销售发票与开票申请 | 开票申请（集約・税区分）、承認、发票登记（专票/普票/数电票）、赤伝、E12、AR 紐付け、金税 IF Phase 2 | SCR-SAL-023〜027 | P0（金税 IF は P2） | 設計済 | 05-invoice-receivable.md | SAL | 03-sales/00-overview.md |
+| F-SAL-007 | 销售发票与开票申请 | 开票申请（集約・税区分）、承認、发票登记（专票/普票/数电票）、赤伝、E12、AR 紐付け、金税 IF 第一版 | SCR-SAL-023〜027 | P0（金税 IF は P2） | 設計済 | 05-invoice-receivable.md | SAL | 03-sales/00-overview.md |
 | F-SAL-008 | 客户对账单 | 期間集計、対账单生成・発行・顧客確認 | SCR-SAL-028〜029 | P1 | 設計済 | 05-invoice-receivable.md | SAL | 03-sales/00-overview.md |
 | F-SAL-009 | 应收款查询与账龄 | 应收明細・残高・帳齢・回収予定の照会（FIN 契約に基づく投影） | SCR-SAL-030〜031 | P1 | 設計済 | 05-invoice-receivable.md | SAL | 03-sales/00-overview.md |
 | F-SAL-010 | 信用管控 | 与信限度照会、FIN 与信台帳照会、与信判定、超限判定・承認連携 | SCR-SAL-032〜034 | P0 | 設計済 | 06-credit-pricing.md | SAL | 03-sales/00-overview.md |
 | F-SAL-011 | 价格与促销 | MDM 価格表参照、取価シミュレーション、特価/折扣申請・承認 | SCR-SAL-035〜037 | P0（促销 P2） | 設計済 | 06-credit-pricing.md | SAL | 03-sales/00-overview.md |
 | F-SAL-012 | 订单执行跟踪 | 受注残、引当/欠品、出荷予定、納期遅延、齐套状况の可視化 | SCR-SAL-038〜039 | P1 | 設計済 | 07-tracking-reports.md | SAL | 03-sales/00-overview.md |
-| F-SAL-013 | 销售预测 | 月度予測入力・確定、MRP 連携（Phase 2 詳細） | SCR-SAL-040〜041 | P2 | 設計済（概要） | 07-tracking-reports.md | SAL | 03-sales/00-overview.md |
+| F-SAL-013 | 销售预测 | 月度予測入力・確定、MRP 連携（第一版対象。TODO：詳細設計が未作成） | SCR-SAL-040〜041 | P2 | 設計済（概要） | 07-tracking-reports.md | SAL | 03-sales/00-overview.md |
 | F-SAL-014 | 换货管理 | 返品＋再出荷の組合せ、差額精算、関連付け | SCR-SAL-042 | P2 | 設計済（概要） | 04-sales-return.md | SAL | 03-sales/00-overview.md |
 | F-SAL-015 | 销售报表 | 销售明细、毛利分析、客户排名（域内报表，RPT 連携） | SCR-SAL-043〜045 | P1 | 設計済 | 07-tracking-reports.md | SAL | 03-sales/00-overview.md |
-| F-SAL-016 | 出口销售预留 | 外貨・Incoterms・通関情報の項目予約（Phase 2 概要） | SCR-SAL-046 | P2 | 設計済（概要） | 07-tracking-reports.md | SAL | 03-sales/00-overview.md |
+| F-SAL-016 | 出口销售预留 | 外貨・Incoterms・通関情報の項目予約（第一版対象。TODO：概要のみ、詳細設計が未作成） | SCR-SAL-046 | P2 | 設計済（概要） | 07-tracking-reports.md | SAL | 03-sales/00-overview.md |
 | F-SAL-017 | 销售订单取消与关闭 | 受注の取消（E08）、残数量クローズ、バックオーダー取消 | SCR-SAL-010（操作） | P0 | 設計済 | 02-sales-order.md | SAL | 03-sales/00-overview.md |
 | F-SAL-018 | 出荷实绩照会 | 出荷実績・送り状・未出荷残の照会、再出力 | SCR-SAL-047 | P1 | 設計済 | 03-delivery-picking.md | SAL | 03-sales/00-overview.md |
 | F-SYS-001 | 认证与登录 | 登录/登出/验证码/密码策略/账号锁定/首次改密/多端会话 | SCR-SYS-001、002 | P0 | 設計済 | 01-auth-login.md | SYS | 01-system/00-overview.md |
@@ -219,7 +220,7 @@
 | F-SYS-014 | 公司/工厂多组织 | 公司主体・会計主体設定、工厂组织設定（有効化・既定割当・責任者）。工厂主データは MDM（mdm_factory）を参照 | SCR-SYS-012 | P1 | 設計済 | 03-org-position.md | SYS | 01-system/00-overview.md |
 | F-SYS-015 | 打印模板管理 | 帳票テンプレート登録/版管理/プレビュー/デフォルト指定 | SCR-SYS-026 | P1 | 設計済 | 07-scheduled-job-print-monitor.md | SYS | 01-system/00-overview.md |
 | F-SYS-016 | 在线用户与定时任务监控 | セッション一覧・強制ログアウト、ジョブ定義/実行履歴/手動起動 | SCR-SYS-027、028 | P1 | 設計済 | 07-scheduled-job-print-monitor.md | SYS | 01-system/00-overview.md |
-| F-SYS-017 | 租户与数据隔离 | 租户マスタ予約、tenant_id 付与方針、RLS 将来対応 | SCR-SYS-013 | P2 | 設計済 | 03-org-position.md | SYS | 01-system/00-overview.md |
+| F-SYS-017 | 租户与数据隔离 | 租户マスタ予約、tenant_id 付与方針、RLS 第一版有効 | SCR-SYS-013 | P0 | 設計済 | 03-org-position.md | SYS | 01-system/00-overview.md |
 | F-SYS-018 | 个人中心 | プロフィール、パスワード変更、通知設定、画面設定、セッション | SCR-SYS-003 | P0 | 設計済 | 01-auth-login.md | SYS | 01-system/00-overview.md |
 | F-SYS-019 | 通知模板 | 站内/邮件/短信テンプレート、変数、版管理、テスト送信 | SCR-SYS-022、030 | P1 | 設計済 | 05-audit-attachment-notify.md | SYS | 01-system/00-overview.md |
 | F-SYS-020 | 系统初始化与数据维护 | 初期データ投入、キャッシュ再構築、データ整合性検査、保守 | SCR-SYS-029 | P1 | 設計済 | 07-scheduled-job-print-monitor.md | SYS | 01-system/00-overview.md |

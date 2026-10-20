@@ -114,7 +114,7 @@
 | 会计（总账） | 财务部 | 凭证录入、自动凭证监控、总账/明细账、报表编制、往来对账 | F-FIN-003/009/010/012/019/038 | `finance:voucher:create`, `finance:ledger:view`, `finance:statement:view` |
 | 应付会计 | 财务部 | 应付单、发票三单匹配、暂估、付款申请、应付核销与账龄 | F-FIN-012/013/014/015/017/018 | `finance:payable:*`, `finance:invoice:*`, `finance:write-off:create` |
 | 应收会计 | 财务部 | 应收单、收款登记、核销、账龄、客户对账 | F-FIN-019/020/021/022 | `finance:receivable:*`, `finance:receipt:*` |
-| 成本会计 | 财务部 | 成本归集、制造费用分配、成本计算、差异分析 | F-FIN-031/032/033/034 | `finance:cost:*` |
+| 成本会计 | 财务部 | 成本归集、制造费用分配、成本计算、差异分析、标准成本登记 | F-FIN-031/032/033/034/047 | `finance:cost:*`, `finance:standard-cost:view/register` |
 | 税务会计 | 财务部 | 进项/销项发票台账、增值税申报辅助、附加税/所得税计提 | F-FIN-026/027/028 | `finance:invoice:view`, `finance:vat-return:*`, `finance:tax-accrual:*` |
 | 出纳 | 财务部 | 现金/银行日记账、收付款执行、银行对账、资金日报 | F-FIN-016/023/024/025 | `finance:payment:execute`, `finance:bank-*` |
 | 采购员/采购经理 | 采购部 | 付款申请发起、三单匹配差异确认（业务侧） | F-FIN-013/015 | `finance:payment-request:create`（数据范围：本部门） |
@@ -268,6 +268,7 @@ sequenceDiagram
 | F-FIN-044 | 多币种与汇兑损益 | 外币凭证、期末汇兑调整（第一版・実装順 P2、概要設計） | SCR-FIN-059 | バッチ | P2 | 設計中 | [07](07-period-reporting.md) |
 | F-FIN-045 | 资金计划与付款排程 | 资金计划编制、付款排程、资金缺口预警（第一版・実装順 P2、概要設計） | SCR-FIN-060 | 照会 | P2 | 設計中 | [07](07-period-reporting.md) |
 | F-FIN-046 | 财务报表分析 | 同比/环比、结构分析、指标计算（第一版・実装順 P2、概要設計） | SCR-FIN-061 | 照会 | P2 | 設計中 | [07](07-period-reporting.md) |
+| F-FIN-047 | 标准成本维护 | 标准成本版本登记（物料×版本×适用期间、材料/人工/制造费用/委外）、提交、发布（自动截止旧版） | SCR-FIN-062 | マスタ | P1 | 設計済 | [06](06-auto-voucher-costing.md) |
 
 > 優先度：P0 / P1 / P2。**P0/P1/P2 は全て第一版（全量）で、実装順のみを表す**（標準原価・RLS・P2 機能を含む）。状態：未設計/設計中/設計済/レビュー済/承認済。P2 機能は本域 [07](07-period-reporting.md) 第 8 章に概要設計を置き、実装順 P2 の着手時に詳細化して本書を改訂する。
 
@@ -338,6 +339,7 @@ sequenceDiagram
 | SCR-FIN-059 | 汇兑损益调整（P2） | EDIT | F-FIN-044 | finance:voucher:create | 菜单 | — |
 | SCR-FIN-060 | 资金计划与付款排程（P2） | LIST | F-FIN-045 | finance:fund-report:view | 菜单 | SCR-FIN-036 |
 | SCR-FIN-061 | 财务报表分析（P2） | DASH | F-FIN-046 | finance:statement:view | SCR-FIN-052 | — |
+| SCR-FIN-062 | 標準原価メンテナンス | LIST/EDIT | F-FIN-047 | finance:standard-cost:view/register/publish | 财务 > 成本核算 | SCR-FIN-047 |
 
 > 画面類型コード：LIST/EDIT/VIEW/DIALOG/WF/DASH/WIZ/PRINT（[02 画面共通规格](../00-common/02-common-screen-spec.md) 第 2 章）。画面項目定義・イベント・表示制御は各機能文書の第 4 章に記載する。
 
@@ -528,6 +530,7 @@ sequenceDiagram
 | `finance:vat-return:view` / `generate` / `export` | F-FIN-027 | 全社 | 税务会计、财务经理、财务总监 |
 | `finance:tax-accrual:view` / `generate` | F-FIN-028 | 全社 | 税务会计、财务经理 |
 | `finance:auto-voucher:view` / `update` / `retry` | F-FIN-029/030 | 全社 | 财务经理、会计（retry） |
+| `finance:standard-cost:view` / `register` / `publish` | F-FIN-047 | 全社 | 成本会计（view/register）、财务总监（view/publish **のみ**）。`finance:cost:*` は `standard-cost` を含まない（[95](95-acceptance-criteria.md) 未決 #1 決定） |
 | `finance:cost:view` / `calculate` / `confirm` | F-FIN-031～034 | 全社 | 成本会计、财务经理（confirm） |
 | `finance:period:view` / `close` / `reopen` | F-FIN-035 | 全社 | 财务经理（close）、财务总监（reopen，须审计） |
 | `finance:year-close:execute` | F-FIN-037 | 全社 | 财务总监 |
@@ -617,3 +620,4 @@ sequenceDiagram
 | v1.0 | 2026-10-20 | 初版：業務概要、会計政策、SoD、業務フロー、機能 46 件、画面 61 件、帳票 38 件、バッチ 20 件、テーブル 52 件、IF 6 件、権限、未決事項 | finance-designer |
 | v1.1 | 2026-10-20 | 09 章 §3 追補に伴う契約表更新：E36 `production.material.returned`（J12 材料費戻し）購読、E37 `inventory.period.reopened` 購読（FIN が期間再開承認者）を追記 | finance-designer |
 | v1.2 | 2026-10-20 | 红队评审第 2 轮修复：唯一シナリオ（売上 66,666,666.67／原価 50,000,000／粗利 25%／在庫 98,000,000／売掛 149,000,000／買掛 68,000,000／所得税 1,300,000）へ全帳票・KPI を統一。DSO 68 日・DPO 45 日（平均残高口径）を KPI に追加、《增值税法》《关税法》引用、基本准则第 43 条、固定資産 5 年区分、所有者权益变动表（PRT-FIN-039、帳票 39 件）を追加 | finance-designer |
+| v1.3 | 2026-10-21 | F-FIN-047／SCR-FIN-062、`finance:standard-cost:*` 権限 | 业务分析 |

@@ -52,7 +52,7 @@
 | BAT-INV-006 | 预留过期自动释放 | 日次/時次 | INV | 05-inventory/00-overview.md |
 | BAT-INV-007 | 事件补偿・差异检测 | 日次 | INV | 05-inventory/00-overview.md |
 | BAT-INV-008 | 库存周转率统计 | 月次 | INV | 05-inventory/00-overview.md |
-| BAT-INV-009 | 历史数据归档 | 月次（Phase 2） | INV | 05-inventory/00-overview.md |
+| BAT-INV-009 | 历史数据归档 | 月次 | INV | 05-inventory/00-overview.md |
 | BAT-MDM-001 | 汇率导入与生效 | 日次（取込）+ イベント | MDM | 02-mdm/00-overview.md |
 | BAT-MDM-002 | 价格生效/失效处理 | 日次 | MDM | 02-mdm/00-overview.md |
 | BAT-MDM-003 | 信用额度日切快照 | 日次 | MDM | 02-mdm/00-overview.md |
@@ -61,7 +61,7 @@
 | BAT-MDM-006 | 主数据质量月报 | 月次 | MDM | 02-mdm/00-overview.md |
 | BAT-MDM-007 | 资质・证照到期预警 | 日次 | MDM | 02-mdm/00-overview.md |
 | BAT-MDM-008 | 变更审批超时提醒 | 日次 | MDM | 02-mdm/00-overview.md |
-| BAT-MDM-009 | 主数据分发导出（Phase2） | 日次 | MDM | 02-mdm/00-overview.md |
+| BAT-MDM-009 | 主数据分发导出 | 日次 | MDM | 02-mdm/00-overview.md |
 | BAT-MDM-010 | 编码空番・使用停止检查 | 月次 | MDM | 02-mdm/00-overview.md |
 | BAT-PRD-001 | MRP 自動実行（日次） | 日次/手動 | PRD | 06-production/00-overview.md |
 | BAT-PRD-002 | 低层码再計算 | 日次/手動 | PRD | 06-production/00-overview.md |
@@ -108,7 +108,7 @@
 | BAT-SAL-009 | 发票与 AR 紐付け照合 | 日次 | SAL | 03-sales/00-overview.md |
 | BAT-SAL-010 | 退货期限超过提醒 | 日次 | SAL | 03-sales/00-overview.md |
 | BAT-SAL-011 | 销售数据抽出（RPT 連携） | 日次 | SAL | 03-sales/00-overview.md |
-| BAT-SAL-012 | 数电票状态同步（Phase2） | 日次/イベント | SAL | 03-sales/00-overview.md |
+| BAT-SAL-012 | 数电票状态同步 | 日次/イベント | SAL | 03-sales/00-overview.md |
 | BAT-SAL-013 | 销售预测与实际差异分析 | 月次 | SAL | 03-sales/00-overview.md |
 | BAT-SYS-001 | Outbox 事件配信 | 自動（10 秒間隔） | SYS | 01-system/00-overview.md |
 | BAT-SYS-002 | セッション・在线用户整合 | 自動（5 分間隔） | SYS | 01-system/00-overview.md |
