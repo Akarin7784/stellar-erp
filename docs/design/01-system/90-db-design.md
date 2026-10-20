@@ -685,7 +685,7 @@ COMMENT ON TABLE sys_param IS '系统参数';
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
 | uk_sys_param_key | UNIQUE | (tenant_id, company_id, param_key) | WHERE deleted=FALSE | テナント×会社×パラメータキー一意（迁移 `sys/V202610210103__sys_t1_core_tables.sql` と一致） |
-| idx_sys_param_group | B-Tree | (param_group, sort_no) | — | グループ別一覧 |
+| idx_sys_param_group | B-Tree | (tenant_id, company_id, param_group, sort_no) | — | グループ別一覧 |
 
 **業務パラメータ（2026-10-20 決定）**：
 
@@ -696,6 +696,7 @@ COMMENT ON TABLE sys_param IS '系统参数';
 - `sys_param` はテナント単位（`tenant_id` + RLS）。既定値は**テナント作成時**に `sys_init_tenant(tenant_id)` を呼び出して投入する。既存の種テナントにはマイグレーションで明示的に行を投入する。関数・DDL は DBA の T1 マイグレーションで定義（本書は参照のみ）。
 - `sys_init_tenant` が投入する既定パラメータ：`prd.completion_over_rate = 0.05`（今後追加する既定パラメータもこの表に列挙する）。
 - 値が存在しない場合は既定値で補わず、エラー `5000` を返す。
+- **参照範囲（2026-10-21 決定）**：パラメータは**当該会社のみ**を参照する（`tenant_id`・`company_id` はログインコンテキストから取得）。`company_id = 0` へのフォールバックは行わず、当該会社に行がなければ `5000`。迁移 `V202610210103__sys_t1_core_tables.sql:165` の `--` 注釈（「租户级默认使用 company_id = 0」）は廃止扱いとし、本書を正とする。
 - `sys_init_tenant` のセキュリティ要件（関数定義は DBA の T1 マイグレーション）：`SECURITY DEFINER`、`search_path` を固定（`SET search_path = pg_catalog, public`）、処理の最初に `set_config('app.tenant_id', 対象 tenant_id, true)` を設定してから投入する。`REVOKE EXECUTE ... FROM PUBLIC` とし、`erp_app` には付与しない。実行権限はテナント払い出し用ロールのみ。
 - 完工超収の容差チェーン：受注行 > 物料 > 物料分類 > 会社既定（本パラメータ）。購買受入の容差チェーン（物料 > 分類 > 仕入先 > 会社）とは別系統。
 - `allowed_qty = floor(ordered_qty × (1 + rate))`（数量は基本単位、`mdm_uom.decimal_places` の精度で切捨て）。受注行確定時にスナップショットし、承認済みの受注変更または超産承認の承認時のみ再計算する。
@@ -1599,4 +1600,4 @@ COMMENT ON TABLE sys_data_maintenance_log IS '数据维护历史（初期化・�
 | v1.0 | 2026-10-20 | 初版：設計方針、ER 図、38 テーブル定義（DDL・索引・制約・更新仕様）、容量・保存期間、更新タイミング | system-workflow |
 | v1.1 | 2026-10-20 | Lead 裁决に伴う修正：承認マトリクスは `wf_approval_matrix`（WF 所有）に統一（本域は保存しない）。工厂主データを MDM（`mdm_factory`）へ移管し、SYS は `sys_factory` を `sys_factory_setting`（工厂组织设置）に変更。ER・テーブル一覧・コメントを更新 | system-workflow |
 | v1.2 | 2026-10-20 | 红队第 2 轮修复：REV-005（データ範囲に工場/倉庫次元 `factory_ids`/`warehouse_ids`、scope_type 6/7、GIN 索引、ER 追加）、REV-006（監査ログは重要操作を同一 TX で同期 INSERT・破棄禁止・ローカル退避+アラート）、REV-026（`sys_sequence` DDL を 04-common §5 に一致）、Outbox DDL 正本を本ファイルと明記し `event_version` 追加 | system-workflow |
-| v1.3 | 2026-10-21 | §3.15 `uk_sys_param_key` を `(tenant_id, company_id, param_key) WHERE deleted=FALSE` に修正（迁移 V202610210103 に一致）、`param_key` 注釈を「テナント・会社内で一意」に | 业务分析 |
+| v1.3 | 2026-10-21 | §3.15 `uk_sys_param_key` を `(tenant_id, company_id, param_key) WHERE deleted=FALSE` に修正（迁移 V202610210103 に一致）、`param_key` 注釈を「テナント・会社内で一意」に、`idx_sys_param_group` を `(tenant_id, company_id, param_group, sort_no)` に修正（迁移 :167 に一致）、参照範囲を当該会社のみ・`company_id=0` フォールバックなし・欠落は 5000 と明記（迁移 :165 注釈は廃止） | 业务分析 |
