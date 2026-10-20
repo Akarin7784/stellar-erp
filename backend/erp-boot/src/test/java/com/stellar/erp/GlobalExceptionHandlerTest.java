@@ -1,0 +1,107 @@
+package com.stellar.erp;
+
+import com.stellar.erp.common.BizException;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RestController;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+class GlobalExceptionHandlerTest {
+
+    @RestController
+    static class ThrowingController {
+        @GetMapping("/biz/{code}")
+        String biz(@PathVariable int code) {
+            throw new BizException(code, "msg-" + code);
+        }
+
+        @GetMapping("/msg")
+        String msg() {
+            throw new BizException(60040, "MSG-PRD-040", "完工数量超过允许上限");
+        }
+
+        record Body(int qty) {}
+
+        @PostMapping("/echo")
+        String echo(@RequestBody Body body) {
+            return "ok";
+        }
+
+        @GetMapping("/boom")
+        String boom() {
+            throw new IllegalStateException("secret detail");
+        }
+    }
+
+    private final MockMvc mvc = MockMvcBuilders.standaloneSetup(new ThrowingController())
+            .setControllerAdvice(new GlobalExceptionHandler())
+            .build();
+
+    @ParameterizedTest
+    @CsvSource({
+            "4002, 409",   // 状态不整合
+            "4003, 409",   // 乐观锁冲突
+            "4005, 409",   // 重复处理
+            "60001, 422",  // 领域业务规则（PRD）
+            "50001, 422",  // 领域业务规则（INV）
+            "4001, 404",
+            "1001, 400",
+            "3001, 403",
+            "400, 400"     // 旧写法：BizException(String) 默认码
+    })
+    void bizExceptionMapsToSpecStatusAndKeepsCode(int code, int httpStatus) throws Exception {
+        mvc.perform(get("/biz/" + code))
+                .andExpect(status().is(httpStatus))
+                .andExpect(jsonPath("$.code").value(code))
+                .andExpect(jsonPath("$.message").value("msg-" + code))
+                .andExpect(jsonPath("$.msgId").doesNotExist());
+    }
+
+    @Test
+    void msgIdIsReturnedWhenPresent() throws Exception {
+        mvc.perform(get("/msg"))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.code").value(60040))
+                .andExpect(jsonPath("$.msgId").value("MSG-PRD-040"));
+    }
+
+    @Test
+    void malformedBodyIs400NotServerError() throws Exception {
+        mvc.perform(post("/echo").contentType(MediaType.APPLICATION_JSON).content("{not json"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400));
+    }
+
+    @Test
+    void wrongMethodIs405() throws Exception {
+        mvc.perform(post("/boom"))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(jsonPath("$.code").value(405));
+    }
+
+    @Test
+    void unknownExceptionIs500WithoutLeakingDetail() throws Exception {
+        mvc.perform(get("/boom"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.code").value(500))
+                .andExpect(jsonPath("$.message").value("服务器内部错误"));
+    }
+
+    @Test
+    void unmappedCodeFallsBackTo500() {
+        assertThat(GlobalExceptionHandler.httpStatusOf(123).value()).isEqualTo(500);
+    }
+}
