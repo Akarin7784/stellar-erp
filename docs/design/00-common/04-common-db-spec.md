@@ -22,7 +22,7 @@
 | タイムゾーン | DB は UTC 保存、アプリは Asia/Shanghai で表示（`TIMESTAMPTZ` 使用） |
 | データアクセス | MyBatis-Plus 3.5.17（単純 CRUD）+ JdbcClient/XML（複雑検索・レポート） |
 | マイグレーション | Flyway（SQL スクリプト）。本設計書の DDL が正 |
-| 拡張 | `pg_trgm`（名称曖昧検索）、GIN（JSONB）。Phase 2 で RLS・パーティション拡張 |
+| 拡張 | `pg_trgm`（名称曖昧検索）、GIN（JSONB）。RLS は第一版（首批業務テーブルと同時）、パーティション拡張は第一版 |
 | 命名 | 小文字 snake_case。予約語との衝突を避ける |
 
 ## 2. テーブル命名規則
@@ -302,7 +302,7 @@ V{yyyyMMdd}{NN}__{module}_{description}.sql
 
 - 全業務テーブルに `tenant_id`（首期 0）と `company_id`（首期 1）を保持。
 - 一意制約は `(company_id, business_key)` を基本とする。
-- Phase 2 多公司：会社間取引・会社別会計期間・会社別採番を追加。Phase 3：`tenant_id` + RLS（`CREATE POLICY ... USING (tenant_id = current_setting('app.tenant_id')::bigint)`）。
+- Phase 2 多公司：会社間取引・会社別会計期間・会社別採番を追加。第一版（首批業務テーブルと同時）：`tenant_id` + RLS（`CREATE POLICY ... USING (tenant_id = current_setting('app.tenant_id')::bigint)`）。
 - 本設計では `company_id` の付与を全業務テーブルで必須とし、後からの追加を不要にする。
 
 ## 15. バックアップ・リカバリ（設計前提）
