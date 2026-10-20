@@ -25,6 +25,7 @@
 ## AC1-3 RLS テナント分離（Refs #9、#10）
 
 - G：`mdm_material` に tenant 0 と tenant 9 の行。W：`erp_app` で `app.tenant_id=0` を設定して SELECT。T：tenant 0 の行のみ。W：`tenant_id=9` で INSERT。T：WITH CHECK で拒否。W：`app.tenant_id` 未設定で照会。T：エラー（[10-rls-and-db-roles.md](../00-common/10-rls-and-db-roles.md) に従う）。
+- 決定（#10、[10-rls-and-db-roles.md](../00-common/10-rls-and-db-roles.md)）：RLS は `tenant_id` のみで分離し、`company_id` はポリシー条件に含めない。同一テナント内の会社間分離はアプリ層で行う。
 
 ## AC1-4 FK RESTRICT
 
