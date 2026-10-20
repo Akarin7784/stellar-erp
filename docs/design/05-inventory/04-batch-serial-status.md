@@ -208,7 +208,7 @@ stateDiagram-v2
 
 | No | 項目 ID | 項目名 | 種別 | 型/桁 | 必須 | 初期値 | 入力チェック | DB 項目 |
 |---|---|---|---|---|---|---|---|---|
-| 1 | `materialCode` | 物料コード | マスタ選択 | VARCHAR(10) | ○ | 空 | 存在・有効 | `material_id` |
+| 1 | `materialCode` | 物料コード | マスタ選択 | VARCHAR(64) | ○ | 空 | 存在・有効 | `material_id` |
 | 2 | `batchNo` | 批次号 | テキスト | VARCHAR(64) | △ | 空 | 批次管理時必須・存在 | `batch_id/batch_no` |
 | 3 | `serialNo` | 序列号 | テキスト | VARCHAR(64) | △ | 空 | 序列号管理時必須（数量 1） | `serial_no` |
 | 4 | `fromStatus` | 変換元状態 | 選択 | SMALLINT | ○ | 空 | マトリクスに存在する from | `from_status` |

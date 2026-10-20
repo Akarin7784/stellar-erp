@@ -216,7 +216,7 @@ stateDiagram-v2
 | 4 | `warehouseIds` | 倉庫 | 複数選択 | BIGINT[] | — | 既定倉庫 | コード存在 | `warehouse_id` | — |
 | 5 | `materialKeyword` | 物料 | テキスト | VARCHAR(100) | — | 空 | 部分一致 | 結合 `mdm_material` | — |
 | 6 | `batchNo` | 批次号 | テキスト | VARCHAR(64) | — | 空 | 前方一致 | `batch_no` | — |
-| 7 | `sourceNo` | 來源伝票番号 | テキスト | VARCHAR(64) | — | 空 | 前方一致 | `source_no` | GR/DN/WO… |
+| 7 | `sourceNo` | 來源伝票番号 | テキスト | VARCHAR(32) | — | 空 | 前方一致 | `source_no` | GR/DN/WO… |
 | 8 | `sourceTypes` | 來源種別 | 複数選択 | VARCHAR(32)[] | — | 全 | 固定値 | `source_type` | 下記 4.6.2 |
 | 9 | `txnStatuses` | 事務状態 | 複数選択 | SMALLINT[] | — | 30,90 | 10/20/30/90 | `txn_status` | 既定は確定分のみ |
 | 10 | `isReversal` | 沖销のみ | チェック | BOOLEAN | — | false | — | `is_reversal` | — |
