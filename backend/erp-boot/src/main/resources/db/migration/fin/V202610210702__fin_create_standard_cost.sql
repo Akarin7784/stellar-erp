@@ -82,6 +82,7 @@ DECLARE
     v_new      fin_standard_cost%ROWTYPE;
     v_cur      fin_standard_cost%ROWTYPE;
     v_closed   BOOLEAN := FALSE;
+    v_month    DATE;
 BEGIN
     -- 租户：取调用方会话的 app.tenant_id 并在本事务内显式设定（FORCE RLS 对 owner 也生效）
     v_tenant := NULLIF(current_setting('app.tenant_id', true), '')::bigint;
@@ -145,10 +146,16 @@ BEGIN
             RAISE EXCEPTION '70134' USING ERRCODE = 'P0001', DETAIL = SQLERRM;
     END;
 
-    -- 4. 快照写入 mdm_material.standard_cost（触发器仅放行 current_user = erp_cost_publisher）
-    UPDATE mdm_material
-       SET standard_cost = v_new.total_unit_cost
-     WHERE tenant_id = v_tenant AND company_id = v_new.company_id AND id = v_new.material_id;
+    -- 4. 快照写入 mdm_material.standard_cost（触发器仅放行 current_user = erp_cost_publisher）。
+    --    仅当新版生效期间覆盖当月时写入；未来月生效的版本由期间开账（BAT-FIN-001）刷新。
+    --    「当月」：fin_period 建表前一律取发布当天所在月（current_date 的月初）；
+    --    建 fin_period 后改按 OPEN 期间判断（另开 PR）。新版 period_to 此时必为 NULL。
+    v_month := date_trunc('month', current_date)::date;
+    IF v_new.period_from <= v_month AND (v_new.period_to IS NULL OR v_new.period_to >= v_month) THEN
+        UPDATE mdm_material
+           SET standard_cost = v_new.total_unit_cost
+         WHERE tenant_id = v_tenant AND company_id = v_new.company_id AND id = v_new.material_id;
+    END IF;
 END;
 $$;
 
@@ -157,3 +164,35 @@ REVOKE ALL ON FUNCTION public.fin_publish_standard_cost(BIGINT, BIGINT) FROM PUB
 GRANT EXECUTE ON FUNCTION public.fin_publish_standard_cost(BIGINT, BIGINT) TO erp_app;
 COMMENT ON FUNCTION public.fin_publish_standard_cost(BIGINT, BIGINT) IS
     '标准成本发布（07-finance §6.12）：锁物料行→截止上一版→发布→写 mdm_material.standard_cost 快照';
+
+-- erp_app：去掉表级 UPDATE（含 DEFAULT PRIVILEGES 带来的授权），按列授回草稿可编辑列（不含 id/tenant_id/created_*/published_*）
+REVOKE UPDATE ON fin_standard_cost FROM erp_app;
+GRANT UPDATE (
+        company_id, material_id, material_code, cost_version, period_from, period_to, cost_method,
+        bom_id, routing_id, base_qty, std_labor_hours, std_labor_rate, std_overhead_rate,
+        material_unit_cost, labor_unit_cost, overhead_unit_cost, outsourcing_unit_cost, total_unit_cost,
+        status, version, remark, ext_data, updated_at, updated_by
+) ON fin_standard_cost TO erp_app;
+
+-- 发布保护：非 erp_cost_publisher 不得以 status=40 INSERT/UPDATE，也不得修改已发布行（只认 current_user）
+CREATE OR REPLACE FUNCTION public.trg_fin_standard_cost_protect_publish()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF current_user IS DISTINCT FROM 'erp_cost_publisher'
+       AND (NEW.status = 40 OR (TG_OP = 'UPDATE' AND OLD.status = 40)) THEN
+        RAISE EXCEPTION '70135' USING ERRCODE = 'P0001',
+            DETAIL = 'fin_standard_cost 的发布/已发布行仅允许经 fin_publish_standard_cost 修改';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_fin_standard_cost_protect_publish
+    BEFORE INSERT OR UPDATE ON fin_standard_cost
+    FOR EACH ROW
+    EXECUTE FUNCTION public.trg_fin_standard_cost_protect_publish();
+
+COMMENT ON FUNCTION public.trg_fin_standard_cost_protect_publish() IS
+    '禁止非 erp_cost_publisher 发布（status=40）或修改已发布的 fin_standard_cost';
