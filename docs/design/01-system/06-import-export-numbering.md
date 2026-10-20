@@ -211,7 +211,7 @@ stateDiagram-v2
 1. 呼出元（伝票登録サービス）から `ruleCode` を指定して SYS の公開 Service（`NumberingService.next(ruleCode)`）を呼ぶ（[跨域流程](../00-common/09-cross-domain-flow.md) 2.1 同期コマンド）。
 2. `sys_number_rule` から有効ルールを取得する（`status=1`、`effective_from <= today`、最新 `effective_from`）。
 3. `reset_cycle` に応じて `sequence_date` を計算する（日次=当日、月次=当月 1 日、年次=当年 1 月 1 日、無=1970-01-01）。
-4. `INSERT INTO sys_sequence ... ON CONFLICT (sequence_key, sequence_date) DO UPDATE SET current_value = sys_sequence.current_value + sys_sequence.step RETURNING current_value` を実行する（呼出元トランザクション内）。
+4. `INSERT INTO sys_sequence ... ON CONFLICT (tenant_id, company_id, sequence_key, sequence_date) DO UPDATE SET current_value = sys_sequence.current_value + sys_sequence.step RETURNING current_value` を実行する（呼出元トランザクション内）。
 5. 採番値を `prefix + date.format(date_format) + zeroPad(current_value, seq_length)` で生成する。`current_value` が `seq_length` 桁を超える場合は `MSG-SYS-058`（桁溢れ）でエラー。
 6. 番号を返す。呼出元がロールバックした場合、連番は消費される（欠番許容）。
 7. ルールの `example_value` を更新する（初回のみ）。
@@ -386,7 +386,7 @@ templateId=1845000000000007001&mode=2&overwrite=false&errorPolicy=1&file=@users.
 
 | # | 事項 | 理由 | 暫定仕様 | 担当 | 期限 |
 |---|---|---|---|---|---|
-| 1 | ジョブワーカーの実行方式 | アプリ内スレッド or 外部ワーカー | Phase 1 はアプリ内（`@Async` + スレッドプール 5）。水平分割は Phase 2 | Lead | 2026-11-17 |
+| 1 | ジョブワーカーの実行方式 | アプリ内スレッド or 外部ワーカー | アプリ内（`@Async` + スレッドプール 5）。水平分割も第一版対象（TODO：設計が未作成） | Lead | 2026-11-17 |
 | 2 | 採番 API の公開形態 | モジュール公開 Service か内部 REST か | 同一プロセスの公開 Service（[跨域流程](../00-common/09-cross-domain-flow.md) 2.1）。REST は公開しない | Lead | 2026-10-27 |
 | 3 | インポートの業務サービス呼出方式 | 域を跨るバルク登録の責任分界 | 各域が `ImportHandler` インタフェースを実装し、SYS が呼ぶ（更新責任は各域） | Lead | 2026-11-17 |
 | 4 | 年度切替時の採番ルール運用 | `effective_from` による切替の運用詳細 | 年次ルールは 12/1 までに翌年ルールを登録。進行中伝票は旧番号 | 系统管理员 | 2026-12-01 |

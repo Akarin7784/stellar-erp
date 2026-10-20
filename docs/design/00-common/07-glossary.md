@@ -48,7 +48,7 @@
 | 打印模板 | 帳票テンプレート | Print Template | 帳票レイアウトの定義 | SYS |
 | 定时任务 | 定期ジョブ | Scheduled Job | 定刻実行のバッチ | SYS |
 | 个人中心 | マイページ | Personal Center | 個人設定・パスワード変更 | SYS |
-| 租户 | テナント | Tenant | マルチテナントの契約単位（首期未使用） | SYS |
+| 租户 | テナント | Tenant | マルチテナントの契約単位（第一版で RLS により分離） | SYS |
 | 快照 | スナップショット | Snapshot | 取引時点のマスタ値を伝票に保存したもの | 全体 |
 | 逻辑删除 | 論理削除 | Logical Delete | 行を物理削除せず削除フラグを立てる | 全体 |
 | 乐观锁 | 楽観ロック | Optimistic Lock | version による更新競合検出 | 全体 |
@@ -106,7 +106,7 @@
 | 账龄 | エイジング | Aging | 債権・債務の経過期間分析 | FIN |
 | 换货 | 交換 | Exchange | 返品と再出荷の組合せ | SAL |
 | 销售预测 | 売上予測 | Sales Forecast | 将来需要の予測 | SAL |
-| 出口销售 | 輸出販売 | Export Sales | 海外向け販売（Phase 2） | SAL |
+| 出口销售 | 輸出販売 | Export Sales | 海外向け販売 | SAL |
 
 ## 5. 采购（PUR）
 

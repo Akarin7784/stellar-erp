@@ -9,7 +9,7 @@
 | 作成者 | Lead（设计基盤） |
 | 承認者 | 未承認（社内レビュー待ち） |
 | 状態 | ドラフト（レビュー中） |
-| 関連文書 | [共通项目定义](01-common-item-definitions.md) / [ADR-0003](../../adr/0003-database.md) / [テーブル定義書テンプレート](../_template/03-table-definition-template.md) |
+| 関連文書 | [共通项目定义](01-common-item-definitions.md) / [RLS・DB ロール](10-rls-and-db-roles.md)（PR #43） / [ADR-0003](../../adr/0003-database.md) / [テーブル定義書テンプレート](../_template/03-table-definition-template.md) |
 
 ---
 
@@ -205,7 +205,7 @@ PostgreSQL の一意制約チェックは RLS を経由しないため、`tenant
 | JSONB | `USING gin (ext_data jsonb_path_ops)`（必要なテーブルのみ） |
 | 過剰索引の禁止 | 更新系テーブルの索引は 1 テーブル 5 本以内を目安。追加時は設計書に目的・想定 SQL を書く |
 | 命名 | `idx_{table}_{cols}`、`uk_{table}_{cols}`、`gin_{table}_{col}` |
-| 統計 | 大量テーブルは `ALTER TABLE ... SET (autovacuum_vacuum_scale_factor=0.05)` 等を検討（Phase 2） |
+| 統計 | 大量テーブルは `ALTER TABLE ... SET (autovacuum_vacuum_scale_factor=0.05)` 等を設定 |
 
 主要な索引例：
 
@@ -222,14 +222,22 @@ CREATE INDEX gin_mdm_material_name
 
 | テーブル | 方針 | 理由 |
 |---|---|---|
-| `inv_stock_txn`（在庫取引） | 月次レンジパーティション（Phase 2。Phase 1 は単一テーブル + 将来移行可能な設計） | 年間 500 万行、期間検索中心 |
-| `sys_audit_log` | 月次レンジパーティション（Phase 2） | 年間数百万行 |
+| `inv_stock_txn`（在庫取引） | 月次レンジパーティション（第一版から。他テーブルから FK 参照しない。§8.1 参照） | 年間 500 万行、期間検索中心 |
+| `sys_audit_log` | 月次レンジパーティション（第一版から。FK 参照しない） | 年間数百万行 |
+| 仕訳明細（会計伝票明細） | 月次レンジパーティション（第一版から。FK 参照しない。§8.1 参照） | 伝票明細の大量蓄積 |
 | `int_api_call_log` | 月次、6 か月保存後に削除/アーカイブ | 外部 API 呼出量 |
-| `wf_` 系 | Flowable 標準テーブル。履歴は定期的にアーカイブ（Phase 2） | 完了プロセス増加 |
-| その他伝票 | 5 年保存。期間明細はアーカイブ（Phase 2） | 会計保存年限に合わせる |
+| `wf_` 系 | Flowable 標準テーブル。専用スキーマ `flowable`（[10-rls-and-db-roles.md](10-rls-and-db-roles.md)、PR #43）。履歴は定期的にアーカイブ | 完了プロセス増加 |
+| その他伝票 | 5 年保存。期間明細はアーカイブ（TODO：アーカイブ先スキーマ・手順の設計が未作成） | 会計保存年限に合わせる |
 
 - パーティション化する場合も、アプリからは 1 テーブルとして見える（PostgreSQL 宣言的パーティショニング）。
 - アーカイブは削除ではなく別スキーマ/別 DB へ移管し、参照用ビューを提供する。
+
+### 8.1 パーティション表を FK で参照しない（2026-10-20 決定）
+
+- 対象：`inv_stock_txn`（在庫取引）、仕訳明細（会計伝票明細）、`sys_audit_log`。
+- 他テーブルからこれらを FK で参照しない（パーティション表の一意制約はパーティションキーを含む必要があり、複合 FK が成立しないため）。
+- 明細と表頭の整合性（例：明細に冗余する `txn_type` が表頭と一致すること）は **トリガー** で書込時に検証し、過帳時の値設定は **ストアドプロシージャ** が担う。
+- 冗余列（`txn_type` 等）は `NOT NULL` とする（NULL だと CHECK が素通りするため）。
 
 ## 9. JSONB 拡張項目
 
@@ -318,6 +326,14 @@ V{yyyyMMdd}{DD}{NN}__{module}_{description}.sql     # バージョンは 12 桁
 - トランザクション境界は Service の公開メソッド単位。外部 IF 呼出はトランザクション外（イベント/アウトボックス）。
 - 長時間トランザクション禁止（目安 5 秒以内）。帳票生成・ファイル出力はトランザクション外。
 
+### 11.1 跨表ロック順序（全域共通、2026-10-20 決定）
+
+- 過帳系パスで複数テーブルをロックする場合、**受注行（`sal_sales_order_line`）→ 工单（`prd_work_order`）** の順にロックする。同一テーブルの複数行は **id 昇順** でロックする。
+- 完工超収の上限 `allowed_qty`（基本単位、受注行 `ordered_qty` 基準）と容差チェーンは `sys_param`（[01-system 90 §3.15](../01-system/90-db-design.md)） を参照。超産承認表の DDL は 06-production で定義予定。
+- 適用対象：完工報告、冲销（取消・反向伝票）、返工入庫、受注変更、超産承認。いずれのストアドプロシージャもこの順序に従う（詳細は G2-18、Refs #29）。
+- 受注変更のように受注行を起点としない処理も、先に受注行を `FOR UPDATE` し、その後関連工单を id 昇順で `FOR UPDATE` してから数量（已完工数・已発貨数）を検証する。
+- **過帳パスは行ロックのみ**（数量累加で `version` を検査しない。409 を返さない）。**楽観排他（`version`）は画面編集のみ**とし、競合時は HTTP `409` + `code=4003`（[03 API 規格 §10](03-common-api-spec.md)）。
+
 ## 12. 監査・履歴・スナップショット
 
 | 種類 | 実装 |
@@ -365,15 +381,27 @@ V{yyyyMMdd}{DD}{NN}__{module}_{description}.sql     # バージョンは 12 桁
 - 全業務テーブルに `tenant_id`（租户＝部署客户、RLS の唯一の隔離キー）と `company_id`（租户内の法人主体、業務キー・索引の先頭列）を保持。1 tenant ⊇ N company。列名は `tenant_id` に統一。
 - `tenant_id` の既定値は `current_setting('app.tenant_id')::bigint`（**`DEFAULT 0` 禁止**）。租户上下文なしの INSERT は失敗する。Flyway/owner のシード投入は `tenant_id` を明示する。
 - 一意制約は `(tenant_id, company_id, business_key)` を基本とする（6.1）。`company_id` は NOT NULL・既定値なし。
-- Phase 2 多公司：会社間取引・会社別会計期間・会社別採番を追加。第一版（首批業務テーブルと同時）：`tenant_id` + RLS（ENABLE + FORCE、`USING` と `WITH CHECK` の両方に `tenant_id = current_setting('app.tenant_id')::bigint`）。テンプレート・DB ロール（owner / `erp_app`）・租户上下文は [10 RLS・数据库角色](10-rls-and-db-roles.md) を正とする（`sys_user` で実装済み）。
+- 多公司（第一版対象）：会社間取引・会社別会計期間・会社別採番を追加（TODO：詳細設計が未作成）。RLS は `tenant_id` のみ（ENABLE + FORCE、`USING` と `WITH CHECK`）。テンプレート・DB ロール（owner / `erp_app`）・租户上下文は [10 RLS・数据库角色](10-rls-and-db-roles.md) を正とする（`sys_user` で実装済み）。同一テナント内の会社間分離はアプリ層（決定：#10）。
 - 本設計では `company_id` の付与を全業務テーブルで必須とし、後からの追加を不要にする。
+
+### 14.1 RLS とデータベースロール（第一版、2026-10-20 決定）
+
+詳細・実装は [10-rls-and-db-roles.md](10-rls-and-db-roles.md)（#43 で追加済み）を正とする。本節は決定事項の要約のみ。
+
+| 項目 | 決定 |
+|---|---|
+| アプリ接続ロール | `erp_app`（`NOBYPASSRLS`、非 owner）。どのスキーマにも `CREATE` 権限を与えない |
+| RLS | `tenant_id` を持つ全業務テーブルで `ENABLE` + `FORCE ROW LEVEL SECURITY`。ポリシーは `USING` と `WITH CHECK` の両方を持つ |
+| テナント設定 | トランザクション内で `SET LOCAL app.tenant_id`（`set_config(..., true)`）。テナント文脈が無い場合はエラーとし、**tenant 0 へフォールバックしない** |
+| `tenant_id` 既定値 | `current_setting('app.tenant_id')::bigint` |
+| Flowable | 専用スキーマ `flowable`。表の owner はマイグレーションロール（Flyway で事前作成、`database-schema-update=false`）。`erp_app` には `USAGE` + 表の `SELECT/INSERT/UPDATE/DELETE` + シーケンスの `USAGE` を `ALTER DEFAULT PRIVILEGES` で付与（Refs #7） |
 
 ## 15. バックアップ・リカバリ（設計前提）
 
 | 項目 | 内容 |
 |---|---|
-| フルバックアップ | 日次 `pg_dump`（Phase 1）。Phase 2 で WAL アーカイブ + PITR |
-| リストア目標 | RPO 24 時間（Phase 1）→ 5 分（Phase 2）、RTO 4 時間 |
+| フルバックアップ | 日次 `pg_dump` + WAL アーカイブ + PITR（第一版） |
+| リストア目標 | RPO 5 分、RTO 4 時間 |
 | リストア訓練 | 四半期に 1 回。手順書は運用ドキュメントに分離 |
 | 論理削除データ | バックアップから復元可能とする（物理削除しない） |
 | 監査ログ | 改ざん防止のため追記専用。保存先の権限制御 |
@@ -406,6 +434,7 @@ V{yyyyMMdd}{DD}{NN}__{module}_{description}.sql     # バージョンは 12 桁
 | 版数 | 日付 | 変更内容 | 変更者 |
 |---|---|---|---|
 | v1.0 | 2026-10-20 | 初版：命名、型、制約、索引、パーティション、Flyway、排他、履歴、容量、多租戸、レビュー観点 | Lead |
+| v1.1 | 2026-10-20 | 第一版全量範囲（分期表記削除）、§8.1 パーティション表 FK 不可、§11.1 ロック順序（RLS・DB ロールは [10](10-rls-and-db-roles.md)、`ON CONFLICT` は #50） | 业务分析 |
 
 ## Flowable 引擎表の schema 分離（issue #7）
 

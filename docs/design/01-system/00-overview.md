@@ -31,7 +31,7 @@
 | 対象会社・拠点 | 华东精密电机股份有限公司 / 常州总装厂、无锡零部件厂（示例企业，参照 [demo-company.md](../90-data/demo-company.md)） |
 | 対象機能範囲 | F-SYS-001〜F-SYS-020（认证、授权、组织、配置、审计、通知、导入导出、运维监控） |
 | 対象外 | ①审批流引擎本身的流程定义与任务处理（WF 域）；②物料/客户/供应商等主数据（MDM 域）；③邮件/短信/企微的具体网关协议实现（INT 域，SYS 仅调用）；④外部公开 API 的客户端注册与限流（INT 域） |
-| 前提 | PostgreSQL 18.6、Redis 7（Sa-Token 会话/验证码/字典缓存）、RabbitMQ（Phase 2 事件外置）；见 [技术选型](../../tech-selection.md) |
+| 前提 | PostgreSQL 18.6、Redis 7（Sa-Token 会话/验证码/字典缓存）、RabbitMQ（事件外置、第一版）；见 [技术选型](../../tech-selection.md) |
 
 ### 1.3 業務上の狙い（KPI）
 
@@ -169,12 +169,12 @@ sequenceDiagram
 | F-SYS-014 | 公司/工厂多组织 | 公司主体・会計主体設定、工厂组织設定（有効化・既定割当・責任者）。工厂主データは MDM（`mdm_factory`）を参照 | SCR-SYS-012 | 登録/一覧 | P1 | 設計済 | [03-org-position.md](03-org-position.md) |
 | F-SYS-015 | 打印模板管理 | 帳票テンプレート登録/版管理/プレビュー/デフォルト指定 | SCR-SYS-026 | 登録/一覧 | P1 | 設計済 | [07-scheduled-job-print-monitor.md](07-scheduled-job-print-monitor.md) |
 | F-SYS-016 | 在线用户与定时任务监控 | セッション一覧・強制ログアウト、ジョブ定義/実行履歴/手動起動 | SCR-SYS-027、028 | 一覧/監視 | P1 | 設計済 | [07-scheduled-job-print-monitor.md](07-scheduled-job-print-monitor.md) |
-| F-SYS-017 | 租户与数据隔离 | 租户マスタ予約、tenant_id 付与方針、RLS 将来対応 | SCR-SYS-013 | 設定 | P2 | 設計済 | [03-org-position.md](03-org-position.md) |
+| F-SYS-017 | 租户与数据隔离 | 租户マスタ予約、tenant_id 付与方針、RLS 第一版有効 | SCR-SYS-013 | 設定 | P0 | 設計済 | [03-org-position.md](03-org-position.md) |
 | F-SYS-018 | 个人中心 | プロフィール、パスワード変更、通知設定、画面設定、セッション | SCR-SYS-003 | 登録編集 | P0 | 設計済 | [01-auth-login.md](01-auth-login.md) |
 | F-SYS-019 | 通知模板 | 站内/邮件/短信テンプレート、変数、版管理、テスト送信 | SCR-SYS-022、030 | 登録/一覧 | P1 | 設計済 | [05-audit-attachment-notify.md](05-audit-attachment-notify.md) |
 | F-SYS-020 | 系统初始化与数据维护 | 初期データ投入、キャッシュ再構築、データ整合性検査、保守 | SCR-SYS-029 | バッチ/ウィザード | P1 | 設計済 | [07-scheduled-job-print-monitor.md](07-scheduled-job-print-monitor.md) |
 
-> 優先度：P0（Phase 1 MVP）/ P1（Phase 1.5）/ P2（Phase 2）。状態：設計済＝本文書に詳細設計あり。
+> 優先度：P0 / P1 / P2 は実装順の目安であり、全て第一版の範囲（用户决定：不分期）。状態：設計済＝本文書に詳細設計あり。
 
 ## 5. 画面一覧
 
@@ -248,7 +248,7 @@ sequenceDiagram
 |---|---|---|---|---|---|
 | sys_company | 公司 | マスタ | 会計主体 | F-SYS-014 | 1〜5 件 |
 | sys_factory_setting | 工厂组织设置 | 設定 | 工厂の有効化・既定割当（主データは MDM の `mdm_factory`） | F-SYS-014 | 5 件 |
-| sys_tenant | 租户 | マスタ（予約） | マルチテナント契約単位 | F-SYS-017 | 1 件（P2） |
+| sys_tenant | 租户 | マスタ（予約） | マルチテナント契約単位 | F-SYS-017 | テナント数 |
 | sys_department | 部门 | マスタ | 組織ツリー | F-SYS-005 | 100 件 |
 | sys_position | 岗位 | マスタ | 職位 | F-SYS-006 | 80 件 |
 | sys_user | 用户 | マスタ | アカウント | F-SYS-002 | 900→1,150 |
@@ -292,11 +292,11 @@ sequenceDiagram
 | IF ID | 名称 | 相手先 | 方向 | 方式 | 頻度 | 契機 |
 |---|---|---|---|---|---|---|
 | IF-SYS-001 | メール送信 | SMTP サーバ（企业邮箱） | 送信 | SMTP/TLS | リアルタイム/再送 | 通知・パスワードリセット・バッチ失敗 |
-| IF-SYS-002 | 短信送信 | 短信网关（Phase 2） | 送信 | REST | リアルタイム | 承認依頼・验证码（Phase 2） |
-| IF-SYS-003 | 企业微信/钉钉通知 | 企业微信/钉钉開放平台（Phase 2） | 送信 | REST（Webhook） | リアルタイム | 承認依頼・アラート |
-| IF-SYS-004 | 统一身份认证 | LDAP/AD（Phase 2） | 双方向 | LDAP | ログイン時 | 認証・ユーザ同期 |
-| IF-SYS-005 | 对象存储 | MinIO/S3（Phase 2） | 双方向 | S3 API | リアルタイム | 附件・帳票ファイル保存 |
-| IF-SYS-006 | ウイルススキャン | ClamAV（Phase 2） | 送信 | clamd/ICAP | リアルタイム | 附件アップロード |
+| IF-SYS-002 | 短信送信 | 短信网关 | 送信 | REST | リアルタイム | 承認依頼・验证码 |
+| IF-SYS-003 | 企业微信/钉钉通知 | 企业微信/钉钉開放平台 | 送信 | REST（Webhook） | リアルタイム | 承認依頼・アラート |
+| IF-SYS-004 | 统一身份认证 | LDAP/AD | 双方向 | LDAP | ログイン時 | 認証・ユーザ同期 |
+| IF-SYS-005 | 对象存储 | MinIO/S3 | 双方向 | S3 API | リアルタイム | 附件・帳票ファイル保存 |
+| IF-SYS-006 | ウイルススキャン | ClamAV | 送信 | clamd/ICAP | リアルタイム | 附件アップロード |
 | IF-SYS-007 | PDF 変換 | LibreOffice/Puppeteer ローカルプロセス | 送信 | ローカル実行 | リアルタイム | 帳票・印刷プレビュー生成 |
 
 ## 10. 権限一覧
@@ -318,7 +318,7 @@ sequenceDiagram
 | `system:department:view` / `create` / `update` / `delete` | F-SYS-005 | 全社 | 系统管理员、人事管理员 |
 | `system:position:view` / `create` / `update` / `delete` | F-SYS-006 | 全社 | 系统管理员、人事管理员 |
 | `system:company:view` / `update` | F-SYS-014 | 全社 | 系统管理员、财务总监（参照） |
-| `system:tenant:view` / `update` | F-SYS-017 | 全社 | 系统管理员（P2） |
+| `system:tenant:view` / `update` | F-SYS-017 | 全社 | 系统管理员 |
 | `system:dict:view` / `create` / `update` / `delete` | F-SYS-007 | 全社 | 系统管理员 |
 | `system:param:view` / `update` | F-SYS-008 | 全社 | 系统管理员、运维担当（view） |
 | `system:audit-log:view` / `export` | F-SYS-009 | 全社/部門/自己 | 内审员、系统管理员、总经理、财务总监 |
@@ -361,11 +361,11 @@ sequenceDiagram
 | 2 | ユーザ・ロール変更の WF 承認 | SYS 内で WF を呼ぶか、SYS 専用の簡易承認か | WF の汎用申請（業務類型 `SYS_USER_CHANGE`）を利用。WF 未導入環境では管理者 2 名承認 | Lead / system-workflow | 2026-10-27 |
 | 3 | パスワードポリシー具体値 | 客户セキュリティ規程が未確定 | 8〜20 位、英大/英小/数字/記号の 3 類以上、90 日期限、履歴 5 代、失敗 5 回で 30 分ロック | 系统管理员（客户確認） | 2026-11-10 |
 | 4 | 多端ログイン制御 | 同一ユーザの同時ログイン可否 | 既定は多端可、設定 `auth.multiLogin=false` で 1 端末のみ | 系统管理员 | 2026-11-10 |
-| 5 | LDAP/AD 連携の Phase 1 要否 | 客户 IT 環境未確認 | Phase 1 はローカル認証のみ、IF-SYS-004 は Phase 2 | Lead | 2026-11-17 |
-| 6 | メール・短信サービス商 | 客户調達未定 | Phase 1 は SMTP のみ、短信は Phase 2（IF-SYS-002） | 系统管理员 | 2026-11-17 |
+| 5 | LDAP/AD 連携の方式 | 客户 IT 環境未確認 | 第一版でローカル認証 + IF-SYS-004 を対応（TODO：接続方式・同期項目の設計が未作成） | Lead | 2026-11-17 |
+| 6 | メール・短信サービス商 | 客户調達未定 | 第一版で SMTP と短信（IF-SYS-002）を対応。サービス商は未定 | 系统管理员 | 2026-11-17 |
 | 7 | Outbox 配信基盤の帰属 | 09 で `sys_outbox_event` を定義しているが、発行は各域 | テーブルは SYS が提供、発行 API は共通モジュール（`erp-common`）で実装 | Lead | 2026-10-27 |
-| 8 | 監査ログのパーティション開始時期 | 年 1,000 万行見込み | Phase 1 は単一テーブル + 月次アーカイブ、Phase 2 で宣言的パーティション | 运维担当 | 2026-12-01 |
-| 9 | 印刷テンプレートのエンジン | JasperReports / HTML→PDF の選定 | Phase 1 は HTML テンプレート + Puppeteer（IF-SYS-007）。JasperReports は Phase 2 検討 | Lead | 2026-11-10 |
+| 8 | 監査ログのパーティション開始時期 | 年 1,000 万行見込み | 第一版から宣言的パーティション（月次レンジ）。FK 参照しない | 运维担当 | 2026-12-01 |
+| 9 | 印刷テンプレートのエンジン | JasperReports / HTML→PDF の選定 | HTML テンプレート + Puppeteer（IF-SYS-007）。JasperReports 要否は検討中 | Lead | 2026-11-10 |
 | 10 | 租户分離（RLS）の実装時期 | 已決：不分期 | 第一版で首批業務テーブルと同時に RLS 有効化。テーブル・API は `tenant_id` を全件保持 | Lead | 已決（2026-10-20，Yuri） |
 
 ## 13. 改訂履歴

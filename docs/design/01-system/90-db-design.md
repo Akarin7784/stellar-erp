@@ -32,9 +32,9 @@
 
 | セット | 適用対象 | カラム |
 |---|---|---|
-| **M**（マスタ） | マスタ・設定テーブル | `id BIGINT PK` / `tenant_id BIGINT NOT NULL DEFAULT 0` / `company_id BIGINT NOT NULL DEFAULT 1` / `version INT NOT NULL DEFAULT 0` / `deleted BOOLEAN NOT NULL DEFAULT FALSE` / `remark VARCHAR(500)` / `ext_data JSONB` / `created_at TIMESTAMPTZ NOT NULL DEFAULT now()` / `created_by BIGINT NOT NULL DEFAULT 0` / `updated_at TIMESTAMPTZ NOT NULL DEFAULT now()` / `updated_by BIGINT NOT NULL DEFAULT 0` |
+| **M**（マスタ） | マスタ・設定テーブル | `id BIGINT PK` / `tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint` / `company_id BIGINT NOT NULL` / `version INT NOT NULL DEFAULT 0` / `deleted BOOLEAN NOT NULL DEFAULT FALSE` / `remark VARCHAR(500)` / `ext_data JSONB` / `created_at TIMESTAMPTZ NOT NULL DEFAULT now()` / `created_by BIGINT NOT NULL DEFAULT 0` / `updated_at TIMESTAMPTZ NOT NULL DEFAULT now()` / `updated_by BIGINT NOT NULL DEFAULT 0` |
 | **T**（取引・設定） | 関連・設定・ジョブテーブル | M から `deleted` / `ext_data` を除いたもの（`remark` は任意） |
-| **L**（追記ログ） | ログ・履歴テーブル | `id BIGINT PK` / `tenant_id BIGINT NOT NULL DEFAULT 0` / `created_at TIMESTAMPTZ NOT NULL DEFAULT now()` / `created_by BIGINT NOT NULL DEFAULT 0`（必要な場合のみ `company_id` を追加） |
+| **L**（追記ログ） | ログ・履歴テーブル | `id BIGINT PK` / `tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint` / `created_at TIMESTAMPTZ NOT NULL DEFAULT now()` / `created_by BIGINT NOT NULL DEFAULT 0`（必要な場合のみ `company_id` を追加） |
 
 - 主キーは BIGINT 雪花 ID（MyBatis-Plus `ASSIGN_ID`）。API・画面では文字列で扱う。
 - マスタの有効/無効は `status SMALLINT NOT NULL DEFAULT 1`（`1`:有效 / `0`:无效）で表現する（[共通业务规则](../00-common/08-common-business-rules.md) 2.2「使用停止は status=0」）。伝票系の状態コード `10/20/25/30/35/40/90/95` は本域では使用しない（承認状態は WF が保持）。
@@ -79,7 +79,7 @@ erDiagram
 | D-04 | セッション（Sa-Token）は Redis に保持し、DB にはログイン履歴のみ残す | 高頻度アクセスのため DB を経由しない。監査は `sys_login_log` |
 | D-05 | 監査ログはアプリ層で非同期書込み（キュー）とし、業務トランザクションをブロックしない | 応答性能。消失防止のため書込み失敗時はアプリログに退避 |
 | D-06 | Outbox・冪等・採番テーブルは SYS が提供し、全業務域が共通モジュール経由で利用 | 09 第 10 章の契約を 1 箇所で実装する |
-| D-07 | 添付実体は StorageService（Phase 1 ローカル、Phase 2 S3）に置き、DB はメタ情報のみ | 大容量バイナリを DB に置かない（04 共通规格） |
+| D-07 | 添付実体は StorageService（ローカル / S3 を設定で切替）に置き、DB はメタ情報のみ | 大容量バイナリを DB に置かない（04 共通规格） |
 | D-08 | 通知は「通知本体（`sys_notification`）+ 受信者（`sys_notification_receiver`）」に分離 | 一斉通知・既読管理・送信チャネル分岐のため |
 
 ## 2. テーブル一覧
@@ -88,7 +88,7 @@ erDiagram
 |---|---|---|---|---|---|---|---|
 | 1 | sys_company | 公司 | マスタ | F-SYS-014 | 1〜5 件 | 無期限 | 3.1 |
 | 2 | sys_factory_setting | 工厂组织设置 | 設定 | 工厂の有効化・既定割当（主データは mdm_factory） | F-SYS-014 | 5 件 | 無期限 | 3.2 |
-| 3 | sys_tenant | 租户 | マスタ（予約） | F-SYS-017 | 1 件（P2） | 無期限 | 3.3 |
+| 3 | sys_tenant | 租户 | マスタ（予約） | F-SYS-017 | テナント数 | 無期限 | 3.3 |
 | 4 | sys_department | 部门 | マスタ | F-SYS-005 | 100 件 | 無期限 | 3.4 |
 | 5 | sys_position | 岗位 | マスタ | F-SYS-006 | 80 件 | 無期限 | 3.5 |
 | 6 | sys_user | 用户 | マスタ | F-SYS-002 | 900→1,150 | 無期限（退職後 5 年） | 3.6 |
@@ -137,7 +137,7 @@ erDiagram
 | データ量見積 | 初期 1 件 / 年間 +0〜1 / 5 年後 1〜5 件 |
 | 保存期間 | 無期限 |
 
-**概要**：会計主体（法人）を表す。伝票・マスタは必ず `company_id` を保持するが、首期は 1 社固定（`id=1`）。多公司対応（Phase 2）でも本テーブルが正。
+**概要**：会計主体（法人）を表す。伝票・マスタは必ず `company_id` を保持するが、第一版で多公司対応し、本テーブルが正。
 
 ```sql
 CREATE TABLE sys_company (
@@ -204,7 +204,7 @@ COMMENT ON TABLE sys_factory_setting IS '工厂组织设置（工厂主数据は
 | uk_sys_factory_setting | UNIQUE | (factory_id) | WHERE deleted=FALSE | 工厂×設定一意 |
 | idx_sys_factory_setting_default | B-Tree | (company_id, is_default) | WHERE is_default AND deleted=FALSE | 既定工厂一意 |
 
-**更新仕様**：F-SYS-014 のみ。`is_default=true` は会社ごとに 1 件（アプリで保証、部分一意インデックス）。`factory_id` の有効性は MDM の公開 Service（`FactoryService.exists`）で検証する。MDM 側で工場が無効化された場合は本設定も `is_enabled=false` に更新する（Phase 1 は起動時の整合性検査 BAT-SYS-010 で検出）。
+**更新仕様**：F-SYS-014 のみ。`is_default=true` は会社ごとに 1 件（アプリで保証、部分一意インデックス）。`factory_id` の有効性は MDM の公開 Service（`FactoryService.exists`）で検証する。MDM 側で工場が無効化された場合は本設定も `is_enabled=false` に更新する（起動時の整合性検査 BAT-SYS-010 で検出）。
 
 ### 3.3 sys_tenant 租户（予約）
 
@@ -212,11 +212,11 @@ COMMENT ON TABLE sys_factory_setting IS '工厂组织设置（工厂主数据は
 |---|---|
 | テーブル物理名 | sys_tenant |
 | 種別 | マスタ（M セット、`company_id` は持たない） |
-| 更新元機能 | F-SYS-017（P2） |
-| データ量見積 | 首期 1 件（`id=0` はシステムテナント）/ Phase 3 で増加 |
+| 更新元機能 | F-SYS-017 |
+| データ量見積 | `id=0` はシステムテナント。テナント数に応じて増加 |
 | 保存期間 | 無期限 |
 
-**概要**：マルチテナントの契約単位。首期は単租户（`tenant_id=0` 固定）のため画面・API は参照のみ。Phase 3 で RLS（`tenant_id = current_setting('app.tenant_id')`）を有効化する際の親テーブルとなる。
+**概要**：マルチテナントの契約単位。画面・API は参照のみ。第一版から RLS（`tenant_id = current_setting('app.tenant_id')::bigint`）を有効化しており、その親テーブルとなる（[04 §14](../00-common/04-common-db-spec.md)）。テナント作成時は同一トランザクションで `sys_init_tenant(tenant_id)` を呼び出し、テナント単位の既定パラメータ（§3.15「業務パラメータ」の一覧）を投入する（関数は DBA の T1 マイグレーションで定義、本書は参照のみ）。
 
 ```sql
 CREATE TABLE sys_tenant (
@@ -229,14 +229,14 @@ CREATE TABLE sys_tenant (
     expire_date         DATE,                             -- 契約満了日
     status              SMALLINT      NOT NULL DEFAULT 1  -- 状态：1 有效 / 0 无效
 );
-COMMENT ON TABLE sys_tenant IS '租户（マルチテナント契約単位、首期予約）';
+COMMENT ON TABLE sys_tenant IS '租户（マルチテナント契約単位）';
 ```
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
 | uk_sys_tenant_code | UNIQUE | (tenant_code) | WHERE deleted=FALSE | 租户コード一意 |
 
-**更新仕様**：P2 まで画面は参照のみ。初期データで `id=0`「系统默认租户」を投入する。
+**更新仕様**：画面での編集も第一版対象（TODO：編集仕様未設計）。初期データで `id=0`「系统默认租户」を投入する。
 
 ### 3.4 sys_department 部门
 
@@ -687,6 +687,20 @@ COMMENT ON TABLE sys_param IS '系统参数';
 | uk_sys_param_key | UNIQUE | (param_key) | WHERE deleted=FALSE | パラメータキー一意 |
 | idx_sys_param_group | B-Tree | (param_group, sort_no) | — | グループ別一覧 |
 
+**業務パラメータ（2026-10-20 決定）**：
+
+| param_key | param_group | value_type | default_value | value_range | 説明 |
+|---|---|---|---|---|---|
+| `prd.completion_over_rate` | prd | 3 小数 | `0.05` | `0.0000-1.0000`（比率、小数 4 桁、`NUMERIC(5,4)` 相当） | 完工超収容差の会社既定（比率。`0.05` = 5%）。キー名はバックエンド PR #47 と一致 |
+
+- `sys_param` はテナント単位（`tenant_id` + RLS）。既定値は**テナント作成時**に `sys_init_tenant(tenant_id)` を呼び出して投入する。既存の種テナントにはマイグレーションで明示的に行を投入する。関数・DDL は DBA の T1 マイグレーションで定義（本書は参照のみ）。
+- `sys_init_tenant` が投入する既定パラメータ：`prd.completion_over_rate = 0.05`（今後追加する既定パラメータもこの表に列挙する）。
+- 値が存在しない場合は既定値で補わず、エラー `5000` を返す。
+- `sys_init_tenant` のセキュリティ要件（関数定義は DBA の T1 マイグレーション）：`SECURITY DEFINER`、`search_path` を固定（`SET search_path = pg_catalog, public`）、処理の最初に `set_config('app.tenant_id', 対象 tenant_id, true)` を設定してから投入する。`REVOKE EXECUTE ... FROM PUBLIC` とし、`erp_app` には付与しない。実行権限はテナント払い出し用ロールのみ。
+- 完工超収の容差チェーン：受注行 > 物料 > 物料分類 > 会社既定（本パラメータ）。購買受入の容差チェーン（物料 > 分類 > 仕入先 > 会社）とは別系統。
+- `allowed_qty = floor(ordered_qty × (1 + rate))`（数量は基本単位、`mdm_uom.decimal_places` の精度で切捨て）。受注行確定時にスナップショットし、承認済みの受注変更または超産承認の承認時のみ再計算する。
+- 超産承認は専用の承認表（承認番号、申請数量、承認後 `allowed_qty`、承認者、承認日時）を Flowable 承認で更新する。DDL は 06-production で定義予定（TODO、本書では相互参照のみ）。ロック順序は [04 §11.1](../00-common/04-common-db-spec.md)。
+
 **更新仕様**：更新時に `value_type` に基づく検証 + `value_range` 判定。`is_danger=true` は 2 名承認（申請者 ≠ 承認者）。更新後キャッシュ（Redis `sys:param:{key}`）更新 + 監査ログ。`is_readonly=true` は API でも更新拒否（`MSG-SYS-041`）。
 
 ### 3.16 sys_number_rule 编号规则
@@ -745,7 +759,8 @@ COMMENT ON TABLE sys_number_rule IS '编号规则（採番ルール）';
 ```sql
 CREATE TABLE sys_sequence (
     id             BIGINT       NOT NULL,
-    tenant_id      BIGINT       NOT NULL DEFAULT 0,
+    tenant_id      BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
+    company_id     BIGINT       NOT NULL,   -- 公司 ID（会社別採番）
     sequence_key   VARCHAR(64)  NOT NULL,   -- 採番キー（sys_number_rule.rule_code）
     sequence_date  DATE         NOT NULL,   -- 期間開始日（日次=当日、月次=月初、年次=年初、無=1970-01-01）
     current_value  BIGINT       NOT NULL DEFAULT 0, -- 現在値
@@ -756,16 +771,16 @@ CREATE TABLE sys_sequence (
     updated_at     TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_by     BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_sys_sequence PRIMARY KEY (id),
-    CONSTRAINT uk_sys_sequence_key_date UNIQUE (sequence_key, sequence_date)
+    CONSTRAINT uk_sys_sequence_key_date UNIQUE (tenant_id, company_id, sequence_key, sequence_date)
 );
 COMMENT ON TABLE sys_sequence IS '採番連番（ルール×期間。DDL 正本は 04-common §5）';
 ```
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_sys_sequence_key_date | UNIQUE | (sequence_key, sequence_date) | — | 採番キー×期間一意 |
+| uk_sys_sequence_key_date | UNIQUE | (tenant_id, company_id, sequence_key, sequence_date) | — | 租户×会社×採番キー×期間一意。本表は論理削除列を持たないため `WHERE deleted=FALSE` を付けない（部分一意索引規則の例外として登記） |
 
-**更新仕様**：`INSERT ... ON CONFLICT (sequence_key, sequence_date) DO UPDATE SET current_value = sys_sequence.current_value + EXCLUDED.step RETURNING current_value` を単一 SQL で実行。行ロック競合の待ち時間は 3 秒（超過時 `MSG-SYS-052`）。採番失敗時は業務トランザクション全体をロールバックし、番号を消費しない（共通业务规则 2.1）。
+**更新仕様**：`INSERT ... ON CONFLICT (tenant_id, company_id, sequence_key, sequence_date) DO UPDATE SET current_value = sys_sequence.current_value + sys_sequence.step RETURNING current_value` を単一 SQL で実行。行ロック競合の待ち時間は 3 秒（超過時 `MSG-SYS-052`）。採番失敗時は業務トランザクション全体をロールバックし、番号を消費しない（共通业务规则 2.1）。
 
 ### 3.18 sys_audit_log 操作审计日志
 
@@ -886,7 +901,7 @@ COMMENT ON TABLE sys_user_password_history IS '密码历史（再利用禁止判
 | データ量見積 | 20 万/年（メタのみ） |
 | 保存期間 | 紐付け先業務データの保存期間に準拠 |
 
-**概要**：ファイル実体のメタ情報。実体は StorageService（Phase 1 ローカルディスク、Phase 2 S3/MinIO）。`sha256` で完全性を検証する。
+**概要**：ファイル実体のメタ情報。実体は StorageService（ローカルディスク / S3・MinIO を設定で切替）。`sha256` で完全性を検証する。
 
 ```sql
 CREATE TABLE sys_attachment (
@@ -1218,7 +1233,7 @@ COMMENT ON TABLE sys_import_template IS '导入模板（Excel テンプレート
 | データ量見積 | 100 件 |
 | 保存期間 | 無期限 |
 
-**概要**：帳票（PRT-xxx）のレイアウトテンプレート。Phase 1 は HTML テンプレート（変数 `${...}`）+ PDF 変換（IF-SYS-007）。業務種別ごとに既定テンプレートを 1 件指定する。
+**概要**：帳票（PRT-xxx）のレイアウトテンプレート。HTML テンプレート（変数 `${...}`）+ PDF 変換（IF-SYS-007）。業務種別ごとに既定テンプレートを 1 件指定する。
 
 ```sql
 CREATE TABLE sys_print_template (
@@ -1228,7 +1243,7 @@ CREATE TABLE sys_print_template (
     report_id           VARCHAR(32)   NOT NULL,           -- 帳票 ID（例 PRT-SAL-001）
     biz_type            VARCHAR(64)   NOT NULL,           -- 業務種別
     module_code         VARCHAR(32)   NOT NULL,           -- 模块名
-    engine_type         SMALLINT      NOT NULL DEFAULT 1, -- エンジン：1 HTML / 2 JasperReports（P2）
+    engine_type         SMALLINT      NOT NULL DEFAULT 1, -- エンジン：1 HTML / 2 JasperReports
     content             TEXT          NOT NULL,           -- テンプレート内容（HTML/JSON）
     page_size           VARCHAR(16)   NOT NULL DEFAULT 'A4', -- 用紙（A4/A5/LABEL）
     orientation         SMALLINT      NOT NULL DEFAULT 1, -- 1 縦 / 2 横

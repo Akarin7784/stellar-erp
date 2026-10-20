@@ -35,7 +35,7 @@
 | 1 | 部門コードは `D`+3 桁で一意（[共通業務規則](../00-common/08-common-business-rules.md) 2.2） | 保存不可（MSG-SYS-030） |
 | 2 | 親部門が有効（`status=1`）であること | 保存不可 |
 | 3 | 会社は 1 件以上、工廠は会社に属すること | 保存不可 |
-| 4 | 租户機能は Phase 3 まで参照のみ | 画面は参照モード |
+| 4 | 租户機能は参照のみ（データ分離は第一版から RLS） | 画面は参照モード |
 
 ### 2.2 業務ルール
 
@@ -49,7 +49,7 @@
 | BR-06 | 岗位は職位制度に基づき、`position_level` で序列を表す。承認エスカレーションの上位者判定に使用する（F-WF-008） | 承認ルール | `position_level` |
 | BR-07 | 公司は会計主体。`unified_social_credit_code` は GB 32100-2015 の 18 桁（【実データ】形式仕様） | 法令 | `unified_social_credit_code` |
 | BR-08 | 工厂は生産・在庫拠点。**工厂主データは MDM（`mdm_factory`）が管理**し、SYS は工厂の有効化・既定割当・責任者（`sys_factory_setting`）のみ管理する。伝票の `factory_id` は原則ログインユーザの既定工厂だが、権限者は切替可能 | [共通項目定義](../00-common/01-common-item-definitions.md) 第 4 章 / [02-mdm](../02-mdm/90-db-design.md) | `factory_id` |
-| BR-09 | 多組織のデータ分離は `company_id`（必須）+ `factory_id`（拠点）で行い、`tenant_id` は首期 0 固定 | [DB 共通規格](../00-common/04-common-db-spec.md) 第 14 章 | `tenant_id` |
+| BR-09 | 多組織のデータ分離は `company_id`（必須）+ `factory_id`（拠点）で行い、`tenant_id` はセッションの `app.tenant_id`（RLS、第一版）。RLS は `tenant_id` のみで分離し、同一テナント内の会社間分離はアプリ層で行う（決定：#10、[10-rls-and-db-roles.md](../00-common/10-rls-and-db-roles.md)） | [DB 共通規格](../00-common/04-common-db-spec.md) 第 14 章 | `tenant_id` |
 | BR-10 | 租户分離（RLS）は第一版（首批業務テーブルと同時）。テーブル・API は `tenant_id` を全件保持し、後付け不要とする | 第一版 | `tenant_id` |
 | BR-11 | 会社・工厂・部門・岗位の変更は監査ログに before/after を記録 | 内部統制 | `sys_audit_log` |
 
@@ -87,7 +87,7 @@ stateDiagram-v2
 | SCR-SYS-010 | 组织部门管理 | EDIT | 左：部門ツリー、右：選択部門の詳細編集。並び替え・責任者設定 |
 | SCR-SYS-011 | 岗位管理 | LIST | 岗位一覧・編集ダイアログ。職級・管理職フラグ |
 | SCR-SYS-012 | 公司/工厂设置 | EDIT | タブ切替：公司情報、工厂一覧 |
-| SCR-SYS-013 | 租户设置 | LIST | 参照のみ（P2 で編集） |
+| SCR-SYS-013 | 租户设置 | LIST | 参照・編集（第一版。TODO：編集画面の設計が未作成） |
 
 ### 4.2 画面レイアウト（SCR-SYS-010 组织部门管理）
 
@@ -164,7 +164,7 @@ stateDiagram-v2
 | 内置ルート部門（D000） | 削除・移動 | 不可 |
 | 権限なし | 編集/追加/削除 | 非表示 |
 | 公司が 1 件のみ | 会社削除 | 非表示（最後の会社は削除不可） |
-| 租户設定 | 編集ボタン | P2 まで非表示 |
+| 租户設定 | 編集ボタン | 権限 `system:tenant:update` で表示（TODO：編集仕様未設計） |
 
 ## 5. 入力チェック仕様
 
@@ -261,7 +261,7 @@ stateDiagram-v2
 | 14 | GET | /api/system/factories | `system:company:view` | 工厂组织設合一覧（MDM の `mdm_factory` を参照） |
 | 15 | POST | /api/system/factories | `system:company:update` | 工厂组织設定登録（有効化・既定割当） |
 | 16 | PUT | /api/system/factories/{id} | `system:company:update` | 工厂组织設定更新 |
-| 17 | GET | /api/system/tenants | `system:tenant:view` | 租户一覧（P2） |
+| 17 | GET | /api/system/tenants | `system:tenant:view` | 租户一覧 |
 
 ### 7.1 リクエスト/レスポンス詳細
 
@@ -349,7 +349,7 @@ stateDiagram-v2
 |---|---|---|---|---|---|
 | 1 | 組織改編イベント `system.department.changed` の追加（**已裁决**） | 09 に未定義だったが、Lead が **E38** として 09 §3 に追補（2026-10-20） | **已裁决：E38 `system.department.changed`（SYS→ALL）として発行**。payload：departmentId, departmentCode, changeType(CREATE/UPDATE/DISABLE/MOVE), affectedUserIds[], changedAt。WF の承認者解決・データ範囲キャッシュ更新の契機とする | Lead / system-workflow | 完了（2026-10-20） |
 | 2 | 未完了伝票がある部門の無効化可否 | 域を跨る参照チェックの実装方式が未確定 | 新規選択不可とする（既存参照は名称スナップショットで保持） | Lead | 2026-11-10 |
-| 3 | 多公司（Phase 2）の会社間取引・会社別採番 | 技術選型で Phase 2 | `company_id` は保持済み。取引ロジックは Phase 2 | Lead | 2027-03-31 |
+| 3 | 多公司の会社間取引・会社別採番 | 第一版対象（不分期） | `company_id` は保持済み。TODO：取引ロジックの設計が未作成 | Lead | 2027-03-31 |
 | 4 | 租户 RLS の実装方式 | 第一版 | `tenant_id` 保持、RLS は第一版で首批業務テーブルと同時に有効化 | Lead | 已決（2026-10-20，Yuri：不分期） |
 
 ## 14. 改訂履歴

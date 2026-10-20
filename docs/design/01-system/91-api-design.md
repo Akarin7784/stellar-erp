@@ -95,7 +95,7 @@
 | 49 | GET | /api/system/factories | `system:company:view` | 工厂组织設合一覧（MDM の `mdm_factory` を参照） | F-SYS-014 | 3001 |
 | 50 | POST | /api/system/factories | `system:company:update` | 工厂組織設定登録（有効化・既定割当） | F-SYS-014 | 10034 |
 | 51 | PUT | /api/system/factories/{id} | `system:company:update` | 工厂組織設定更新 | F-SYS-014 | 10034/4003 |
-| 52 | GET | /api/system/tenants | `system:tenant:view` | 租户一覧（P2） | F-SYS-017 | 3001 |
+| 52 | GET | /api/system/tenants | `system:tenant:view` | 租户一覧 | F-SYS-017 | 3001 |
 | 53 | GET | /api/system/dicts | `system:dict:view` | 字典类型一覧 | F-SYS-007 | 3001 |
 | 54 | GET | /api/system/dicts/{code}/items | 認証済 | 字典項目（業務参照） | F-SYS-007 | 4001 |
 | 55 | POST | /api/system/dicts | `system:dict:create` | 字典类型登録 | F-SYS-007 | 1001 |
