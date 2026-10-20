@@ -694,7 +694,7 @@
 | GET | /api/production/work-orders/{id} | 工单詳細 | 同上 | PRD | 06-production/91-api-design.md |
 | PUT | /api/production/work-orders/{id} | 変更 | production:work-order:update | PRD | 06-production/02-work-order.md |
 | PUT | /api/production/work-orders/{id} | 工单変更 | production:work-order:update | PRD | 06-production/91-api-design.md |
-| POST | /api/production/work-orders/{id}/approve | 承認（20→25。08 WF E32 コールバックと同一サービス。詳細 §3.11） | production:work-order:approve（TODO：権限チェック未実装） | PRD | 06-production/91-api-design.md |
+| POST | /api/production/work-orders/{id}/approve | 承認（20→25。08 WF E32 コールバックと同一サービス。詳細 §3.11）。TODO：権限チェック未実装、Flowable 接入後に閉鎖 | production:work-order:approve | PRD | 06-production/91-api-design.md |
 | POST | /api/production/work-orders/{id}/close | 結案 | production:work-order:close | PRD | 06-production/91-api-design.md |
 | GET | /api/production/work-orders/{id}/completion-preview | 入庫プレビュー（残数・単価） | production:completion:view | PRD | 06-production/91-api-design.md |
 | POST | /api/production/work-orders/{id}/explode-bom | BOM 再展開 | production:work-order:update | PRD | 06-production/91-api-design.md |

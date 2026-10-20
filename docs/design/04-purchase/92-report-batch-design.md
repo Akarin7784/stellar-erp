@@ -273,7 +273,7 @@
 | バッチ名 | 交期跟踪・催货提醒 |
 | 実行方式 | 日次（毎日 07:00、Asia/Shanghai） |
 | 想定処理時間 | 3 分（未入荷 1,000 行想定） |
-| 対象データ | `pur_purchase_order_line` WHERE `line_status IN (30,35)` AND `line_status ≠ 40` AND `remain_qty > 0` |
+| 対象データ | `pur_purchase_order_line` WHERE `line_status IN (30,35)` AND `quantity − received_qty − cancelled_qty > 0`（`remain_qty` は保存しない導出値） |
 | 冪等性 | 再実行可（通知は当日分を再送しない設定可） |
 | 排他 | `pg_advisory_lock('BAT_PUR_001')` |
 | 失敗時 | リトライ 3 回（5 分間隔）→ 失敗で運用担当へメール |

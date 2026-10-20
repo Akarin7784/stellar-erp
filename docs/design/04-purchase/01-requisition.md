@@ -525,7 +525,7 @@ stateDiagram-v2
 {
   "lines": [
     {
-      "prLineId": "1845678901234567891",
+      "purchaseRequisitionLineId": "1845678901234567891",
       "quantity": "8000.0000",
       "supplierId": "1845000000000002001",
       "warehouseId": "1845000000000000101",

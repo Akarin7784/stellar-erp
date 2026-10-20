@@ -54,7 +54,7 @@ CREATE POLICY tenant_isolation ON xxx_table
 - `USING` 限制可见 / 可改 / 可删的行；`WITH CHECK` 拒绝写入或改成其他租户的行。
 - `tenant_id` 默认值取当前上下文，**未设置上下文时插入失败（有意为之）**，不再静默写入 0。
 - Flyway / owner 执行的种子数据（`V…`、`R__seed_*`）**必须显式写出 `tenant_id`**（owner 无 `app.tenant_id`）。
-- 业务表的唯一索引仍以 `company_id` 为前导列（见 04-common-db-spec），如需租户间允许重复的业务键，请在评审中提出。
+- 业务表的唯一索引以 `(tenant_id, company_id, …)` 开头（见 04-common-db-spec；明细表同样带 `company_id`，不登记例外，2026-10-21 决定）。
 - **在各领域设计书定稿前，不新增领域业务表**；本 PR 只对现有 `sys_user` 套用模板。
 
 ## 5. 测试约定（测试与评审）

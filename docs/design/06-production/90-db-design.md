@@ -184,8 +184,8 @@ CREATE TABLE prd_bom (
     approved_at         TIMESTAMPTZ,                             -- 承認日時
     effective_status    SMALLINT      NOT NULL DEFAULT 0,        -- 有効判定キャッシュ 0:期間外 1:有効（バッチで更新）
     CONSTRAINT pk_prd_bom PRIMARY KEY (id),
-    CONSTRAINT fk_prd_bom_material FOREIGN KEY (material_id) REFERENCES mdm_material (id),
-    CONSTRAINT fk_prd_bom_factory FOREIGN KEY (factory_id) REFERENCES mdm_factory (id),
+    CONSTRAINT fk_prd_bom_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
+    CONSTRAINT fk_prd_bom_factory FOREIGN KEY (tenant_id, factory_id) REFERENCES mdm_factory (tenant_id, id),
     CONSTRAINT ck_prd_bom_status CHECK (bom_status IN (10,25,30,90)),
     CONSTRAINT ck_prd_bom_valid CHECK (valid_to IS NULL OR valid_to >= valid_from),
     CONSTRAINT ck_prd_bom_base_qty CHECK (base_qty > 0)
@@ -193,8 +193,8 @@ CREATE TABLE prd_bom (
 
 CREATE UNIQUE INDEX uk_prd_bom_bom_no ON prd_bom (tenant_id, company_id, bom_no) WHERE deleted = FALSE;
 CREATE UNIQUE INDEX uk_prd_bom_material_version ON prd_bom (tenant_id, company_id, material_id, factory_id, version_no) WHERE deleted = FALSE;
-CREATE INDEX idx_prd_bom_material_status ON prd_bom (company_id, material_id, bom_status, valid_from DESC);
-CREATE INDEX idx_prd_bom_effective ON prd_bom (company_id, effective_status, valid_from, valid_to);
+CREATE INDEX idx_prd_bom_material_status ON prd_bom (tenant_id, company_id, material_id, bom_status, valid_from DESC);
+CREATE INDEX idx_prd_bom_effective ON prd_bom (tenant_id, company_id, effective_status, valid_from, valid_to);
 -- 既定版本は 1 件のみ（部分一意）
 CREATE UNIQUE INDEX uk_prd_bom_default ON prd_bom (tenant_id, company_id, material_id, factory_id) WHERE is_default = TRUE AND deleted = FALSE;
 ```
@@ -244,15 +244,15 @@ CREATE TABLE prd_bom_line (
     effective_status    SMALLINT      NOT NULL DEFAULT 1,        -- 0:期間外 1:有効（親に同期）
     CONSTRAINT pk_prd_bom_line PRIMARY KEY (id),
     CONSTRAINT fk_prd_bom_line_bom FOREIGN KEY (bom_id) REFERENCES prd_bom (id) ON DELETE RESTRICT,
-    CONSTRAINT fk_prd_bom_line_component FOREIGN KEY (component_material_id) REFERENCES mdm_material (id),
+    CONSTRAINT fk_prd_bom_line_component FOREIGN KEY (tenant_id, component_material_id) REFERENCES mdm_material (tenant_id, id),
     CONSTRAINT ck_prd_bom_line_qty CHECK (component_qty > 0 AND required_qty > 0),
     CONSTRAINT ck_prd_bom_line_loss CHECK (loss_rate >= 0 AND loss_rate < 1),
     CONSTRAINT ck_prd_bom_line_level CHECK (level_no >= 1)
 );
 
 CREATE UNIQUE INDEX uk_prd_bom_line_bom_line ON prd_bom_line (company_id, bom_id, line_no);
-CREATE INDEX idx_prd_bom_line_component ON prd_bom_line (company_id, component_material_id);
-CREATE INDEX idx_prd_bom_line_substitute ON prd_bom_line (company_id, substitute_group) WHERE substitute_group IS NOT NULL;
+CREATE INDEX idx_prd_bom_line_component ON prd_bom_line (tenant_id, company_id, component_material_id);
+CREATE INDEX idx_prd_bom_line_substitute ON prd_bom_line (tenant_id, company_id, substitute_group) WHERE substitute_group IS NOT NULL;
 ```
 
 **更新仕様**：INSERT/UPDATE は親 BOM が `10`（草稿）または `25`（承認済・未発効）の時のみ。`30`（有効）以降は新版登録で対応する（旧版廃止）。行削除は物理削除（マスタ明細のため）、ただし工单で参照済みの BOM は廃止のみで行削除不可（`MSG-PRD-007`）。
@@ -290,12 +290,12 @@ CREATE TABLE prd_bom_substitute (
     approval_status     SMALLINT      NOT NULL DEFAULT 10,       -- 10:未承認 25:承認済
     CONSTRAINT pk_prd_bom_substitute PRIMARY KEY (id),
     CONSTRAINT fk_prd_bom_substitute_line FOREIGN KEY (bom_line_id) REFERENCES prd_bom_line (id) ON DELETE RESTRICT,
-    CONSTRAINT fk_prd_bom_substitute_material FOREIGN KEY (substitute_material_id) REFERENCES mdm_material (id),
+    CONSTRAINT fk_prd_bom_substitute_material FOREIGN KEY (tenant_id, substitute_material_id) REFERENCES mdm_material (tenant_id, id),
     CONSTRAINT ck_prd_bom_substitute_qty CHECK (substitute_qty > 0 AND ratio > 0 AND ratio <= 1)
 );
 
 CREATE UNIQUE INDEX uk_prd_bom_substitute_line_pri ON prd_bom_substitute (company_id, bom_line_id, priority_no) WHERE deleted = FALSE;
-CREATE INDEX idx_prd_bom_substitute_material ON prd_bom_substitute (company_id, substitute_material_id, valid_from, valid_to);
+CREATE INDEX idx_prd_bom_substitute_material ON prd_bom_substitute (tenant_id, company_id, substitute_material_id, valid_from, valid_to);
 ```
 
 ### 3.4 prd_routing（工艺路线头）
@@ -331,15 +331,15 @@ CREATE TABLE prd_routing (
     approved_at         TIMESTAMPTZ,                             -- 承認日時
     effective_status    SMALLINT      NOT NULL DEFAULT 0,        -- 0:期間外 1:有効
     CONSTRAINT pk_prd_routing PRIMARY KEY (id),
-    CONSTRAINT fk_prd_routing_material FOREIGN KEY (material_id) REFERENCES mdm_material (id),
-    CONSTRAINT fk_prd_routing_factory FOREIGN KEY (factory_id) REFERENCES mdm_factory (id),
+    CONSTRAINT fk_prd_routing_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
+    CONSTRAINT fk_prd_routing_factory FOREIGN KEY (tenant_id, factory_id) REFERENCES mdm_factory (tenant_id, id),
     CONSTRAINT ck_prd_routing_status CHECK (routing_status IN (10,25,30,90)),
     CONSTRAINT ck_prd_routing_valid CHECK (valid_to IS NULL OR valid_to >= valid_from)
 );
 
 CREATE UNIQUE INDEX uk_prd_routing_no ON prd_routing (tenant_id, company_id, routing_no) WHERE deleted = FALSE;
 CREATE UNIQUE INDEX uk_prd_routing_material_version ON prd_routing (tenant_id, company_id, material_id, factory_id, version_no) WHERE deleted = FALSE;
-CREATE INDEX idx_prd_routing_material_status ON prd_routing (company_id, material_id, routing_status, valid_from DESC);
+CREATE INDEX idx_prd_routing_material_status ON prd_routing (tenant_id, company_id, material_id, routing_status, valid_from DESC);
 CREATE UNIQUE INDEX uk_prd_routing_default ON prd_routing (tenant_id, company_id, material_id, factory_id) WHERE is_default = TRUE AND deleted = FALSE;
 ```
 
@@ -386,8 +386,8 @@ CREATE TABLE prd_routing_operation (
 );
 
 CREATE UNIQUE INDEX uk_prd_routing_operation_routing_seq ON prd_routing_operation (company_id, routing_id, operation_seq) WHERE deleted = FALSE;
-CREATE INDEX idx_prd_routing_operation_wc ON prd_routing_operation (company_id, work_center_id);
-CREATE INDEX idx_prd_routing_operation_inspection ON prd_routing_operation (company_id, is_inspection_point) WHERE is_inspection_point = TRUE;
+CREATE INDEX idx_prd_routing_operation_wc ON prd_routing_operation (tenant_id, company_id, work_center_id);
+CREATE INDEX idx_prd_routing_operation_inspection ON prd_routing_operation (tenant_id, company_id, is_inspection_point) WHERE is_inspection_point = TRUE;
 ```
 
 ### 3.6 prd_routing_operation_alt（替代工序）
@@ -457,14 +457,14 @@ CREATE TABLE prd_work_center (
     valid_from          DATE,                                    -- 有効開始日
     valid_to            DATE,                                    -- 有効終了日
     CONSTRAINT pk_prd_work_center PRIMARY KEY (id),
-    CONSTRAINT fk_prd_work_center_factory FOREIGN KEY (factory_id) REFERENCES mdm_factory (id),
+    CONSTRAINT fk_prd_work_center_factory FOREIGN KEY (tenant_id, factory_id) REFERENCES mdm_factory (tenant_id, id),
     CONSTRAINT ck_prd_work_center_type CHECK (work_center_type IN (10,20,30,40)),
     CONSTRAINT ck_prd_work_center_capacity CHECK (capacity_per_day >= 0),
     CONSTRAINT ck_prd_work_center_rate CHECK (labor_rate_per_hour >= 0 AND overhead_rate_per_hour >= 0)
 );
 
 CREATE UNIQUE INDEX uk_prd_work_center_code ON prd_work_center (tenant_id, company_id, work_center_code) WHERE deleted = FALSE;
-CREATE INDEX idx_prd_work_center_factory ON prd_work_center (company_id, factory_id, status);
+CREATE INDEX idx_prd_work_center_factory ON prd_work_center (tenant_id, company_id, factory_id, status);
 ```
 
 ### 3.8 prd_work_center_calendar（工作日历）
@@ -498,7 +498,7 @@ CREATE TABLE prd_work_center_calendar (
 );
 
 CREATE UNIQUE INDEX uk_prd_work_center_calendar_date ON prd_work_center_calendar (company_id, work_center_id, calendar_date, shift_code) WHERE deleted = FALSE;
-CREATE INDEX idx_prd_work_center_calendar_date ON prd_work_center_calendar (company_id, calendar_date, day_type);
+CREATE INDEX idx_prd_work_center_calendar_date ON prd_work_center_calendar (tenant_id, company_id, calendar_date, day_type);
 ```
 
 ### 3.9 prd_equipment（设备台账）
@@ -540,8 +540,8 @@ CREATE TABLE prd_equipment (
 );
 
 CREATE UNIQUE INDEX uk_prd_equipment_code ON prd_equipment (tenant_id, company_id, equipment_code) WHERE deleted = FALSE;
-CREATE INDEX idx_prd_equipment_wc ON prd_equipment (company_id, work_center_id, equipment_status);
-CREATE INDEX idx_prd_equipment_next_maintenance ON prd_equipment (company_id, next_maintenance_date) WHERE equipment_status <> 90;
+CREATE INDEX idx_prd_equipment_wc ON prd_equipment (tenant_id, company_id, work_center_id, equipment_status);
+CREATE INDEX idx_prd_equipment_next_maintenance ON prd_equipment (tenant_id, company_id, next_maintenance_date) WHERE equipment_status <> 90;
 ```
 
 ### 3.10 prd_equipment_maintenance（设备点检维修）
@@ -578,7 +578,7 @@ CREATE TABLE prd_equipment_maintenance (
 );
 
 CREATE UNIQUE INDEX uk_prd_equipment_maintenance_no ON prd_equipment_maintenance (tenant_id, company_id, maintenance_no) WHERE deleted = FALSE;
-CREATE INDEX idx_prd_equipment_maintenance_eq_date ON prd_equipment_maintenance (company_id, equipment_id, maintenance_date DESC);
+CREATE INDEX idx_prd_equipment_maintenance_eq_date ON prd_equipment_maintenance (tenant_id, company_id, equipment_id, maintenance_date DESC);
 ```
 
 ### 3.11 prd_material_planning（物料计划参数）
@@ -627,8 +627,8 @@ CREATE TABLE prd_material_planning (
     valid_to            DATE,                                    -- 参数有効終了日
     last_calculated_at  TIMESTAMPTZ,                             -- 低层码最終計算日時
     CONSTRAINT pk_prd_material_planning PRIMARY KEY (id),
-    CONSTRAINT fk_prd_material_planning_material FOREIGN KEY (material_id) REFERENCES mdm_material (id),
-    CONSTRAINT fk_prd_material_planning_factory FOREIGN KEY (factory_id) REFERENCES mdm_factory (id),
+    CONSTRAINT fk_prd_material_planning_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
+    CONSTRAINT fk_prd_material_planning_factory FOREIGN KEY (tenant_id, factory_id) REFERENCES mdm_factory (tenant_id, id),
     CONSTRAINT ck_prd_material_planning_type CHECK (material_type IN (10,20,30,40,50)),
     CONSTRAINT ck_prd_material_planning_lot CHECK (lot_sizing_rule IN (10,20,30,40,50)),
     CONSTRAINT ck_prd_material_planning_llc CHECK (low_level_code >= 0),
@@ -636,8 +636,8 @@ CREATE TABLE prd_material_planning (
 );
 
 CREATE UNIQUE INDEX uk_prd_material_planning_mat_factory ON prd_material_planning (tenant_id, company_id, material_id, factory_id) WHERE deleted = FALSE;
-CREATE INDEX idx_prd_material_planning_llc ON prd_material_planning (company_id, low_level_code, material_type);
-CREATE INDEX idx_prd_material_planning_planner ON prd_material_planning (company_id, mrp_planner_user_id);
+CREATE INDEX idx_prd_material_planning_llc ON prd_material_planning (tenant_id, company_id, low_level_code, material_type);
+CREATE INDEX idx_prd_material_planning_planner ON prd_material_planning (tenant_id, company_id, mrp_planner_user_id);
 ```
 
 ### 3.12 prd_demand_forecast（需求预测）
@@ -671,13 +671,13 @@ CREATE TABLE prd_demand_forecast (
     approved_by         BIGINT,                                  -- 承認者
     approved_at         TIMESTAMPTZ,                             -- 承認日時
     CONSTRAINT pk_prd_demand_forecast PRIMARY KEY (id),
-    CONSTRAINT fk_prd_demand_forecast_material FOREIGN KEY (material_id) REFERENCES mdm_material (id),
+    CONSTRAINT fk_prd_demand_forecast_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
     CONSTRAINT ck_prd_demand_forecast_qty CHECK (forecast_qty >= 0)
 );
 
 CREATE UNIQUE INDEX uk_prd_demand_forecast_no ON prd_demand_forecast (tenant_id, company_id, forecast_no);
-CREATE INDEX idx_prd_demand_forecast_mat_date ON prd_demand_forecast (company_id, material_id, bucket_date, forecast_status);
-CREATE INDEX idx_prd_demand_forecast_run ON prd_demand_forecast (company_id, forecast_status, bucket_type);
+CREATE INDEX idx_prd_demand_forecast_mat_date ON prd_demand_forecast (tenant_id, company_id, material_id, bucket_date, forecast_status);
+CREATE INDEX idx_prd_demand_forecast_run ON prd_demand_forecast (tenant_id, company_id, forecast_status, bucket_type);
 ```
 
 ### 3.13 prd_mps（主生产计划头）
@@ -706,7 +706,7 @@ CREATE TABLE prd_mps (
     approved_at         TIMESTAMPTZ,                             -- 承認日時
     published_at        TIMESTAMPTZ,                             -- 確定日時（MRP 参照可）
     CONSTRAINT pk_prd_mps PRIMARY KEY (id),
-    CONSTRAINT fk_prd_mps_factory FOREIGN KEY (factory_id) REFERENCES mdm_factory (id),
+    CONSTRAINT fk_prd_mps_factory FOREIGN KEY (tenant_id, factory_id) REFERENCES mdm_factory (tenant_id, id),
     CONSTRAINT ck_prd_mps_status CHECK (mps_status IN (10,20,30,40,90))
 );
 
@@ -740,12 +740,12 @@ CREATE TABLE prd_mps_line (
     confirmed_qty       NUMERIC(18,4) NOT NULL DEFAULT 0,        -- 已确认数量（下达済工单集計）
     CONSTRAINT pk_prd_mps_line PRIMARY KEY (id),
     CONSTRAINT fk_prd_mps_line_mps FOREIGN KEY (mps_id) REFERENCES prd_mps (id) ON DELETE RESTRICT,
-    CONSTRAINT fk_prd_mps_line_material FOREIGN KEY (material_id) REFERENCES mdm_material (id),
+    CONSTRAINT fk_prd_mps_line_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
     CONSTRAINT ck_prd_mps_line_qty CHECK (planned_qty >= 0)
 );
 
 CREATE UNIQUE INDEX uk_prd_mps_line_mps_line ON prd_mps_line (company_id, mps_id, line_no);
-CREATE INDEX idx_prd_mps_line_material_date ON prd_mps_line (company_id, material_id, plan_date);
+CREATE INDEX idx_prd_mps_line_material_date ON prd_mps_line (tenant_id, company_id, material_id, plan_date);
 ```
 
 ### 3.15 prd_mrp_run（MRP 运行）
@@ -785,12 +785,12 @@ CREATE TABLE prd_mrp_run (
     param_snapshot      JSONB,                                   -- 実行時パラメータ（再現用）
     log_message         TEXT,                                    -- 実行ログ（异常时）
     CONSTRAINT pk_prd_mrp_run PRIMARY KEY (id),
-    CONSTRAINT fk_prd_mrp_run_factory FOREIGN KEY (factory_id) REFERENCES mdm_factory (id),
+    CONSTRAINT fk_prd_mrp_run_factory FOREIGN KEY (tenant_id, factory_id) REFERENCES mdm_factory (tenant_id, id),
     CONSTRAINT ck_prd_mrp_run_status CHECK (run_status IN (10,40,90,95))
 );
 
 CREATE UNIQUE INDEX uk_prd_mrp_run_no ON prd_mrp_run (tenant_id, company_id, mrp_run_no);
-CREATE INDEX idx_prd_mrp_run_date ON prd_mrp_run (company_id, factory_id, run_date DESC, run_status);
+CREATE INDEX idx_prd_mrp_run_date ON prd_mrp_run (tenant_id, company_id, factory_id, run_date DESC, run_status);
 ```
 
 ### 3.16 prd_mrp_demand（MRP 需求）
@@ -834,9 +834,9 @@ CREATE TABLE prd_mrp_demand (
     CONSTRAINT ck_prd_mrp_demand_type CHECK (demand_type IN (10,20,30,40,50,60,70))
 );
 
-CREATE INDEX idx_prd_mrp_demand_run_mat ON prd_mrp_demand (company_id, mrp_run_id, material_id, bucket_date);
-CREATE INDEX idx_prd_mrp_demand_run_type ON prd_mrp_demand (company_id, mrp_run_id, demand_type);
-CREATE INDEX idx_prd_mrp_demand_run_shortage ON prd_mrp_demand (company_id, mrp_run_id, shortage_flag) WHERE shortage_flag = TRUE;
+CREATE INDEX idx_prd_mrp_demand_run_mat ON prd_mrp_demand (tenant_id, company_id, mrp_run_id, material_id, bucket_date);
+CREATE INDEX idx_prd_mrp_demand_run_type ON prd_mrp_demand (tenant_id, company_id, mrp_run_id, demand_type);
+CREATE INDEX idx_prd_mrp_demand_run_shortage ON prd_mrp_demand (tenant_id, company_id, mrp_run_id, shortage_flag) WHERE shortage_flag = TRUE;
 ```
 
 ### 3.17 prd_mrp_plan_order（MRP 计划订单）
@@ -887,9 +887,9 @@ CREATE TABLE prd_mrp_plan_order (
 );
 
 CREATE UNIQUE INDEX uk_prd_mrp_plan_order_no ON prd_mrp_plan_order (tenant_id, company_id, plan_order_no);
-CREATE INDEX idx_prd_mrp_plan_order_run_mat ON prd_mrp_plan_order (company_id, mrp_run_id, material_id, due_date);
-CREATE INDEX idx_prd_mrp_plan_order_status ON prd_mrp_plan_order (company_id, plan_status, start_date);
-CREATE INDEX idx_prd_mrp_plan_order_converted ON prd_mrp_plan_order (company_id, converted_doc_type, converted_doc_id);
+CREATE INDEX idx_prd_mrp_plan_order_run_mat ON prd_mrp_plan_order (tenant_id, company_id, mrp_run_id, material_id, due_date);
+CREATE INDEX idx_prd_mrp_plan_order_status ON prd_mrp_plan_order (tenant_id, company_id, plan_status, start_date);
+CREATE INDEX idx_prd_mrp_plan_order_converted ON prd_mrp_plan_order (tenant_id, company_id, converted_doc_type, converted_doc_id);
 ```
 
 ### 3.18 prd_mrp_action（MRP 动作消息）
@@ -931,9 +931,9 @@ CREATE TABLE prd_mrp_action (
     CONSTRAINT ck_prd_mrp_action_type CHECK (action_type IN (10,20,30,40,50,60,70,80))
 );
 
-CREATE INDEX idx_prd_mrp_action_run_type ON prd_mrp_action (company_id, mrp_run_id, action_type, action_status);
-CREATE INDEX idx_prd_mrp_action_ref ON prd_mrp_action (company_id, ref_doc_type, ref_doc_id);
-CREATE INDEX idx_prd_mrp_action_material ON prd_mrp_action (company_id, material_id, action_status);
+CREATE INDEX idx_prd_mrp_action_run_type ON prd_mrp_action (tenant_id, company_id, mrp_run_id, action_type, action_status);
+CREATE INDEX idx_prd_mrp_action_ref ON prd_mrp_action (tenant_id, company_id, ref_doc_type, ref_doc_id);
+CREATE INDEX idx_prd_mrp_action_material ON prd_mrp_action (tenant_id, company_id, material_id, action_status);
 ```
 
 ### 3.19 prd_work_order（生产订单）
@@ -1025,8 +1025,8 @@ CREATE TABLE prd_work_order (
     cancel_reason       VARCHAR(500),                            -- 取消理由
     wip_cost            NUMERIC(18,2) NOT NULL DEFAULT 0,        -- 在制品残高（月末結転用）
     CONSTRAINT pk_prd_work_order PRIMARY KEY (id),
-    CONSTRAINT fk_prd_work_order_material FOREIGN KEY (material_id) REFERENCES mdm_material (id),
-    CONSTRAINT fk_prd_work_order_factory FOREIGN KEY (factory_id) REFERENCES mdm_factory (id),
+    CONSTRAINT fk_prd_work_order_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
+    CONSTRAINT fk_prd_work_order_factory FOREIGN KEY (tenant_id, factory_id) REFERENCES mdm_factory (tenant_id, id),
     CONSTRAINT fk_prd_work_order_bom FOREIGN KEY (bom_id) REFERENCES prd_bom (id),
     CONSTRAINT fk_prd_work_order_routing FOREIGN KEY (routing_id) REFERENCES prd_routing (id),
     CONSTRAINT ck_prd_work_order_status CHECK (order_status IN (10,20,25,30,35,40,90,95)),
@@ -1167,14 +1167,14 @@ CREATE TABLE prd_work_order_material (
     actual_amount       NUMERIC(18,2) NOT NULL DEFAULT 0,        -- 実績材料費（領料原価累計）
     CONSTRAINT pk_prd_work_order_material PRIMARY KEY (id),
     CONSTRAINT fk_prd_work_order_material_wo FOREIGN KEY (work_order_id) REFERENCES prd_work_order (id) ON DELETE RESTRICT,
-    CONSTRAINT fk_prd_work_order_material_material FOREIGN KEY (material_id) REFERENCES mdm_material (id),
+    CONSTRAINT fk_prd_work_order_material_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
     CONSTRAINT ck_prd_work_order_material_qty CHECK (required_qty > 0 AND total_required_qty >= required_qty AND remaining_qty >= 0),
     CONSTRAINT ck_prd_work_order_material_status CHECK (issue_status IN (0,10,20))
 );
 
 CREATE UNIQUE INDEX uk_prd_work_order_material_wo_line ON prd_work_order_material (company_id, work_order_id, line_no);
-CREATE INDEX idx_prd_work_order_material_material ON prd_work_order_material (company_id, material_id, issue_status);
-CREATE INDEX idx_prd_work_order_material_unissued ON prd_work_order_material (company_id, work_order_id, remaining_qty) WHERE remaining_qty > 0;
+CREATE INDEX idx_prd_work_order_material_material ON prd_work_order_material (tenant_id, company_id, material_id, issue_status);
+CREATE INDEX idx_prd_work_order_material_unissued ON prd_work_order_material (tenant_id, company_id, work_order_id, remaining_qty) WHERE remaining_qty > 0;
 ```
 
 ### 3.21 prd_work_order_operation（工单工序）
@@ -1232,8 +1232,8 @@ CREATE TABLE prd_work_order_operation (
 );
 
 CREATE UNIQUE INDEX uk_prd_work_order_operation_wo_seq ON prd_work_order_operation (company_id, work_order_id, operation_seq);
-CREATE INDEX idx_prd_work_order_operation_wc_date ON prd_work_order_operation (company_id, work_center_id, planned_start_date, operation_status);
-CREATE INDEX idx_prd_work_order_operation_inspection ON prd_work_order_operation (company_id, inspection_status) WHERE inspection_status IN (10,30);
+CREATE INDEX idx_prd_work_order_operation_wc_date ON prd_work_order_operation (tenant_id, company_id, work_center_id, planned_start_date, operation_status);
+CREATE INDEX idx_prd_work_order_operation_inspection ON prd_work_order_operation (tenant_id, company_id, inspection_status) WHERE inspection_status IN (10,30);
 ```
 
 ### 3.22 prd_work_order_change（工单变更履历）
@@ -1268,7 +1268,7 @@ CREATE TABLE prd_work_order_change (
 );
 
 CREATE UNIQUE INDEX uk_prd_work_order_change_wo_no ON prd_work_order_change (company_id, work_order_id, change_no);
-CREATE INDEX idx_prd_work_order_change_date ON prd_work_order_change (company_id, created_at DESC);
+CREATE INDEX idx_prd_work_order_change_date ON prd_work_order_change (tenant_id, company_id, created_at DESC);
 ```
 
 ### 3.23 prd_work_order_relation（工单拆分/合并关系）
@@ -1302,8 +1302,8 @@ CREATE TABLE prd_work_order_relation (
     CONSTRAINT ck_prd_work_order_relation_qty CHECK (relation_qty > 0)
 );
 
-CREATE INDEX idx_prd_work_order_relation_src ON prd_work_order_relation (company_id, source_work_order_id);
-CREATE INDEX idx_prd_work_order_relation_tgt ON prd_work_order_relation (company_id, target_work_order_id);
+CREATE INDEX idx_prd_work_order_relation_src ON prd_work_order_relation (tenant_id, company_id, source_work_order_id);
+CREATE INDEX idx_prd_work_order_relation_tgt ON prd_work_order_relation (tenant_id, company_id, target_work_order_id);
 ```
 
 ### 3.24 prd_material_issue（领料/退料单头）
@@ -1343,16 +1343,16 @@ CREATE TABLE prd_material_issue (
     cancel_reason       VARCHAR(500),                            -- 取消理由
     CONSTRAINT pk_prd_material_issue PRIMARY KEY (id),
     CONSTRAINT fk_prd_material_issue_wo FOREIGN KEY (work_order_id) REFERENCES prd_work_order (id),
-    CONSTRAINT fk_prd_material_issue_wh FOREIGN KEY (warehouse_id) REFERENCES mdm_warehouse (id),
+    CONSTRAINT fk_prd_material_issue_wh FOREIGN KEY (tenant_id, warehouse_id) REFERENCES mdm_warehouse (tenant_id, id),
     CONSTRAINT ck_prd_material_issue_type CHECK (issue_type IN (10,20,30,40,50)),
     CONSTRAINT ck_prd_material_issue_status CHECK (issue_status IN (10,30,40,90)),
     CONSTRAINT ck_prd_material_issue_qty CHECK (total_qty >= 0)
 );
 
 CREATE UNIQUE INDEX uk_prd_material_issue_req ON prd_material_issue (tenant_id, company_id, request_no);
-CREATE INDEX idx_prd_material_issue_doc ON prd_material_issue (company_id, stock_doc_no);
-CREATE INDEX idx_prd_material_issue_wo ON prd_material_issue (company_id, work_order_id, issue_type, issue_status);
-CREATE INDEX idx_prd_material_issue_date ON prd_material_issue (company_id, issue_date, issue_status);
+CREATE INDEX idx_prd_material_issue_doc ON prd_material_issue (tenant_id, company_id, stock_doc_no);
+CREATE INDEX idx_prd_material_issue_wo ON prd_material_issue (tenant_id, company_id, work_order_id, issue_type, issue_status);
+CREATE INDEX idx_prd_material_issue_date ON prd_material_issue (tenant_id, company_id, issue_date, issue_status);
 
 ```
 
@@ -1398,8 +1398,8 @@ CREATE TABLE prd_material_issue_line (
 );
 
 CREATE UNIQUE INDEX uk_prd_material_issue_line_issue_line ON prd_material_issue_line (company_id, issue_id, line_no);
-CREATE INDEX idx_prd_material_issue_line_wom ON prd_material_issue_line (company_id, work_order_material_id);
-CREATE INDEX idx_prd_material_issue_line_material ON prd_material_issue_line (company_id, material_id, batch_no);
+CREATE INDEX idx_prd_material_issue_line_wom ON prd_material_issue_line (tenant_id, company_id, work_order_material_id);
+CREATE INDEX idx_prd_material_issue_line_material ON prd_material_issue_line (tenant_id, company_id, material_id, batch_no);
 ```
 
 ### 3.26 prd_work_report（报工单）
@@ -1456,9 +1456,9 @@ CREATE TABLE prd_work_report (
 );
 
 CREATE UNIQUE INDEX uk_prd_work_report_no ON prd_work_report (tenant_id, company_id, report_no);
-CREATE INDEX idx_prd_work_report_wo ON prd_work_report (company_id, work_order_id, operation_seq, report_status);
-CREATE INDEX idx_prd_work_report_date ON prd_work_report (company_id, report_date, report_status);
-CREATE INDEX idx_prd_work_report_op ON prd_work_report (company_id, work_order_operation_id);
+CREATE INDEX idx_prd_work_report_wo ON prd_work_report (tenant_id, company_id, work_order_id, operation_seq, report_status);
+CREATE INDEX idx_prd_work_report_date ON prd_work_report (tenant_id, company_id, report_date, report_status);
+CREATE INDEX idx_prd_work_report_op ON prd_work_report (tenant_id, company_id, work_order_operation_id);
 ```
 
 ### 3.27 prd_work_report_labor（报工工数明细）
@@ -1498,7 +1498,7 @@ CREATE TABLE prd_work_report_labor (
 );
 
 CREATE UNIQUE INDEX uk_prd_work_report_labor_report_line ON prd_work_report_labor (company_id, report_id, line_no);
-CREATE INDEX idx_prd_work_report_labor_employee ON prd_work_report_labor (company_id, employee_id, start_at DESC);
+CREATE INDEX idx_prd_work_report_labor_employee ON prd_work_report_labor (tenant_id, company_id, employee_id, start_at DESC);
 ```
 
 ### 3.28 prd_work_report_defect（报工不良明细）
@@ -1538,7 +1538,7 @@ CREATE TABLE prd_work_report_defect (
 );
 
 CREATE UNIQUE INDEX uk_prd_work_report_defect_report_line ON prd_work_report_defect (company_id, report_id, line_no);
-CREATE INDEX idx_prd_work_report_defect_code ON prd_work_report_defect (company_id, defect_code_id, created_at DESC);
+CREATE INDEX idx_prd_work_report_defect_code ON prd_work_report_defect (tenant_id, company_id, defect_code_id, created_at DESC);
 ```
 
 ### 3.29 prd_completion_receipt（完工入库单头）
@@ -1577,15 +1577,15 @@ CREATE TABLE prd_completion_receipt (
     cancel_reason       VARCHAR(500),                            -- 取消理由
     CONSTRAINT pk_prd_completion_receipt PRIMARY KEY (id),
     CONSTRAINT fk_prd_completion_receipt_wo FOREIGN KEY (work_order_id) REFERENCES prd_work_order (id),
-    CONSTRAINT fk_prd_completion_receipt_wh FOREIGN KEY (warehouse_id) REFERENCES mdm_warehouse (id),
+    CONSTRAINT fk_prd_completion_receipt_wh FOREIGN KEY (tenant_id, warehouse_id) REFERENCES mdm_warehouse (tenant_id, id),
     CONSTRAINT ck_prd_completion_receipt_status CHECK (receipt_status IN (10,30,40,90)),
     CONSTRAINT ck_prd_completion_receipt_qty CHECK (total_qty >= 0)
 );
 
 CREATE UNIQUE INDEX uk_prd_completion_receipt_req ON prd_completion_receipt (tenant_id, company_id, request_no);
-CREATE INDEX idx_prd_completion_receipt_doc ON prd_completion_receipt (company_id, stock_doc_no);
-CREATE INDEX idx_prd_completion_receipt_wo ON prd_completion_receipt (company_id, work_order_id, receipt_status);
-CREATE INDEX idx_prd_completion_receipt_date ON prd_completion_receipt (company_id, receipt_date, receipt_status);
+CREATE INDEX idx_prd_completion_receipt_doc ON prd_completion_receipt (tenant_id, company_id, stock_doc_no);
+CREATE INDEX idx_prd_completion_receipt_wo ON prd_completion_receipt (tenant_id, company_id, work_order_id, receipt_status);
+CREATE INDEX idx_prd_completion_receipt_date ON prd_completion_receipt (tenant_id, company_id, receipt_date, receipt_status);
 
 ```
 
@@ -1623,13 +1623,13 @@ CREATE TABLE prd_completion_receipt_line (
     stock_doc_line_id   BIGINT,                                  -- INV 採番の在庫伝票行 ID（E18 受信で設定）
     CONSTRAINT pk_prd_completion_receipt_line PRIMARY KEY (id),
     CONSTRAINT fk_prd_completion_receipt_line_rcpt FOREIGN KEY (receipt_id) REFERENCES prd_completion_receipt (id) ON DELETE RESTRICT,
-    CONSTRAINT fk_prd_completion_receipt_line_material FOREIGN KEY (material_id) REFERENCES mdm_material (id),
+    CONSTRAINT fk_prd_completion_receipt_line_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
     CONSTRAINT ck_prd_completion_receipt_line_qty CHECK (receipt_qty > 0),
     CONSTRAINT ck_prd_completion_receipt_line_quality CHECK (quality_status IN (10,20,30,40))
 );
 
 CREATE UNIQUE INDEX uk_prd_completion_receipt_line_rcpt_line ON prd_completion_receipt_line (company_id, receipt_id, line_no);
-CREATE INDEX idx_prd_completion_receipt_line_material ON prd_completion_receipt_line (company_id, material_id, batch_no);
+CREATE INDEX idx_prd_completion_receipt_line_material ON prd_completion_receipt_line (tenant_id, company_id, material_id, batch_no);
 ```
 
 ### 3.31 prd_outsourcing_order（委外订单头）
@@ -1678,16 +1678,16 @@ CREATE TABLE prd_outsourcing_order (
     approved_at         TIMESTAMPTZ,                             -- 承認日時
     cancel_reason       VARCHAR(500),                            -- 取消理由
     CONSTRAINT pk_prd_outsourcing_order PRIMARY KEY (id),
-    CONSTRAINT fk_prd_outsourcing_order_supplier FOREIGN KEY (supplier_id) REFERENCES mdm_supplier (id),
-    CONSTRAINT fk_prd_outsourcing_order_factory FOREIGN KEY (factory_id) REFERENCES mdm_factory (id),
+    CONSTRAINT fk_prd_outsourcing_order_supplier FOREIGN KEY (tenant_id, supplier_id) REFERENCES mdm_supplier (tenant_id, id),
+    CONSTRAINT fk_prd_outsourcing_order_factory FOREIGN KEY (tenant_id, factory_id) REFERENCES mdm_factory (tenant_id, id),
     CONSTRAINT ck_prd_outsourcing_order_status CHECK (os_status IN (10,20,25,30,35,40,90,95)),
     CONSTRAINT ck_prd_outsourcing_order_qty CHECK (total_qty > 0 AND received_qty >= 0),
     CONSTRAINT ck_prd_outsourcing_order_amount CHECK (processing_amount >= 0 AND tax_amount >= 0)
 );
 
 CREATE UNIQUE INDEX uk_prd_outsourcing_order_no ON prd_outsourcing_order (tenant_id, company_id, outsourcing_no);
-CREATE INDEX idx_prd_outsourcing_order_supplier ON prd_outsourcing_order (company_id, supplier_id, os_status, planned_delivery_date);
-CREATE INDEX idx_prd_outsourcing_order_status ON prd_outsourcing_order (company_id, os_status, planned_delivery_date);
+CREATE INDEX idx_prd_outsourcing_order_supplier ON prd_outsourcing_order (tenant_id, company_id, supplier_id, os_status, planned_delivery_date);
+CREATE INDEX idx_prd_outsourcing_order_status ON prd_outsourcing_order (tenant_id, company_id, os_status, planned_delivery_date);
 ```
 
 ### 3.32 prd_outsourcing_order_line（委外订单明细）
@@ -1722,13 +1722,13 @@ CREATE TABLE prd_outsourcing_order_line (
     source_work_order_id BIGINT,                                 -- 由来工单 ID → prd_work_order.id
     CONSTRAINT pk_prd_outsourcing_order_line PRIMARY KEY (id),
     CONSTRAINT fk_prd_outsourcing_order_line_order FOREIGN KEY (outsourcing_order_id) REFERENCES prd_outsourcing_order (id) ON DELETE RESTRICT,
-    CONSTRAINT fk_prd_outsourcing_order_line_material FOREIGN KEY (material_id) REFERENCES mdm_material (id),
+    CONSTRAINT fk_prd_outsourcing_order_line_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
     CONSTRAINT ck_prd_outsourcing_order_line_qty CHECK (order_qty > 0 AND received_qty >= 0),
     CONSTRAINT ck_prd_outsourcing_order_line_price CHECK (processing_unit_price >= 0)
 );
 
 CREATE UNIQUE INDEX uk_prd_outsourcing_order_line_order_line ON prd_outsourcing_order_line (company_id, outsourcing_order_id, line_no);
-CREATE INDEX idx_prd_outsourcing_order_line_material ON prd_outsourcing_order_line (company_id, material_id);
+CREATE INDEX idx_prd_outsourcing_order_line_material ON prd_outsourcing_order_line (tenant_id, company_id, material_id);
 ```
 
 ### 3.33 prd_outsourcing_issue（委外发料单头）
@@ -1764,14 +1764,14 @@ CREATE TABLE prd_outsourcing_issue (
     cancel_reason       VARCHAR(500),                            -- 取消理由
     CONSTRAINT pk_prd_outsourcing_issue PRIMARY KEY (id),
     CONSTRAINT fk_prd_outsourcing_issue_order FOREIGN KEY (outsourcing_order_id) REFERENCES prd_outsourcing_order (id),
-    CONSTRAINT fk_prd_outsourcing_issue_wh FOREIGN KEY (warehouse_id) REFERENCES mdm_warehouse (id),
+    CONSTRAINT fk_prd_outsourcing_issue_wh FOREIGN KEY (tenant_id, warehouse_id) REFERENCES mdm_warehouse (tenant_id, id),
     CONSTRAINT ck_prd_outsourcing_issue_status CHECK (issue_status IN (10,30,40,90)),
     CONSTRAINT ck_prd_outsourcing_issue_qty CHECK (total_qty >= 0)
 );
 
 CREATE UNIQUE INDEX uk_prd_outsourcing_issue_req ON prd_outsourcing_issue (tenant_id, company_id, request_no);
-CREATE INDEX idx_prd_outsourcing_issue_doc ON prd_outsourcing_issue (company_id, stock_doc_no);
-CREATE INDEX idx_prd_outsourcing_issue_order ON prd_outsourcing_issue (company_id, outsourcing_order_id, issue_status);
+CREATE INDEX idx_prd_outsourcing_issue_doc ON prd_outsourcing_issue (tenant_id, company_id, stock_doc_no);
+CREATE INDEX idx_prd_outsourcing_issue_order ON prd_outsourcing_issue (tenant_id, company_id, outsourcing_order_id, issue_status);
 
 ```
 
@@ -1806,13 +1806,13 @@ CREATE TABLE prd_outsourcing_issue_line (
     stock_doc_line_id   BIGINT,                                  -- INV 採番の在庫伝票行 ID（E18 受信で設定）
     CONSTRAINT pk_prd_outsourcing_issue_line PRIMARY KEY (id),
     CONSTRAINT fk_prd_outsourcing_issue_line_issue FOREIGN KEY (issue_id) REFERENCES prd_outsourcing_issue (id) ON DELETE RESTRICT,
-    CONSTRAINT fk_prd_outsourcing_issue_line_material FOREIGN KEY (material_id) REFERENCES mdm_material (id),
+    CONSTRAINT fk_prd_outsourcing_issue_line_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
     CONSTRAINT ck_prd_outsourcing_issue_line_qty CHECK (issue_qty > 0),
     CONSTRAINT ck_prd_outsourcing_issue_line_amt CHECK (amount >= 0)
 );
 
 CREATE UNIQUE INDEX uk_prd_outsourcing_issue_line_issue_line ON prd_outsourcing_issue_line (company_id, issue_id, line_no);
-CREATE INDEX idx_prd_outsourcing_issue_line_material ON prd_outsourcing_issue_line (company_id, material_id, batch_no);
+CREATE INDEX idx_prd_outsourcing_issue_line_material ON prd_outsourcing_issue_line (tenant_id, company_id, material_id, batch_no);
 ```
 
 ### 3.35 prd_outsourcing_receipt（委外收货单头）
@@ -1851,14 +1851,14 @@ CREATE TABLE prd_outsourcing_receipt (
     cancel_reason       VARCHAR(500),                            -- 取消理由
     CONSTRAINT pk_prd_outsourcing_receipt PRIMARY KEY (id),
     CONSTRAINT fk_prd_outsourcing_receipt_order FOREIGN KEY (outsourcing_order_id) REFERENCES prd_outsourcing_order (id),
-    CONSTRAINT fk_prd_outsourcing_receipt_wh FOREIGN KEY (warehouse_id) REFERENCES mdm_warehouse (id),
+    CONSTRAINT fk_prd_outsourcing_receipt_wh FOREIGN KEY (tenant_id, warehouse_id) REFERENCES mdm_warehouse (tenant_id, id),
     CONSTRAINT ck_prd_outsourcing_receipt_status CHECK (receipt_status IN (10,30,40,90)),
     CONSTRAINT ck_prd_outsourcing_receipt_qty CHECK (total_qty >= 0)
 );
 
 CREATE UNIQUE INDEX uk_prd_outsourcing_receipt_req ON prd_outsourcing_receipt (tenant_id, company_id, request_no);
-CREATE INDEX idx_prd_outsourcing_receipt_doc ON prd_outsourcing_receipt (company_id, stock_doc_no);
-CREATE INDEX idx_prd_outsourcing_receipt_order ON prd_outsourcing_receipt (company_id, outsourcing_order_id, receipt_status);
+CREATE INDEX idx_prd_outsourcing_receipt_doc ON prd_outsourcing_receipt (tenant_id, company_id, stock_doc_no);
+CREATE INDEX idx_prd_outsourcing_receipt_order ON prd_outsourcing_receipt (tenant_id, company_id, outsourcing_order_id, receipt_status);
 
 ```
 
@@ -1895,13 +1895,13 @@ CREATE TABLE prd_outsourcing_receipt_line (
     quality_status      SMALLINT      NOT NULL DEFAULT 10,       -- 10:待検 20:合格 30:特采 40:不合格
     CONSTRAINT pk_prd_outsourcing_receipt_line PRIMARY KEY (id),
     CONSTRAINT fk_prd_outsourcing_receipt_line_rcpt FOREIGN KEY (receipt_id) REFERENCES prd_outsourcing_receipt (id) ON DELETE RESTRICT,
-    CONSTRAINT fk_prd_outsourcing_receipt_line_material FOREIGN KEY (material_id) REFERENCES mdm_material (id),
+    CONSTRAINT fk_prd_outsourcing_receipt_line_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
     CONSTRAINT ck_prd_outsourcing_receipt_line_qty CHECK (receipt_qty > 0),
     CONSTRAINT ck_prd_outsourcing_receipt_line_cost CHECK (unit_material_cost >= 0 AND processing_unit_price >= 0)
 );
 
 CREATE UNIQUE INDEX uk_prd_outsourcing_receipt_line_rcpt_line ON prd_outsourcing_receipt_line (company_id, receipt_id, line_no);
-CREATE INDEX idx_prd_outsourcing_receipt_line_material ON prd_outsourcing_receipt_line (company_id, material_id, batch_no);
+CREATE INDEX idx_prd_outsourcing_receipt_line_material ON prd_outsourcing_receipt_line (tenant_id, company_id, material_id, batch_no);
 ```
 
 ### 3.37 prd_outsourcing_settlement（委外结算单头）
@@ -1945,13 +1945,13 @@ CREATE TABLE prd_outsourcing_settlement (
     approved_at         TIMESTAMPTZ,                             -- 承認日時
     cancel_reason       VARCHAR(500),                            -- 取消理由
     CONSTRAINT pk_prd_outsourcing_settlement PRIMARY KEY (id),
-    CONSTRAINT fk_prd_outsourcing_settlement_supplier FOREIGN KEY (supplier_id) REFERENCES mdm_supplier (id),
+    CONSTRAINT fk_prd_outsourcing_settlement_supplier FOREIGN KEY (tenant_id, supplier_id) REFERENCES mdm_supplier (tenant_id, id),
     CONSTRAINT ck_prd_outsourcing_settlement_status CHECK (settlement_status IN (10,20,25,40,90)),
     CONSTRAINT ck_prd_outsourcing_settlement_amt CHECK (total_processing_amount >= 0 AND net_amount >= 0 AND deduction_amount >= 0)
 );
 
 CREATE UNIQUE INDEX uk_prd_outsourcing_settlement_no ON prd_outsourcing_settlement (tenant_id, company_id, settlement_no);
-CREATE INDEX idx_prd_outsourcing_settlement_supplier ON prd_outsourcing_settlement (company_id, supplier_id, period_code, settlement_status);
+CREATE INDEX idx_prd_outsourcing_settlement_supplier ON prd_outsourcing_settlement (tenant_id, company_id, supplier_id, period_code, settlement_status);
 ```
 
 ### 3.38 prd_outsourcing_settlement_line（委外结算明细）
@@ -1985,13 +1985,13 @@ CREATE TABLE prd_outsourcing_settlement_line (
     net_amount          NUMERIC(18,2) NOT NULL DEFAULT 0,        -- 正味金額（税抜）
     CONSTRAINT pk_prd_outsourcing_settlement_line PRIMARY KEY (id),
     CONSTRAINT fk_prd_outsourcing_settlement_line_settle FOREIGN KEY (settlement_id) REFERENCES prd_outsourcing_settlement (id) ON DELETE RESTRICT,
-    CONSTRAINT fk_prd_outsourcing_settlement_line_material FOREIGN KEY (material_id) REFERENCES mdm_material (id),
+    CONSTRAINT fk_prd_outsourcing_settlement_line_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
     CONSTRAINT ck_prd_outsourcing_settlement_line_qty CHECK (receipt_qty > 0),
     CONSTRAINT ck_prd_outsourcing_settlement_line_amt CHECK (processing_amount >= 0 AND deduction_amount >= 0 AND net_amount >= 0)
 );
 
 CREATE UNIQUE INDEX uk_prd_outsourcing_settlement_line_settle_line ON prd_outsourcing_settlement_line (tenant_id, company_id, settlement_id, line_no);
-CREATE INDEX idx_prd_outsourcing_settlement_line_rcpt ON prd_outsourcing_settlement_line (company_id, outsourcing_receipt_id);
+CREATE INDEX idx_prd_outsourcing_settlement_line_rcpt ON prd_outsourcing_settlement_line (tenant_id, company_id, outsourcing_receipt_id);
 ```
 
 ### 3.39 prd_inspection_standard（检验标准头）
@@ -2040,8 +2040,8 @@ CREATE TABLE prd_inspection_standard (
 );
 
 CREATE UNIQUE INDEX uk_prd_inspection_standard_no ON prd_inspection_standard (tenant_id, company_id, standard_no) WHERE deleted = FALSE;
-CREATE INDEX idx_prd_inspection_standard_apply ON prd_inspection_standard (company_id, inspection_type, material_id, operation_seq, customer_id, standard_status);
-CREATE INDEX idx_prd_inspection_standard_valid ON prd_inspection_standard (company_id, inspection_type, valid_from, valid_to);
+CREATE INDEX idx_prd_inspection_standard_apply ON prd_inspection_standard (tenant_id, company_id, inspection_type, material_id, operation_seq, customer_id, standard_status);
+CREATE INDEX idx_prd_inspection_standard_valid ON prd_inspection_standard (tenant_id, company_id, inspection_type, valid_from, valid_to);
 ```
 
 ### 3.40 prd_inspection_standard_item（检验标准项目）
@@ -2083,7 +2083,7 @@ CREATE TABLE prd_inspection_standard_item (
 );
 
 CREATE UNIQUE INDEX uk_prd_inspection_standard_item_std_seq ON prd_inspection_standard_item (tenant_id, company_id, standard_id, item_seq);
-CREATE INDEX idx_prd_inspection_standard_item_code ON prd_inspection_standard_item (company_id, inspection_item_code);
+CREATE INDEX idx_prd_inspection_standard_item_code ON prd_inspection_standard_item (tenant_id, company_id, inspection_item_code);
 ```
 
 ### 3.41 prd_inspection（检验单头）
@@ -2142,7 +2142,7 @@ CREATE TABLE prd_inspection (
     e15_published_at    TIMESTAMPTZ,                             -- E15 発行日時（再送制御用）
     cancel_reason       VARCHAR(500),                            -- 取消理由
     CONSTRAINT pk_prd_inspection PRIMARY KEY (id),
-    CONSTRAINT fk_prd_inspection_material FOREIGN KEY (material_id) REFERENCES mdm_material (id),
+    CONSTRAINT fk_prd_inspection_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
     CONSTRAINT fk_prd_inspection_standard FOREIGN KEY (standard_id) REFERENCES prd_inspection_standard (id),
     CONSTRAINT fk_prd_inspection_wo FOREIGN KEY (work_order_id) REFERENCES prd_work_order (id),
     CONSTRAINT ck_prd_inspection_type CHECK (inspection_type IN (10,20,30,40)),
@@ -2152,10 +2152,10 @@ CREATE TABLE prd_inspection (
 );
 
 CREATE UNIQUE INDEX uk_prd_inspection_no ON prd_inspection (tenant_id, company_id, inspection_no);
-CREATE INDEX idx_prd_inspection_source ON prd_inspection (company_id, source_type, source_id);
-CREATE INDEX idx_prd_inspection_status ON prd_inspection (company_id, inspection_type, inspection_status, judged_at);
-CREATE INDEX idx_prd_inspection_wo ON prd_inspection (company_id, work_order_id) WHERE work_order_id IS NOT NULL;
-CREATE INDEX idx_prd_inspection_lot ON prd_inspection (company_id, material_id, lot_no);
+CREATE INDEX idx_prd_inspection_source ON prd_inspection (tenant_id, company_id, source_type, source_id);
+CREATE INDEX idx_prd_inspection_status ON prd_inspection (tenant_id, company_id, inspection_type, inspection_status, judged_at);
+CREATE INDEX idx_prd_inspection_wo ON prd_inspection (tenant_id, company_id, work_order_id) WHERE work_order_id IS NOT NULL;
+CREATE INDEX idx_prd_inspection_lot ON prd_inspection (tenant_id, company_id, material_id, lot_no);
 ```
 
 ### 3.42 prd_inspection_line（检验结果明细）
@@ -2201,7 +2201,7 @@ CREATE TABLE prd_inspection_line (
 );
 
 CREATE UNIQUE INDEX uk_prd_inspection_line_inspection_seq ON prd_inspection_line (tenant_id, company_id, inspection_id, item_seq);
-CREATE INDEX idx_prd_inspection_line_item ON prd_inspection_line (company_id, inspection_item_code, judge);
+CREATE INDEX idx_prd_inspection_line_item ON prd_inspection_line (tenant_id, company_id, inspection_item_code, judge);
 ```
 
 ### 3.43 prd_ncr（不合格品报告）
@@ -2264,9 +2264,9 @@ CREATE TABLE prd_ncr (
 );
 
 CREATE UNIQUE INDEX uk_prd_ncr_no ON prd_ncr (tenant_id, company_id, ncr_no);
-CREATE INDEX idx_prd_ncr_status ON prd_ncr (company_id, ncr_status, ncr_date);
-CREATE INDEX idx_prd_ncr_material ON prd_ncr (company_id, material_id, lot_no);
-CREATE INDEX idx_prd_ncr_wo ON prd_ncr (company_id, work_order_id) WHERE work_order_id IS NOT NULL;
+CREATE INDEX idx_prd_ncr_status ON prd_ncr (tenant_id, company_id, ncr_status, ncr_date);
+CREATE INDEX idx_prd_ncr_material ON prd_ncr (tenant_id, company_id, material_id, lot_no);
+CREATE INDEX idx_prd_ncr_wo ON prd_ncr (tenant_id, company_id, work_order_id) WHERE work_order_id IS NOT NULL;
 ```
 
 ### 3.44 prd_ncr_action（NCR 处置措施）
@@ -2306,7 +2306,7 @@ CREATE TABLE prd_ncr_action (
 );
 
 CREATE UNIQUE INDEX uk_prd_ncr_action_ncr_seq ON prd_ncr_action (tenant_id, company_id, ncr_id, action_seq);
-CREATE INDEX idx_prd_ncr_action_status ON prd_ncr_action (company_id, action_status, planned_date);
+CREATE INDEX idx_prd_ncr_action_status ON prd_ncr_action (tenant_id, company_id, action_status, planned_date);
 ```
 
 ### 3.45 prd_defect_code（缺陷代码）
@@ -2339,7 +2339,7 @@ CREATE TABLE prd_defect_code (
 );
 
 CREATE UNIQUE INDEX uk_prd_defect_code ON prd_defect_code (tenant_id, company_id, defect_code) WHERE deleted = FALSE;
-CREATE INDEX idx_prd_defect_code_group ON prd_defect_code (company_id, defect_group, is_active);
+CREATE INDEX idx_prd_defect_code_group ON prd_defect_code (tenant_id, company_id, defect_group, is_active);
 ```
 
 ### 3.46 prd_wo_lot（工单批次追溯）
@@ -2383,10 +2383,10 @@ CREATE TABLE prd_wo_lot (
     CONSTRAINT ck_prd_wo_lot_qty CHECK (input_qty >= 0)
 );
 
-CREATE INDEX idx_prd_wo_lot_wo ON prd_wo_lot (company_id, work_order_id, operation_seq);
-CREATE INDEX idx_prd_wo_lot_product ON prd_wo_lot (company_id, product_lot_no, trace_type);
-CREATE INDEX idx_prd_wo_lot_input ON prd_wo_lot (company_id, input_material_id, input_lot_no);
-CREATE INDEX idx_prd_wo_lot_consumed ON prd_wo_lot (company_id, consumed_at);
+CREATE INDEX idx_prd_wo_lot_wo ON prd_wo_lot (tenant_id, company_id, work_order_id, operation_seq);
+CREATE INDEX idx_prd_wo_lot_product ON prd_wo_lot (tenant_id, company_id, product_lot_no, trace_type);
+CREATE INDEX idx_prd_wo_lot_input ON prd_wo_lot (tenant_id, company_id, input_material_id, input_lot_no);
+CREATE INDEX idx_prd_wo_lot_consumed ON prd_wo_lot (tenant_id, company_id, consumed_at);
 ```
 
 > パーティション方針：`prd_wo_lot` は `consumed_at` の月次レンジパーティション、`prd_mrp_demand`/`prd_mrp_action` は `created_at` の月次レンジパーティションへ移行可能な設計とする（[04](../00-common/04-common-db-spec.md) 8 章）。
@@ -2424,7 +2424,7 @@ CREATE TABLE prd_capacity_load (
 );
 
 CREATE UNIQUE INDEX uk_prd_capacity_load_wc_date_snap ON prd_capacity_load (tenant_id, company_id, work_center_id, load_date, load_type, snapshot_date);
-CREATE INDEX idx_prd_capacity_load_date ON prd_capacity_load (company_id, load_date, load_type, load_rate DESC);
+CREATE INDEX idx_prd_capacity_load_date ON prd_capacity_load (tenant_id, company_id, load_date, load_type, load_rate DESC);
 ```
 
 ## 4. 索引一覧（主要索引と想定 SQL）
@@ -2432,26 +2432,26 @@ CREATE INDEX idx_prd_capacity_load_date ON prd_capacity_load (company_id, load_d
 | # | テーブル | 索引名 | 種別 | 対象列 | 目的・想定 SQL |
 |---|---|---|---|---|---|
 | 1 | `prd_bom` | `uk_prd_bom_material_version` | UNIQUE | (tenant_id, company_id, material_id, factory_id, version_no) WHERE deleted=FALSE | 版本一意。BOM 一覧・版本採番 |
-| 2 | `prd_bom` | `idx_prd_bom_effective` | B-Tree | (company_id, effective_status, valid_from, valid_to) | 展開基準日での有效 BOM 検索（MRP・工单展開） |
-| 3 | `prd_bom_line` | `idx_prd_bom_line_component` | B-Tree | (component_material_id) | 逆展開（使用点照会）、BOM 変更影響調査 |
-| 4 | `prd_routing_operation` | `idx_prd_routing_operation_wc` | B-Tree | (work_center_id) | 工作中心別の工序一覧・能力計算 |
-| 5 | `prd_material_planning` | `idx_prd_material_planning_llc` | B-Tree | (low_level_code, material_type) | MRP の低层码順走査（最重要） |
+| 2 | `prd_bom` | `idx_prd_bom_effective` | B-Tree | (tenant_id, company_id, effective_status, valid_from, valid_to) | 展開基準日での有效 BOM 検索（MRP・工单展開） |
+| 3 | `prd_bom_line` | `idx_prd_bom_line_component` | B-Tree | (tenant_id, company_id, component_material_id) | 逆展開（使用点照会）、BOM 変更影響調査 |
+| 4 | `prd_routing_operation` | `idx_prd_routing_operation_wc` | B-Tree | (tenant_id, company_id, work_center_id) | 工作中心別の工序一覧・能力計算 |
+| 5 | `prd_material_planning` | `idx_prd_material_planning_llc` | B-Tree | (tenant_id, company_id, low_level_code, material_type) | MRP の低层码順走査（最重要） |
 | 6 | `prd_work_order` | `idx_prd_work_order_status_date` | B-Tree | (factory_id, order_status, planned_end_date) | 工单一覧・遅延アラート・看板 |
 | 7 | `prd_work_order` | `idx_prd_work_order_material` | B-Tree | (material_id, order_status) | 品目別の未完工工单照会 |
-| 8 | `prd_work_order_material` | `idx_prd_work_order_material_unissued` | 部分 | (work_order_id, remaining_qty) WHERE remaining_qty>0 | 未領料抽出（領料画面・MRP 子件需要） |
-| 9 | `prd_work_order_operation` | `idx_prd_work_order_operation_wc_date` | B-Tree | (work_center_id, planned_start_date, operation_status) | 工序负荷・日计划 |
-| 10 | `prd_material_issue` | `idx_prd_material_issue_wo` | B-Tree | (work_order_id, issue_type, issue_status) | 工单別領料一覧 |
-| 11 | `prd_work_report` | `idx_prd_work_report_date` | B-Tree | (report_date, report_status) | 日次報工集計・承認待ち |
-| 12 | `prd_completion_receipt` | `idx_prd_completion_receipt_wo` | B-Tree | (work_order_id, receipt_status) | 工单別入庫実績 |
-| 13 | `prd_outsourcing_order` | `idx_prd_outsourcing_order_supplier` | B-Tree | (supplier_id, os_status, planned_delivery_date) | 仕入先別委外残・納期管理 |
-| 14 | `prd_mrp_demand` | `idx_prd_mrp_demand_run_mat` | B-Tree | (mrp_run_id, material_id, bucket_date) | MRP 結果照会（品目×バケット） |
-| 15 | `prd_mrp_plan_order` | `idx_prd_mrp_plan_order_status` | B-Tree | (plan_status, start_date) | 未確認計画订单の抽出 |
-| 16 | `prd_inspection` | `idx_prd_inspection_status` | B-Tree | (inspection_type, inspection_status, judged_at) | 未判定検査一覧（BAT-PRD-010） |
-| 17 | `prd_inspection` | `idx_prd_inspection_lot` | B-Tree | (material_id, lot_no) | 批次別検査履歴（追溯） |
-| 18 | `prd_ncr` | `idx_prd_ncr_status` | B-Tree | (ncr_status, ncr_date) | 未完了 NCR・品質会議資料 |
-| 19 | `prd_wo_lot` | `idx_prd_wo_lot_product` | B-Tree | (product_lot_no, trace_type) | 製品→材料の逆追溯 |
-| 20 | `prd_wo_lot` | `idx_prd_wo_lot_input` | B-Tree | (input_material_id, input_lot_no) | 材料→製品の順追溯 |
-| 21 | `prd_capacity_load` | `idx_prd_capacity_load_date` | B-Tree | (load_date, load_type, load_rate DESC) | 能力超過日の抽出・粗能力画面 |
+| 8 | `prd_work_order_material` | `idx_prd_work_order_material_unissued` | 部分 | (tenant_id, company_id, work_order_id, remaining_qty) WHERE remaining_qty>0 | 未領料抽出（領料画面・MRP 子件需要） |
+| 9 | `prd_work_order_operation` | `idx_prd_work_order_operation_wc_date` | B-Tree | (tenant_id, company_id, work_center_id, planned_start_date, operation_status) | 工序负荷・日计划 |
+| 10 | `prd_material_issue` | `idx_prd_material_issue_wo` | B-Tree | (tenant_id, company_id, work_order_id, issue_type, issue_status) | 工单別領料一覧 |
+| 11 | `prd_work_report` | `idx_prd_work_report_date` | B-Tree | (tenant_id, company_id, report_date, report_status) | 日次報工集計・承認待ち |
+| 12 | `prd_completion_receipt` | `idx_prd_completion_receipt_wo` | B-Tree | (tenant_id, company_id, work_order_id, receipt_status) | 工单別入庫実績 |
+| 13 | `prd_outsourcing_order` | `idx_prd_outsourcing_order_supplier` | B-Tree | (tenant_id, company_id, supplier_id, os_status, planned_delivery_date) | 仕入先別委外残・納期管理 |
+| 14 | `prd_mrp_demand` | `idx_prd_mrp_demand_run_mat` | B-Tree | (tenant_id, company_id, mrp_run_id, material_id, bucket_date) | MRP 結果照会（品目×バケット） |
+| 15 | `prd_mrp_plan_order` | `idx_prd_mrp_plan_order_status` | B-Tree | (tenant_id, company_id, plan_status, start_date) | 未確認計画订单の抽出 |
+| 16 | `prd_inspection` | `idx_prd_inspection_status` | B-Tree | (tenant_id, company_id, inspection_type, inspection_status, judged_at) | 未判定検査一覧（BAT-PRD-010） |
+| 17 | `prd_inspection` | `idx_prd_inspection_lot` | B-Tree | (tenant_id, company_id, material_id, lot_no) | 批次別検査履歴（追溯） |
+| 18 | `prd_ncr` | `idx_prd_ncr_status` | B-Tree | (tenant_id, company_id, ncr_status, ncr_date) | 未完了 NCR・品質会議資料 |
+| 19 | `prd_wo_lot` | `idx_prd_wo_lot_product` | B-Tree | (tenant_id, company_id, product_lot_no, trace_type) | 製品→材料の逆追溯 |
+| 20 | `prd_wo_lot` | `idx_prd_wo_lot_input` | B-Tree | (tenant_id, company_id, input_material_id, input_lot_no) | 材料→製品の順追溯 |
+| 21 | `prd_capacity_load` | `idx_prd_capacity_load_date` | B-Tree | (tenant_id, company_id, load_date, load_type, load_rate DESC) | 能力超過日の抽出・粗能力画面 |
 
 > 索引は 1 テーブル 5 本以内を目安とする（[04](../00-common/04-common-db-spec.md) 7 章）。更新系テーブル（`prd_work_order`、`prd_work_order_material`、`prd_work_order_operation`）は上記 2〜3 本に留め、追加時は設計書へ目的・想定 SQL を追記する。
 
@@ -2627,3 +2627,4 @@ CREATE INDEX idx_prd_capacity_load_date ON prd_capacity_load (company_id, load_d
 | v1.4 | 2026-10-21 | PR #13 指摘対応：`prd_work_order.over_receipt_rate` の DEFAULT 0.05 削除（登録時にチェーン解決値をスナップショット、工单上は NULL 継承しない）、`prd_mrp_action.current_date`→`current_due_date`（予約語）、v1.1 削除済み列を参照する uk 4 件削除（`*_req` で一意）、§3.18 コードブロックの閉じ fence 追加 | 业务分析 |
 | v1.5 | 2026-10-21 | `ck_prd_opa_qty` を `ck_prd_opa_request_qty`（request_qty > 0、違反は 60103）と `ck_prd_opa_allowed_qty`（current_allowed_qty >= 0）に分割（migration prd/V202610210704） | 数据库与运维 |
 | v1.6 | 2026-10-21 | §4 索引一覧 #1・#2 の対象列を DDL と一致（`tenant_id, company_id` / `company_id` を追加） | 业务分析 |
+| v1.7 | 2026-10-21 | #35 迁移 `sys/V202610210707` に整合：`idx_prd_bom_effective` を `(tenant_id, company_id, effective_status, valid_from, valid_to)` に、prd 普通 btree 索引を `(tenant_id, company_id, …)` 先頭に、mdm 向け FK 29 本を複合外键に変更（DDL・索引一覧） | 业务分析 |

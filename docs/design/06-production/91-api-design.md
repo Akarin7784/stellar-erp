@@ -70,7 +70,7 @@
 | 26 | POST | `/api/production/work-orders` | `production:work-order:create` | 工单登録 | F-PRD-005 |
 | 27 | PUT | `/api/production/work-orders/{id}` | `production:work-order:update` | 工单変更 | F-PRD-005 |
 | 28 | POST | `/api/production/work-orders/{id}/submit` | `production:work-order:submit` | 承認提出（10→20。詳細 §3.10） | F-PRD-005 |
-| 28a | POST | `/api/production/work-orders/{id}/approve` | `production:work-order:approve`（TODO：権限チェック未実装） | 承認（20→25。08 WF E32 コールバックと同一サービス。詳細 §3.11） | F-PRD-005 |
+| 28a | POST | `/api/production/work-orders/{id}/approve` | `production:work-order:approve` | 承認（20→25。08 WF E32 コールバックと同一サービス。詳細 §3.11）。TODO：権限チェック未実装、Flowable 接入後に閉鎖 | F-PRD-005 |
 | 29 | POST | `/api/production/work-orders/{id}/release` | `production:work-order:release` | 下达（E21） | F-PRD-005 |
 | 30 | POST | `/api/production/work-orders/batch-release` | 同上 | 一括下达 | F-PRD-005 |
 | 31 | POST | `/api/production/work-orders/{id}/split` | 同上 | 拆分 | F-PRD-005 |
@@ -285,6 +285,8 @@
 警告：標準原価の発行版がない場合は `data.warnings[]` に `{ "code": 70117, "message": "未设定标准成本，本期不进行成本差异分析。" }`（MSG-FIN-117）を含め、下达は成功（200）。
 
 **エラー例（状態不整合）**：HTTP 409、`{"code":4002,"message":"該当データは現在の状態ではこの操作を実行できません。"}`
+
+**受注行 `allowed_qty` 未スナップショット（2026-10-21 蓝色大肥鱼 決定）**：MTO 工单の下达では、工单をロックする**前に**紐づく受注行の `allowed_qty` を判定し、NULL（未スナップショット）なら業務コード **5000** を返して中断する（0 とみなさない。超産承認・完工と同じ扱い、[03/90](../03-sales/90-db-design.md) `allowed_qty` の NULL）。
 
 **エラー例（下达日が過去日）**：HTTP 422、`{"code":60104,"message":"下达日不能早于今天。"}`（MSG-PRD-104。`releaseDate` < Asia/Shanghai 当日）
 
@@ -538,7 +540,8 @@
 | 項目 | 内容 |
 |---|---|
 | 目的 | 工单を 20（承認中）→25（承認済）に遷移する |
-| 権限 | `production:work-order:approve`（02-work-order.md T-02。TODO：権限チェックは未実装） |
+| 権限 | `production:work-order:approve`（02-work-order.md T-02） |
+| 備考 | TODO：権限チェック未実装、Flowable 接入後に閉鎖 |
 | 呼出元 | 08 工作流の E32 承認完了コールバックと**同一のサービスメソッド**を呼ぶ。08（Flowable）接入後は本 API を閉じ、E32 コールバックからのみ遷移可能とする（蓝色大肥鱼 2026-10-21 決定、PR #32）。**Flowable 接入前の暫定入口**であり、統一入口は [08/91 #33](../08-workflow/91-api-design.md) `POST /api/workflow/tasks/{taskId}/approve`。接入後は廃止またはコールバック専用とする |
 | リクエスト | `{ "version": 4 }` |
 | 正常 | 200 + 工单 DTO（`orderStatus=25`、`version`+1） |
@@ -631,3 +634,5 @@
 | v1.6 | 2026-10-21 | §3.10 提出の `1001`（材料明細なし）を削除。§3.2 下达に材料明細 0 行時の BOM 展開（同一トランザクション、BOM なし 60020・書込みなし、既存明細は再展開しない）を追加（蓝色大肥鱼 2026-10-21 PR #37 決定） | 业务分析 |
 | v1.7 | 2026-10-21 | §3.1 警告を `{code, msgId, message}` 形式に統一、§3.2 にチェック順序を追加、60020 時は E21 なしと明記（蓝色大肥鱼 2026-10-21 PR #37 決定） | 业务分析 |
 | v1.8 | 2026-10-21 | §3.11 承認に明細条件（工序 1 行以上、材料不要）を追加、§3.2 同時下达の後続を 409／4002 または 4003 に明記（蓝色大肥鱼 2026-10-21 PR #37 決定） | 业务分析 |
+| v1.9 | 2026-10-21 | #28a・§3.11 の権限欄から TODO 文言を除去し、概要欄／備考行へ移動（権限コード欄は権限コードのみ、PR #33 評審非阻塞指摘） | 业务分析 |
+| v1.10 | 2026-10-21 | §3.2 下达に受注行 `allowed_qty` NULL→5000（工单ロック前に判定）を追記（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

@@ -38,7 +38,7 @@ SYS 域 90 章 1.2 と同一の 3 セット（M/T/L）を適用する（[共通�
 |---|---|
 | M（マスタ） | wf_process_definition_ext、wf_business_type、wf_process_mapping、wf_approval_matrix、wf_approval_matrix_line、wf_timeout_rule、wf_form_field_permission、wf_delegation |
 | T（取引・設定） | wf_business_process、wf_task、wf_cc、wf_variable |
-| L（追記ログ） | wf_task_operation、wf_timeout_record、wf_process_stat（統計は更新ありのため `updated_at` のみ追加） |
+| L（追記ログ） | wf_task_operation（+company_id）、wf_timeout_record（+company_id）、wf_process_stat（統計は更新ありのため `updated_at` のみ追加） |
 
 **RLS**：全 `wf_*` テーブルは `ENABLE ROW LEVEL SECURITY` + `FORCE ROW LEVEL SECURITY` とし、ポリシーは `tenant_id = current_setting('app.tenant_id')::bigint` のみで判定する（`company_id` は RLS に含めずアプリ層で制御。[00-common 10](../00-common/10-rls-and-db-roles.md)）。Flowable 引擎表（`ACT_*`／`FLW_*`、schema `flowable`）は `tenant_id` を持たず RLS の対象外とする（[04 共通 DB 規約](../00-common/04-common-db-spec.md) 末節「Flowable 引擎表の schema 分離」）。代わりに Flowable 引擎の `tenantId` に `tenant_id` を設定してデプロイ・起動し、業務 API は必ず RLS 対象の `wf_*` テーブル（`wf_business_process`／`wf_task` 等）を経由して `ACT_*` を関連取得する。`taskId`／`processInstanceId` を直接指定して `ACT_*` を参照してはならない。
 
@@ -573,7 +573,7 @@ COMMENT ON TABLE wf_timeout_rule IS '超时规则（リマインダ・エスカ�
 
 ```sql
 CREATE TABLE wf_timeout_record (
-    -- [共通カラム L]
+    -- [共通カラム L + company_id]（明細も親と同値を冗長保持。2026-10-21 決定）
     process_instance_id VARCHAR(64)   NOT NULL,           -- プロセスインスタンス ID
     task_id             VARCHAR(64)   NOT NULL,           -- タスク ID
     business_type       VARCHAR(64),                      -- 業務類型
@@ -737,3 +737,4 @@ COMMENT ON TABLE wf_variable IS '流程変数（業務変数スナップショ�
 | v1.1 | 2026-10-21 | DDL 整備（建迁移前）：唯一索引 12 件を `tenant_id` 先頭（`(tenant_id[, company_id], …)`、`wf_approval_matrix` は `(tenant_id, …)`、L セットの `wf_process_stat` は `(tenant_id, …)`）、T セット（`deleted` なし）の `uk_wf_business_process`/`uk_wf_task`/`uk_wf_cc`/`uk_wf_variable` から `WHERE deleted=FALSE` を削除、`wf_business_process` の重複 `company_id … DEFAULT 1` を削除、RLS 方針を追記（Flowable `ACT_*`/`FLW_*` は対象外）、既存の枚挙注釈どおり CHECK を追加、`wf_task.parent_task_id`（加签の親タスク、域内自己参照 FK）を追加（蓝色大肥鱼 決定） | 业务分析 |
 | v1.2 | 2026-10-21 | `wf_business_process.status` の注釈を伝票状態（10 草稿 / 20 承認中 / 30 承認済 / 40 却下 / 90 撤回、DEFAULT 20 維持）に修正し CHECK `ck_wf_business_process_doc_status` を追加、`wf_task.task_type`（10 通常 / 20 加签 / 30 转办、DEFAULT 10）と CHECK `ck_wf_task_type` を追加（蓝色大肥鱼 決定） | 业务分析 |
 | v1.3 | 2026-10-21 | 評審指摘対応：`wf_task` に `uk_wf_task_tenant_id UNIQUE (tenant_id, id)` を追加し `fk_wf_task_parent` を `(tenant_id, parent_task_id)` 複合 FK に変更、`process_status` に 21 挂起を追加（03 と整合）、Flowable 租户隔離（引擎 `tenantId`、`wf_*` 経由のみ `ACT_*` 参照）を追記、`uk_wf_approval_matrix_code`／`uk_wf_approval_matrix_line` を `(tenant_id, company_id, …)` に、`wf_process_stat` に `company_id` を追加し唯一键を `(tenant_id, company_id, …)` + NULLS NOT DISTINCT に変更 | 业务分析 |
+| v1.4 | 2026-10-21 | 明細 `wf_timeout_record` に `company_id` を付与（L セット + company_id） | 业务分析 |

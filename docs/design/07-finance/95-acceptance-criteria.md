@@ -28,8 +28,8 @@
 
 - W：業務一意索引（`uk_`）を DDL 本文・§7 索引一覧で確認。T：`(tenant_id, company_id, …)` で始まり、両者の列順が一致する（例：`uk_fin_voucher_no`、`uk_fin_voucher_source`、`uk_fin_receivable_source`、`uk_fin_payable_source`、`uk_fin_cost_collection`）。
 - T：`fin_standard_cost` の `uk_fin_standard_cost_version` は `(tenant_id, company_id, material_id, cost_version)`、`uk_fin_standard_cost_period` は `(tenant_id, company_id, material_id, period_from) WHERE status=40`、`ex_fin_standard_cost_period` は `tenant_id, company_id, material_id` 先頭の EXCLUDE（90 §6.12・§7 #21/#22/#22a）。
-- T：親 ID／イベント ID 先頭の一意索引は 90 §7.1 の例外一覧に全て列挙され、理由が書かれている。一覧外の非 tenant 先頭 `uk_` は 0 件。
-- T（G2-20）：`company_id` 先頭は非一意 `idx_` のみ（例：`idx_fin_standard_cost_lookup`）。
+- T：明細・イベント ID を含む全一意索引が `(tenant_id, company_id, …)` 先頭。例外は登録しない（90 §7.1、2026-10-21 蓝色大肥鱼决定）。非 tenant 先頭の `uk_` は 0 件。
+- T（G2-20）：btree 索引（非一意 `idx_` を含む）は必ず `tenant_id` 先頭、続けて `company_id`（例：`idx_fin_standard_cost_lookup (tenant_id, company_id, material_id, …)`）。GIN は除く。
 
 ## AC-FIN-04 RLS
 
@@ -132,3 +132,4 @@
 | v1.1 | 2026-10-21 | AC-FIN-09b（登録・発行権限）、AC-FIN-09c（自動打切り・EXCLUDE・MSG-FIN-134）追加 | 业务分析 |
 | v1.2 | 2026-10-21 | AC-FIN-09c に同時発行 2 件（初回発行・既存版あり）追加 | 业务分析 |
 | v1.3 | 2026-10-21 | AC-FIN-09 に将来月版の開帳時反映を追加 | 业务分析 |
+| v1.4 | 2026-10-21 | AC-FIN-03 G2-20：btree 索引は `tenant_id` 先頭（続けて `company_id`）、GIN 除く に改訂 | 业务分析 |
