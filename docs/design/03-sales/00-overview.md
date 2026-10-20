@@ -33,8 +33,8 @@
 | 項目 | 内容 |
 |---|---|
 | 対象会社・拠点 | 华东精密电机股份有限公司（虚拟示例主体）/ 常州总装厂・无锡零部件厂・销售总部（详见 [90-data/demo-company.md](../90-data/demo-company.md)） |
-| 対象機能範囲 | 询价 → 报价 → 受注 → 订单变更 → 引当联动 → 发货通知/拣货 → 出荷确定 → 销售退货 → 开票申请/发票登记 → 客户对账单 → 应收款/账龄 → 信用管控 → 价格与特价审批 → 订单执行跟踪 → 销售预测/换货/报表（含出口销售 Phase 2 预留） |
-| 対象外 | ① 库存数量・成本的最终记账（INV 域负责，本域只发事件与只读查询）；② 应收账款/收款/核销的记账与凭证（FIN 域负责）；③ 客户/物料/价格表/信用额度/税码主数据的维护（MDM 域负责）；④ 审批流程引擎（WF 域负责，本域只提交业务单据与接收回调）；⑤ 增值税发票的税控开具与数电票平台交互（INT 域负责，Phase 2）；⑥ 跨域汇总分析报表（RPT 域负责，本域只提供明细与域内报表） |
+| 対象機能範囲 | 询价 → 报价 → 受注 → 订单变更 → 引当联动 → 发货通知/拣货 → 出荷确定 → 销售退货 → 开票申请/发票登记 → 客户对账单 → 应收款/账龄 → 信用管控 → 价格与特价审批 → 订单执行跟踪 → 销售预测/换货/报表（含出口销售 第一版 预留） |
+| 対象外 | ① 库存数量・成本的最终记账（INV 域负责，本域只发事件与只读查询）；② 应收账款/收款/核销的记账与凭证（FIN 域负责）；③ 客户/物料/价格表/信用额度/税码主数据的维护（MDM 域负责）；④ 审批流程引擎（WF 域负责，本域只提交业务单据与接收回调）；⑤ 增值税发票的税控开具与数电票平台交互（INT 域负责，第一版）；⑥ 跨域汇总分析报表（RPT 域负责，本域只提供明细与域内报表） |
 | 前提 | ① MDM 客户/物料/价格表/信用额度/税码/付款条件/仓库已生效；② INV 提供可用量照会与引当能力；③ SYS 提供用户/角色/组织/采番；④ WF 提供审批流程定义；⑤ FIN 提供会计期间状态照会。 |
 
 ### 1.3 業務上の狙い（KPI）
@@ -164,7 +164,7 @@ sequenceDiagram
     SAL-->>INV: E10 sales.delivery.confirmed（出荷確定）
     INV-->>FIN: E18 inventory.txn.posted（在庫出庫・原価確定）
     SAL-->>FIN: E10 購読による 売上・売掛計上（J07/E27）
-    SAL->>INT: 数電票発行依頼（Phase 2 / IF-SAL-001）
+    SAL->>INT: 数電票発行依頼（IF-SAL-001）
     INT-->>SAL: 発票番号・発票状態
     SAL-->>FIN: E12 sales.invoice.issued（AR 紐付け）
     FIN-->>SAL: E27 finance.receivable.created / E29 finance.receipt.completed
@@ -177,11 +177,11 @@ sequenceDiagram
 | WF | 报价单・受注・订单变更・退货・特价・开票申请・信用超限の承認 | 非同期イベント（E05/E31/E32） | [09 第 9 章](../00-common/09-cross-domain-flow.md) |
 | INV | 引当（E06/E07/E08 → E09）、出荷出庫（E10 → E18）、返品戻入（E11 → E18）、可用量照会 | 同期参照 + 非同期イベント | [09 第 3 章 E06〜E11、第 5 章](../00-common/09-cross-domain-flow.md) |
 | FIN | 売上・売掛計上（E10 → E27）、発票紐付け（E12）、入金（E29）、与信残高照会、会計期間状態 | 非同期イベント + 同期参照 | [09 第 3 章 E10/E12/E27/E29、7.3](../00-common/09-cross-domain-flow.md) |
-| INT | 数電票/金税発票連携（Phase 2）、物流送り状連携（Phase 2） | 外部 IF | 09-integration（予定） |
+| INT | 数電票/金税発票連携、物流送り状連携 | 外部 IF | 09-integration（予定） |
 | SYS | 用户・権限・組織・数据範囲・采番・監査ログ・添付・通知 | 同期 | 00-common 02/03/05 |
 | RPT | 売上明細・毛利・顧客排名・帳齢の集計データ提供（読取専用） | 同期参照/抽出 | 10-analytics（予定） |
 
-> 09 §3 追補（2026-10-20）：**E40** `mdm.tax-code.changed`・**E42** `mdm.credit-limit.changed` を購読し、取税キャッシュ・与信チェックキャッシュを更新する。売上予測の確定は **E43 `sales.forecast.updated`**（Phase 2）で PRD へ通知する（[03-sales/07](07-tracking-reports.md) 未決 #1 参照）。
+> 09 §3 追補（2026-10-20）：**E40** `mdm.tax-code.changed`・**E42** `mdm.credit-limit.changed` を購読し、取税キャッシュ・与信チェックキャッシュを更新する。売上予測の確定は **E43 `sales.forecast.updated`**で PRD へ通知する（[03-sales/07](07-tracking-reports.md) 未決 #1 参照）。
 
 ### 3.4 共通ステータスとの対応表
 
@@ -198,7 +198,7 @@ sequenceDiagram
 | 开票申请 IVA | 10 / 20 / 25 / 30 / 40 / 90 / 95 | 10 草稿 / 20 承認待ち / 25 承認済 / 30 発票発行済（登録待ち）/ 40 完了（AR 紐付け済）/ 90 取消 / 95 却下 | 本域拡張（08 未定義、§12 未決事項） |
 | 销售发票 SIV | 10 / 30 / 40 / 90 | 10 発票登録済（未交付）/ 30 交付済 / 40 完了（AR 紐付け済）/ 90 赤伝発行済 | 本域拡張（08 未定義、§12 未決事項） |
 | 客户对账单 STM | 10 / 30 / 40 | 10 作成中 / 30 発行済 / 40 顧客確認済 | 本域拡張 |
-| 销售预测 FCST | 10 / 25 / 40 / 90 | 10 入力中 / 25 確定 / 40 実績照合済 / 90 取消 | Phase 2 詳細 |
+| 销售预测 FCST | 10 / 25 / 40 / 90 | 10 入力中 / 25 確定 / 40 実績照合済 / 90 取消 | 第一版対象（TODO：詳細設計が未作成） |
 
 ## 4. 機能一覧
 
@@ -210,20 +210,20 @@ sequenceDiagram
 | F-SAL-004 | 订单变更 | 承認済受注の数量・納期・価格変更、版数管理、再承認、E07、引当増減 | SCR-SAL-012〜013 | 登録/一覧 | P0 | 設計済 | [02-sales-order.md](02-sales-order.md) |
 | F-SAL-005 | 发货通知与拣货 | DN 作成、批次指定（FIFO/FEFO/手工）、部分出荷、出荷確定（E10）、送り状 | SCR-SAL-014〜018 | 登録/一覧/作業 | P0 | 設計済 | [03-delivery-picking.md](03-delivery-picking.md) |
 | F-SAL-006 | 销售退货管理 | 返品受付、期限チェック、承認、受入検品、E11、在庫戻入、赤伝売上/AR 戻し、原価戻し | SCR-SAL-019〜022 | 登録/一覧/検品 | P0 | 設計済 | [04-sales-return.md](04-sales-return.md) |
-| F-SAL-007 | 销售发票与开票申请 | 开票申请（集約・税区分）、承認、发票登记（专票/普票/数电票）、赤伝、E12、AR 紐付け、金税 IF Phase 2 | SCR-SAL-023〜027 | 登録/一覧/照会 | P0（金税 IF は P2） | 設計済 | [05-invoice-receivable.md](05-invoice-receivable.md) |
+| F-SAL-007 | 销售发票与开票申请 | 开票申请（集約・税区分）、承認、发票登记（专票/普票/数电票）、赤伝、E12、AR 紐付け、金税 IF 第一版 | SCR-SAL-023〜027 | 登録/一覧/照会 | P0（金税 IF は P2） | 設計済 | [05-invoice-receivable.md](05-invoice-receivable.md) |
 | F-SAL-008 | 客户对账单 | 期間集計、対账单生成・発行・顧客確認 | SCR-SAL-028〜029 | 帳票/照会 | P1 | 設計済 | [05-invoice-receivable.md](05-invoice-receivable.md) |
 | F-SAL-009 | 应收款查询与账龄 | 应收明細・残高・帳齢・回収予定の照会（FIN 契約に基づく投影） | SCR-SAL-030〜031 | 照会/集計 | P1 | 設計済 | [05-invoice-receivable.md](05-invoice-receivable.md) |
 | F-SAL-010 | 信用管控 | 与信限度照会、FIN 与信台帳照会、与信判定、超限判定・承認連携 | SCR-SAL-032〜034 | 照会/承認 | P0 | 設計済 | [06-credit-pricing.md](06-credit-pricing.md) |
 | F-SAL-011 | 价格与促销 | MDM 価格表参照、取価シミュレーション、特価/折扣申請・承認 | SCR-SAL-035〜037 | 照会/登録 | P0（促销 P2） | 設計済 | [06-credit-pricing.md](06-credit-pricing.md) |
 | F-SAL-012 | 订单执行跟踪 | 受注残、引当/欠品、出荷予定、納期遅延、齐套状况の可視化 | SCR-SAL-038〜039 | 照会/看板 | P1 | 設計済 | [07-tracking-reports.md](07-tracking-reports.md) |
-| F-SAL-013 | 销售预测 | 月度予測入力・確定、MRP 連携（Phase 2 詳細） | SCR-SAL-040〜041 | 登録/一覧 | P2 | 設計済（概要） | [07-tracking-reports.md](07-tracking-reports.md) |
+| F-SAL-013 | 销售预测 | 月度予測入力・確定、MRP 連携（第一版対象。TODO：詳細設計が未作成） | SCR-SAL-040〜041 | 登録/一覧 | P2 | 設計済（概要） | [07-tracking-reports.md](07-tracking-reports.md) |
 | F-SAL-014 | 换货管理 | 返品＋再出荷の組合せ、差額精算、関連付け | SCR-SAL-042 | 登録 | P2 | 設計済（概要） | [04-sales-return.md](04-sales-return.md) |
 | F-SAL-015 | 销售报表 | 销售明细、毛利分析、客户排名（域内报表，RPT 連携） | SCR-SAL-043〜045 | 帳票/集計 | P1 | 設計済 | [07-tracking-reports.md](07-tracking-reports.md) |
-| F-SAL-016 | 出口销售预留 | 外貨・Incoterms・通関情報の項目予約（Phase 2 概要） | SCR-SAL-046 | 登録（予約） | P2 | 設計済（概要） | [07-tracking-reports.md](07-tracking-reports.md) |
+| F-SAL-016 | 出口销售预留 | 外貨・Incoterms・通関情報の項目予約（第一版対象。TODO：概要のみ、詳細設計が未作成） | SCR-SAL-046 | 登録（予約） | P2 | 設計済（概要） | [07-tracking-reports.md](07-tracking-reports.md) |
 | F-SAL-017 | 销售订单取消与关闭 | 受注の取消（E08）、残数量クローズ、バックオーダー取消 | SCR-SAL-010（操作） | 状態操作 | P0 | 設計済 | [02-sales-order.md](02-sales-order.md) |
 | F-SAL-018 | 出荷实绩照会 | 出荷実績・送り状・未出荷残の照会、再出力 | SCR-SAL-047 | 照会/一覧 | P1 | 設計済 | [03-delivery-picking.md](03-delivery-picking.md) |
 
-> 優先度：P0（Phase 1 MVP）/ P1（Phase 1.5）/ P2（Phase 2）。状態：未設計/設計中/設計済/レビュー済/承認済。機能の粒度は「利用者から見た 1 つの業務行為」（[设计方针 6.2](../00-common/00-design-principles.md)）。
+> 優先度：P0（第一版 MVP）/ P1（第一版.5）/ P2。状態：未設計/設計中/設計済/レビュー済/承認済。機能の粒度は「利用者から見た 1 つの業務行為」（[设计方针 6.2](../00-common/00-design-principles.md)）。
 
 ## 5. 画面一覧
 
@@ -274,7 +274,7 @@ sequenceDiagram
 | SCR-SAL-043 | 销售明细报表 | VIEW | F-SAL-015 | `sales:report:view` | 菜单 | — |
 | SCR-SAL-044 | 毛利分析 | DASH | F-SAL-015 | `sales:report:view` | SCR-SAL-043 | SCR-SAL-043 |
 | SCR-SAL-045 | 客户排名 | VIEW | F-SAL-015 | `sales:report:view` | SCR-SAL-043 | SCR-SAL-010 |
-| SCR-SAL-046 | 出口销售信息（Phase2） | EDIT | F-SAL-016 | `sales:export:update` | SCR-SAL-010 | SCR-SAL-010 |
+| SCR-SAL-046 | 出口销售信息 | EDIT | F-SAL-016 | `sales:export:update` | SCR-SAL-010 | SCR-SAL-010 |
 | SCR-SAL-047 | 出荷实绩照会 | LIST | F-SAL-018 | `sales:delivery:view` | 菜单 | SCR-SAL-018/010 |
 
 > 画面 ID は一度発番したら変更しない（[设计方针 6.3](../00-common/00-design-principles.md)）。承認画面（SCR-SAL-011）は WF 域の共通承認画面を業務 Type 別に呼び出す。
@@ -300,7 +300,7 @@ sequenceDiagram
 | PRT-SAL-015 | 信用额度使用状况表 | 手動/月次 | 集計表 | F-SAL-010 | [92](92-report-batch-design.md) |
 | PRT-SAL-016 | 特价审批单 | 特価申請時 | 伝票 | F-SAL-011 | [92](92-report-batch-design.md) |
 | PRT-SAL-017 | 销售预测表 | 月次 | 集計表 | F-SAL-013 | [92](92-report-batch-design.md) |
-| PRT-SAL-018 | 出口发票・装箱单（Phase2） | 出荷確定時 | 法定帳票 | F-SAL-016 | [92](92-report-batch-design.md) |
+| PRT-SAL-018 | 出口发票・装箱单 | 出荷確定時 | 法定帳票 | F-SAL-016 | [92](92-report-batch-design.md) |
 
 > 帳票は PDF を既定とし、サーバ側で生成する（[画面共通规格 14](../00-common/02-common-screen-spec.md)）。法定帳票（PRT-SAL-008）は税務要件のレイアウトを維持し、改版は財務責任者の承認を要する。
 
@@ -319,8 +319,8 @@ sequenceDiagram
 | BAT-SAL-009 | 发票与 AR 紐付け照合 | 日次 | 06:30 | SIV（E12）と FIN AR の紐付け漏れ検出、通知 | 再実行可 |
 | BAT-SAL-010 | 退货期限超过提醒 | 日次 | 07:00 | 出荷後返品期限間近の案件を営業へ通知（任意） | 再実行可 |
 | BAT-SAL-011 | 销售数据抽出（RPT 連携） | 日次 | 07:30 | 売上明細・毛利・顧客別集計を抽出テーブルへ | 再実行可（日付単位全削除→再作成） |
-| BAT-SAL-012 | 数电票状态同步（Phase2） | 日次/イベント | 08:00 | INT 経由で発票交付状態・赤伝状態を同期 | 再実行可 |
-| BAT-SAL-013 | 销售预测与实际差异分析 | 月次 | 月初 2 日 05:00 | 予測 vs 実績の差異集計（Phase2） | 再実行可 |
+| BAT-SAL-012 | 数电票状态同步 | 日次/イベント | 08:00 | INT 経由で発票交付状態・赤伝状態を同期 | 再実行可 |
+| BAT-SAL-013 | 销售预测与实际差异分析 | 月次 | 月初 2 日 05:00 | 予測 vs 実績の差異集計 | 再実行可 |
 
 ## 8. テーブル一覧
 
@@ -362,14 +362,14 @@ sequenceDiagram
 
 | IF ID | 名称 | 相手先 | 方向 | 方式 | 頻度 | 契機 |
 |---|---|---|---|---|---|---|
-| IF-SAL-001 | 数电票/金税发票开具接口 | 国家税务总局电子发票服务平台（経由：INT 域） | 送信/受信 | REST（Phase2。INT 域が実装） | リアルタイム | 开票申请承認後の発票発行・赤伝発行 |
-| IF-SAL-002 | 发票交付状态同步 | 电子发票服务平台（経由：INT） | 受信 | REST/ファイル | 日次 | 発票交付状態・受領確認の反映（Phase2） |
-| IF-SAL-003 | 客户 EDI 订单接入 | 顧客（EDI/邮件） | 受信 | CSV/XML（INT 域） | 随時 | 顧客発注データの受注取込（Phase2） |
-| IF-SAL-004 | 物流/快递面单接口 | 物流会社（経由：INT） | 送信/受信 | REST | 出荷確定時 | 送り状番号取得・配送追跡（Phase2） |
-| IF-SAL-005 | 出口报关数据接口 | 报关行/单一窗口（経由：INT） | 送信 | ファイル/EDI | 出荷時 | 輸出申告データ（Phase2） |
+| IF-SAL-001 | 数电票/金税发票开具接口 | 国家税务总局电子发票服务平台（経由：INT 域） | 送信/受信 | REST（。INT 域が実装） | リアルタイム | 开票申请承認後の発票発行・赤伝発行 |
+| IF-SAL-002 | 发票交付状态同步 | 电子发票服务平台（経由：INT） | 受信 | REST/ファイル | 日次 | 発票交付状態・受領確認の反映 |
+| IF-SAL-003 | 客户 EDI 订单接入 | 顧客（EDI/邮件） | 受信 | CSV/XML（INT 域） | 随時 | 顧客発注データの受注取込 |
+| IF-SAL-004 | 物流/快递面单接口 | 物流会社（経由：INT） | 送信/受信 | REST | 出荷確定時 | 送り状番号取得・配送追跡 |
+| IF-SAL-005 | 出口报关数据接口 | 报关行/单一窗口（経由：INT） | 送信 | ファイル/EDI | 出荷時 | 輸出申告データ |
 | IF-SAL-006 | 客户对账单电子送付 | メール/客户ポータル | 送信 | SMTP/ファイル | 月次 | 対账单 PDF 配信（P1） |
 
-> 域間（内部）連携は IF ID を使わず、[09 第 3 章](../00-common/09-cross-domain-flow.md) の領域事件（E05〜E12、E27、E29、E31、E32）で管理する。上記 IF-SAL-001/002 の具体エンドポイント・認証・電文仕様は Phase 2 で INT 域（09-integration（予定） 予定）が確定する。本域は接続形態と必要項目を [05-invoice-receivable.md](05-invoice-receivable.md) 第 7 章に定義する（**具体 URL・証明書等は設計時点で確定しない**）。
+> 域間（内部）連携は IF ID を使わず、[09 第 3 章](../00-common/09-cross-domain-flow.md) の領域事件（E05〜E12、E27、E29、E31、E32）で管理する。上記 IF-SAL-001/002 の具体エンドポイント・認証・電文仕様は 第一版 で INT 域（09-integration（予定） 予定）が確定する。本域は接続形態と必要項目を [05-invoice-receivable.md](05-invoice-receivable.md) 第 7 章に定義する（**具体 URL・証明書等は設計時点で確定しない**）。
 
 ## 10. 権限一覧
 
@@ -414,7 +414,7 @@ sequenceDiagram
 | `sales:forecast:view` / `:create` | F-SAL-013 | 自部門 | 销售员/主管 |
 | `sales:exchange:create` | F-SAL-014 | 担当顧客 | 销售员 |
 | `sales:report:view` / `:export` | F-SAL-015 | データ範囲内 | 销售员/主管/财务 |
-| `sales:export:update` | F-SAL-016 | Phase2 | 销售员/主管 |
+| `sales:export:update` | F-SAL-016 |  | 销售员/主管 |
 
 > データ範囲（行レベル）は SYS の数据权限（全社/事業部/部門/本人）で強制注入する（[01 第 4 章](../00-common/01-common-item-definitions.md)）。画面の表示制御は UX 目的であり、API 側で必ず再チェックする。
 
@@ -442,7 +442,7 @@ sequenceDiagram
 | 特价 | 標準価格表と異なる単価の適用。承認と有効期限を要す | Special Price / 特価 |
 | 折扣 | 標準価格に対する率・額の値引 | Discount / 割引 |
 | 换货 | 返品と再出荷を組合せた交換処理 | Exchange / 交換 |
-| 出口销售 | 海外向け販売（外貨・Incoterms・通関）。Phase 2 | Export Sales / 輸出販売 |
+| 出口销售 | 海外向け販売（外貨・Incoterms・通関）。第一版 | Export Sales / 輸出販売 |
 
 ## 12. 未決事項
 
@@ -476,11 +476,11 @@ sequenceDiagram
 | 5 | 與信使用額に「出荷済・未請求（AR 未計上）」を含めるか | FIN は E10 で計上するため通常発生しないが、E10→E27 遅延時の取扱い | FIN 與信台帳の使用額を正とし、遅延は BAT-SAL-008 で検出・補正（SAL は再計算しない） | finance-designer | 2026-10-24 |
 | 6 | 承認経路の呼称 | 08 は「销售经理」、本域のロール表は「销售经理」に統一済み | 08 の名称を正とする | Lead | 2026-10-23 |
 | 7 | 换货の差額精算方法 | 返品＋再出荷の差額を AR 調整とするか入出金とするか | 差額は AR 調整（赤伝＋新規売上）とし、入出金は FIN の通常消込で処理 | finance-designer / sales-designer | 2026-10-30 |
-| 8 | 数电票 IF の接続方式・認証・電文仕様 | INT 域 Phase 2 設計待ち | IF-SAL-001/002 の必要項目のみ定義し、接続詳細は INT 域に委譲（具體 URL は記載しない） | integration-designer / Lead | 2026-11-15 |
-| 9 | 出口销售（Incoterms/外貨/通関）の詳細設計 | Phase 2 | 項目予約のみ（SO ヘッダの予約項目）。Phase 2 で 01-system/09-integration と共同設計 | sales-designer | Phase 2 |
-| 10 | 销售预测の算法（移動平均/手工/受注ベース）と MRP 連携方式 | Phase 2。09 v1.1 で E43 `sales.forecast.updated` は定義済、実装は Phase 2 | Phase 1 は手工入力・CSV 取込のみ。E43 の Phase 2 実装時に MRP 需要源へ接続 | sales-designer / production-designer | Phase 2 |
-| 11 | 客户对账单の電子確認（顧客ポータル/電子署名） | Phase 2 | Phase 1 は PDF 送付＋社内確認記録のみ | sales-designer | Phase 2 |
-| 12 | 销售折让・返利（売上値引・リベート）の設計 | 本域 05/06 に折让・返利の勘定・伝票設計がない（REV-PRD-012） | Phase 1 は「値引＝明細折扣」で処理し、折让・返利は Phase 1.5 で 05-invoice に追加（FIN と共同） | sales-designer / finance-designer | 2026-11-30 |
+| 8 | 数电票 IF の接続方式・認証・電文仕様 | INT 域 第一版 設計待ち | IF-SAL-001/002 の必要項目のみ定義し、接続詳細は INT 域に委譲（具體 URL は記載しない） | integration-designer / Lead | 2026-11-15 |
+| 9 | 出口销售（Incoterms/外貨/通関）の詳細設計 | 第一版 | 項目予約のみ（SO ヘッダの予約項目）。第一版 で 01-system/09-integration と共同設計 | sales-designer | 第一版 |
+| 10 | 销售预测の算法（移動平均/手工/受注ベース）と MRP 連携方式 | 第一版。09 v1.1 で E43 `sales.forecast.updated` は定義済、実装は 第一版 | 当面は手工入力・CSV 取込のみ。E43 の 第一版 実装時に MRP 需要源へ接続 | sales-designer / production-designer | 第一版 |
+| 11 | 客户对账单の電子確認（顧客ポータル/電子署名） | 第一版 | 当面は PDF 送付＋社内確認記録のみ | sales-designer | 第一版 |
+| 12 | 销售折让・返利（売上値引・リベート）の設計 | 本域 05/06 に折让・返利の勘定・伝票設計がない（REV-PRD-012） | 当面は「値引＝明細折扣」で処理し、折让・返利は 第一版.5 で 05-invoice に追加（FIN と共同） | sales-designer / finance-designer | 2026-11-30 |
 | 13 | 09 §7.2 J07 の発生元表記（E12 vs E10） | 09 の仕訳表は J07 発生元を E12、本文は出荷基準（E10）としており矛盾（REV-PRD-003） | 本域は E10 基準で設計。00-common/09 の修正を待つ（他域のため本タスク対象外） | Lead / system-workflow | 2026-10-31 |
 
 ## 13. 改訂履歴

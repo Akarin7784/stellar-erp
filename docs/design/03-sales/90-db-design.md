@@ -82,8 +82,8 @@ erDiagram
 ```sql
 -- 全テーブル共通（各テーブル DDL に展開する。以下は雛形）
 id          BIGINT       NOT NULL,                          -- 主キー（雪花 ID）
-tenant_id   BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,                -- 租户 ID（首期 0）
-company_id  BIGINT       NOT NULL DEFAULT 1,                -- 公司 ID（明細は親で保持）
+tenant_id   BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,                -- 租户 ID（RLS。DEFAULT 0 禁止）
+company_id  BIGINT       NOT NULL,                          -- 公司 ID（既定値なし。明細は親で保持）
 created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),            -- 作成日時
 created_by  BIGINT       NOT NULL DEFAULT 0,                -- 作成者
 updated_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),            -- 更新日時
@@ -170,7 +170,7 @@ CREATE TABLE sal_inquiry (
 
 | 索引 | 種別 | 対象列 | 目的 |
 |---|---|---|---|
-| `uk_sal_inquiry_no` | UNIQUE | (`company_id`, `inquiry_no`) | 受注番號一意 |
+| `uk_sal_inquiry_no` | UNIQUE | (`tenant_id`, `company_id`, `inquiry_no`) | 引合番號一意 |
 | `idx_sal_inquiry_customer` | B-Tree | (`customer_id`, `inquiry_date` DESC) | 顧客別照会 |
 | `idx_sal_inquiry_owner_status` | B-Tree | (`owner_user_id`, `inquiry_status`) | 擔當者別一覧 |
 | `idx_sal_inquiry_date` | B-Tree | (`inquiry_date` DESC) | 日付検索 |
@@ -261,7 +261,7 @@ CREATE TABLE sal_quotation (
 
 | 索引 | 種別 | 対象列 | 目的 |
 |---|---|---|---|
-| `uk_sal_quotation_no` | UNIQUE | (`company_id`, `quotation_no`) | 見積番號一意 |
+| `uk_sal_quotation_no` | UNIQUE | (`tenant_id`, `company_id`, `quotation_no`) | 見積番號一意 |
 | `idx_sal_quotation_status_valid` | B-Tree | (`quotation_status`, `valid_to`) | 失効バッチ・有効検索 |
 | `idx_sal_quotation_customer` | B-Tree | (`customer_id`, `issue_date` DESC) | 顧客別照会 |
 | `idx_sal_quotation_owner` | B-Tree | (`owner_user_id`, `quotation_status`) | 擔當者別 |
@@ -405,16 +405,16 @@ CREATE TABLE sal_sales_order (
     rejection_reason    VARCHAR(500),                          -- 却下・差戻し理由
     closed_at           TIMESTAMPTZ,                           -- クローズ日時
     closed_by           BIGINT,                                -- クローズ者
-    incoterms_code      VARCHAR(10),                           -- Incoterms 2020（Phase2）
-    incoterms_place     VARCHAR(100),                          -- 引渡場所（Phase2）
-    export_flag         BOOLEAN      NOT NULL DEFAULT FALSE,   -- 輸出フラグ（Phase2）
-    destination_country_code VARCHAR(3),                       -- 仕向国（Phase2）
-    port_of_loading     VARCHAR(10),                           -- 積出港（Phase2）
-    port_of_destination VARCHAR(10),                           -- 仕向港（Phase2）
-    export_declaration_no VARCHAR(50),                         -- 通関申告番号（Phase2）
-    export_license_no   VARCHAR(50),                           -- 輸出許可番号（Phase2）
-    packing_list_no     VARCHAR(50),                           -- 梱包明細番号（Phase2）
-    foreign_currency_code VARCHAR(3),                          -- 外貨通貨（Phase2）
+    incoterms_code      VARCHAR(10),                           -- Incoterms 2020
+    incoterms_place     VARCHAR(100),                          -- 引渡場所
+    export_flag         BOOLEAN      NOT NULL DEFAULT FALSE,   -- 輸出フラグ
+    destination_country_code VARCHAR(3),                       -- 仕向国
+    port_of_loading     VARCHAR(10),                           -- 積出港
+    port_of_destination VARCHAR(10),                           -- 仕向港
+    export_declaration_no VARCHAR(50),                         -- 通関申告番号
+    export_license_no   VARCHAR(50),                           -- 輸出許可番号
+    packing_list_no     VARCHAR(50),                           -- 梱包明細番号
+    foreign_currency_code VARCHAR(3),                          -- 外貨通貨
     CONSTRAINT pk_sal_sales_order PRIMARY KEY (id),
     CONSTRAINT fk_sal_sales_order_customer FOREIGN KEY (customer_id) REFERENCES mdm_customer (id),
     CONSTRAINT fk_sal_sales_order_quotation FOREIGN KEY (quotation_id) REFERENCES sal_quotation (id),
@@ -425,12 +425,12 @@ CREATE TABLE sal_sales_order (
 
 | 索引 | 種別 | 対象列 | 目的 |
 |---|---|---|---|
-| `uk_sal_sales_order_no` | UNIQUE | (`company_id`, `sales_order_no`) | 受注番號一意 |
+| `uk_sal_sales_order_no` | UNIQUE | (`tenant_id`, `company_id`, `sales_order_no`) | 引合番號一意 |
 | `idx_sal_sales_order_status_date` | B-Tree | (`order_status`, `order_date` DESC) | 一覧・追蹤 |
 | `idx_sal_sales_order_customer` | B-Tree | (`customer_id`, `order_date` DESC) | 顧客別 |
 | `idx_sal_sales_order_owner` | B-Tree | (`owner_user_id`, `order_status`) | 擔當者別 |
 | `idx_sal_sales_order_delivery` | B-Tree | (`delivery_date`, `order_status`) | 納期遅延検出 |
-| `uk_sal_sales_order_source` | UNIQUE | (`source_type`, `source_id`) WHERE `source_id` IS NOT NULL | 受注転換の二重作成防止 |
+| `uk_sal_sales_order_source` | UNIQUE | (`tenant_id`, `source_type`, `source_id`) WHERE `source_id` IS NOT NULL | 受注転換の二重作成防止 |
 
 ### 3.7 `sal_sales_order_line`（销售订单明细）
 
@@ -454,8 +454,8 @@ CREATE TABLE sal_sales_order_line (
     ordered_qty         NUMERIC(18,4) NOT NULL,                -- 受注数量
     uom_code            VARCHAR(10)  NOT NULL,                 -- 販売単位
     base_uom_code       VARCHAR(10)  NOT NULL,                 -- 基本単位
-    conversion_rate     NUMERIC(18,8) NOT NULL DEFAULT 1,      -- 換算率
-    base_qty            NUMERIC(18,4) NOT NULL,                -- 基本単位数量
+    conversion_rate     NUMERIC(18,8) NOT NULL DEFAULT 1,      -- 換算率スナップショット（1 販売単位 = n 基本単位。受注確定時に固定、以降変更しない）
+    base_qty            NUMERIC(18,4) NOT NULL,                -- 基本単位数量（= ordered_qty × conversion_rate）
     list_price          NUMERIC(18,6),                         -- 標準価格（税抜）
     unit_price          NUMERIC(18,6) NOT NULL,                -- 受注単価（税抜）
     is_tax_included_input BOOLEAN     NOT NULL DEFAULT FALSE,  -- 税込入力フラグ
@@ -472,8 +472,12 @@ CREATE TABLE sal_sales_order_line (
     delivery_date       DATE         NOT NULL,                 -- 納期
     warehouse_id        BIGINT       NOT NULL,                 -- 出荷倉庫
     reserved_qty        NUMERIC(18,4) NOT NULL DEFAULT 0,      -- 引当済数量（E09）
-    shipped_qty         NUMERIC(18,4) NOT NULL DEFAULT 0,      -- 出荷済数量（E10）
+    shipped_qty         NUMERIC(18,4) NOT NULL DEFAULT 0,      -- 出荷済数量（販売単位。E10）
+    shipped_base_qty    NUMERIC(18,4) NOT NULL DEFAULT 0,      -- 出荷済数量（基本単位。= shipped_qty × conversion_rate の累計）
     cancelled_qty       NUMERIC(18,4) NOT NULL DEFAULT 0,      -- 取消数量
+    completed_qty       NUMERIC(18,4) NOT NULL DEFAULT 0,      -- 完工累計（基本単位。G2-18、生産過帳が更新）
+    allowed_qty         NUMERIC(18,4) NOT NULL DEFAULT 0,      -- 許容完工上限（基本単位。確定時にスナップショット）
+    completion_over_rate NUMERIC(5,4),                         -- 完工超収容差スナップショット（比率。NULL=チェーン継承結果を確定時に展開）
     shortage_qty        NUMERIC(18,4) NOT NULL DEFAULT 0,      -- 引当不足数量
     return_qty          NUMERIC(18,4) NOT NULL DEFAULT 0,      -- 返品済数量（E11）
     invoiced_qty        NUMERIC(18,4) NOT NULL DEFAULT 0,      -- 開票済数量（E12）
@@ -487,7 +491,7 @@ CREATE TABLE sal_sales_order_line (
     CONSTRAINT pk_sal_sales_order_line PRIMARY KEY (id),
     CONSTRAINT fk_sal_sales_order_line_o FOREIGN KEY (sales_order_id) REFERENCES sal_sales_order (id),
     CONSTRAINT fk_sal_sales_order_line_m FOREIGN KEY (material_id) REFERENCES mdm_material (id),
-    CONSTRAINT ck_sal_sales_order_line_qty CHECK (ordered_qty > 0 AND reserved_qty >= 0 AND shipped_qty >= 0 AND cancelled_qty >= 0),
+    CONSTRAINT ck_sal_sales_order_line_qty CHECK (ordered_qty > 0 AND reserved_qty >= 0 AND shipped_qty >= 0 AND shipped_base_qty >= 0 AND cancelled_qty >= 0 AND completed_qty >= 0 AND allowed_qty >= 0),
     CONSTRAINT ck_sal_sales_order_line_price CHECK (unit_price >= 0)
 );
 ```
@@ -498,6 +502,15 @@ CREATE TABLE sal_sales_order_line (
 | `idx_sal_sales_order_line_status` | B-Tree | (`line_status`, `delivery_date`) | 追蹤・遅延検出 |
 | `idx_sal_sales_order_line_material` | B-Tree | (`material_id`, `delivery_date`) | 物料別引當整理 |
 | `idx_sal_sales_order_line_open` | B-Tree | (`sales_order_id`) WHERE `line_status IN (10,30,35)` | 未完了明細 |
+
+**数量・単位（2026-10-20 決定）**：
+
+- `shipped_qty` は**販売単位**、`shipped_base_qty` は**基本単位**。画面は両方を表示し、API も両方を返す。
+- `conversion_rate` は受注確定時のスナップショット。単位換算後の基本単位数量は `base_qty` / `shipped_base_qty`。
+- `allowed_qty` / `completed_qty` は基本単位。`allowed_qty = floor(ordered_qty × conversion_rate × (1 + rate))`（`mdm_uom.decimal_places` で切捨て）。容差チェーンは受注行 > 物料 > 物料分類 > 会社（`sys_param.prd.completion_over_rate`）。確定時にスナップショットし、承認済の受注変更または超産承認時のみ再計算。
+- 跨表ロック順序：受注行 → 工单（同一表は id 昇順）。過帳は行ロックのみ（[04 §11.1](../00-common/04-common-db-spec.md)）。
+- 工单の物料は受注行の物料と一致しなければならない（生産ドメインで検証）。
+
 
 ### 3.8 `sal_sales_order_version`（销售订单版本）
 
@@ -592,8 +605,8 @@ CREATE TABLE sal_delivery_note (
     credit_check_result SMALLINT,                              -- 出荷時与信判定（10/20/30/40/90）
     is_exception        BOOLEAN      NOT NULL DEFAULT FALSE,   -- 例外出荷フラグ
     exception_approval_id VARCHAR(32),                         -- 例外承認ID（WF）
-    carrier_code        VARCHAR(20),                           -- 運送会社（Phase2）
-    carrier_no          VARCHAR(50),                           -- 送り状番号（Phase2）
+    carrier_code        VARCHAR(20),                           -- 運送会社
+    carrier_no          VARCHAR(50),                           -- 送り状番号
     total_qty           NUMERIC(18,4) NOT NULL DEFAULT 0,      -- 出荷数量合計
     total_amount        NUMERIC(18,2) NOT NULL DEFAULT 0,      -- 税抜合計
     tax_amount          NUMERIC(18,2) NOT NULL DEFAULT 0,      -- 税額合計
@@ -612,7 +625,7 @@ CREATE TABLE sal_delivery_note (
 
 | 索引 | 種別 | 対象列 | 目的 |
 |---|---|---|---|
-| `uk_sal_delivery_note_no` | UNIQUE | (`company_id`, `delivery_no`) | DN 番號一意 |
+| `uk_sal_delivery_note_no` | UNIQUE | (`tenant_id`, `company_id`, `delivery_no`) | DN 番號一意 |
 | `idx_sal_delivery_note_status_date` | B-Tree | (`delivery_status`, `delivery_date` DESC) | 一覧・未出荷 |
 | `idx_sal_delivery_note_order` | B-Tree | (`sales_order_id`) | 受注別 |
 | `idx_sal_delivery_note_customer` | B-Tree | (`customer_id`, `delivery_date` DESC) | 顧客別 |
@@ -781,7 +794,7 @@ CREATE TABLE sal_sales_return (
     CONSTRAINT fk_sal_sales_return_so FOREIGN KEY (sales_order_id) REFERENCES sal_sales_order (id),
     CONSTRAINT ck_sal_sales_return_status CHECK (return_status IN (10,20,25,30,40,90,95))
 );
-CREATE UNIQUE INDEX uk_sal_sales_return_no ON sal_sales_return (company_id, return_no);
+CREATE UNIQUE INDEX uk_sal_sales_return_no ON sal_sales_return (tenant_id, company_id, return_no);
 CREATE INDEX idx_sal_sales_return_deadline ON sal_sales_return (return_status, return_deadline_date);
 CREATE INDEX idx_sal_sales_return_customer ON sal_sales_return (customer_id, return_date DESC);
 CREATE INDEX idx_sal_sales_return_delivery ON sal_sales_return (original_delivery_id);
@@ -909,7 +922,7 @@ CREATE TABLE sal_invoice_application (
     CONSTRAINT fk_sal_iva_customer FOREIGN KEY (customer_id) REFERENCES mdm_customer (id),
     CONSTRAINT ck_sal_iva_period CHECK (period_from <= period_to)
 );
-CREATE UNIQUE INDEX uk_sal_iva_no ON sal_invoice_application (company_id, application_no);
+CREATE UNIQUE INDEX uk_sal_iva_no ON sal_invoice_application (tenant_id, company_id, application_no);
 CREATE INDEX idx_sal_iva_customer_period ON sal_invoice_application (customer_id, period_from DESC);
 CREATE INDEX idx_sal_iva_status ON sal_invoice_application (application_status, period_from DESC);
 ```
@@ -995,7 +1008,7 @@ CREATE TABLE sal_invoice (
     CONSTRAINT fk_sal_invoice_customer FOREIGN KEY (customer_id) REFERENCES mdm_customer (id),
     CONSTRAINT fk_sal_invoice_application FOREIGN KEY (application_id) REFERENCES sal_invoice_application (id)
 );
-CREATE UNIQUE INDEX uk_sal_invoice_no ON sal_invoice (company_id, COALESCE(invoice_code,''), invoice_no);
+CREATE UNIQUE INDEX uk_sal_invoice_no ON sal_invoice (tenant_id, company_id, COALESCE(invoice_code, ''), invoice_no);
 CREATE INDEX idx_sal_invoice_issued ON sal_invoice (issued_at DESC, invoice_status);
 CREATE INDEX idx_sal_invoice_customer ON sal_invoice (customer_id, issued_at DESC);
 CREATE INDEX idx_sal_invoice_original ON sal_invoice (original_invoice_id);
@@ -1098,7 +1111,7 @@ CREATE TABLE sal_statement (
     CONSTRAINT pk_sal_statement PRIMARY KEY (id),
     CONSTRAINT fk_sal_statement_customer FOREIGN KEY (customer_id) REFERENCES mdm_customer (id)
 );
-CREATE UNIQUE INDEX uk_sal_statement_version ON sal_statement (company_id, customer_id, period_code, statement_version);
+CREATE UNIQUE INDEX uk_sal_statement_version ON sal_statement (tenant_id, company_id, customer_id, period_code, statement_version);
 CREATE INDEX idx_sal_statement_status ON sal_statement (statement_status, period_code DESC);
 ```
 
@@ -1162,7 +1175,7 @@ CREATE TABLE sal_credit_ledger_snapshot (
     CONSTRAINT fk_sal_credit_occ_customer FOREIGN KEY (customer_id) REFERENCES mdm_customer (id),
     CONSTRAINT ck_sal_credit_occ_amt CHECK (amount >= 0 AND released_amount >= 0 AND released_amount <= amount)
 );
-CREATE UNIQUE INDEX uk_sal_credit_occ_source ON sal_credit_ledger_snapshot (source_type, source_id, release_seq);
+CREATE UNIQUE INDEX uk_sal_credit_occ_source ON sal_credit_ledger_snapshot (tenant_id, source_type, source_id, release_seq);
 CREATE INDEX idx_sal_credit_occ_customer ON sal_credit_ledger_snapshot (customer_id, status);
 CREATE INDEX idx_sal_credit_occ_source_lookup ON sal_credit_ledger_snapshot (source_type, source_id);
 ```
@@ -1242,7 +1255,7 @@ CREATE TABLE sal_receivable_snapshot (
     synced_at           TIMESTAMPTZ  NOT NULL DEFAULT now(),   -- 同期日時
     CONSTRAINT pk_sal_receivable_snapshot PRIMARY KEY (id)
 );
-CREATE UNIQUE INDEX uk_sal_receivable_snapshot_fin ON sal_receivable_snapshot (receivable_id);
+CREATE UNIQUE INDEX uk_sal_receivable_snapshot_fin ON sal_receivable_snapshot (tenant_id, receivable_id);
 CREATE INDEX idx_sal_receivable_snapshot_cust ON sal_receivable_snapshot (customer_id, due_date);
 CREATE INDEX idx_sal_receivable_snapshot_open ON sal_receivable_snapshot (customer_id, receivable_status);
 ```
@@ -1291,8 +1304,8 @@ CREATE TABLE sal_special_price (
     CONSTRAINT ck_sal_special_price_price CHECK (special_unit_price > 0),
     CONSTRAINT ck_sal_special_price_valid CHECK (valid_from <= valid_to)
 );
-CREATE UNIQUE INDEX uk_sal_special_price_no ON sal_special_price (company_id, special_price_no);
-CREATE UNIQUE INDEX uk_sal_special_price_active ON sal_special_price (company_id, customer_id, material_id, valid_from) WHERE status = 25;
+CREATE UNIQUE INDEX uk_sal_special_price_no ON sal_special_price (tenant_id, company_id, special_price_no);
+CREATE UNIQUE INDEX uk_sal_special_price_active ON sal_special_price (tenant_id, company_id, customer_id, material_id, valid_from) WHERE status = 25;
 CREATE INDEX idx_sal_special_price_lookup ON sal_special_price (customer_id, material_id, status, valid_to);
 ```
 
@@ -1300,11 +1313,11 @@ CREATE INDEX idx_sal_special_price_lookup ON sal_special_price (customer_id, mat
 
 | 項目 | 内容 |
 |---|---|
-| 種別 | 傳票ヘッダ（Phase2） |
+| 種別 | 傳票ヘッダ |
 | 更新元 | F-SAL-013 |
 | 容量 | 初期 200 / 年 120 / 5 年 700 |
 | 保存期間 | 5 年 |
-| 備考 | 予測は版數管理。確定版を MRP 需要源とする（Phase2） |
+| 備考 | 予測は版數管理。確定版を MRP 需要源とする |
 
 ```sql
 CREATE TABLE sal_sales_forecast (
@@ -1324,7 +1337,7 @@ CREATE TABLE sal_sales_forecast (
     CONSTRAINT fk_sal_forecast_dept FOREIGN KEY (department_id) REFERENCES sys_department (id),
     CONSTRAINT ck_sal_forecast_period CHECK (period_code ~ '^[0-9]{4}-[0-9]{2}$')
 );
-CREATE UNIQUE INDEX uk_sal_forecast_ver ON sal_sales_forecast (company_id, forecast_no, forecast_version);
+CREATE UNIQUE INDEX uk_sal_forecast_ver ON sal_sales_forecast (tenant_id, company_id, forecast_no, forecast_version);
 CREATE INDEX idx_sal_forecast_period ON sal_sales_forecast (period_code, department_id, forecast_status);
 ```
 
@@ -1332,7 +1345,7 @@ CREATE INDEX idx_sal_forecast_period ON sal_sales_forecast (period_code, departm
 
 | 項目 | 内容 |
 |---|---|
-| 種別 | 傳票明細（Phase2） |
+| 種別 | 傳票明細 |
 | 更新元 | F-SAL-013 |
 | 容量 | 初期 1 万 / 年 6,000 / 5 年 3.3 万 |
 | 保存期間 | 5 年 |
@@ -1400,7 +1413,7 @@ CREATE INDEX idx_sal_forecast_line_material ON sal_sales_forecast_line (material
 | `sal_credit_ledger_snapshot` / `sal_credit_check_log` | 與信判定・コミット・解放 | E06/E10/E29 連動 |
 | `sal_receivable_snapshot` | E27/E29 購読 | E27/E29（購読） |
 | `sal_special_price` | 特價申請・承認・失効 | E05/E31/E32（承認） |
-| `sal_sales_forecast` / `_line` | 予測保存・確定（Phase2） | Phase2 で MRP 連携 |
+| `sal_sales_forecast` / `_line` | 予測保存・確定 |  で MRP 連携 |
 
 ## 7. データ量・パフォーマンス
 
@@ -1417,7 +1430,7 @@ CREATE INDEX idx_sal_forecast_line_material ON sal_sales_forecast_line (material
 | `sal_receivable_snapshot` | 7 万 | 顧客×到期日、殘高 > 0 | 2 秒以内 |
 | `sal_pick_detail` | 190 万 | DN 明細×連番、物料×批次 | 1 秒以内 |
 
-- `sal_pick_detail`・`sal_delivery_serial`・`sal_credit_check_log` は Phase 2 で月次パーティション化を検討（[04 §8](../00-common/04-common-db-spec.md)）。
+- `sal_pick_detail`・`sal_delivery_serial`・`sal_credit_check_log` は 第一版 で月次パーティション化を検討（[04 §8](../00-common/04-common-db-spec.md)）。
 - 粗利集計・帳齡は E18/FIN と結合するため、集計用の複合インデックスを追加する場合は性能試験で判斷する。
 
 ## 8. Flyway マイグレーション
@@ -1448,14 +1461,21 @@ CREATE INDEX idx_sal_forecast_line_material ON sal_sales_forecast_line (material
 - [x] 容量・保存期間・性能目標を記載
 - [x] 更新責任（本域のみ `sal_*` 更新、他域は参照/イベント投影）
 
+### 一意索引の先頭列ルールと例外（2026-10-20 決定）
+
+- 業務一意索引は `(tenant_id, company_id, 業務キー)` で始める（#43/#49 と同一）。
+- `ON CONFLICT` は同じ列を含め、採番は `sys_sequence.step` で増分する（`EXCLUDED.step` 禁止）。
+- `company_id` は既定値なし・必須。`tenant_id` は `DEFAULT current_setting('app.tenant_id')::bigint`（`DEFAULT 0` 禁止）。
+- **例外（親 ID 先頭の明細・版表）**：`uk_sal_quotation_version_rev`、`uk_sal_sales_order_line_no`、`uk_sal_sales_order_version_no`、`uk_sal_delivery_serial_line`、`uk_sal_return_line_no`、`uk_sal_iva_line_no`、`uk_sal_invoice_line_no`、`uk_sal_statement_line_no`、`uk_sal_forecast_line_no`。
+
 ## 10. 未決事項
 
 | # | 事項 | 理由 | 暫定仕様 | 担当 | 期限 |
 |---|---|---|---|---|---|
-| 1 | `sal_pick_detail`・`sal_delivery_serial` のパーティション化時期 | 行數増加（5 年 190 万）と運用負荷の判斷 | Phase 2 で月次パーティションを検討。Phase 1 は単一テーブル | inventory-designer / Lead | Phase 2 |
+| 1 | `sal_pick_detail`・`sal_delivery_serial` のパーティション化時期 | 行數増加（5 年 190 万）と運用負荷の判斷 | 第一版 で月次パーティションを検討。当面は単一テーブル | inventory-designer / Lead | 第一版 |
 | 2 | `sal_receivable_snapshot` の保持期間・再構築手順 | FIN が權威のため、投影の再構築が必要 | E27/E29 の再送または FIN からの全件再同期で再構築可能とする | finance-designer | 2026-11-01 |
 | 3 | 発票 PDF/OFD の保存先（DB/添付基盤） | SYS 添付基盤の設計待ち | `sys_attachment` に保存し、`sal_invoice.attachment_id` で参照 | system-workflow | 2026-11-01 |
-| 4 | 輸出販売項目（Phase2）の正規化 | Incoterms・通関項目は文字列/予約列で保持中 | Phase 2 で必要に応じて専用テーブルへ移行 | sales-designer | Phase 2 |
+| 4 | 輸出販売項目の正規化 | Incoterms・通関項目は文字列/予約列で保持中 | 第一版 で必要に応じて専用テーブルへ移行 | sales-designer | 第一版 |
 | 5 | 論理削除の適用範囲 | 傳票は論理削除しない方針を採用 | マスタのみ `deleted`。本域はすべて狀態管理 | Lead | 2026-10-28 |
 
 ## 11. 改訂履歴

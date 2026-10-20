@@ -229,10 +229,10 @@
 | `ownerUserId` | string | ○ | 営業擔當 |
 | `issueDate` | date | ○ | 発行日（既定 當日） |
 | `validFrom` / `validTo` | date | ○ | 有効期限（最大 180 日） |
-| `currencyCode` | string | ○ | 通貨（Phase1 CNY） |
+| `currencyCode` | string | ○ | 通貨（当面 CNY（多币种第一版対象）） |
 | `priceListId` | string | △ | 価格表 ID |
 | `paymentTermCode` | string | ○ | 付款條件コード |
-| `lines[]` | array | ○ | 明細（`materialId`、`qty`、`uomCode`、`unitPrice`、`taxCode`、`discountRate`、`deliveryDate`） |
+| `lines[]` | array | ○ | 明細（`materialId`、`qty`/`orderedQty`、`uomCode`、`baseUomCode`、`conversionRate`、`baseQty`、`shippedQty`、`shippedBaseQty`、`unitPrice`、`taxCode`、`discountRate`、`deliveryDate`）。數量は販売単位と基本単位の両方を返す |
 
 - 正常例（201）：
 
@@ -618,6 +618,7 @@
 | 30019 | 422 | MSG-SAL-121 | 期限超過（返品・見積） |
 | 30020 | 409 | MSG-COM-050 / MSG-SAL-093/156 | 業務キー重複 |
 | 30021 | 422 | MSG-SAL-102/110 | 出荷日・倉庫不正 |
+| 30022 | 422 | MSG-SAL-056 | 受注変更：変更後數量 < 已完工數量（基本単位） |
 | 30050 | 400 | MSG-COM-084 | 処理中・二重起動 |
 | 30090 | 500 | MSG-COM-080 | その他サーバエラー（trace_id） |
 
@@ -633,7 +634,7 @@
 | 同時リクエスト | 100 req/秒（ピーク） | 営業 50・倉庫 20 |
 | 冪等キー保持 | 24 時間 | `sys_idempotency` |
 | 監査ログ | 更新・狀態操作は 100% 記錄 | `sys_audit_log` |
-| 外部 IF | INT 域経由、10 秒タイムアウト・3 回リトライ | Phase2 |
+| 外部 IF | INT 域経由、10 秒タイムアウト・3 回リトライ |  |
 | エクスポート | 同期 10,000 件 / 非同期は 1 分以内 | ジョブ基盤 |
 
 ## 7. 未決事項
@@ -642,7 +643,7 @@
 |---|---|---|---|---|---|
 | 1 | 他域 API（MDM/INV/FIN）の最終パス・DTO 項目名 | 各域設計が並行中のため | 本域の呼出は §2.8 のパスを想定。相違時は提供域を正とし本域を修正 | mdm/inventory/finance-designer | 2026-10-24 |
 | 2 | E09/E18 購読のリトライ・DLQ 運用 | 共通基盤の実装待ち | Outbox 再送 + 日次照合（BAT-SAL-008） | Lead / system-workflow | 2026-11-01 |
-| 3 | 外部 IF（數電票）のレート制限・再送仕様 | INT 域 Phase2 | INT 域の設計に従う | integration-designer | 2026-11-15 |
+| 3 | 外部 IF（數電票）のレート制限・再送仕様 | INT 域  | INT 域の設計に従う | integration-designer | 2026-11-15 |
 | 4 | エラーコードの域內連番確定 | 本表は暫定採番（30001〜30090） | 実装時に `error_code` 定数クラスで一元管理 | sales-designer | 2026-10-28 |
 | 5 | 一括操作の部分成功可否 | 機能ごとに要件が異なる | 既定は全件成功 or 全件失敗。失敗一覧を返す | Lead | 2026-10-28 |
 
