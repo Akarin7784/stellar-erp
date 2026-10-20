@@ -26,3 +26,6 @@ frontend/src/types/
 .env.local
 *.log
 logs/
+
+# Python 字节码缓存
+__pycache__/
