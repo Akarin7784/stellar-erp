@@ -63,7 +63,7 @@ export const DEFAULT_WORK_ORDER_TYPE = 10
 export const DEFAULT_PRIORITY_NO = 5
 
 /** 生产域需要在画面上展示的 422 业务码（91-api-design §9）。 */
-export const PRD_BUSINESS_CODES = [60001, 60040, 60056, 60100, 60101, 60102, 60103] as const
+export const PRD_BUSINESS_CODES = [60001, 60040, 60056, 60100, 60101, 60102, 60103, 60104] as const
 
 /** 业务码 → 关联的表单字段（用于在字段下方显示错误）。 */
 export const PRD_CODE_FIELD: Partial<Record<number, keyof WorkOrderCreateRequest>> = {
@@ -114,10 +114,28 @@ export function formatRatePercent(rate: string | number | null | undefined, digi
   return `${(n * 100).toFixed(digits)}%`
 }
 
-/** 去掉空串可选字段，避免向后端传 "" 。 */
+/** 请求体白名单（WorkOrderCreateCommand）。companyId / overReceiptRate 等不在其中，不会被发送。 */
+const CREATE_REQUEST_KEYS: readonly (keyof WorkOrderCreateRequest)[] = [
+  'workOrderType',
+  'factoryId',
+  'materialId',
+  'orderQty',
+  'uomCode',
+  'plannedStartDate',
+  'plannedEndDate',
+  'priorityNo',
+  'departmentId',
+  'warehouseId',
+  'salesOrderLineId',
+  'isBackflush',
+  'remark',
+]
+
+/** 仅保留白名单字段，并去掉空串可选字段，避免向后端传 "" 。 */
 export function buildCreateRequest(form: WorkOrderCreateRequest): WorkOrderCreateRequest {
   const out: Record<string, unknown> = {}
-  for (const [k, v] of Object.entries(form)) {
+  for (const k of CREATE_REQUEST_KEYS) {
+    const v = form[k]
     if (v === '' || v === null || v === undefined) continue
     out[k] = typeof v === 'string' ? v.trim() : v
   }
@@ -130,5 +148,39 @@ export async function createWorkOrder(body: WorkOrderCreateRequest): Promise<Wor
     buildCreateRequest(body),
     { silent: true },
   )
+  return res.data.data
+}
+
+/** 工单详细（backend WorkOrderDetail，GET /api/production/work-orders/{id}）。仅列出画面使用的字段。 */
+export interface WorkOrderDetail {
+  id: string | number
+  workOrderNo: string
+  workOrderType: number
+  orderStatus: number
+  statusName: string | null
+  materialId: string | number
+  materialCode: string
+  materialName: string
+  materialSpec: string | null
+  uomCode: string
+  factoryId: string | number
+  departmentId: string | number | null
+  warehouseId: string | number | null
+  orderQty: string | number
+  allowedQty: string | number | null
+  completedQty: string | number | null
+  plannedStartDate: string
+  plannedEndDate: string
+  priorityNo: number
+  salesOrderLineId: string | number | null
+  salesOrderNo: string | null
+  overReceiptRate: string | number | null
+  standardCost: string | number | null
+  remark: string | null
+  version: number
+}
+
+export async function getWorkOrder(id: string): Promise<WorkOrderDetail> {
+  const res = await http.get<ApiResult<WorkOrderDetail>>(`/production/work-orders/${id}`)
   return res.data.data
 }

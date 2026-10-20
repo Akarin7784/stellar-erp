@@ -208,6 +208,8 @@ PostgreSQL の一意制約チェックは RLS を経由しないため、`tenant
 |---|---|
 | 必須 | 主キー、全 FK 列、一意制約列 |
 | 検索 | 一覧・帳票の WHERE/ORDER BY に使う列。複合索引は選択性の高い列を先頭に |
+| 先頭列（普通索引） | btree の普通索引は `tenant_id` を先頭列とする（`company_id` を持つ表は `(tenant_id, company_id, ...)`）。CI：`composite_fk.sql` が sys/mdm/sal/fin/prd の btree 普通索引を検査 |
+| 例外：GIN | **GIN 索引は `tenant_id` 先頭を要求しない**（`btree_gin` は導入しない）。理由：GIN は全文検索・jsonb 包含検索に用いるものであり、租户隔離は RLS とクエリ中の `tenant_id` 条件で保証される |
 | 部分索引 | `WHERE deleted = FALSE`、`WHERE status IN (10,20)` 等の頻出条件 |
 | 曖昧検索 | `pg_trgm` の GIN インデックス（`gin (name gin_trgm_ops)`）。`LIKE '%xx%'` 用 |
 | JSONB | `USING gin (ext_data jsonb_path_ops)`（必要なテーブルのみ） |
@@ -430,6 +432,7 @@ V{yyyyMMdd}{NNNN}__{module}_{description}.sql     # バージョンは 12 桁
 | v1.0 | 2026-10-20 | 初版：命名、型、制約、索引、パーティション、Flyway、排他、履歴、容量、多租戸、レビュー観点 | Lead |
 | v1.1 | 2026-10-20 | 第一版全量範囲（分期表記削除）、§8.1 パーティション表 FK 不可、§11.1 ロック順序（RLS・DB ロールは [10](10-rls-and-db-roles.md)、`ON CONFLICT` は #50） | 业务分析 |
 | v1.2 | 2026-10-21 | §6.2 跨域外键规则を新設（跨域は `*_id` のみ・FK なし・サービス層で同一 TX 検証、sys/mdm は例外、将来 FK は NOT VALID→VALIDATE・複合 `(tenant_id, x_id)`）、§6 外部キー行に 6.2 参照を追記 | 业务分析 |
+| v1.3 | 2026-10-21 | §7 に btree 普通索引の `tenant_id` 先頭規則と GIN 例外（`btree_gin` 不導入、租户隔離は RLS・`tenant_id` 条件で保証）を追記（#35） | 业务分析 |
 
 ## Flowable 引擎表の schema 分離（issue #7）
 
