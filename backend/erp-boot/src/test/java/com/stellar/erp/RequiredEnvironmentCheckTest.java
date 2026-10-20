@@ -54,7 +54,7 @@ class RequiredEnvironmentCheckTest {
         SpringApplication app = new SpringApplication(ErpApplication.class);
         app.setAdditionalProfiles("prod");
         assertThatThrownBy(() -> app.run("--spring.main.web-application-type=none"))
-                .hasRootCauseInstanceOf(IllegalStateException.class)
-                .rootCause().hasMessageContaining("DB_PASSWORD");
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("DB_PASSWORD");
     }
 }
