@@ -459,6 +459,7 @@ DECLARE
     v_material bigint;
     v_new     numeric;
     v_delta   numeric;
+    v_rows    bigint;
 BEGIN
     PERFORM g2_18_assert_tenant();
     v_company := g2_18_assert_company();
@@ -489,6 +490,18 @@ BEGIN
     END IF;
     v_new := v_old + v_delta;
 
+    -- 工单级审批：先校验工单属于该受注行且属当前公司，否则状态冲突 4002（整事务回滚，受注行不改）
+    IF p_work_order_id IS NOT NULL THEN
+        PERFORM 1 FROM prd_work_order w
+         WHERE w.id = p_work_order_id
+           AND w.sales_order_line_id = p_sales_order_line_id
+           AND w.company_id = v_company;
+        IF NOT FOUND THEN
+            PERFORM g2_18_raise(4002, format('work_order %s does not belong to sales_order_line %s',
+                p_work_order_id, p_sales_order_line_id));
+        END IF;
+    END IF;
+
     -- 受注行：工单级、行级审批都 += delta
     UPDATE sal_sales_order_line
        SET allowed_qty = v_new,                   -- TODO(待T2/T3定稿)
@@ -502,7 +515,12 @@ BEGIN
            SET allowed_qty = w.allowed_qty + v_delta,
                version = version + 1, updated_at = now(), updated_by = p_approver_id
          WHERE w.id = p_work_order_id
-           AND w.sales_order_line_id = p_sales_order_line_id;
+           AND w.sales_order_line_id = p_sales_order_line_id
+           AND w.company_id = v_company;
+        GET DIAGNOSTICS v_rows = ROW_COUNT;
+        IF v_rows = 0 THEN
+            PERFORM g2_18_raise(4002, 'work_order not updated: ' || p_work_order_id);
+        END IF;
     END IF;
 
     -- 审计：审批单号、原值、新值、审批人、时间
@@ -566,7 +584,6 @@ BEGIN
     END IF;
 
     -- request_qty 口径（蓝色大肥鱼 2026-10-21 定稿）：申请的超产增量（基本单位），不是审批后合计。
-    --   注：90-db-design §3.19.1 列注释仍写「申請後の許容完工数量」，需由文档侧同步修正。
     -- approved_allowed_qty：审批通过后受注行的新 allowed_qty（只读快照）
     PERFORM g2_18_raise_allowed_qty(v_line_id, v_a.work_order_id, v_a.request_qty,
                                     v_a.approval_no, p_approver_id, p_audit_id);
