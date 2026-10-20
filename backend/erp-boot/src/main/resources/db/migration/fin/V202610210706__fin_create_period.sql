@@ -22,9 +22,12 @@ CREATE TABLE fin_period (
     updated_by     BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_fin_period PRIMARY KEY (id),
     CONSTRAINT uk_fin_period_code UNIQUE (tenant_id, company_id, period_code),
-    CONSTRAINT ck_fin_period_status CHECK (status IN ('FUTURE','OPEN','CLOSED','YEAR_CLOSED'))
+    CONSTRAINT ck_fin_period_status CHECK (status IN ('FUTURE','OPEN','CLOSED','YEAR_CLOSED')),
+    CONSTRAINT ck_fin_period_date CHECK (start_date <= end_date),
+    CONSTRAINT ck_fin_period_no CHECK (period_no BETWEEN 1 AND 12)
 );
-CREATE INDEX idx_fin_period_status ON fin_period (fiscal_year, status);
+-- 设计书为 (fiscal_year, status)；按 tenant 打头 + 公司范围查询改为 (tenant_id, company_id, fiscal_year, status)
+CREATE INDEX idx_fin_period_status ON fin_period (tenant_id, company_id, fiscal_year, status);
 ALTER TABLE fin_period ENABLE ROW LEVEL SECURITY;
 ALTER TABLE fin_period FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON fin_period

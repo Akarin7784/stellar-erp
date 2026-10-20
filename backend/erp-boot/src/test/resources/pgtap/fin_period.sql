@@ -1,6 +1,6 @@
 -- pgTAP：fin_period（fin/V202610210706）结构 / RLS / 权限 / 约束 / 与 fin_publish_standard_cost 关账校验联动
 BEGIN;
-SELECT plan(14);
+SELECT plan(17);
 
 SELECT has_table('fin_period');
 SELECT ok((SELECT relrowsecurity AND relforcerowsecurity FROM pg_class WHERE relname = 'fin_period'), 'ENABLE + FORCE RLS');
@@ -12,6 +12,8 @@ SELECT ok((SELECT is_nullable = 'NO' AND column_default IS NULL FROM information
             WHERE table_name = 'fin_period' AND column_name = 'company_id'), 'company_id NOT NULL 无 DEFAULT');
 SELECT ok(EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'uk_fin_period_code'
                    AND indexdef LIKE '%(tenant_id, company_id, period_code)%'), 'uk_fin_period_code 以 tenant_id 打头');
+SELECT ok(EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_fin_period_status'
+                   AND indexdef LIKE '%(tenant_id, company_id, fiscal_year, status)%'), 'idx_fin_period_status = (tenant_id, company_id, fiscal_year, status)');
 SELECT ok(has_table_privilege('erp_app', 'fin_period', 'SELECT,INSERT,UPDATE,DELETE'), 'erp_app 有 DML');
 SELECT ok(has_table_privilege('erp_cost_publisher', 'fin_period', 'SELECT'), 'erp_cost_publisher 可 SELECT（关账校验）');
 
@@ -31,6 +33,14 @@ SELECT throws_ok($$UPDATE fin_period SET status = 'DONE' WHERE id = 7010001$$, '
 SELECT throws_ok($$INSERT INTO fin_period (id, tenant_id, company_id, fiscal_year, period_code, period_no, start_date, end_date)
                    VALUES (7010003, 702, 1, 2026, '2026-02', 2, DATE '2026-02-01', DATE '2026-02-28')$$,
                  '42501', NULL, 'WITH CHECK 拒绝写入其他租户');
+SELECT throws_ok($$INSERT INTO fin_period (id, company_id, fiscal_year, period_code, period_no, start_date, end_date)
+                   VALUES (7010004, 1, 2026, '2026-03', 3, DATE '2026-03-31', DATE '2026-03-01')$$,
+                 '23514', 'new row for relation "fin_period" violates check constraint "ck_fin_period_date"',
+                 'ck_fin_period_date：start_date > end_date 被拒');
+SELECT throws_ok($$INSERT INTO fin_period (id, company_id, fiscal_year, period_code, period_no, start_date, end_date)
+                   VALUES (7010005, 1, 2026, '2026-13', 13, DATE '2026-12-01', DATE '2026-12-31')$$,
+                 '23514', 'new row for relation "fin_period" violates check constraint "ck_fin_period_no"',
+                 'ck_fin_period_no：period_no = 13 被拒');
 RESET ROLE;
 
 -- 关账期间联动：期间 2026-01 已 CLOSED → 2026-01 起的版本发布被拒 70134
