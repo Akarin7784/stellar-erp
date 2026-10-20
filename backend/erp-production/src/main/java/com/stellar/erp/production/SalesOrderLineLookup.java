@@ -6,9 +6,8 @@ import java.util.Optional;
 /**
  * 受注行读取端口（SAL 域提供实现）。
  *
- * <p>T2（sal_sales_order / sal_sales_order_line）迁移尚未合入 main，本模块只定义端口；
- * 默认实现在调用时返回 5000（设定不备），见 {@code internal.ProductionConfig}。
- * SAL 合入后由 SAL 模块提供 Bean 覆盖默认实现。</p>
+ * <p>实现：{@code internal.JdbcSalesOrderLineLookup}，读 sal/V202610210705 的正式表，
+ * 按租户 + 公司过滤。</p>
  */
 public interface SalesOrderLineLookup {
 
