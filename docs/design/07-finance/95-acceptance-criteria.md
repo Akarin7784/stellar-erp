@@ -28,7 +28,7 @@
 
 - W：業務一意索引（`uk_`）を DDL 本文・§7 索引一覧で確認。T：`(tenant_id, company_id, …)` で始まり、両者の列順が一致する（例：`uk_fin_voucher_no`、`uk_fin_voucher_source`、`uk_fin_receivable_source`、`uk_fin_payable_source`、`uk_fin_cost_collection`）。
 - T：`fin_standard_cost` の `uk_fin_standard_cost_version` は `(tenant_id, company_id, material_id, cost_version)`、`uk_fin_standard_cost_period` は `(tenant_id, company_id, material_id, period_from) WHERE status=40`、`ex_fin_standard_cost_period` は `tenant_id, company_id, material_id` 先頭の EXCLUDE（90 §6.12・§7 #21/#22/#22a）。
-- T：親 ID／イベント ID 先頭の一意索引は 90 §7.1 の例外一覧に全て列挙され、理由が書かれている。一覧外の非 tenant 先頭 `uk_` は 0 件。
+- T：明細・イベント ID を含む全一意索引が `(tenant_id, company_id, …)` 先頭。例外は登録しない（90 §7.1、2026-10-21 蓝色大肥鱼决定）。非 tenant 先頭の `uk_` は 0 件。
 - T（G2-20）：`company_id` 先頭は非一意 `idx_` のみ（例：`idx_fin_standard_cost_lookup`）。
 
 ## AC-FIN-04 RLS

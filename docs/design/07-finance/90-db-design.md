@@ -24,7 +24,7 @@
 | 5 | 状態・区分 | `SMALLINT` + `COMMENT`。名称は DB に持たない（共有コードで解決） |
 | 6 | スナップショット | 取引先名・科目名・税率・通貨は伝票にコピー保存（マスタ変更の影響を排除） |
 | 7 | 外部キー | マスタ・親子関係は FK（`ON DELETE RESTRICT`）。取引先など論理削除対象は FK を張らずアプリ検証 |
-| 8 | 一意制約 | 業務一意索引（`uk_`）は `(tenant_id, company_id, 業務キー)` 先頭（例外は §7.1）。論理削除・取消を伴う業務キーは部分一意（`WHERE deleted = FALSE` または状態条件付き） |
+| 8 | 一意制約 | 業務一意索引（`uk_`）は `(tenant_id, company_id, 業務キー)` 先頭（例外なし、§7.1）。論理削除・取消を伴う業務キーは部分一意（`WHERE deleted = FALSE` または状態条件付き） |
 | 9 | 金額の符号 | `debit_amount` / `credit_amount` は赤伝のみ負数を許可（`is_red=true`）。CHECK で `is_red OR amount >= 0` |
 | 10 | 履歴・ログ | 監査は `sys_audit_log`、自動凭证は `fin_auto_voucher_log`、月結は `fin_close_checklist`。追記専用 |
 | 11 | パーティション | 初期は単一テーブル。`fin_voucher_line` は `period_code` レンジパーティションを第一版の範囲で検討する（年 80 万行、実装順 P2） |
@@ -243,7 +243,7 @@ CREATE TABLE fin_account_aux (
     CONSTRAINT pk_fin_account_aux PRIMARY KEY (id),
     CONSTRAINT fk_fin_account_aux_account FOREIGN KEY (account_id) REFERENCES fin_account (id)
 );
-CREATE UNIQUE INDEX uk_fin_account_aux ON fin_account_aux (account_id, aux_type) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_fin_account_aux ON fin_account_aux (tenant_id, company_id, account_id, aux_type) WHERE deleted = FALSE;
 COMMENT ON TABLE fin_account_aux IS '会计科目辅助核算设置';
 ```
 
@@ -385,7 +385,7 @@ CREATE TABLE fin_voucher (
 CREATE UNIQUE INDEX uk_fin_voucher_no ON fin_voucher (tenant_id, company_id, period_code, voucher_no);
 CREATE UNIQUE INDEX uk_fin_voucher_source ON fin_voucher (tenant_id, company_id, source_type, source_id)
     WHERE source_type IS NOT NULL AND status <> 90;
-CREATE UNIQUE INDEX uk_fin_voucher_reversal ON fin_voucher (reversal_of_voucher_id) WHERE reversal_of_voucher_id IS NOT NULL;
+CREATE UNIQUE INDEX uk_fin_voucher_reversal ON fin_voucher (tenant_id, company_id, reversal_of_voucher_id) WHERE reversal_of_voucher_id IS NOT NULL;
 CREATE INDEX idx_fin_voucher_period_status ON fin_voucher (period_code, status);
 CREATE INDEX idx_fin_voucher_date ON fin_voucher (voucher_date DESC);
 CREATE INDEX idx_fin_voucher_creator ON fin_voucher (created_by, period_code);
@@ -446,7 +446,7 @@ CREATE TABLE fin_voucher_line (
         (debit_amount = 0 OR credit_amount = 0) AND (debit_amount <> 0 OR credit_amount <> 0)
     )
 );
-CREATE UNIQUE INDEX uk_fin_voucher_line ON fin_voucher_line (voucher_id, line_no);
+CREATE UNIQUE INDEX uk_fin_voucher_line ON fin_voucher_line (tenant_id, company_id, voucher_id, line_no);
 CREATE INDEX idx_fin_voucher_line_account ON fin_voucher_line (account_id, voucher_id);
 CREATE INDEX idx_fin_voucher_line_customer ON fin_voucher_line (customer_id) WHERE customer_id IS NOT NULL;
 CREATE INDEX idx_fin_voucher_line_supplier ON fin_voucher_line (supplier_id) WHERE supplier_id IS NOT NULL;
@@ -514,7 +514,7 @@ CREATE TABLE fin_voucher_template_line (
     CONSTRAINT fk_fin_voucher_template_line_template FOREIGN KEY (template_id) REFERENCES fin_voucher_template (id),
     CONSTRAINT ck_fin_voucher_template_line_direction CHECK (direction IN ('D','C'))
 );
-CREATE UNIQUE INDEX uk_fin_voucher_template_line ON fin_voucher_template_line (template_id, line_no);
+CREATE UNIQUE INDEX uk_fin_voucher_template_line ON fin_voucher_template_line (tenant_id, company_id, template_id, line_no);
 COMMENT ON TABLE fin_voucher_template IS '凭证模板头（手動/自動）';
 COMMENT ON TABLE fin_voucher_template_line IS '凭证模板行（借貸方向・科目選択・金額式・摘要）';
 ```
@@ -546,7 +546,7 @@ CREATE TABLE fin_auto_voucher_log (
     updated_by     BIGINT        NOT NULL DEFAULT 0,
     CONSTRAINT pk_fin_auto_voucher_log PRIMARY KEY (id)
 );
-CREATE UNIQUE INDEX uk_fin_auto_voucher_log_event ON fin_auto_voucher_log (event_id);
+CREATE UNIQUE INDEX uk_fin_auto_voucher_log_event ON fin_auto_voucher_log (tenant_id, company_id, event_id);
 CREATE INDEX idx_fin_auto_voucher_log_status ON fin_auto_voucher_log (status, next_retry_at);
 CREATE INDEX idx_fin_auto_voucher_log_type ON fin_auto_voucher_log (event_type, occurred_at DESC);
 COMMENT ON TABLE fin_auto_voucher_log IS '自动凭证生成日志（幂等・重试・死信）';
@@ -981,7 +981,7 @@ CREATE TABLE fin_invoice_line (
     CONSTRAINT pk_fin_invoice_line PRIMARY KEY (id),
     CONSTRAINT fk_fin_invoice_line_head FOREIGN KEY (invoice_id) REFERENCES fin_invoice (id)
 );
-CREATE UNIQUE INDEX uk_fin_invoice_line ON fin_invoice_line (invoice_id, line_no);
+CREATE UNIQUE INDEX uk_fin_invoice_line ON fin_invoice_line (tenant_id, company_id, invoice_id, line_no);
 COMMENT ON TABLE fin_invoice_line IS '发票明细（三单匹配の対象行）';
 ```
 
@@ -1082,7 +1082,7 @@ CREATE TABLE fin_payment_request_line (
     CONSTRAINT pk_fin_payment_request_line PRIMARY KEY (id),
     CONSTRAINT fk_fin_payment_request_line_head FOREIGN KEY (request_id) REFERENCES fin_payment_request (id)
 );
-CREATE UNIQUE INDEX uk_fin_payment_request_line ON fin_payment_request_line (request_id, line_no);
+CREATE UNIQUE INDEX uk_fin_payment_request_line ON fin_payment_request_line (tenant_id, company_id, request_id, line_no);
 COMMENT ON TABLE fin_payment_request IS '付款申请（PA）。承認後 25、付款実行で 40';
 COMMENT ON TABLE fin_payment_request_line IS '付款申请明细（AP/预付の選択・金額）';
 ```
@@ -1219,7 +1219,7 @@ CREATE TABLE fin_write_off_line (
     CONSTRAINT pk_fin_write_off_line PRIMARY KEY (id),
     CONSTRAINT fk_fin_write_off_line_head FOREIGN KEY (write_off_id) REFERENCES fin_write_off (id)
 );
-CREATE UNIQUE INDEX uk_fin_write_off_line ON fin_write_off_line (write_off_id, line_no);
+CREATE UNIQUE INDEX uk_fin_write_off_line ON fin_write_off_line (tenant_id, company_id, write_off_id, line_no);
 CREATE INDEX idx_fin_write_off_line_target ON fin_write_off_line (target_type, target_id);
 COMMENT ON TABLE fin_write_off IS '核销单（AR/AP/預収/預払の消込。部分核销・反核销対応）';
 COMMENT ON TABLE fin_write_off_line IS '核销明细（源単→目標単、核销額、前後残高）';
@@ -1348,7 +1348,7 @@ CREATE TABLE fin_bank_statement_line (
     CONSTRAINT pk_fin_bank_statement_line PRIMARY KEY (id),
     CONSTRAINT fk_fin_bank_statement_line_head FOREIGN KEY (statement_id) REFERENCES fin_bank_statement (id)
 );
-CREATE UNIQUE INDEX uk_fin_bank_statement_line ON fin_bank_statement_line (statement_id, line_no);
+CREATE UNIQUE INDEX uk_fin_bank_statement_line ON fin_bank_statement_line (tenant_id, company_id, statement_id, line_no);
 CREATE INDEX idx_fin_bank_statement_line_match ON fin_bank_statement_line (statement_id, match_status);
 COMMENT ON TABLE fin_bank_statement IS '银行对账单批次（取込単位・SHA256 で重複防止）';
 COMMENT ON TABLE fin_bank_statement_line IS '银行对账单明细（マッチ状態・候補は都度計算）';
@@ -1457,7 +1457,7 @@ CREATE TABLE fin_vat_return_line (
     CONSTRAINT pk_fin_vat_return_line PRIMARY KEY (id),
     CONSTRAINT fk_fin_vat_return_line_head FOREIGN KEY (return_id) REFERENCES fin_vat_return (id)
 );
-CREATE UNIQUE INDEX uk_fin_vat_return_line ON fin_vat_return_line (return_id, line_code);
+CREATE UNIQUE INDEX uk_fin_vat_return_line ON fin_vat_return_line (tenant_id, company_id, return_id, line_code);
 COMMENT ON TABLE fin_vat_return_line IS '增值税申报辅助行（主表口径）';
 ```
 
@@ -1733,7 +1733,7 @@ CREATE TABLE fin_expense_claim_line (
     created_by BIGINT NOT NULL DEFAULT 0, updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by BIGINT NOT NULL DEFAULT 0,
     CONSTRAINT pk_fin_expense_claim_line PRIMARY KEY (id)
 );
-CREATE UNIQUE INDEX uk_fin_expense_claim_line ON fin_expense_claim_line (claim_id, line_no);
+CREATE UNIQUE INDEX uk_fin_expense_claim_line ON fin_expense_claim_line (tenant_id, company_id, claim_id, line_no);
 -- 固定资产（実装順 P2）
 CREATE TABLE fin_asset (
     id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
@@ -1803,7 +1803,7 @@ CREATE TABLE fin_cash_plan_line (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by BIGINT NOT NULL DEFAULT 0,
     CONSTRAINT pk_fin_cash_plan_line PRIMARY KEY (id)
 );
-CREATE UNIQUE INDEX uk_fin_cash_plan_line ON fin_cash_plan_line (plan_id, line_no);
+CREATE UNIQUE INDEX uk_fin_cash_plan_line ON fin_cash_plan_line (tenant_id, company_id, plan_id, line_no);
 COMMENT ON TABLE fin_asset IS '固定资产卡片（実装順 P2）';
 COMMENT ON TABLE fin_asset_depreciation IS '固定资产折旧明细（実装順 P2、J25）';
 COMMENT ON TABLE fin_budget IS '预算（実装順 P2）';
@@ -1824,7 +1824,7 @@ COMMENT ON TABLE fin_cash_plan IS '资金计划（実装順 P2）';
 | 4a | `uk_fin_period_code` | fin_period | UNIQUE | (tenant_id, company_id, period_code) | 期間コード一意 |
 | 4b | `idx_fin_period_status` | fin_period | B-Tree | (tenant_id, company_id, fiscal_year, status) | 年度別期間状態照会・関帳チェック |
 | 5 | `idx_fin_voucher_period_status` | fin_voucher | B-Tree | (period_code, status) | 一覧・月結チェック |
-| 6 | `uk_fin_voucher_line` | fin_voucher_line | UNIQUE | (voucher_id, line_no) | 行一意 |
+| 6 | `uk_fin_voucher_line` | fin_voucher_line | UNIQUE | (tenant_id, company_id, voucher_id, line_no) | 行一意 |
 | 7 | `idx_fin_voucher_line_account` | fin_voucher_line | B-Tree | (account_id, voucher_id) | 明細帳 |
 | 8 | `uk_fin_receivable_source` | fin_receivable | UNIQUE 部分 | (tenant_id, company_id, source_type, source_id) WHERE status<>90 | E10 幂等 |
 | 9 | `idx_fin_receivable_customer` | fin_receivable | B-Tree | (customer_id, status, due_date) | 账龄・一覧 |
@@ -1847,15 +1847,11 @@ COMMENT ON TABLE fin_cash_plan IS '资金计划（実装順 P2）';
 
 > 追記専用ログ（`fin_auto_voucher_log`、`fin_close_checklist`）は更新系索引を最小限にし、`(status, next_retry_at)` 等の処理用索引のみ付与する。
 
-### 7.1 一意索引の先頭列ルールと例外（2026-10-21、05-inventory・04-purchase と同一方針）
+### 7.1 一意索引の先頭列ルール（2026-10-21、05-inventory・04-purchase と同一方針）
 
 - 業務一意索引（`uk_`）は DDL 本文・§3／§7 一覧とも `(tenant_id, company_id, 業務キー)` で始める。
 - `tenant_id` は `NOT NULL DEFAULT current_setting('app.tenant_id')::bigint`（字面量默认租户禁止）。`company_id` は `NOT NULL`・既定値なし。
-- **例外（親 ID 先頭。親行が tenant/company を保証するため、親 ID 単独で一意範囲が確定する）**：
-  - 明細行番号：`uk_fin_voucher_line`（`voucher_id`）、`uk_fin_voucher_template_line`（`template_id`）、`uk_fin_invoice_line`（`invoice_id`）、`uk_fin_payment_request_line`（`request_id`）、`uk_fin_write_off_line`（`write_off_id`）、`uk_fin_bank_statement_line`（`statement_id`）、`uk_fin_vat_return_line`（`return_id`）、`uk_fin_expense_claim_line`（`claim_id`）、`uk_fin_cash_plan_line`（`plan_id`）。
-  - 子設定：`uk_fin_account_aux`（`account_id`：科目行が tenant/company を保証）。
-  - 自己参照：`uk_fin_voucher_reversal`（`reversal_of_voucher_id`：1 凭证に有効な冲销凭证は 1 件。元凭证が tenant/company を保証）。
-  - イベント ID：`uk_fin_auto_voucher_log_event`（`event_id`：Outbox の eventId は UUID で全体一意、[09 §10](../00-common/09-cross-domain-flow.md)）。
+- **無例外（2026-10-21 蓝色大肥鱼决定）**：明細行番号・子設定（`uk_fin_account_aux`）・自己参照（`uk_fin_voucher_reversal`）・イベント ID（`uk_fin_auto_voucher_log_event`）を含め、すべての `uk_` を `(tenant_id, company_id, …)` 先頭とする。例外登記は廃止。
 - **G2-20**：非一意の照会索引（`idx_`）は `(company_id, …)` 先頭としてよい。`uk_` を `company_id` 先頭と書いてはならない。
 
 ---
@@ -1910,3 +1906,4 @@ COMMENT ON TABLE fin_cash_plan IS '资金计划（実装順 P2）';
 | v1.5 | 2026-10-21 | `mdm_material.standard_cost` は当月有効版のみ反映、将来月開始版は期間開帳時に刷新（蓝色大肥鱼決定、#14） | 业务分析 |
 | v1.6 | 2026-10-21 | `uk_fin_receivable_line` を `(tenant_id, company_id, receivable_id, line_no)` 先頭に変更し §7.1 例外一覧から削除 | 业务分析 |
 | v1.7 | 2026-10-21 | `fin_period` を migration fin/V202610210706（PR #27）に一致：`idx_fin_period_status` を `(tenant_id, company_id, fiscal_year, status)` に変更、`ck_fin_period_date`・`ck_fin_period_no` を追加、§7 索引一覧に追記 | 业务分析 |
+| v1.8 | 2026-10-21 | §7.1 例外登記を廃止し残り 12 本の一意索引（明細行番号 9 本、`uk_fin_account_aux`、`uk_fin_voucher_reversal`、`uk_fin_auto_voucher_log_event`）を `(tenant_id, company_id, …)` 先頭へ変更（全表 company_id 保有を確認済み）、§7 一覧同期 | 业务分析 |
