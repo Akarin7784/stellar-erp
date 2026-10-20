@@ -490,15 +490,15 @@ BEGIN
     END IF;
     v_new := v_old + v_delta;
 
-    -- 工单级审批：先校验工单属于该受注行且属当前公司，否则状态冲突 4002（整事务回滚，受注行不改）
+    -- 工单级审批：先校验工单属于该受注行且属当前公司，否则业务拒绝 60056（整事务回滚，受注行不改）
     IF p_work_order_id IS NOT NULL THEN
         PERFORM 1 FROM prd_work_order w
          WHERE w.id = p_work_order_id
            AND w.sales_order_line_id = p_sales_order_line_id
            AND w.company_id = v_company;
         IF NOT FOUND THEN
-            PERFORM g2_18_raise(4002, format('work_order %s does not belong to sales_order_line %s',
-                p_work_order_id, p_sales_order_line_id));
+            PERFORM g2_18_raise(60056, format('work_order %s does not belong to sales_order_line %s',
+                p_work_order_id, p_sales_order_line_id));   -- MSG-PRD-056 / HTTP 422
         END IF;
     END IF;
 
@@ -519,7 +519,7 @@ BEGIN
            AND w.company_id = v_company;
         GET DIAGNOSTICS v_rows = ROW_COUNT;
         IF v_rows = 0 THEN
-            PERFORM g2_18_raise(4002, 'work_order not updated: ' || p_work_order_id);
+            PERFORM g2_18_raise(5000, 'work_order not updated: ' || p_work_order_id);
         END IF;
     END IF;
 
