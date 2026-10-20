@@ -8,7 +8,7 @@
 | 作成日 | 2026-10-20 |
 | 作成者 | Lead（生成工具 gen_matrix.py） |
 | 状態 | ドラフト（自动生成・最終レビュー前） |
-| 備考 | 全 1227 件。メソッド/パス/概要/権限/域/提取元 |
+| 備考 | 全 1229 件。メソッド/パス/概要/権限/域/提取元 |
 
 > 本文件由 `20-matrix/tools/gen_matrix.py` 从各域设计书中自动提取生成。修改设计书后重新运行即可更新。
 
@@ -599,7 +599,7 @@
 | GET | /api/production/boms | BOM 一覧 | production:bom:view | PRD | 06-production/91-api-design.md |
 | POST | /api/production/boms | BOM 登録 | production:bom:update | PRD | 06-production/91-api-design.md |
 | GET | /api/production/boms/compare | BOM 比較 | production:bom:view | PRD | 06-production/91-api-design.md |
-| GET | /api/production/boms/effective | 有効 BOM の解決 | production:bom:view | PRD | 06-production/91-api-design.md |
+| GET | /api/production/boms/effective | 有効 BOM の解決（パラメータ materialId（必須）・factoryId（任意）・date。詳細 §3.12） | production:bom:view | PRD | 06-production/91-api-design.md |
 | GET | /api/production/boms/{id} | BOM 詳細（明細・替代料） | 同上 | PRD | 06-production/91-api-design.md |
 | PUT | /api/production/boms/{id} | BOM 変更 | 同上 | PRD | 06-production/91-api-design.md |
 | POST | /api/production/boms/{id}/copy | 新版本コピー | 同上 | PRD | 06-production/91-api-design.md |
@@ -694,6 +694,7 @@
 | GET | /api/production/work-orders/{id} | 工单詳細 | 同上 | PRD | 06-production/91-api-design.md |
 | PUT | /api/production/work-orders/{id} | 変更 | production:work-order:update | PRD | 06-production/02-work-order.md |
 | PUT | /api/production/work-orders/{id} | 工单変更 | production:work-order:update | PRD | 06-production/91-api-design.md |
+| POST | /api/production/work-orders/{id}/approve | 承認（20→25。08 WF E32 コールバックと同一サービス。詳細 §3.11） | TODO（権限点未定） | PRD | 06-production/91-api-design.md |
 | POST | /api/production/work-orders/{id}/close | 結案 | production:work-order:close | PRD | 06-production/91-api-design.md |
 | GET | /api/production/work-orders/{id}/completion-preview | 入庫プレビュー（残数・単価） | production:completion:view | PRD | 06-production/91-api-design.md |
 | POST | /api/production/work-orders/{id}/explode-bom | BOM 再展開 | production:work-order:update | PRD | 06-production/91-api-design.md |
@@ -704,6 +705,7 @@
 | POST | /api/production/work-orders/{id}/release | 下达 | production:work-order:release | PRD | 06-production/02-work-order.md |
 | POST | /api/production/work-orders/{id}/release | 下达（E21） | production:work-order:release | PRD | 06-production/91-api-design.md |
 | POST | /api/production/work-orders/{id}/split | 拆分 | 同上 | PRD | 06-production/91-api-design.md |
+| POST | /api/production/work-orders/{id}/submit | 承認提出（10→20。詳細 §3.10） | production:work-order:create | PRD | 06-production/91-api-design.md |
 | GET | /api/production/work-reports | 報工一覧 | production:work-report:view | PRD | 06-production/91-api-design.md |
 | POST | /api/production/work-reports | 報工登録（草稿/提出） | production:work-report:create | PRD | 06-production/91-api-design.md |
 | POST | /api/production/work-reports/{id}/approve | 報工審核確定（E23、倒冲） | production:work-report:approve | PRD | 06-production/91-api-design.md |

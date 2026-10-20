@@ -2431,8 +2431,8 @@ CREATE INDEX idx_prd_capacity_load_date ON prd_capacity_load (company_id, load_d
 
 | # | テーブル | 索引名 | 種別 | 対象列 | 目的・想定 SQL |
 |---|---|---|---|---|---|
-| 1 | `prd_bom` | `uk_prd_bom_material_version` | UNIQUE | (material_id, factory_id, version_no) WHERE deleted=FALSE | 版本一意。BOM 一覧・版本採番 |
-| 2 | `prd_bom` | `idx_prd_bom_effective` | B-Tree | (effective_status, valid_from, valid_to) | 展開基準日での有效 BOM 検索（MRP・工单展開） |
+| 1 | `prd_bom` | `uk_prd_bom_material_version` | UNIQUE | (tenant_id, company_id, material_id, factory_id, version_no) WHERE deleted=FALSE | 版本一意。BOM 一覧・版本採番 |
+| 2 | `prd_bom` | `idx_prd_bom_effective` | B-Tree | (company_id, effective_status, valid_from, valid_to) | 展開基準日での有效 BOM 検索（MRP・工单展開） |
 | 3 | `prd_bom_line` | `idx_prd_bom_line_component` | B-Tree | (component_material_id) | 逆展開（使用点照会）、BOM 変更影響調査 |
 | 4 | `prd_routing_operation` | `idx_prd_routing_operation_wc` | B-Tree | (work_center_id) | 工作中心別の工序一覧・能力計算 |
 | 5 | `prd_material_planning` | `idx_prd_material_planning_llc` | B-Tree | (low_level_code, material_type) | MRP の低层码順走査（最重要） |
@@ -2626,3 +2626,4 @@ CREATE INDEX idx_prd_capacity_load_date ON prd_capacity_load (company_id, load_d
 | v1.3 | 2026-10-21 | `prd_work_order.standard_cost` を既定値なし・NULL 可に変更、下达時に `fin_standard_cost` 発行版をスナップショット、なしは NULL＋`MSG-FIN-117`・差異スキップ・画面「未設定」（PR #8 決定 2（蓝色大肥鱼 2026-10-21）） | 业务分析 |
 | v1.4 | 2026-10-21 | PR #13 指摘対応：`prd_work_order.over_receipt_rate` の DEFAULT 0.05 削除（登録時にチェーン解決値をスナップショット、工单上は NULL 継承しない）、`prd_mrp_action.current_date`→`current_due_date`（予約語）、v1.1 削除済み列を参照する uk 4 件削除（`*_req` で一意）、§3.18 コードブロックの閉じ fence 追加 | 业务分析 |
 | v1.5 | 2026-10-21 | `ck_prd_opa_qty` を `ck_prd_opa_request_qty`（request_qty > 0、違反は 60103）と `ck_prd_opa_allowed_qty`（current_allowed_qty >= 0）に分割（migration prd/V202610210704） | 数据库与运维 |
+| v1.6 | 2026-10-21 | §4 索引一覧 #1・#2 の対象列を DDL と一致（`tenant_id, company_id` / `company_id` を追加） | 业务分析 |

@@ -70,7 +70,7 @@
       "batches": 11,
       "interfaces": 4,
       "messages": 101,
-      "apis": 112
+      "apis": 114
     },
     "FIN": {
       "name": "财务管理",
@@ -27881,7 +27881,7 @@
     {
       "method": "GET",
       "path": "/api/production/boms/effective",
-      "name": "有効 BOM の解決",
+      "name": "有効 BOM の解決（パラメータ materialId（必須）・factoryId（任意）・date。詳細 §3.12）",
       "permission": "production:bom:view",
       "domain": "PRD",
       "source": "06-production/91-api-design.md"
@@ -28027,6 +28027,22 @@
       "path": "/api/production/work-orders/{id}",
       "name": "工单変更",
       "permission": "production:work-order:update",
+      "domain": "PRD",
+      "source": "06-production/91-api-design.md"
+    },
+    {
+      "method": "POST",
+      "path": "/api/production/work-orders/{id}/submit",
+      "name": "承認提出（10→20。詳細 §3.10）",
+      "permission": "production:work-order:create",
+      "domain": "PRD",
+      "source": "06-production/91-api-design.md"
+    },
+    {
+      "method": "POST",
+      "path": "/api/production/work-orders/{id}/approve",
+      "name": "承認（20→25。08 WF E32 コールバックと同一サービス。詳細 §3.11）",
+      "permission": "TODO（権限点未定）",
       "domain": "PRD",
       "source": "06-production/91-api-design.md"
     },

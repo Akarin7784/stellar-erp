@@ -304,6 +304,16 @@
 - エラー：`4002`（状態不整合）、`20053`（申請後にデータ更新）、`20054`（自己承認）、`4003`（楽観排他）。
 - 冪等：WF コールバックは `eventId` + `taskId` で重複排除。
 
+### 3.8 選択用 API の返却項目（工单画面 SCR-PRD-009 等）
+
+| API | 返却項目 | 絞り込み |
+|---|---|---|
+| `GET /api/mdm/factories`（#138） | `id, factoryCode, factoryName` | 当前会社 |
+| `GET /api/mdm/warehouses/options`（#55） | `id, warehouseCode, warehouseName` | 当前会社 |
+| `GET /api/mdm/materials`（#1。選択用途） | `id, materialCode, materialName, unitId` | 当前会社 |
+
+（必須項目＝ID・コード・名称（蓝色大肥鱼 2026-10-21 PR #32 決定）。これ以外の項目を返すことは妨げない。物料の `unitId` は画面で単位を表示するため）
+
 ## 4. エラーコードとメッセージ対応
 
 ### 4.1 MDM 領域コード範囲（20000〜29999）
@@ -435,3 +445,4 @@
 | 版数 | 日付 | 変更内容 | 変更者 |
 |---|---|---|---|
 | v1.0 | 2026-10-20 | 初版：API 140 件一覧、代表 7 件詳細、エラーコード対応表、他域参照契約。同日追記：Lead 裁定により工厂主数据（F-MDM-025）API 3 件（#138〜140）を追加、物料詳細レスポンスの `finance` に `costMethod` を追加。第 2 次追記（红队第 2 轮 REV-004/REV-003）：销售取价 API のレスポンス契約を `materialId/customerId/currencyCode/unitPriceNet/unitPriceGross/taxCode/isTaxIncluded/discountRate/validFrom/validTo` に統一（無価格は 404＋20036）、与信判定結果コード（BR-CRD-13）を明記 | mdm-designer |
+| v1.1 | 2026-10-21 | §3.8 選択用 API（factories／warehouses/options／materials）の返却項目を追加（蓝色大肥鱼 2026-10-21 PR #32 決定） | 业务分析 |

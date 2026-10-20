@@ -45,7 +45,7 @@
 | 6 | POST | `/api/production/boms/{id}/copy` | 同上 | 新版本コピー | F-PRD-001 |
 | 7 | POST | `/api/production/boms/{id}/obsolete` | 同上 | 廃止 | F-PRD-001 |
 | 8 | GET | `/api/production/boms/compare` | `production:bom:view` | BOM 比較 | F-PRD-001 |
-| 9 | GET | `/api/production/boms/effective` | `production:bom:view` | 有効 BOM の解決 | F-PRD-002 |
+| 9 | GET | `/api/production/boms/effective` | `production:bom:view` | 有効 BOM の解決（パラメータ `materialId`（必須）・`factoryId`（任意）・`date`。詳細 §3.12） | F-PRD-002 |
 | 10 | GET | `/api/production/boms/{id}/explode` | 同上 | 多階展開 | F-PRD-002 |
 | 11 | GET | `/api/production/boms/{id}/cost-rollup` | `production:bom:view`（原価権限推奨） | 成本卷算 | F-PRD-002 |
 | 12 | GET | `/api/production/routings` | `production:routing:view` | 工艺路線一覧 | F-PRD-003 |
@@ -69,7 +69,8 @@
 | 25 | GET | `/api/production/work-orders/by-no/{no}` | 同上 | 工单番号検索（PDA） | F-PRD-005 |
 | 26 | POST | `/api/production/work-orders` | `production:work-order:create` | 工单登録 | F-PRD-005 |
 | 27 | PUT | `/api/production/work-orders/{id}` | `production:work-order:update` | 工单変更 | F-PRD-005 |
-| 28 | POST | `/api/production/work-orders/{id}/submit` | `production:work-order:create` | 承認提出 | F-PRD-005 |
+| 28 | POST | `/api/production/work-orders/{id}/submit` | `production:work-order:create` | 承認提出（10→20。詳細 §3.10） | F-PRD-005 |
+| 28a | POST | `/api/production/work-orders/{id}/approve` | TODO（権限点未定） | 承認（20→25。08 WF E32 コールバックと同一サービス。詳細 §3.11） | F-PRD-005 |
 | 29 | POST | `/api/production/work-orders/{id}/release` | `production:work-order:release` | 下达（E21） | F-PRD-005 |
 | 30 | POST | `/api/production/work-orders/batch-release` | 同上 | 一括下达 | F-PRD-005 |
 | 31 | POST | `/api/production/work-orders/{id}/split` | 同上 | 拆分 | F-PRD-005 |
@@ -518,6 +519,39 @@
 }
 ```
 
+### 3.10 POST `/api/production/work-orders/{id}/submit`（承認提出）
+
+| 項目 | 内容 |
+|---|---|
+| 目的 | 工单を 10（起票）→20（承認中）に遷移する |
+| 権限 | `production:work-order:create` |
+| リクエスト | `{ "version": 3 }` |
+| 正常 | 200 + 工单 DTO（`orderStatus=20`、`version`+1） |
+| エラー | `4003`（409、`version` 不一致）／`4002`（409、状態が 10 以外）／`1001`（400、材料明細なし） |
+
+### 3.11 POST `/api/production/work-orders/{id}/approve`（承認）
+
+| 項目 | 内容 |
+|---|---|
+| 目的 | 工单を 20（承認中）→25（承認済）に遷移する |
+| 権限 | TODO（権限点未定。08 接入時に確定） |
+| 呼出元 | 08 工作流の E32 承認完了コールバックと**同一のサービスメソッド**を呼ぶ。08（Flowable）接入後は本 API を閉じ、E32 コールバックからのみ遷移可能とする（蓝色大肥鱼 2026-10-21 決定、PR #32） |
+| リクエスト | `{ "version": 4 }` |
+| 正常 | 200 + 工单 DTO（`orderStatus=25`、`version`+1） |
+| エラー | `60005`（422、`MSG-PRD-005`：起案者＝承認者）／`4003`（409、`version` 不一致）／`4002`（409、状態が 20 以外） |
+
+### 3.12 GET `/api/production/boms/effective`（有効 BOM の解決）
+
+| パラメータ | 必須 | 内容 |
+|---|---|---|
+| `materialId` | ○ | 親品目 ID |
+| `factoryId` | 任意 | 工厂 ID（BOM は工厂別。`prd_bom.factory_id` NOT NULL）。工单画面からは工单の工厂を渡す |
+| `date` | ○ | 基準日 |
+
+- 命中規則：`bom_status=30` かつ基準日が有効期間内の BOM。複数命中時は `is_default=TRUE` を優先し、次に版本号の最大を採用。該当なしは `60020`（422、`MSG-PRD-020`）。
+- 会社は当前会社で絞り込む。
+- `factoryId` を渡さず、複数工厂の BOM が命中した場合の扱い：**待定**（未決）。
+
 ## 4. エラーコード対応表（本域の主要コード）
 
 | code | HTTP | 対応 MSG | 意味 |
@@ -530,6 +564,7 @@
 | 4003 | 409 | `MSG-COM-033` | 楽観排他競合 |
 | 4005 | 409 | `MSG-COM-035`/`075` | 二重処理・処理中 |
 | 5000 | 500 | `MSG-COM` / 設定不備 | テナント未設定・`sys_param.prd.completion_over_rate` 欠落、または予期せぬシステムエラー（trace_id） |
+| 60005 | 422 | `MSG-PRD-005` | 起案者と承認者が同一（工单承認） |
 | 60010 | 422 | `MSG-PRD-010` | BOM 循環参照 |
 | 60011 | 422 | `MSG-PRD-011` | BOM 有効期間重複 |
 | 60020 | 422 | `MSG-PRD-020` | 有効 BOM なし |
@@ -587,3 +622,4 @@
 | v1.1 | 2026-10-21 | §4 に `60001`／`MSG-PRD-001` を追加（#18 決定 6） | 业务分析 |
 | v1.2 | 2026-10-21 | §3.2 下达の警告に 70117／MSG-FIN-117 を追記 | 业务分析 |
 | v1.3 | 2026-10-21 | §3.2・§4 に 60104／MSG-PRD-104（422、下达日過去日）を追加（蓝色大肥鱼 2026-10-21 承認） | 业务分析 |
+| v1.4 | 2026-10-21 | §2.2 に #28a 工单承認 API を追加、§3.10 承認提出・§3.11 承認・§3.12 有効 BOM 解決（`factoryId` 任意、命中規則）を追加、§4 に 60005 を追加（蓝色大肥鱼 2026-10-21 PR #32 決定） | 业务分析 |
