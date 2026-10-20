@@ -1,0 +1,23 @@
+:root {
+  --erp-primary: #2563eb;
+  --erp-bg: #f5f7fa;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--erp-bg);
+  color: #303133;
+  font-family:
+    'Inter', 'Helvetica Neue', 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
