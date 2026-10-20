@@ -1,6 +1,6 @@
 # Stellar ERP 设计文档 画面/API/DDL 一致性审计报告（前端视角）
 
-- 审计对象：`Stellar0502/stellar-erp` main @ `4e5a301`（2026-10-20），行号以该提交为准；之后合并的 #38 只改分期标注，可能使部分行号偏移。
+- 审计对象：`Stellar0502/stellar-erp` main @ `b28c541`（2026-10-20，含 #38/#42/#44），行号以该提交为准。
 - 方法：脚本解析 10 个域 `90-db-design.md` 中全部 `CREATE TABLE`（共 322 张表，含一行多列写法）；解析各域 `0x-*.md` 中所有带「DB 項目」列的画面项目定义表，按列名、型/桁与 DDL 比对；解析 POST/PUT/PATCH 请求 JSON 示例的键；比对 `20-matrix/02-screen-list.md`（339 画面）。脚本命中项均已人工复核，下文只列复核确认的问题；误报（如引用子表名、显示用 code/name 联表字段、上下文表识别错误）已剔除。
 - 局限：一覧画面「列」为自由文本未逐列比对；`91-api-design.md` 中只有带 JSON 示例的接口能做字段比对；类型检查只覆盖「DB 項目」为单列的行。未覆盖部分不代表无问题。
 - 严重度：**S1** 阻塞 SQL 建表或 SQL 层业务跑通；**S2** 名称/类型/长度不一致，建表前需定；**S3** 文档整洁性。
@@ -11,6 +11,7 @@
 2. PUR：请购行追溯统一使用 `purchase_requisition_line_id`，修正画面文档与 ER 图中的 `pr_line_id`。
 3. INV：DDL 增加列——`inv_stock_txn_line` 增加 `from_status`、`to_status`（状态转换用），`inv_stock_txn` 增加 `inspection_flag`（入库检验要否），具体放置由数据库与运维在 inventory 迁移 PR 中确定。
 4. `inspection_flag` 规则冲突（`05-inventory/02-inbound-outbound.md:157` vs `:360`）待业务分析确认。
+   - 评审意见：建议把 `inspection_flag` 也放在 `inv_stock_txn_line`（与 `from_status`/`to_status` 同表），因为默认值按物料取自 `mdm_material.inspection_required`；最终放置由数据库与运维在 inventory 迁移 PR 中确定。评审倾向采用 `:157` 的规则（ON→`stock_status=10 待检`，OFF→`20 可用`），`:360` 的「ON で状態 20」视为笔误，待业务分析确认。
 5. FIN（SCR-FIN-030、054～061）与 RPT（SCR-RPT-002、019、020）缺失的画面设计，在各域文档 PR 中补齐。
 
 ## 0. S1 汇总（优先处理）
@@ -18,11 +19,11 @@
 1. **[INV] 库存状态转换明细映射到不存在的列**
    - 画面/API 侧：`05-inventory/04-batch-serial-status.md:214-215` 画面 `fromStatus`/`toStatus` → DB `from_status`/`to_status`
    - DDL 侧：`05-inventory/90-db-design.md:439`（`inv_stock_txn_line`）只有单列 `stock_status`（:454）；处理手顺 `04-batch-serial-status.md:326-327` 实际是生成 ST_OUT/ST_IN 两行
-   - 建议：改画面文档：DB 項目写成「ST_OUT 行 `stock_status` / ST_IN 行 `stock_status`」，并说明一次转换=两行；若要在单据上留痕 from/to，则改 DDL 加列。需数据库与运维定。
+   - 建议：已决：加列（见「处理决定」第 3 条）。
 2. **[INV] 入库单「检验要否」无对应列且规则自相矛盾**
    - 画面/API 侧：`05-inventory/02-inbound-outbound.md:360` `inspectionFlag` → `inspection_flag`，备注「ON で状態 20」
    - DDL 侧：`inv_stock_txn`（`05-inventory/90-db-design.md:299`）无 `inspection_flag`；同文件 `02-inbound-outbound.md:157` 写的是 `inspection_required=false` 时为 20 可用（即 ON 应为 10 待检）
-   - 建议：改画面文档：备注改为「ON→明细 `stock_status=10 待检`，OFF→20」，DB 項目改为明细 `stock_status`（或 DDL 加列，二选一）。直接影响 SQL 场景里收货后可用量。
+   - 建议：已决：加列（见「处理决定」第 3 条）；ON/OFF 规则待业务分析确认（见第 4 条）。直接影响 SQL 场景里收货后可用量。
 3. **[PUR] 请购行追溯列名不一致**
    - 画面/API 侧：`04-purchase/03-purchase-order.md:242`、`04-purchase/02-rfq-comparison.md:196` 画面 `prLineId` → `pr_line_id`；API 示例 `04-purchase/03-purchase-order.md:497` `prLineId`；ER 图 `04-purchase/90-db-design.md:69` 也写 `pr_line_id`
    - DDL 侧：DDL 实际列名 `purchase_requisition_line_id`（`04-purchase/90-db-design.md:763` PO 行、`:403` RFQ 行）
