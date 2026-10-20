@@ -9,6 +9,7 @@ import com.stellar.erp.production.ProductionErrorCode;
 /**
  * 完工超收容差チェーン（06-production 90-db-design §3.19 G2-18 第 3 項、00-common 08 §容差、02-mdm 90 §容差）：
  * 受注行 → 物料 → 物料分類 → 会社既定 {@code sys_param.prd.completion_over_rate}。
+ * 受注行・物料・分類の列名はいずれも {@code completion_over_rate}、工单側のスナップショット列のみ {@code over_receipt_rate}。
  *
  * <p>NULL＝次段継承、0＝明示 0%（下位へ進まない）。NULL 継承は受注行・物料・分類の 3 段のみ。
  * 会社既定が取れない場合は既定値で補わず 5000（設定不備）。結果は工单 {@code over_receipt_rate}（NOT NULL）にスナップショットする。</p>
@@ -18,10 +19,10 @@ public final class OverReceiptRateResolver {
     private OverReceiptRateResolver() {
     }
 
-    public static BigDecimal resolve(BigDecimal salesOrderLineRate, BigDecimal materialRate, BigDecimal categoryRate,
+    public static BigDecimal resolve(BigDecimal salesOrderLineCompletionOverRate, BigDecimal materialRate, BigDecimal categoryRate,
                                      Supplier<BigDecimal> companyDefault) {
-        if (salesOrderLineRate != null) {
-            return salesOrderLineRate;
+        if (salesOrderLineCompletionOverRate != null) {
+            return salesOrderLineCompletionOverRate;
         }
         if (materialRate != null) {
             return materialRate;

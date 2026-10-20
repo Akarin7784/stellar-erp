@@ -18,7 +18,7 @@ CREATE TABLE sal_sales_order_line (
     material_id       bigint NOT NULL,
     base_qty          numeric(18,4) NOT NULL,
     shipped_base_qty  numeric(18,4) NOT NULL DEFAULT 0,
-    over_receipt_rate numeric(5,4),
+    completion_over_rate numeric(5,4),
     allowed_qty       numeric(18,4),
     completed_qty     numeric(18,4) NOT NULL DEFAULT 0,
     line_status       smallint NOT NULL DEFAULT 20,

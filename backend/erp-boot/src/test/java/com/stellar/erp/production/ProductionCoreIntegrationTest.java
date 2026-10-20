@@ -56,7 +56,8 @@ class ProductionCoreIntegrationTest {
     static final long USER = 7001L;
 
     static final long CAT_NULL = 993001, CAT_RATE = 993002;
-    static final long MAT_NULL = 993011, MAT_RATE = 993012, MAT_ZERO = 993013, MAT_CAT = 993014, MAT_OTHER_CO = 993015;
+    static final long MAT_NULL = 993011, MAT_RATE = 993012, MAT_ZERO = 993013, MAT_CAT = 993014, MAT_OTHER_CO = 993015,
+            MAT_NO_PLAN = 993016, MAT_PURCHASED = 993017;
     static final long FACTORY = 993021;
     static final long SO = 993031, SO_LINE = 993032;
 
@@ -84,8 +85,16 @@ class ProductionCoreIntegrationTest {
               (993012, 303, 31, '9930000012', 'M 物料率',   10, 993002, 's2', 'PCE', 20, 1, 0.0300),
               (993013, 303, 31, '9930000013', 'M 显式 0',   10, 993002, 's3', 'PCE', 20, 1, 0),
               (993014, 303, 31, '9930000014', 'M 继承分类', 10, 993002, 's4', 'PCE', 20, 1, NULL),
-              (993015, 303, 32, '9930000015', 'M 其他公司', 10, 993001, 's5', 'PCE', 20, 1, 0.0400);
+              (993015, 303, 32, '9930000015', 'M 其他公司', 10, 993001, 's5', 'PCE', 20, 1, 0.0400),
+              (993016, 303, 31, '9930000016', 'M 无计划行', 10, 993002, 's6', 'PCE', 20, 1, 0.0300),
+              (993017, 303, 31, '9930000017', 'M 采购品',   30, 993002, 's7', 'PCE', 20, 1, 0.0300);
             INSERT INTO mdm_factory (id, tenant_id, company_id, factory_code, factory_name) VALUES (993021, 303, 31, 'F31', '工厂31');
+            INSERT INTO prd_material_planning (id, tenant_id, company_id, material_id, material_code, material_name, factory_id, material_type) VALUES
+              (993051, 303, 31, 993011, '9930000011', 'M', 993021, 20),
+              (993052, 303, 31, 993012, '9930000012', 'M', 993021, 20),
+              (993053, 303, 31, 993013, '9930000013', 'M', 993021, 30),
+              (993054, 303, 31, 993014, '9930000014', 'M', 993021, 20),
+              (993057, 303, 31, 993017, '9930000017', 'M', 993021, 10);
             INSERT INTO sys_param (id, tenant_id, company_id, param_key, param_name, param_group, param_value, value_type) VALUES
               (993041, 303, 31, 'prd.completion_over_rate', '完工超收容差', 'prd', '0.0500', 3);
             """);
@@ -103,6 +112,7 @@ class ProductionCoreIntegrationTest {
             DELETE FROM prd_overproduction_approval WHERE tenant_id = 303;
             DELETE FROM prd_work_order WHERE tenant_id = 303;
             DELETE FROM sys_sequence WHERE tenant_id = 303;
+            DELETE FROM prd_material_planning WHERE tenant_id = 303;
             DELETE FROM sys_param WHERE tenant_id = 303;
             DELETE FROM mdm_factory WHERE tenant_id = 303;
             DELETE FROM mdm_material WHERE tenant_id = 303;
@@ -165,14 +175,46 @@ class ProductionCoreIntegrationTest {
     }
 
     @Test
-    void companyParamFallsBackToTenantLevelCompanyZero() {
+    void companyZeroParamIsNotUsedAsFallback() {
+        // 只有租户级 company_id=0 的行、当前公司没有 → 5000（不回退）
         owner.execute("""
             DELETE FROM sys_param WHERE id = 993041;
             INSERT INTO sys_param (id, tenant_id, company_id, param_key, param_name, param_group, param_value, value_type)
               VALUES (993042, 303, 0, 'prd.completion_over_rate', '完工超收容差', 'prd', '0.0600', 3);
             """);
-        WorkOrderCreated c = asUser(() -> workOrders.create(cmd(MAT_NULL, null)));
-        assertThat((BigDecimal) row(c.id()).get("over_receipt_rate")).isEqualByComparingTo("0.06");
+        assertThatThrownBy(() -> asUser(() -> workOrders.create(cmd(MAT_NULL, null))))
+                .isInstanceOfSatisfying(BizException.class, e -> assertThat(e.getCode()).isEqualTo(5000));
+        assertThat(owner.queryForObject("SELECT count(*) FROM prd_work_order WHERE tenant_id = 303", Long.class)).isZero();
+    }
+
+    @Test
+    void materialWithoutPlanningRowIsMsgPrd001() {
+        assertThatThrownBy(() -> asUser(() -> workOrders.create(cmd(MAT_NO_PLAN, null))))
+                .isInstanceOfSatisfying(BizException.class, e -> {
+                    assertThat(e.getCode()).isEqualTo(60001);
+                    assertThat(e.getMsgId()).isEqualTo("MSG-PRD-001");
+                });
+        assertThat(owner.queryForObject("SELECT count(*) FROM prd_work_order WHERE tenant_id = 303", Long.class)).isZero();
+    }
+
+    @Test
+    void planningTypeOtherThan20Or30IsMsgPrd001() {
+        assertThatThrownBy(() -> asUser(() -> workOrders.create(cmd(MAT_PURCHASED, null))))
+                .isInstanceOfSatisfying(BizException.class, e -> {
+                    assertThat(e.getCode()).isEqualTo(60001);
+                    assertThat(e.getMsgId()).isEqualTo("MSG-PRD-001");
+                });
+    }
+
+    @Test
+    void planningRowOfOtherFactoryDoesNotCount() {
+        owner.execute("""
+            INSERT INTO mdm_factory (id, tenant_id, company_id, factory_code, factory_name) VALUES (993022, 303, 31, 'F32', '工厂32');
+            INSERT INTO prd_material_planning (id, tenant_id, company_id, material_id, material_code, material_name, factory_id, material_type)
+              VALUES (993056, 303, 31, 993016, '9930000016', 'M', 993022, 20);
+            """);
+        assertThatThrownBy(() -> asUser(() -> workOrders.create(cmd(MAT_NO_PLAN, null))))
+                .isInstanceOfSatisfying(BizException.class, e -> assertThat(e.getCode()).isEqualTo(60001));
     }
 
     @Test

@@ -59,6 +59,12 @@ public class WorkOrderService {
         if (!repo.factoryExists(company, cmd.factoryId())) {
             throw new BizException(ProductionErrorCode.NOT_FOUND, "工厂不存在");
         }
+        // CHK-PRD-002-01：品目計画の material_type が 20（制造品）/30（委外品）であること。計画行なしも拒否
+        short type = repo.findPlanningMaterialType(company, material.id(), cmd.factoryId()).orElse((short) 0);
+        if (type != 20 && type != 30) {
+            throw new BizException(ProductionErrorCode.WO_NOT_MANUFACTURED, ProductionErrorCode.MSG_WO_NOT_MANUFACTURED,
+                    "指定した品目は製造品ではありません。製造品または委外品を選択してください。");
+        }
 
         SalesOrderLine line = null;
         if (cmd.salesOrderLineId() != null) {

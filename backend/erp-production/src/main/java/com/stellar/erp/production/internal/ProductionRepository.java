@@ -45,6 +45,20 @@ public class ProductionRepository {
                 .optional();
     }
 
+    /**
+     * 品目計画（{@code prd_material_planning}，物料 × 工厂）の {@code material_type}。行がなければ空。
+     * 10:采购品 20:制造品 30:委外品 40:虚拟件 50:外注部品。
+     */
+    public Optional<Short> findPlanningMaterialType(long companyId, long materialId, long factoryId) {
+        return jdbc.sql("""
+                        SELECT material_type FROM prd_material_planning
+                         WHERE company_id = :company AND material_id = :material AND factory_id = :factory
+                           AND deleted = FALSE
+                        """)
+                .param("company", companyId).param("material", materialId).param("factory", factoryId)
+                .query(Short.class).optional();
+    }
+
     public boolean factoryExists(long companyId, long factoryId) {
         return jdbc.sql("SELECT count(*) FROM mdm_factory WHERE id = :id AND company_id = :company AND deleted = FALSE")
                 .param("id", factoryId).param("company", companyId)
@@ -52,20 +66,17 @@ public class ProductionRepository {
     }
 
     /**
-     * 会社既定 {@code prd.completion_over_rate}。当该公司没有行时退回租户级默认（{@code company_id = 0}，
-     * sys_param 唯一键注释「租户级默认使用 company_id = 0」，sys_init_tenant 以 company_id = 0 投入）。
-     * 值缺失或无法解析为数值时返回 NULL（调用方报 5000）。
+     * 当前公司的 {@code prd.completion_over_rate}。只取当前公司的行，不回退到 {@code company_id = 0}
+     * （Lead 2026-10-21 决定）。缺失或无法解析为数值时返回 NULL（调用方报 5000）。
      */
     public BigDecimal findCompanyOverRate(long companyId) {
         List<String> values = jdbc.sql("""
                         SELECT param_value
                           FROM sys_param
                          WHERE param_key = :key
-                           AND company_id IN (:company, 0)
+                           AND company_id = :company
                            AND status = 1
                            AND deleted = FALSE
-                         ORDER BY (company_id = :company) DESC
-                         LIMIT 1
                         """)
                 .param("key", COMPANY_RATE_KEY)
                 .param("company", companyId)

@@ -9,6 +9,13 @@ public final class ProductionErrorCode {
     private ProductionErrorCode() {
     }
 
+    /**
+     * 品目が製造品ではない（CHK-PRD-002-01：{@code prd_material_planning.material_type ∈ {20,30}}）。
+     * 93-messages に MSG-PRD-001 はあるが 91 §9 の表に個別行はなく、91 の規則「60000 + MSG-PRD-NNN」で 60001。
+     */
+    public static final int WO_NOT_MANUFACTURED = 60001;
+    public static final String MSG_WO_NOT_MANUFACTURED = "MSG-PRD-001";
+
     /** 工单品目 ≠ 受注行品目（G2-18，BR-WO-15）。 */
     public static final int WO_MATERIAL_MISMATCH = 60056;
     public static final String MSG_WO_MATERIAL_MISMATCH = "MSG-PRD-056";

@@ -7,7 +7,7 @@
 -- 依赖的决定：
 --   D1 docs/design/30-review/R3-对抗性评审-第2轮-异常路径.md G2-18（2026-10-20 已批准）
 --      - 报完工在同一事务内 FOR UPDATE 受注行，校验并更新受注行冗余 completed_qty；
---      - allowed_qty = 受注数量 × (1 + over_receipt_rate)，rate 为受注行确认时快照；
+--      - allowed_qty = 受注数量 × (1 + completion_over_rate)，rate 为受注行确认时快照；
 --      - 容许率优先级：受注行指定 > 物料设定 > 物料分类 > 公司参数 sys_param（见 D5，不硬编码）；
 --      - 工单 over_receipt_rate 只校验单张工单，不参与受注行累计上限；
 --      - CHECK (completed_qty >= 0 AND completed_qty <= allowed_qty)；
@@ -40,7 +40,7 @@
 --      没有租户上下文或租户为 0 时直接报错。
 --
 -- 等待的表：
---   T2 sal_sales_order_line 增加 completed_qty / allowed_qty / over_receipt_rate + CHECK
+--   T2 sal_sales_order_line 增加 completed_qty / allowed_qty / completion_over_rate + CHECK
 --   T3 prd_work_order 增加 sales_order_line_id BIGINT（MTO 必填）
 --   未定稿列均以 -- TODO(待T2/T3定稿) 标出。
 -- =====================================================================
@@ -170,7 +170,7 @@ BEGIN
 END $$;
 
 -- ---------------------------------------------------------------------
--- 1c. 受注行确认时快照 over_receipt_rate 与 allowed_qty。锁序：受注行 → 工单(id 升序)
+-- 1c. 受注行确认时快照 completion_over_rate 与 allowed_qty。锁序：受注行 → 工单(id 升序)
 -- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION g2_18_snapshot_on_line_confirm(
     p_sales_order_line_id bigint,
@@ -199,7 +199,7 @@ BEGIN
     v_rate    := g2_18_resolve_over_receipt_rate(p_line_rate, v_material);
     v_allowed := g2_18_calc_allowed_qty(v_base_qty, v_rate, v_material);
     UPDATE sal_sales_order_line
-       SET over_receipt_rate = v_rate,      -- TODO(待T2/T3定稿) T2 新增列
+       SET completion_over_rate = v_rate,   -- TODO(待T2/T3定稿) T2 新增列
            allowed_qty       = v_allowed,   -- TODO(待T2/T3定稿) T2 新增列
            version = version + 1, updated_at = now(), updated_by = p_operator_id
      WHERE id = p_sales_order_line_id;
@@ -622,7 +622,7 @@ BEGIN
     v_company := g2_18_assert_company();
     PERFORM g2_18_lock_line_and_work_orders(p_sales_order_line_id);
 
-    SELECT l.completed_qty, l.shipped_base_qty, l.over_receipt_rate, l.material_id   -- TODO(待T2/T3定稿) completed_qty/over_receipt_rate
+    SELECT l.completed_qty, l.shipped_base_qty, l.completion_over_rate, l.material_id   -- TODO(待T2/T3定稿) completed_qty/completion_over_rate
       INTO v_done, v_shipped, v_rate, v_material
       FROM sal_sales_order_line l
       JOIN sal_sales_order h ON h.id = l.sales_order_id

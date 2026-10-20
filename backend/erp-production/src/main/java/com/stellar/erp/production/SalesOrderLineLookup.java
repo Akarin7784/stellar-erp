@@ -22,7 +22,7 @@ public interface SalesOrderLineLookup {
     /**
      * 受注行快照。
      *
-     * @param completionOverRate 受注行上指定的完工超收容差（NULL = 继承下一级）
+     * @param completionOverRate 受注行 {@code sal_sales_order_line.completion_over_rate}（完工超收容差，NULL = 继承下一级）
      * @param allowedQty         受注确定时快照的完工上限（基本单位），可空
      */
     record SalesOrderLine(long id, long salesOrderId, String salesOrderNo, long materialId,

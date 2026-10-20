@@ -59,7 +59,7 @@ class G218ConcurrencyTest {
               VALUES (992001, 101, 1, 'prd.completion_over_rate', 'rate', 'PRD', '0.05', 3);
             INSERT INTO mdm_factory (id, tenant_id, company_id, factory_code, factory_name) VALUES (992001, 101, 1, '9C1', 'g218 conc');
             INSERT INTO sal_sales_order (id, tenant_id, company_id, order_no) VALUES (992001, 101, 1, 'SO-CONC');
-            INSERT INTO sal_sales_order_line (id, tenant_id, sales_order_id, line_no, material_id, base_qty, over_receipt_rate, allowed_qty, completed_qty)
+            INSERT INTO sal_sales_order_line (id, tenant_id, sales_order_id, line_no, material_id, base_qty, completion_over_rate, allowed_qty, completed_qty)
               VALUES (992011, 101, 992001, 1, 992001, 100, 0.05, 105, 100);
             """);
         StringBuilder wo = new StringBuilder();
