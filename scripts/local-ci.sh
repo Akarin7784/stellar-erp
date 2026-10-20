@@ -42,7 +42,7 @@ db_checks() {
   for t in "$PGTAP_DIR"/*.sql; do
     out=$("${psql[@]}" -At < "$t" 2>&1); local rc=$?
     echo "$out" | grep -E '^(not ok|# )' || true
-    if [ $rc -ne 0 ] || echo "$out" | grep -qE '^not ok'; then echo "pgTAP 失败: $t"; bad=1
+    if [ $rc -ne 0 ] || echo "$out" | grep -qE '^not ok|Looks like'; then echo "pgTAP 失败: $t"; bad=1
     else echo "pgTAP OK: $(basename "$t") ($(echo "$out" | grep -c '^ok'))"; fi
   done
   return $bad
@@ -50,8 +50,7 @@ db_checks() {
 
 frontend_checks() { ( cd frontend || exit 1
   export COREPACK_HOME="${COREPACK_HOME:-$HOME/.cache/corepack}"
-  if command -v fnm >/dev/null; then eval "$(fnm env)"; fnm use 24 >/dev/null || exit 1; fi
-  # 有意用 --frozen-lockfile：lockfile 与 package.json 不一致应当报错（建议 ci.yml 同步改为 frozen）
+  if command -v fnm >/dev/null; then eval "$(fnm env)"; fnm use 24 >/dev/null || { echo 'fnm use 24 失败'; exit 1; }; fi
   local inst=(pnpm install --frozen-lockfile)
   [ $SKIP_TLDTS -eq 1 ] && inst+=(--config.minimum-release-age=0)
   "${inst[@]}" && { pnpm lint || echo "WARN: lint 失败（CI 中为 continue-on-error）"; } \
