@@ -47,6 +47,16 @@ public class WorkOrderController {
         return Result.ok(queryService.get(id));
     }
 
+    /**
+     * 承認 20→25（Lead 2026-10-21 決定）。将来の Flowable E32 コールバックと同じ
+     * {@link WorkOrderApprovalService#approve} を呼ぶ。08-workflow 落地後はコールバック専用とし、この API は廃止する。
+     * TODO 権限チェック（production:work-order:approve）は認証落地後に接入。
+     */
+    @PostMapping("/{id}/approve")
+    public Result<WorkOrderDetail> approve(@PathVariable long id, @Valid @RequestBody WorkOrderStateCommand body) {
+        return Result.ok(approvalService.approve(id, body));
+    }
+
     /** 承認提出 10→20（91 #28 / 02 §7 No.5）。 */
     @PostMapping("/{id}/submit")
     public Result<WorkOrderDetail> submit(@PathVariable long id, @Valid @RequestBody WorkOrderStateCommand body) {

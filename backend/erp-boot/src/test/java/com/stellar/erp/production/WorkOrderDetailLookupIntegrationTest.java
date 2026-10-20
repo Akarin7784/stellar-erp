@@ -58,6 +58,8 @@ class WorkOrderDetailLookupIntegrationTest {
               (995011, 305, 51, '9950000011', 'E 成品', 10, 995001, 's', 'PCE', 20, 1, 0.0300),
               (995012, 305, 51, '9950000012', 'E 部品', 30, 995001, 's', 'PCE', 20, 1, NULL),
               (995013, 305, 52, '9950000013', 'E 他社', 10, 995002, 's', 'PCE', 20, 1, NULL);
+            INSERT INTO mdm_uom (id, tenant_id, company_id, uom_code, uom_name, conversion_group) VALUES
+              (995071, 305, 51, 'PCE', '个', 'PCS'), (995072, 305, 52, 'PCE', '他社个', 'PCS');
             INSERT INTO mdm_factory (id, tenant_id, company_id, factory_code, factory_name) VALUES
               (995021, 305, 51, 'F51', '工厂51'), (995022, 305, 52, 'F52', '工厂52');
             INSERT INTO mdm_warehouse (id, tenant_id, company_id, warehouse_code, warehouse_name, warehouse_type, factory_id, status) VALUES
@@ -92,6 +94,7 @@ class WorkOrderDetailLookupIntegrationTest {
             DELETE FROM mdm_factory WHERE tenant_id = 305;
             DELETE FROM mdm_material WHERE tenant_id = 305;
             DELETE FROM mdm_material_category WHERE tenant_id = 305;
+            DELETE FROM mdm_uom WHERE tenant_id = 305;
             """);
     }
 
@@ -216,7 +219,10 @@ class WorkOrderDetailLookupIntegrationTest {
                 .andExpect(status().isNotFound());
         mvc.perform(get("/api/mdm/materials").param("keyword", "部品"))
                 .andExpect(jsonPath("$.data.total").value(1))
-                .andExpect(jsonPath("$.data.list[0].id").value(COMP));
+                .andExpect(jsonPath("$.data.list[0].id").value(COMP))
+                .andExpect(jsonPath("$.data.list[0].baseUomCode").value("PCE"))
+                .andExpect(jsonPath("$.data.list[0].unitId").value(995071))
+                .andExpect(jsonPath("$.data.list[0].unitName").value("个"));
         mvc.perform(get("/api/mdm/materials").param("pageSize", "1"))
                 .andExpect(jsonPath("$.data.total").value(2))
                 .andExpect(jsonPath("$.data.pages").value(2));
@@ -226,5 +232,32 @@ class WorkOrderDetailLookupIntegrationTest {
         mvc.perform(get("/api/production/boms/effective").param("materialId", String.valueOf(MAT_CO2)).param("date", "2026-11-01"))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.code").value(60020));
+    }
+
+    @Test
+    void apiApproveAndSelfApprovalIs60005() throws Exception {
+        long id = createDraft(true);
+        as(CREATOR, CO, () -> approvals.submit(id, new WorkOrderStateCommand(0, null)));
+        MockMvc mvc = MockMvcBuilders.webAppContextSetup(wac).build();
+        TenantContext.set(TENANT);
+        LoginContext.set(new LoginUser(CREATOR, CO));
+        mvc.perform(post("/api/production/work-orders/" + id + "/approve").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"version\": 1}"))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.code").value(60005))
+                .andExpect(jsonPath("$.msgId").value("MSG-PRD-005"));
+        assertThat(owner.queryForObject("SELECT order_status FROM prd_work_order WHERE id = ?", Integer.class, id)).isEqualTo(20);
+
+        LoginContext.set(new LoginUser(APPROVER, CO));
+        mvc.perform(post("/api/production/work-orders/" + id + "/approve").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"version\": 0}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value(4003));
+        mvc.perform(post("/api/production/work-orders/" + id + "/approve").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"version\": 1}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.orderStatus").value(25))
+                .andExpect(jsonPath("$.data.approvedBy").value(APPROVER))
+                .andExpect(jsonPath("$.data.version").value(2));
     }
 }

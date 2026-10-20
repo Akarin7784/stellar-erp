@@ -28,7 +28,8 @@ public class MdmLookupService {
     }
 
     public record MaterialListDto(long id, String materialCode, String materialName, String spec,
-                                  short materialType, String baseUomCode, short status) {
+                                  short materialType, String baseUomCode, Long unitId, String unitName,
+                                  short status) {
     }
 
     private final JdbcClient jdbc;
@@ -78,17 +79,22 @@ public class MdmLookupService {
         String like = keyword == null || keyword.isBlank() ? null
                 : "%" + keyword.trim().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
         String where = """
-                 WHERE company_id = :c AND deleted = FALSE
-                   AND (CAST(:k AS TEXT) IS NULL OR material_code LIKE :k OR material_name LIKE :k)
+                 WHERE m.company_id = :c AND m.deleted = FALSE
+                   AND (CAST(:k AS TEXT) IS NULL OR m.material_code LIKE :k OR m.material_name LIKE :k)
                 """;
-        long total = jdbc.sql("SELECT count(*) FROM mdm_material" + where)
+        long total = jdbc.sql("SELECT count(*) FROM mdm_material m" + where)
                 .param("c", company).param("k", like).query(Long.class).single();
         List<MaterialListDto> list = jdbc.sql("""
-                        SELECT id, material_code, material_name, spec, material_type, base_uom_code, status
-                          FROM mdm_material""" + where + " ORDER BY material_code LIMIT :lim OFFSET :off")
+                        SELECT m.id, m.material_code, m.material_name, m.spec, m.material_type, m.base_uom_code,
+                               u.id AS unit_id, u.uom_name, m.status
+                          FROM mdm_material m
+                          -- 单位は base_uom_code で引く（mdm_material に単位 ID 列はない）。tenant・company を明示一致
+                          LEFT JOIN mdm_uom u ON u.tenant_id = m.tenant_id AND u.company_id = m.company_id
+                                             AND u.uom_code = m.base_uom_code AND u.deleted = FALSE
+                        """ + where + " ORDER BY m.material_code LIMIT :lim OFFSET :off")
                 .param("c", company).param("k", like).param("lim", pageSize).param("off", (long) (pageNum - 1) * pageSize)
                 .query((rs, i) -> new MaterialListDto(rs.getLong(1), rs.getString(2), rs.getString(3), rs.getString(4),
-                        rs.getShort(5), rs.getString(6), rs.getShort(7)))
+                        rs.getShort(5), rs.getString(6), rs.getObject(7, Long.class), rs.getString(8), rs.getShort(9)))
                 .list();
         return PageResult.of(list, total, pageNum, pageSize);
     }
