@@ -40,7 +40,7 @@
 | KPI-PRD-08 | 設備稼働率 | 実稼働時間 ÷ 稼働可能時間（日历）× 100% | 工作中心×月 | `prd_work_report`・`prd_work_center_calendar` | 月次 | ≥ 85% |
 | KPI-PRD-09 | 能力負荷率 | 必要工数 ÷ 能力工数 × 100% | 工作中心×日 | `prd_capacity_load`（BAT-PRD-008） | 日次 | ≤ 100% |
 | KPI-PRD-10 | 工程滞留（WIP） | 工序完了待ち数量（前工程完了−当工程投入）× 滞留日数 | 工程×日 | `prd_work_order_operation` | 日次 | 滞留 ≤ 1 日 |
-| KPI-PRD-11 | 工单原価差異率 | \|実績完工原価 − 標準原価×完工数\| ÷ (標準原価×完工数) × 100% | 工場×月 | `prd_work_order`（`cost_variance`・`standard_cost`） | 月結 | ≤ 5% |
+| KPI-PRD-11 | 工单原価差異率 | \|実績完工原価 − 標準原価×完工数\| ÷ (標準原価×完工数) × 100% | 工場×月 | `prd_work_order`（`cost_variance`・`standard_cost`。`standard_cost IS NULL` の工单は除外） | 月結 | ≤ 5% |
 | KPI-PRD-12 | 委外按期回收率 | 納期内に受入した委外订单数 ÷ 当期納期到来の委外订单数 × 100% | 仕入先×月 | `prd_outsourcing_order` | 月次 | ≥ 95% |
 
 > 算式は [00-overview](00-overview.md) 1.3 と一致させ、本表を唯一の定義とする。RPT 域（10-analytics）のクロス集計は本 KPI を参照する（二重定義禁止）。目標値は【示例值】。

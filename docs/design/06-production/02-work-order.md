@@ -81,7 +81,7 @@
 | CALC-WO-06 | 工序日程（終了） | `planned_end = planned_start + CEILING(need_hours ÷ (日稼働時間 × 標準人数))` 稼働日換算 | 日切上 | 42.5 ÷ (16 × 1) = 2.66 → 3 日 |
 | CALC-WO-07 | 進捗率 | `progress_rate = reported_good_qty ÷ order_qty`（0〜1.2） | 4 桁 | 60 ÷ 120 = 0.5000 |
 | CALC-WO-08 | 引当充足率 | `reservation_rate = reserved_qty ÷ total_required_qty` | 4 桁 | 90 ÷ 141.89 = 0.6343 |
-| CALC-WO-09 | 標準原価 | `standard_cost = 材料費（BOM 巻上）＋ 加工費（工艺工数 × 工费率）` | 6 桁 | [01](01-bom-routing-workcenter.md) 5.3 |
+| CALC-WO-09 | 標準原価 | `standard_cost = fin_standard_cost.total_unit_cost`（下达時スナップショット、なしは NULL。卷算式 材料費（BOM 巻上）＋ 加工費（工艺工数 × 工费率）は FIN の版登録時に使用） | 6 桁 | [01](01-bom-routing-workcenter.md) 5.3 |
 
 ### 2.4 状態遷移
 
@@ -303,6 +303,7 @@ stateDiagram-v2
 | `order_status ∈ {40,45,90,95}` | 編集・下达・領料・報工・入庫 | 非表示（詳細参照のみ） |
 | `is_hold=true` | 報工・入庫 | 非表示、保留理由を表示 |
 | 権限 `production:work-order:cost-view` なし | 標準原価・実績原価・差異 | 非表示（API でも返さない） |
+| `standard_cost IS NULL`（下达前、または下达時に発行版なし） | 標準原価・原価差異 | 「未設定」と表示（0 と表示しない）。API は `standardCost: null`（PR #8 決定 2（蓝色大肥鱼 2026-10-21）） |
 | データ範囲外の工场 | 一覧・詳細 | 403 画面（`MSG-COM-031`） |
 
 ### 4.8 下达・拆分・合并ウィザード（SCR-PRD-011）項目定義
@@ -365,7 +366,7 @@ stateDiagram-v2
 2. 権限・データ範囲（`factory_id`）を検証する。
 3. 基準日 = `planned_start_date` として、有効 BOM（`bom_status=30`、有効期間内、`is_default` 優先）と有効工艺（同条件）を解決する。BOM がなければ `MSG-PRD-020`。
 4. 工单番号を採番する（`sys_sequence` キー `PRD_WORK_ORDER`、`WO{YYMMDD}{4桁}`）。採番は同一トランザクション内。
-5. `prd_work_order` を INSERT する（`order_status=10`、`source_type`、`parent_work_order_id`、`standard_cost` は [01](01-bom-routing-workcenter.md) 5.3 の卷算値を設定）。
+5. `prd_work_order` を INSERT する（`order_status=10`、`source_type`、`parent_work_order_id`、`standard_cost` は NULL のまま。卷算値（[01](01-bom-routing-workcenter.md) 5.3）は画面の参考表示のみで、正式値は下达時にスナップショットする（§6.4、PR #8 決定 2（蓝色大肥鱼 2026-10-21）））。
 6. BOM を展開し `prd_work_order_material` を INSERT する（CALC-WO-01/02）。`prd_bom_line.is_key_part`・`substitute_group`・`operation_seq` を引き継ぐ。
 7. 工艺を展開し `prd_work_order_operation` を INSERT する（CALC-WO-04/05/06）。工序日程は [05](05-mrp-planning.md) 6.3 の式で算出する。
 8. `create_child_wo=true` の場合、製造品の子品目について子工单を生成する（PRC-PRD-002-10）。子工单は `order_status=10`、`parent_work_order_id` に親 ID を設定。
@@ -385,11 +386,12 @@ stateDiagram-v2
 1. `order_status=25` を確認。MTO は先に受注行を `FOR UPDATE`、続けて工单を id 昇順で `FOR UPDATE`（[04 §11.1](../00-common/04-common-db-spec.md)）。`material_id`＝受注行物料を検証（不一致 `MSG-PRD-056`/`60056`）。`allowed_qty` を受注行からスナップショット。
 2. 保留中（`is_hold=true`）は下达不可（`MSG-PRD-047`）。
 3. 材料行の引当依頼データを作成する：`lines[] = {materialId, requiredQty（total_required_qty − 既引当）, uom, warehouseId}`。
-4. 工单を `order_status=30`、`released_by/at` に更新し、Outbox に E21 `production.workorder.released` を記録する（同一トランザクション）。
-5. INV が引当を実行し、E09 `inventory.reservation.updated` を返す。本域は PRC-PRD-002-05 で材料行の `reserved_qty`/`shortage_qty` を更新する。
-6. 引当不足がある場合：`shortage_action=10` なら補充請購建議（PUR の請購 API を非同期で起動、または動作消息）を生成。`MSG-PRD-045`（警告）を返す。
-7. 日程を再計算（引当完了日を考慮）し、製造指示書（PRT-PRD-001）を出力可能にする。
-8. 監査ログ（RELEASE）を記録する。
+4. 標準原価スナップショット：`material_id` と下达日の期間で `fin_standard_cost`（`status=40`、`period_from ≤ 期間 ≤ COALESCE(period_to, ∞)`）を検索し、`total_unit_cost` を `standard_cost` に設定する。発行版がなければ `standard_cost=NULL` のまま下达を続行し、`MSG-FIN-117`（警告「未设定标准成本，本期不进行成本差异分析。」）を返す。下达後は再スナップショットしない（PR #8 決定 2（蓝色大肥鱼 2026-10-21））。
+5. 工单を `order_status=30`、`released_by/at` に更新し、Outbox に E21 `production.workorder.released` を記録する（同一トランザクション）。
+6. INV が引当を実行し、E09 `inventory.reservation.updated` を返す。本域は PRC-PRD-002-05 で材料行の `reserved_qty`/`shortage_qty` を更新する。
+7. 引当不足がある場合：`shortage_action=10` なら補充請購建議（PUR の請購 API を非同期で起動、または動作消息）を生成。`MSG-PRD-045`（警告）を返す。
+8. 日程を再計算（引当完了日を考慮）し、製造指示書（PRT-PRD-001）を出力可能にする。
+9. 監査ログ（RELEASE）を記録する。
 
 **E21 ペイロード例（[09](../00-common/09-cross-domain-flow.md) 3 章のエンベロープに格納）**
 
@@ -676,3 +678,4 @@ stateDiagram-v2
 
 
 | v1.1 | 2026-10-20 | 红队修复第2轮（REV-001/002/003/004/012 等）：INV 単一採番への整合（MII/MIR/FGI/OSI/OSR は INV 所有、PRD は request_no＋stock_doc_id/stock_doc_no 参照）、E15 resultCode/batchNo/warehouseId、E24 stockStatus=10 待検→E15 合格で 20 可用、原価サンプル 120 PCE／材料 79,187.55（標準 79,194.00・価格差異 −6.45）／人工 6,450.00／費用 7,740.00／93,377.55（778.15）、工单結案を 40＋closed_at に統一（45 廃止）、INV API 参照・工费率所有権 | production-designer |
+| v1.3 | 2026-10-21 | `prd_work_order.standard_cost` を既定値なし・NULL 可に変更、下达時に `fin_standard_cost` 発行版をスナップショット、なしは NULL＋`MSG-FIN-117`・差異スキップ・画面「未設定」（PR #8 決定 2（蓝色大肥鱼 2026-10-21）） | 业务分析 |
