@@ -393,7 +393,7 @@ stateDiagram-v2
 ### 4.6 完工入库確定（PRC-PRD-003-05）
 
 1. 工单状態 30/35、保留でないこと。FQC（`inspection_type=30`）が合格（20）または特采（30）であること（`MSG-PRD-062`）。**ロック**：MTO は受注行を先に `FOR UPDATE`、続けて工单を id 昇順で `FOR UPDATE`（§11.1）。MTO は `material_id`＝受注行物料を再検証（不一致 `MSG-PRD-056`/`60056`）。
-2. 入庫数量（**基本単位**）が `completed_qty + 今回 ≤ allowed_qty` を満たすこと（超過は `MSG-PRD-040`/`60040`。超産未承認なら `MSG-PRD-100`/`60100`）。MTS で `allowed_qty` 未設定の場合のみ `order_qty × (1+over_receipt_rate)`。
+2. 入庫数量（**基本単位**）が `completed_qty + 今回 ≤ allowed_qty` を満たすこと。**優先**：MTO かつ超産未承認なら **`MSG-PRD-100`/`60100`**；MTS または承認後も超過（ハード）なら **`MSG-PRD-040`/`60040`**。MTS で `allowed_qty` 未設定時は算出してから比較。
 3. 暫定単位原価（CALC-MI-10）を計算し、明細に設定。`is_last_receipt` は「今回入庫後 `completed_qty ≥ order_qty`」で true。
 4. `prd_completion_receipt`（`receipt_status=30`）＋明細を INSERT。工单の `completed_qty`・`completion_status`・`actual_end_date` を UPDATE。全数入庫なら `order_status=40`。
 5. Outbox に E24 `production.workorder.completed` を記録：
@@ -473,7 +473,7 @@ stateDiagram-v2
 | 領料要求（→INV MII） | `prd_material_issue`（`issue_type=10/20/40/50`） | PRD 要求番号 `REQ{YYMMDD}{4桁}`。**MII 伝票は INV が採番**（`stock_doc_no`） | E22 `production.material.issued` | J11 生産領料（材料費） |
 | 退料要求（→INV MIR） | `prd_material_issue`（`issue_type=30`） | PRD 要求番号 `REQ{YYMMDD}{4桁}`。**MIR 伝票は INV が採番** | E36 `production.material.returned` | J12 生産退料（材料費戻し） |
 | 報工（WR） | 確定後 24 時間以内、後工程報工なし、倒冲領料取消可能 | 状態 90、工单累計・人工費戻し、倒冲取消、IPQC 検査取消（未判定のみ） | E23（取消） |
-| 完工入库（FGI） | `receipt_status=30`（INV 入庫前）または当日中 | 状態 90、`completed_qty` 戻し、工单 40→35 | E24（取消） |
+| 完工入库（FGI） | `receipt_status=30`（INV 入庫前）または当日中 | 状態 90、`completed_qty` 戻し（戻し数量 ≤ `completed_qty`、超過は `MSG-PRD-102`/`60102`）、工单 40→35 | E24（取消） |
 
 - 24 時間超・月結後は赤伝（反対伝票）で処理する（[08](../00-common/08-common-business-rules.md) 13.1）。
 - 取消は監査ログ（REVERSE）に理由と前後値を記録する。
@@ -493,7 +493,7 @@ stateDiagram-v2
 | 9 | CHK-PRD-003-09 | 报废 | 業務 | 报废数量 > 0 は NCR 起票が必要 | 保存時 | `MSG-PRD-042` |
 | 10 | CHK-PRD-003-10 | 累計良品 | 範囲 | 工序累計 ≤ 計画 × 1.05 | 保存時 | `MSG-PRD-032` |
 | 11 | CHK-PRD-003-11 | 検査点 | 業務 | 前工序が検査点の場合、合否確定済 | 保存時 | `MSG-PRD-060` |
-| 12 | CHK-PRD-003-12 | 入庫数量 | 範囲 | > 0、累計 ≤ 注文 × 1.05 | 保存時 | `MSG-PRD-040` |
+| 12 | CHK-PRD-003-12 | 入庫数量 | 範囲 | > 0、累計 ≤ `allowed_qty`（基本単位）。MTO 未承認超産は `MSG-PRD-100`/`60100` 優先 | 保存時 | `MSG-PRD-100` / `MSG-PRD-040` |
 | 13 | CHK-PRD-003-13 | FQC | 業務 | 合格または特采 | 入庫時 | `MSG-PRD-062` |
 | 14 | CHK-PRD-003-14 | 会計期間 | 業務 | 締切済でない | 保存時 | `MSG-COM-071` |
 | 15 | CHK-PRD-003-15 | 楽観排他 | 排他 | `version` 一致 | 保存時 | `MSG-COM-033` |
@@ -534,7 +534,7 @@ stateDiagram-v2
 | `MSG-PRD-037` | E | 指定した批次の在庫がありません。批次を再選択してください。 | 批次なし | 再選択 | WARN |
 | `MSG-PRD-038` | E | 指定した物料は当該 BOM の替代料ではありません。 | 替代不許可 | 替代料確認 | WARN |
 | `MSG-PRD-039` | E | 不良明細の数量合計が不良数量と一致しません。 | 明細不一致 | 明細修正 | WARN |
-| `MSG-PRD-040` | E | 完工数量が注文数量＋超入庫容许率を超えています。 | 超過入庫 | 数量確認 | WARN |
+| `MSG-PRD-040` | E | 完工数量が許容上限（`allowed_qty`）を超えています。 | ハード超過 | 数量修正 | WARN |
 | `MSG-PRD-041` | E | 工数の合計が作業者別工数の合計と一致しません。 | 工数不一致 | 工数修正 | WARN |
 | `MSG-PRD-042` | E | 报废を登録するには NCR を起票してください。 | 报废時 NCR なし | NCR 起票 | WARN |
 | `MSG-PRD-060` | E | 検査未合格の工序は次工程へ進めません。 | IPQC 未合格 | 検査完了後 | WARN |
@@ -586,7 +586,7 @@ stateDiagram-v2
 | 15 | TST-F-PRD-007-08 | 異常系 | 24 時間超の報工取消 | エラー `MSG-PRD-036` |
 | 16 | TST-F-PRD-008-01 | 正常系 | 完工入库で E24 発行・工单 40 | `completed_qty` 更新、`is_last_receipt` |
 | 17 | TST-F-PRD-008-02 | 異常系 | FQC 不合格で入庫 | エラー `MSG-PRD-062` |
-| 18 | TST-F-PRD-008-03 | 境界値 | 超入庫容许率 5% | 許容内は可、超過は `MSG-PRD-040` |
+| 18 | TST-F-PRD-008-03 | 境界値 | `allowed_qty` 境界 | 許容内は可。MTO 未承認超過は `60100`、ハード超過は `60040` |
 | 19 | TST-F-PRD-008-04 | 正常系 | 部分入庫→残数入庫で `is_last_receipt=true` | 工单 40 |
 | 20 | TST-F-PRD-003-01 | 正常系 | E18 受信で原価補正 | `unit_cost` が INV 値に更新 |
 | 21 | TST-F-PRD-003-02 | 冪等 | E18/E09 の重複受信 | 二重更新されない |
