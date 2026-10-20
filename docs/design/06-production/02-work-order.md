@@ -272,7 +272,7 @@ stateDiagram-v2
 
 | No | イベント | トリガ | 処理内容 | 呼出 API | 画面遷移 | 備考 |
 |---|---|---|---|---|---|---|
-| 1 | 品目選択 | 品目コード変更 | 有効 BOM・工艺を基準日で解決し、材料/工序明細を自動展開。既存明細は確認後に置換 | `GET /api/production/boms/effective?materialId&factoryId&date` | 同一画面 | 既存明細がある場合は `MSG-COM-011`。`factoryId` は任意（工单の工厂を渡す） |
+| 1 | 品目選択 | 品目コード変更 | 有効 BOM・工艺を基準日で解決し、材料/工序明細を自動展開。既存明細は確認後に置換 | `GET /api/production/boms/effective?materialId&factoryId&date` | 同一画面 | 既存明細がある場合は `MSG-COM-011`。`factoryId` は必須（工单の工厂を渡す。欠落 1001） |
 | 2 | 数量変更 | 数量変更 | 材料明細の必要量・工序の予定工数を再計算（引当済がある場合は再引当提案） | —（フロント計算） | 同一画面 | 領料済がある場合は変更不可 |
 | 3 | BOM再展開 | ボタン | 最新の有効 BOM で材料明細を再生成（手動追加行は保持） | `POST /api/production/work-orders/{id}/explode-bom` | 同一画面 | 変更履歴に記録 |
 | 4 | 引当確認 | ボタン | INV の引当可能量を照会し、不足を表示 | `GET /api/inventory/stock-balances/available` | 同一画面 | 同期参照 |
@@ -681,4 +681,4 @@ stateDiagram-v2
 | v1.3 | 2026-10-21 | CHK-PRD-002-01／前提条件 1 を `prd_material_planning.material_type ∈ {20,30}`（品目×工厂）で判定と明記（`mdm_material.material_type` ではない）、計画行なしも `MSG-PRD-001`（422 / `60001`）（#18 決定 6（蓝色大肥鱼 2026-10-21）） | 业务分析 |
 | v1.4 | 2026-10-21 | §4.4 に No.23 `over_receipt_rate`（参照のみ・% 表示）を追加、W3 下达日に過去日不可（上海時間当日基準）、標準原価スナップショットの期間を `releaseDate`（未指定時 Asia/Shanghai 当日）の月と明記（蓝色大肥鱼 2026-10-21） | 业务分析 |
 | v1.5 | 2026-10-21 | W3 下达日の過去日エラーを 60104／`MSG-PRD-104`（422）に確定（蓝色大肥鱼 2026-10-21 承認）。§4.4 `remark` の No. 重複（23）を 24 に修正 | 业务分析 |
-| v1.6 | 2026-10-21 | §4.5 品目選択の呼出 API を `boms/effective?materialId&factoryId&date` に変更（`factoryId` 任意。蓝色大肥鱼 2026-10-21 PR #32 決定） | 业务分析 |
+| v1.6 | 2026-10-21 | §4.5 品目選択の呼出 API を `boms/effective?materialId&factoryId&date` に変更（`factoryId` 必須。蓝色大肥鱼 2026-10-21 PR #32 決定） | 业务分析 |

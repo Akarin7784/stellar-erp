@@ -308,11 +308,11 @@
 
 | API | 返却項目 | 絞り込み |
 |---|---|---|
-| `GET /api/mdm/factories`（#138） | `id, factoryCode, factoryName` | 当前会社 |
-| `GET /api/mdm/warehouses/options`（#55） | `id, warehouseCode, warehouseName` | 当前会社 |
-| `GET /api/mdm/materials`（#1。選択用途） | `id, materialCode, materialName, unitId` | 当前会社 |
+| `GET /api/mdm/factories`（#138） | `id, factoryCode, factoryName, plantType` | 当前会社 |
+| `GET /api/mdm/warehouses/options`（#55） | `id, warehouseCode, warehouseName, warehouseType, factoryId` | 当前会社 |
+| `GET /api/mdm/materials`（#1。選択用途） | `id, materialCode, materialName, spec, materialType, baseUomCode, status, unitId, unitName` | 当前会社 |
 
-（必須項目＝ID・コード・名称（蓝色大肥鱼 2026-10-21 PR #32 決定）。これ以外の項目を返すことは妨げない。物料の `unitId` は画面で単位を表示するため）
+（必須項目＝ID・コード・名称（蓝色大肥鱼 2026-10-21 PR #32 決定）。項目は PR #32 `MdmLookupService` の DTO に準拠。物料の `unitId`・`unitName` は画面で単位を表示するため追加）
 
 ## 4. エラーコードとメッセージ対応
 

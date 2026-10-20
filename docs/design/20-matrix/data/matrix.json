@@ -27881,7 +27881,7 @@
     {
       "method": "GET",
       "path": "/api/production/boms/effective",
-      "name": "有効 BOM の解決（パラメータ materialId（必須）・factoryId（任意）・date。詳細 §3.12）",
+      "name": "有効 BOM の解決（パラメータ materialId・factoryId・date（すべて必須）。詳細 §3.12）",
       "permission": "production:bom:view",
       "domain": "PRD",
       "source": "06-production/91-api-design.md"
@@ -28034,7 +28034,7 @@
       "method": "POST",
       "path": "/api/production/work-orders/{id}/submit",
       "name": "承認提出（10→20。詳細 §3.10）",
-      "permission": "production:work-order:create",
+      "permission": "production:work-order:submit",
       "domain": "PRD",
       "source": "06-production/91-api-design.md"
     },
@@ -28042,7 +28042,7 @@
       "method": "POST",
       "path": "/api/production/work-orders/{id}/approve",
       "name": "承認（20→25。08 WF E32 コールバックと同一サービス。詳細 §3.11）",
-      "permission": "TODO（権限点未定）",
+      "permission": "production:work-order:approve（TODO：権限チェック未実装）",
       "domain": "PRD",
       "source": "06-production/91-api-design.md"
     },
