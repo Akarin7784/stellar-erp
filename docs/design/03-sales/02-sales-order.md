@@ -77,7 +77,7 @@
 | BR-23 | 承認待ち（20）中の編集は禁止。差戻し（20→10）後にのみ編集できる | 共通規則 3.3 | `status` |
 | BR-24 | 引當済（30）以降の受注は、引當數量の範圍內でのみ出荷指示できる。引當不足分の出荷は主管承認（例外出荷）を必要とする | 在庫域 06 | `reserved_qty` |
 | BR-25 | 受注番號は `SO{YYMMDD}{4桁日序}`（共通業務規則 2.1）。取消・再作成でも新しい番號を採番する | 共通業務規則 2 | `sales_order_no` |
-| BR-26 | 受注変更で數量を減らす場合、変更後の基本単位數量（`ordered_qty × conversion_rate`）は `completed_qty` 以上かつ `shipped_base_qty` 以上でなければならない。違反時は HTTP 422・業務コード `30022`・`MSG-SAL-056`。跨表ロックは受注行を先に `FOR UPDATE`（[04 §11.1](../00-common/04-common-db-spec.md)）。 | G2-08/#24、G2-18 | `ordered_qty`、`completed_qty`、`shipped_base_qty` |
+| BR-26 | 受注変更で數量を減らす場合、変更後の基本単位數量（`ordered_qty × conversion_rate`）は `completed_qty`（已完工）以上かつ `shipped_base_qty`（已出库）以上でなければならない。下限は `max(completed_qty, shipped_base_qty)`。違反時は HTTP 422・業務コード `30022`・`MSG-SAL-056`（販売単位の已出荷チェック `MSG-SAL-054` と併用可）。跨表ロックは受注行を先に `FOR UPDATE`（[04 §11.1](../00-common/04-common-db-spec.md)）。 | G2-08/#24、G2-18 | `ordered_qty`、`completed_qty`、`shipped_base_qty` |
 
 ### 2.3 計算式・判定式
 
@@ -488,7 +488,7 @@ stateDiagram-v2
 2. 変更差分を計算する：追加行（INSERT）、削除行（`line_status=90`）、數量・納期・価格変更（UPDATE）。変更前値を `sal_sales_order_line_version` に保存する。
 3. 変更後金額で與信再判定（FIN 與信台帳照会）を行い、増加時は E07 発行後に FIN が台帳の差分コミットを更新する（SAL は判定のみ）。超過時は承認保留。
 4. `sal_sales_order.version_no` を +1、`sal_sales_order_version` を `change_status=25`、合計を更新する。
-5. 出荷済/引當済數量との整合チェック（変更後數量 ≥ 出荷済數量。引當済を下回る場合は INV へ E07 で減算指示）。
+5. 數量整合チェック：変更後の基本単位數量（`ordered_qty × conversion_rate`）≥ `max(completed_qty, shipped_base_qty)`。未満なら HTTP 422・`30022`・`MSG-SAL-056` で拒否。販売単位では変更後數量 ≥ `shipped_qty`（`MSG-SAL-054`）。引當済を下回る場合は INV へ E07 で減算指示。
 6. Outbox に E07 `sales.order.changed` を INSERT する。payload は第 7.3 節の通り（差分明細、version）。
 7. E07 を発行し（FIN が與信台帳の差額を更新）、`MSG-SAL-051` を返す。E09 受信で `change_status=40` に更新する。
 
@@ -855,7 +855,7 @@ stateDiagram-v2
 | MSG-SAL-052 | I | 变更已中止。 | 変更中止 | — | INFO |
 | MSG-SAL-053 | W | 变更后的引当数量将减少 {0}，已通知库存域释放引当。 | 引當減 | — | INFO |
 | MSG-SAL-054 | E | 变更后数量不能小于已出荷数量 {0}。 | 変更數量不正 | 數量修正 | WARN |
-| MSG-SAL-056 | E | 变更后数量不能小于已完工数量 {0}（基本单位）。 | 変更數量 < 完工累計 | 數量修正 | WARN |
+| MSG-SAL-056 | E | 变更后数量（基本单位）不能小于已完工数量或已出库数量 {0}。 | 変更後基本単位數量 < `completed_qty` または < `shipped_base_qty` | 數量修正（≥ max(已完工, 已出库)） | WARN |
 | MSG-SAL-055 | W | 本次变更金额增加 {0}，超出与信余力，需要重新审批。 | 変更改信 | 再承認 | WARN |
 
 ## 10. 権限・セキュリティ

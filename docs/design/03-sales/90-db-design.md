@@ -1466,7 +1466,7 @@ CREATE INDEX idx_sal_forecast_line_material ON sal_sales_forecast_line (material
 - 業務一意索引は `(tenant_id, company_id, 業務キー)` で始める（#43/#49 と同一）。
 - `ON CONFLICT` は同じ列を含め、採番は `sys_sequence.step` で増分する（`EXCLUDED.step` 禁止）。
 - `company_id` は既定値なし・必須。`tenant_id` は `DEFAULT current_setting('app.tenant_id')::bigint`（`DEFAULT 0` 禁止）。
-- **例外（親 ID 先頭の明細・版表）**：`uk_sal_quotation_version_rev`、`uk_sal_sales_order_line_no`、`uk_sal_sales_order_version_no`、`uk_sal_delivery_serial_line`、`uk_sal_return_line_no`、`uk_sal_iva_line_no`、`uk_sal_invoice_line_no`、`uk_sal_statement_line_no`、`uk_sal_forecast_line_no`。
+- **例外（親 ID 先頭の明細・版表）**：`uk_sal_inquiry_line_no`、`uk_sal_quotation_line_no`、`uk_sal_quotation_version_rev`、`uk_sal_sales_order_line_no`、`uk_sal_sales_order_version_no`、`uk_sal_dn_line_no`、`uk_sal_delivery_serial_line`、`uk_sal_return_line_no`、`uk_sal_iva_line_no`、`uk_sal_invoice_line_no`、`uk_sal_statement_line_no`、`uk_sal_forecast_line_no`。
 
 ## 10. 未決事項
 

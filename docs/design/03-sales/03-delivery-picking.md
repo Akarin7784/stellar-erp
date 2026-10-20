@@ -391,7 +391,7 @@ stateDiagram-v2
 4. 與信再判定（PRC-SAL-006-01 の出荷判定）を実行する。超過かつ超限承認なし → 出荷保留（`MSG-SAL-085`、ロールバック）。例外出荷の場合は例外承認を確認する。
 5. 會計期間 OPEN、出荷日が在庫最終取引日以降であることを確認する。
 6. DN 明細の `shipped_qty`（= `picked_qty`）、`line_status`、DN の `delivery_status`（全數なら 40、一部なら 35）、`confirmed_at/by` を更新する。
-7. SO 明細の `shipped_qty`・`line_status`・`shortage_qty` を更新し、SO の `order_status` を 35/40 に更新する（BR-DN-21）。
+7. SO 明細の `shipped_qty`（販売単位）と `shipped_base_qty`（基本単位、`+= 今回出荷販売数量 × conversion_rate`）・`line_status`・`shortage_qty` を**同時に**更新し、SO の `order_status` を 35/40 に更新する（BR-DN-21）。`shipped_base_qty` の更新漏れは不可。
 8. 出荷額分の與信台帳解放は FIN が実施する（SAL は `sal_credit_ledger_snapshot` 投影を E10 購読で更新、`RELEASE_SHIP`）。
 9. Outbox に **E10 `sales.delivery.confirmed`** を INSERT する（第 2.6 節の項目、header `amount`・`taxAmount`、lines `taxRate`・`amount`・`taxAmount`、`serialNos[]` 追加）。
 10. 監査ログ（出荷確定、DN 番號、SO 番號、金額、與信判定結果）を記錄し、`MSG-SAL-107/108` を返す。
@@ -648,7 +648,7 @@ stateDiagram-v2
 | `sal_pick_detail` | INSERT/UPDATE | 庫位、批次、數量、狀態 | ピッキング | PRC-SAL-003-03 |
 | `sal_delivery_serial` | INSERT | 序列號、狀態、出荷日 | ピッキング/確定 | PRC-SAL-003-03/04 |
 | `sal_sales_order` | UPDATE | `order_status`、`closed_at` | 出荷確定連動 | PRC-SAL-003-04 |
-| `sal_sales_order_line` | UPDATE | `shipped_qty`、`line_status`、`shortage_qty` | 出荷確定連動 | PRC-SAL-003-04 |
+| `sal_sales_order_line` | UPDATE | `shipped_qty`、`shipped_base_qty`、`line_status`、`shortage_qty` | 出荷確定連動（両数量を同時更新） | PRC-SAL-003-04 |
 | `sal_credit_ledger_snapshot` | UPDATE | 出荷分解放（投影） | E10 受信 | PRC-SAL-006-02 |
 | `sys_outbox_event` | INSERT | E10 | 出荷確定 | PRC-SAL-003-04 |
 | `sys_audit_log` | INSERT | 出荷確定・取消・印刷 | 各処理 | — |

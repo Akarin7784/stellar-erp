@@ -19,8 +19,7 @@
 
 ## AC-SAL-02 tenant_id / company_id（Refs #9、#10、#43）
 
-- W：`03-sales/90-db-design.md` で `tenant_id … DEFAULT 0` と `company_id … DEFAULT 1` を grep。T：0 件。
-- T：`tenant_id` 既定は `current_setting('app.tenant_id')::bigint`。`company_id` は NOT NULL・既定値なし。
+- W：`03-sales/90-db-design.md` を確認。T：禁止写死的默认租户（`tenant_id` 不得使用字面量默认值）；`tenant_id` 既定取 `current_setting('app.tenant_id')::bigint`。`company_id` 为 NOT NULL 且无字面量公司默认值。
 
 ## AC-SAL-03 一意索引は tenant_id 先頭（Refs #31 原則）
 
@@ -36,11 +35,11 @@
 
 - G：受注確定時 `conversion_rate=12`。W：その後 MDM の換算率を 10 に変更。T：当該受注行の `conversion_rate` は 12 のまま。新規受注のみ新レート。
 
-## AC-SAL-06 受注変更と已完工（Refs #24、#29）
+## AC-SAL-06 受注変更と已完工・已出库（Refs #24、#29）
 
-- G：受注行 `ordered_qty=120`、`conversion_rate=1`、`completed_qty=100`、`shipped_base_qty=80`。W：変更で 90 に減量し承認実行。T：HTTP **422**、業務コード **30022**、`MSG-SAL-056`（< 已完工 100）。
+- G：受注行 `ordered_qty=120`、`conversion_rate=1`、`completed_qty=100`、`shipped_base_qty=80`。W：変更で 90 に減量し承認実行。T：HTTP **422**、業務コード **30022**、`MSG-SAL-056`（変更後基本単位數量が已完工 100 未満）。
+- W：変更で 70 に減量（已出库 `shipped_base_qty=80` 未満だが、同时也会触发已完工校验时以更严者为准）。T：HTTP **422**、**30022**、`MSG-SAL-056`（文案同时覆盖已完工与已出库下限；销售单位侧的已出荷チェックは従来どおり `MSG-SAL-054` も可）。
 - W：変更で 110 に減量し承認。T：成功。`allowed_qty` が再計算される（承認済変更時）。
-- W：変更で 70 に減量（< 已出荷 80）。T：`MSG-SAL-054` で拒否。
 
 ## AC-SAL-07 跨表ロック順序（Refs #29）
 
@@ -50,6 +49,7 @@
 
 - G：基本単位小数 0 桁、`ordered_qty=30`、`conversion_rate=1`、容差率 0.05（会社既定）。W：受注確定。T：`allowed_qty = floor(31.5) = 31`。
 - G：物料に `completion_over_rate=0`。W：確定。T：採用率 0（明示 0%。分類・会社へ継承しない）。
+- G：受注行が確定済み、`allowed_qty=31`。W：超産承認が通過し承認後の許容数量が基本単位 35 になる。T：`allowed_qty` が 35 に再計算される（確定時スナップショットの再計算経路。90-db-design 数量・単位節）。
 
 ## AC-SAL-09 作废已有下游（共通、Refs #25）
 
