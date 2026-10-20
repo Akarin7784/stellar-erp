@@ -1,4 +1,4 @@
--- pgTAP：06-production 建表（V202610210601）结构 / RLS / erp_app 权限 / standard_cost NULL 无默认
+-- pgTAP：06-production 建表（V202610210702）结构 / RLS / erp_app 权限 / standard_cost NULL 无默认
 -- 约定：准备数据用 owner，断言前 SET ROLE erp_app；以 ROLLBACK 结束。
 BEGIN;
 SELECT plan(24);

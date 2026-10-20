@@ -1,6 +1,6 @@
 -- pgTAP：G2-18 受注行累计完工上限（单会话规则）。并发场景见 Java db.G218ConcurrencyTest。
 -- 被测对象：db/draft/g2_18_completion.sql（PR #4 定稿 32b4493），在本事务内加载，结尾 ROLLBACK。
--- prd_work_order / prd_overproduction_approval 用 prd/V202610210601 的正式表；T2 受注表还没迁移，用 pgtap-support/g2_18_stub_tables.sql 的桩表；
+-- prd_work_order / prd_overproduction_approval 用 prd/V202610210702 的正式表；T2 受注表还没迁移，用 pgtap-support/g2_18_stub_tables.sql 的桩表；
 -- 物料/分类的 completion_over_rate、mdm_uom、sys_param、sys_audit_log 用的是 main 上的正式表。
 -- 断言全部在 SET ROLE erp_app（NOBYPASSRLS）下进行，app.tenant_id / app.company_id 用 set_config(...,true)。
 -- 业务错误由 g2_18_raise 抛出：SQLSTATE P0001，MESSAGE = 错误码。

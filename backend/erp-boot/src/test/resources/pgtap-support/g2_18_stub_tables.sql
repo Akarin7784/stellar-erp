@@ -1,7 +1,7 @@
 -- G2-18 测试桩表（仅测试用，不是迁移）。
 -- T2（sal_sales_order / sal_sales_order_line）的迁移还没合入，这里只建 db/draft/g2_18_completion.sql 用到的列，
 -- RLS 与正式表同一写法（ENABLE + FORCE，按 app.tenant_id）。
--- prd_work_order / prd_overproduction_approval 已由 prd/V202610210601 正式建表（PR #13），不再建桩。
+-- prd_work_order / prd_overproduction_approval 已由 prd/V202610210702 正式建表（PR #13），不再建桩。
 -- 表由 owner 创建，erp_app 通过 V202610200101 的 ALTER DEFAULT PRIVILEGES 自动获得 DML 权限。
 -- T2 合入后删除本文件，pgTAP 直接用正式表。
 CREATE TABLE sal_sales_order (
