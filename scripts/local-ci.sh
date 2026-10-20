@@ -4,6 +4,7 @@
 #   --skip-tldts      前端安装时忽略 tldts-core 年龄门槛（pnpm minimumReleaseAge）已知问题
 #   --with-ddl-audit  额外跑 screen_ddl_audit.py（存在时）
 # 退出码：任一必选步骤失败即非 0；结尾打印各步骤结果。
+# 故意不用 set -e：单步失败也继续跑完其余步骤，最后汇总并以非 0 退出。
 set -uo pipefail
 # 环境要求：Docker、JDK 21、Node 24（CI 同版本；Node 20 下 vitest 起不来 worker）。
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"; cd "$ROOT"
@@ -26,7 +27,8 @@ db_checks() {
   docker image inspect "$PG_IMAGE" >/dev/null 2>&1 || \
     docker build -q -t "$PG_IMAGE" backend/erp-boot/src/test/docker/postgres-pgtap || return 1
   docker run -d --rm --name "$PG_NAME" -e POSTGRES_PASSWORD=ci -e POSTGRES_DB=erp "$PG_IMAGE" >/dev/null || return 1
-  trap 'docker rm -f "$PG_NAME" >/dev/null 2>&1' RETURN
+  trap 'docker rm -f "$PG_NAME" >/dev/null 2>&1' RETURN EXIT
+  trap 'docker rm -f "$PG_NAME" >/dev/null 2>&1; exit 130' INT TERM
   for _ in $(seq 60); do docker exec "$PG_NAME" pg_isready -U postgres -d erp -q && break; sleep 1; done
   local psql=(docker exec -i "$PG_NAME" psql -U postgres -d erp -v ON_ERROR_STOP=1 -q -X)
   # 按 Flyway 版本号排序；每个文件单独一个事务（psql -1），与 Flyway 一致（wf 的 SET LOCAL search_path 依赖这一点）
@@ -40,13 +42,16 @@ db_checks() {
   for t in "$PGTAP_DIR"/*.sql; do
     out=$("${psql[@]}" -At < "$t" 2>&1); local rc=$?
     echo "$out" | grep -E '^(not ok|# )' || true
-    if [ $rc -ne 0 ] || echo "$out" | grep -qE '^not ok|ERROR|Looks like'; then echo "pgTAP 失败: $t"; bad=1
+    if [ $rc -ne 0 ] || echo "$out" | grep -qE '^not ok'; then echo "pgTAP 失败: $t"; bad=1
     else echo "pgTAP OK: $(basename "$t") ($(echo "$out" | grep -c '^ok'))"; fi
   done
   return $bad
 }
 
 frontend_checks() { ( cd frontend || exit 1
+  export COREPACK_HOME="${COREPACK_HOME:-$HOME/.cache/corepack}"
+  if command -v fnm >/dev/null; then eval "$(fnm env)"; fnm use 24 >/dev/null || exit 1; fi
+  # 有意用 --frozen-lockfile：lockfile 与 package.json 不一致应当报错（建议 ci.yml 同步改为 frozen）
   local inst=(pnpm install --frozen-lockfile)
   [ $SKIP_TLDTS -eq 1 ] && inst+=(--config.minimum-release-age=0)
   "${inst[@]}" && { pnpm lint || echo "WARN: lint 失败（CI 中为 continue-on-error）"; } \
@@ -58,6 +63,6 @@ step "文档 tenant_id DEFAULT 0 (check-tenant-default.sh)" bash scripts/check-t
 [ $SKIP_BACKEND -eq 0 ] && step "后端 mvnw verify" bash -c 'cd backend && chmod +x mvnw && ./mvnw -B -ntp verify'
 [ $SKIP_FRONTEND -eq 0 ] && step "前端 install/lint/build/test" frontend_checks
 if [ $DDL_AUDIT -eq 1 ]; then a=$(find . -name screen_ddl_audit.py -not -path '*/node_modules/*' | head -1)
-  [ -n "$a" ] && step "画面×DDL 审计（可选）" python3 "$a" || echo "未找到 screen_ddl_audit.py，跳过"; fi
+  if [ -n "$a" ]; then step "画面×DDL 审计（可选）" python3 "$a"; else echo "未找到 screen_ddl_audit.py，跳过"; fi; fi
 
 echo; echo "=== 汇总 ==="; printf '%s\n' "${RESULTS[@]}"; exit $FAIL
