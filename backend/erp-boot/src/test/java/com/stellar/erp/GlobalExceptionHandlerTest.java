@@ -40,6 +40,13 @@ class GlobalExceptionHandlerTest {
             return "ok";
         }
 
+        @GetMapping("/ck/{name}")
+        String ck(@PathVariable String name) {
+            throw new org.springframework.dao.DataIntegrityViolationException("x", new java.sql.SQLException(
+                    "ERROR: new row for relation \"sal_sales_order_line\" violates check constraint \"" + name + "\"",
+                    "23514"));
+        }
+
         @GetMapping("/boom")
         String boom() {
             throw new IllegalStateException("secret detail");
@@ -109,5 +116,20 @@ class GlobalExceptionHandlerTest {
     @Test
     void unmappedCodeFallsBackTo500() {
         assertThat(GlobalExceptionHandler.httpStatusOf(123).value()).isEqualTo(500);
+    }
+
+    @Test
+    void completedQtyCheckViolationMapsTo60040() throws Exception {
+        mvc.perform(get("/ck/ck_sal_sol_completed_qty"))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.code").value(60040))
+                .andExpect(jsonPath("$.msgId").value("MSG-PRD-040"));
+    }
+
+    @Test
+    void otherCheckViolationStays5000() throws Exception {
+        mvc.perform(get("/ck/ck_sal_sales_order_line_qty"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.code").value(5000));
     }
 }
