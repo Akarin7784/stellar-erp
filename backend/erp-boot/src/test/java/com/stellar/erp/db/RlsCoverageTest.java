@@ -82,6 +82,18 @@ class RlsCoverageTest {
         assertThat(row.get("flw_usage")).isEqualTo(true);
     }
 
+    /** erp_app 自建对象的 owner 是自己，RLS 对 owner 无效（FORCE 也挡不住 DROP/ALTER），因此不允许存在。 */
+    @Test
+    void noRelationIsOwnedByAppRole() {
+        List<String> owned = jdbc.queryForList("""
+                SELECT n.nspname || '.' || c.relname FROM pg_class c
+                JOIN pg_namespace n ON n.oid = c.relnamespace
+                WHERE c.relowner = (SELECT oid FROM pg_roles WHERE rolname = 'erp_app')
+                ORDER BY 1
+                """, String.class);
+        assertThat(owned).as("以下对象的 owner 是 erp_app").isEmpty();
+    }
+
     @Test
     void sysUserIsCoveredByTheCheck() {
         Integer n = jdbc.queryForObject("""
