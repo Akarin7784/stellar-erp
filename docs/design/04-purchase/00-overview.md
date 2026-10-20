@@ -29,7 +29,7 @@
 | 対象機能範囲 | 请购→审批→询价比价→采购订单→收货→来料检验→入库→三单匹配→暂估/应付→对账→付款申请 的全过程，以及交期跟踪、采购价格适用、计划采购、供应商绩效、采购报表 |
 | 対象外（他域管掌） | 来料检验单本体（PRD 域 `prd_inspection`，F-PRD-012）、库存入出库执行与库存余额（INV 域）、买挂余额/凭证/付款执行/核销（FIN 域 F-FIN-003）、供应商主数据与采购价格主数据（MDM 域）、审批引擎与待办（WF 域）、发票开具与税务申报（FIN/INT 域） |
 | 前提 | MDM 的物料・供应商・采购价格・税码・付款条件・单位换算已整备；WF 审批矩阵已配置（`wf_approval_matrix`）；INV 已实现待检在庫与状态转换；FIN 已实现暂估/应付自动凭证模板；PRD 已实现 IQC 检验标准与判定 |
-| 優先度 | P0：请购・订单・收货・IQC 跟踪・入库跟踪・退货・发票登记・三单匹配・暂估应付・付款申请（Phase 1）；P1：询价比价・对账单・交期跟踪・价格管理・计划采购・绩效（Phase 1.5）；P2：供应商门户/EDI（集成域协同） |
+| 優先度 | P0：请购・订单・收货・IQC 跟踪・入库跟踪・退货・发票登记・三单匹配・暂估应付・付款申请（第一版・実装順 P0）；P1：询价比价・对账单・交期跟踪・价格管理・计划采购・绩效（第一版・実装順 P1）；P2：供应商门户/EDI（集成域协同）。**P0/P1/P2 は全て第一版、実装順のみ** |
 
 ### 1.3 業務上の狙い（KPI）
 
@@ -150,7 +150,7 @@ sequenceDiagram
     MDM-->>PUR: mdm.supplier.changed (E03) / mdm.price.changed (E04)
     PUR->>WF: 提交审批（PR/PO/PRT/差异）
     WF-->>PUR: workflow.task.completed (E31) / process.completed (E32)
-    PUR-->>INT: purchase.order.approved (E13)（Phase 2 供应商送信）
+    PUR-->>INT: purchase.order.approved (E13)（第一版（実装順 P2） 供应商送信）
     PUR-->>INV: purchase.receipt.posted (E14)
     PUR-->>PRD: purchase.receipt.posted (E14)（IQC 起票）
     PUR-->>FIN: purchase.receipt.posted (E14)（仕入暫估計上 J01）
@@ -170,7 +170,7 @@ sequenceDiagram
 | INV | 入荷確定（待检入库）、收货取消逆処理（E35）、退货出库、入库完成通知（E18） | イベント（E14/E16/E35 発行、E18 購読） | 09 §3、§4.3、§7 在庫取引と仕訳 |
 | PRD | IQC 起票依頼（E14 購読）、IQC 判定受信（E15）、MRP 计划订单受信 | イベント + 同期参照（計画） | 09 §3、§4.1、§8 品質連携 |
 | FIN | 暂估计上（E14 購読）、票据匹配确定（E17）、退货赤传（E16）、付款完了（E28）、会计期间状态参照 | イベント + 同期参照 | 09 §3、§7.2 J01～J04 |
-| INT | PO 送信（供应商门户/邮件/EDI，Phase 2）、电子发票采集（Phase 2） | イベント/API | 09 §12 連携マトリクス（IF-PUR-001/002） |
+| INT | PO 送信（供应商门户/邮件/EDI，第一版（実装順 P2））、电子发票采集（第一版・実装順 P2） | イベント/API | 09 §12 連携マトリクス（IF-PUR-001/002） |
 | SYS | 用户・组织・权限・数据范围、采番、附件、消息通知 | 同期参照 | 00-common/01、03 |
 | RPT | 采购分析报表的读取（本域提供域内操作报表，跨域汇总在 RPT 域） | 参照 | 10-analytics 设计书 |
 
@@ -187,7 +187,7 @@ sequenceDiagram
 | `RFQ` | 询价比价单 | `pur_rfq` | PO |
 | `CONTRACT` | 框架合同/一揽子订单 | MDM `mdm_contract`（P2） | PO |
 | `PURCHASE_ORDER` | 采购订单 | `pur_purchase_order` | GR、PRT、PIV 明细 |
-| `RECEIPT` | 收货单 | `pur_receipt` | PRT、PIV 明细 |
+| `RECEIPT` | 收货单 | `pur_receipt` | PRT、PIV 明细 （PUR 域内の値。INV 在庫取引の `source_type` は `PURCHASE_RECEIPT`、[05-inventory 02 §2.6.1a](../05-inventory/02-inbound-outbound.md)） |
 | `INSPECTION` | 来料检验单 | PRD `prd_inspection` | PRT（不合格退货） |
 | `RETURN` | 采购退货单 | `pur_return` | 补货 GR（换货）、PIV（红字） |
 | `INVOICE` | 采购发票 | `pur_invoice` | PIV（红字）、AP |
@@ -383,19 +383,19 @@ sequenceDiagram
 
 | IF ID | 名称 | 相手先 | 方向 | 方式 | 頻度 | 契機 |
 |---|---|---|---|---|---|---|
-| IF-PUR-001 | 采购订单送信 | INT（供应商门户/邮件/EDI） | 送信 | REST/ファイル | イベント | E13 `purchase.order.approved`（Phase 2） |
-| IF-PUR-002 | 电子发票采集 | INT（金税/数电票平台） | 受信 | REST/ファイル | 日次/イベント | 发票登録時に採番・取得（Phase 2） |
+| IF-PUR-001 | 采购订单送信 | INT（供应商门户/邮件/EDI） | 送信 | REST/ファイル | イベント | E13 `purchase.order.approved`（第一版・実装順 P2） |
+| IF-PUR-002 | 电子发票采集 | INT（金税/数电票平台） | 受信 | REST/ファイル | 日次/イベント | 发票登録時に採番・取得（第一版・実装順 P2） |
 | IF-PUR-003 | MRP 计划订单受信 | PRD | 受信 | REST（同期参照） | 日次/イベント | MRP 実行後、计划订单确定 |
 | IF-PUR-004 | IQC 检验起票 | PRD | 送信 | イベント | イベント | E14 `purchase.receipt.posted` |
 | IF-PUR-005 | IQC 判定受信 | PRD | 受信 | イベント | イベント | E15 `quality.inspection.completed` |
 | IF-PUR-006 | 在庫入出庫 | INV | 送信/受信 | イベント | イベント | E14/E16 発行、E18 購読 |
 | IF-PUR-007 | 应付・暂估・付款 | FIN | 送信/受信 | イベント | イベント | E17 発行、E28 購読 |
 | IF-PUR-008 | 供应商・采购价格受信 | MDM | 受信 | イベント/同期参照 | イベント | E03/E04 |
-| IF-PUR-009 | PDA・条码收货 | INT | 受信 | REST | リアルタイム | 收货登録（Phase 1.5） |
-| IF-PUR-010 | 供应商门户报价 | INT | 受信 | REST/ファイル | 日次 | RFQ 报价回收（Phase 2） |
+| IF-PUR-009 | PDA・条码收货 | INT | 受信 | REST | リアルタイム | 收货登録（第一版・実装順 P1） |
+| IF-PUR-010 | 供应商门户报价 | INT | 受信 | REST/ファイル | 日次 | RFQ 报价回收（第一版・実装順 P2） |
 | IF-PUR-011 | 收货取消逆処理 | INV/PRD/FIN | 送信 | イベント | イベント | E35 `purchase.receipt.cancelled` |
 
-IF 数：11（うち Phase 1 実装は内部イベント IF-PUR-004～008、011）。
+IF 数：11（うち実装順 P0 は内部イベント IF-PUR-004～008、011）。
 
 ---
 
@@ -472,7 +472,7 @@ IF 数：11（うち Phase 1 実装は内部イベント IF-PUR-004～008、011�
 | PRD | IQC 检验（E14→IQC 起票、E15 判定）、MRP 计划订单（IF-PUR-003） | イベント/同期参照 | IQC 判定未返回时 GR 停留在待检，禁止入库 |
 | FIN | 暂估・应付・付款（E14/E16/E17 発行、E28 購読）、会计期间状态参照、付款申请（PA） | イベント/同期参照 | 期間締切時は登録拒否（MSG-COM-071） |
 | SYS | 用户・部门・数据权限、采番、附件、消息通知、参数 | 同期参照 | — |
-| INT | PO 送信（Phase 2）、电子发票采集（Phase 2）、PDA | イベント/API | Phase 1 は手動出力で代替（機能制限を画面に明示） |
+| INT | PO 送信（第一版・実装順 P2）、电子发票采集（第一版・実装順 P2）、PDA | イベント/API | P0 実装時点は手動出力で代替（機能制限を画面に明示） |
 | RPT | 采购分析（跨域汇总）读取本域数据 | 参照 | — |
 
 ---
@@ -506,11 +506,11 @@ IF 数：11（うち Phase 1 実装は内部イベント IF-PUR-004～008、011�
 | # | 事項 | 理由 | 暫定仕様 | 担当 | 期限 |
 |---|---|---|---|---|---|
 | 1 | 90-data CSV の最終版反映 | data-researcher の 90-data は v1.0 納品済（23 ファイル、2026-10-20）。将来の改訂（標準年号・参考価格の更新）時に 94-sample-data と出典を再突合する | 2026-10-20 版の 90-data に整合済。改訂時は 94 を更新 | data-researcher / purchase-designer | 90-data 改訂時 |
-| 2 | 预算检查的数据源 | 预算模块为 P2；Phase 1 无预算余额数据 | Phase 1 仅做「年度采购额 vs 部门预算参数」警告级检查（参数 `pur.budget.check.enabled`）；Phase 2 接 FIN 预算 | finance-designer / Lead | Phase 1.5 |
-| 3 | 多币种采购（外币 PO/发票） | Phase 2 范围；汇率与换汇损益归 FIN | Phase 1 仅 CNY；字段预留 `currency_code`/`exchange_rate` | Lead | Phase 2 |
-| 4 | 供应商门户/EDI 报价与订单送信 | 集成域 Phase 2 | Phase 1 手动打印/邮件；E13 发出后 INT 不订阅仅记录 | integration 担当 | Phase 2 |
-| 5 | 电子发票查验（真伪・重复） | 数电票查验需税局接口（INT Phase 2） | Phase 1 仅发票号码唯一性校验 + 手工确认；重复发票检测（同号码）强制 | integration 担当 | Phase 2 |
-| 6 | 采购价格表更新联动（RFQ 中选价→MDM 价格） | MDM 价格变更需 MDM 审批流程；跨域接口未定 | 中选价保存在报价明细，PO 取价 `price_source_type=RFQ`；MDM 价格表更新为 P1 手工待办 | mdm-designer | Phase 1.5 |
+| 2 | 预算检查的数据源 | 预算模块为 P2；P0 実装時点 无预算余额数据 | P0 実装時点 仅做「年度采购额 vs 部门预算参数」警告级检查（参数 `pur.budget.check.enabled`）；P2 実装で接 FIN 预算 | finance-designer / Lead | 第一版（実装順 P1） |
+| 3 | 多币种采购（外币 PO/发票） | 第一版（実装順 P2） 范围；汇率与换汇损益归 FIN | P0 実装時点 仅 CNY；字段预留 `currency_code`/`exchange_rate` | Lead | 第一版（実装順 P2） |
+| 4 | 供应商门户/EDI 报价与订单送信 | 集成域 第一版（実装順 P2） | P0 実装時点 手动打印/邮件；E13 发出后 INT 不订阅仅记录 | integration 担当 | 第一版（実装順 P2） |
+| 5 | 电子发票查验（真伪・重复） | 数电票查验需税局接口（INT 第一版（実装順 P2）） | P0 実装時点 仅发票号码唯一性校验 + 手工确认；重复发票检测（同号码）强制 | integration 担当 | 第一版（実装順 P2） |
+| 6 | 采购价格表更新联动（RFQ 中选价→MDM 价格） | MDM 价格变更需 MDM 审批流程；跨域接口未定 | 中选价保存在报价明细，PO 取价 `price_source_type=RFQ`；MDM 价格表更新为 P1 手工待办 | mdm-designer | 第一版（実装順 P1） |
 
 > 已解決事項（Lead 2026-10-20 裁定）：
 > - **E35 `purchase.receipt.cancelled`** を 09 §3 に追加。取消条件は「未検収（IQC 未完了）かつ未照合」。本域は E35 に基づき設計済（[04](04-receipt-iqc.md) §2.4）。

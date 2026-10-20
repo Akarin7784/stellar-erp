@@ -24,7 +24,7 @@
 | 利用シーン | ① 请购转单后的订单确认与发注；② 询价中选后批量生成订单；③ 紧急/试作采购的手工订单；④ 供应商产能变化导致的交期变更；⑤ 价格调整（钢材市场波动）导致的单价变更 |
 | 優先度 | P0（登録・承認・送信・取消）/ P1（变更・关闭） |
 | 画面 ID | SCR-PUR-008（一览）、SCR-PUR-009（登録編集）、SCR-PUR-010（审批）、SCR-PUR-011（变更） |
-| 関連 IF | IF-PUR-001（PO 送信 Phase 2）、E13 `purchase.order.approved` |
+| 関連 IF | IF-PUR-001（PO 送信 第一版（実装順 P2））、E13 `purchase.order.approved` |
 
 ### 1.1 機能分解
 
@@ -61,16 +61,16 @@
 | BR-04 | MOQ 校验：`mdm_supplier_material.moq`（供給範囲単位）を第一参照とし、未登録時は `mdm_material.min_order_qty` / `mdm_purchase_price.moq` の順でフォールバック。订单数量 < MOQ 时警告，并提示按 MOQ/発注倍数调整；不调整时须填写理由 | 08 §5、MDM 02/90（`mdm_supplier_material.moq` 追加契約） | `moq`、`quantity` |
 | BR-05 | 交期校验：`delivery_date` ≥ 订单日；`delivery_date` < 订单日 + 供应商标准提前期时警告（可能无法按期交货） | 本域设计 | `delivery_date`、`lead_time_days` |
 | BR-06 | 金额分级审批按 [08 §8.1](../00-common/08-common-business-rules.md)：税込金额 < 5,000 / 5,000～50,000 / 50,000～500,000 / ≥ 500,000 元。**PR 承认済由来の PO は承認経路を短縮可**：50 万元未満は采购经理の 1 段（`wf_approval_matrix` の `pr_approved` 変数で制御） | 08 §8.1 | `total_amount_with_tax` |
-| BR-07 | 最终承認時に E13 `purchase.order.approved` を発行する（購読者：INT。Phase 2 供應商送信のみ）。発注送信は承認後の別操作（25→30） | 09 §3、§4.2 | `po_status`、E13 |
-| BR-08 | 発注送信方式：① 帳票出力（PRT-PUR-003）+ メール添付、② 供应商门户（Phase 2）、③ EDI（Phase 2）。送信日時・方式・送信者を記録し、再送信も履歴を残す | 本域设计 | `sent_at`、`sent_method` |
-| BR-09 | 供应商确认（回执）は手動登録（Phase 1）。`supplier_confirm_at`・`supplier_promised_date` を記録し、交期跟踪の基準とする | 本域设计 | `supplier_promised_date` |
+| BR-07 | 最终承認時に E13 `purchase.order.approved` を発行する（購読者：INT。第一版（実装順 P2） 供應商送信のみ）。発注送信は承認後の別操作（25→30） | 09 §3、§4.2 | `po_status`、E13 |
+| BR-08 | 発注送信方式：① 帳票出力（PRT-PUR-003）+ メール添付、② 供应商门户（第一版・実装順 P2）、③ EDI（第一版・実装順 P2）。送信日時・方式・送信者を記録し、再送信も履歴を残す | 本域设计 | `sent_at`、`sent_method` |
+| BR-09 | 供应商确认（回执）は手動登録（门户回执は実装順 P2）。`supplier_confirm_at`・`supplier_promised_date` を記録し、交期跟踪の基準とする | 本域设计 | `supplier_promised_date` |
 | BR-10 | 承認済（25）以降の数量・単価・交期変更は「订单变更」専用機能で行う。变更前内容を `pur_purchase_order_his` にスナップショット保存し、`version_no` を +1、再承認を必須とする | 08 §3.3-3、本域设计 | `version_no`、`pur_purchase_order_his` |
 | BR-11 | 变更制約：① 数量は入荷済数量（`received_qty`）未満にできない；② 入荷済の行は削除不可；③ 変更後金額が承認閾値を跨ぐ場合は経路再判定；④ 承認待ち中は追加変更不可 | 本域设计 | `received_qty`、`po_status` |
 | BR-12 | 取消条件：10（草稿）/20（承認待ちは撤回後）/25（未送信）は全取消可；30/35 は未入荷残数量の取消のみ可（部分取消）；入荷済数量は取消不可（返品処理 E16 を使用）；40 は取消不可 | 08 §3.3-4、09 §4.3 | `cancel_reason` |
 | BR-13 | 部分取消後の行状態：残数量 0 → 40 完了、一部入荷あり → 35、未入荷で全取消 → 90 取消。全行 40/90 → PO ヘッダ 40（全取消は 90） | 08 §3.2 | `line_status`、`po_status` |
 | BR-14 | 手動关闭（40）：残数量を切捨てる場合、理由必須・采购经理承認。关闭後は追加入荷不可 | 本域设计 | `close_reason` |
 | BR-15 | PO 承認前の取消・却下時は、请购由来数量を请购へ戻す（[01](01-requisition.md) PRC-PUR-003-02）。承認後取消は戻さない | 08 §3.3、01 §BR-11 | `converted_qty` |
-| BR-16 | 外貨订单（Phase 2）は為替レートを伝票に保持し、換算は CNY 換算額を会計に渡す。Phase 1 は CNY のみ | 09 §11、06 §3 | `currency_code`、`exchange_rate` |
+| BR-16 | 外貨订单（第一版・実装順 P2）は為替レートを伝票に保持し、換算は CNY 換算額を会計に渡す。P0 実装時点は CNY のみ | 09 §11、06 §3 | `currency_code`、`exchange_rate` |
 | BR-17 | 税込/税抜：単価は税抜を基本。税込入力時は税抜換算（08 §4.2-7）し、税込単価も保持可 | 08 §4.1 | `tax_rate`、`price_terms` |
 | BR-18 | 発注後の入荷・請求進捗は PO 明細の累計項目で管理する：`received_qty`（入荷）・`accepted_qty`（合格）・`rejected_qty`（不合格）・`returned_qty`（退货）・`invoiced_qty`（请求）・`remain_qty`（残） | 本域设计 | 各数量項目 |
 | BR-19 | 全数量入荷（部分取消含む）で PO を 40 完了とする。入荷数量が発注数量を超える場合は超收容差（[04](04-receipt-iqc.md) BR-05）に従う | 09 §4.3 | `po_status` |
@@ -215,8 +215,8 @@ stateDiagram-v2
 | 10 | `factoryId` | 工厂 | 選択 | BIGINT | ○ | CZ01 | コード存在 | `mdm_factory` | `factory_id` | 編集可 | — |
 | 11 | `warehouseId` | 收货仓库 | 選択 | BIGINT | ○ | WH01 | コード存在・有効 | `mdm_warehouse` | `warehouse_id` | 編集可 | 明細で上書き可 |
 | 12 | `orderDate` | 订单日 | 日付 | DATE | ○ | 当日 | ≥ 当日 − 7 日 | — | `order_date` | 編集可 | 承認日と異なる |
-| 13 | `currencyCode` | 币种 | 選択 | VARCHAR(8) | ○ | CNY | ISO 4217 | `mdm_currency` | `currency_code` | 参照のみ | Phase 1 固定 |
-| 14 | `exchangeRate` | 汇率 | 数値 | NUMERIC(18,8) | △ | 1.00000000 | > 0 | `mdm_exchange_rate` | `exchange_rate` | 参照のみ | Phase 2 |
+| 13 | `currencyCode` | 币种 | 選択 | VARCHAR(8) | ○ | CNY | ISO 4217 | `mdm_currency` | `currency_code` | 参照のみ | 既定 CNY（外貨は実装順 P2） |
+| 14 | `exchangeRate` | 汇率 | 数値 | NUMERIC(18,8) | △ | 1.00000000 | > 0 | `mdm_exchange_rate` | `exchange_rate` | 参照のみ | 第一版（実装順 P2） |
 | 15 | `priceTerms` | 价格基准 | ラジオ | SMALLINT | ○ | 1 税抜 | 1 税抜/2 税込 | 固定値 | `price_terms` | 編集可 | — |
 | 16 | `settlementType` | 结算方式 | 選択 | VARCHAR(20) | ○ | BANK_TRANSFER | 06 §8.1 | `mdm_settlement_method` | `settlement_type` | 編集可 | — |
 | 17 | `paymentTermCode` | 付款条件 | 選択 | VARCHAR(20) | ○ | 供应商默认 | 06 §8.2 | `mdm_payment_term` | `payment_term_code` | 編集可 | — |
@@ -255,7 +255,7 @@ stateDiagram-v2
 | 15 | `requiredDate` | 希望交期 | 日付 | DATE | △ | 请购希望交期 | ≥ 当日 | — | `required_date` | 内部管理用 |
 | 16 | `supplierPromisedDate` | 供应商承诺交期 | 日付 | DATE | △ | 空 | — | 回执 | `supplier_promised_date` | 交期跟踪基準 |
 | 17 | `warehouseId` | 收货仓库 | 選択 | BIGINT | ○ | ヘッダ仓库 | コード存在 | `mdm_warehouse` | `warehouse_id` | 行単位 |
-| 18 | `receivingToleranceRate` | 超收容差率 | 数値 | NUMERIC(7,4) | △ | MDM 既定値（品目→分類→仕入先→会社の優先順） | 0～100（%） | MDM 既定 > PUR 上書き規則（優先順） | `receiving_tolerance_rate` | 明細上書きのみ保持 |
+| 18 | `receivingToleranceRate` | 超收容差率 | 数値 | NUMERIC(5,4) | △ | MDM 既定値（品目→分類→仕入先→会社の優先順） | 0～9.9999（比率。0.05=5%） | MDM 既定 > PUR 上書き規則（優先順） | `receiving_tolerance_rate` | 明細上書きのみ保持 |
 | 19 | `moq` | 最小起订量 | 数値 | NUMERIC(18,4) | △ | 供应商默认 | ≥ 0 | `mdm_supplier_material` | `moq` | MOQ チェック |
 | 20 | `priceSourceType` | 价格来源 | テキスト | SMALLINT | 自動 | 1 价格表 | 1 价格表/2 RFQ/3 最近成交/4 手工/5 合同 | — | `price_source_type` | 手工は理由必須 |
 | 21 | `priceDiffReason` | 定价理由 | テキスト | VARCHAR(500) | △ | 空 | 手工/差异 >10% 时必填 | — | `price_diff_reason` | — |
@@ -279,7 +279,7 @@ stateDiagram-v2
 | 4 | 取价 | 供应商/物料/订单日変更 | 取价優先順位で単価自動セット、差異警告 | `GET /api/purchase/prices` | — | 手動変更可 |
 | 5 | 提交 | 提交ボタン | 保存→承認経路取得→WF 提出 | `POST .../{id}/submit` | 同画面 | 承認経路未設定 `MSG-COM-073` |
 | 6 | 撤回/差戻し | 撤回ボタン | 状態 20→10 | `POST .../{id}/withdraw` | 同画面 | — |
-| 7 | 送信 | 送信ボタン | 帳票出力・送信記録、状態 30 | `POST .../{id}/send` | 同画面 | Phase 1 は印刷/メール手動 |
+| 7 | 送信 | 送信ボタン | 帳票出力・送信記録、状態 30 | `POST .../{id}/send` | 同画面 | P0 実装時点は印刷/メール手動 |
 | 8 | 供应商确认 | 回执登録 | `supplier_confirm_at`・`supplier_promised_date` 登録 | `PUT .../{id}`（部分更新） | — | 交期跟踪へ反映 |
 | 9 | 变更 | 变更ボタン | 変更画面へ（変更前スナップショット） | — | SCR-PUR-011 | 25/30/35 のみ |
 | 10 | 取消 | 取消ボタン | 条件検証→取消（部分取消含む） | `POST .../{id}/cancel` | 一覧へ | 请购数量戻し連動 |
@@ -399,7 +399,7 @@ stateDiagram-v2
 
 1. `po_status=25` を確認する（未承認は送信不可 `MSG-COM-034`）。
 2. 送信方式（1 印刷/2 メール/3 门户/4 EDI）を選択し、PRT-PUR-003 を出力する（印刷の場合）。
-3. Phase 2 では INT へ E13 済みデータを送信（IF-PUR-001）。Phase 1 は送信記録のみ。
+3. P2 実装では INT へ E13 済みデータを送信（IF-PUR-001）。P0 実装時点は送信記録のみ。
 4. `po_status=30`、`sent_at`、`sent_by`、`sent_method` を保存する。再送信時は送信履歴（監査ログ）を追加し、状態は 30 のまま。
 5. 供应商・購買部門へ通知（08 §13.3）。
 
@@ -690,10 +690,10 @@ stateDiagram-v2
 
 | # | 事項 | 理由 | 暫定仕様 | 担当 | 期限 |
 |---|---|---|---|---|---|
-| 1 | 框架合同/一揽子订单的取价与释放机制 | 框架合同建模属 MDM/P2 | Phase 1 は `poType=2` を保持するが合同連携は未実装 | mdm-designer | Phase 2 |
-| 2 | PO 送信の INT 連携形式（メール添付/门户/EDI） | 集成域 Phase 2 | Phase 1 は印刷 + メール手動、`sent_method` のみ記録 | integration 担当 | Phase 2 |
-| 3 | 变更履歴の明細レベル差分表示 | `before_data`/`after_data` に全項目 JSON 保存で対応 | P1 は項目単位の差分表示。行追加・削除の対応付けは `line_no` 基準 | purchase-designer | Phase 1.5 |
-| 4 | 承認後の価格遡及変更（既入荷分への影響） | 既入荷分の単価変更は在庫原価・暫估に影響するため FIN/INV と調整が必要 | 変更は未入荷数量のみに適用。既入荷分は「価格差異」として三単マッチで処理 | finance-designer / inventory-designer | Phase 1.5 |
+| 1 | 框架合同/一揽子订单的取价与释放机制 | 框架合同建模属 MDM/P2 | P0 実装時点は `poType=2` を保持するが合同連携は未実装 | mdm-designer | 第一版（実装順 P2） |
+| 2 | PO 送信の INT 連携形式（メール添付/门户/EDI） | 集成域 第一版（実装順 P2） | P0 実装時点は印刷 + メール手動、`sent_method` のみ記録 | integration 担当 | 第一版（実装順 P2） |
+| 3 | 变更履歴の明細レベル差分表示 | `before_data`/`after_data` に全項目 JSON 保存で対応 | P1 は項目単位の差分表示。行追加・削除の対応付けは `line_no` 基準 | purchase-designer | 第一版（実装順 P1） |
+| 4 | 承認後の価格遡及変更（既入荷分への影響） | 既入荷分の単価変更は在庫原価・暫估に影響するため FIN/INV と調整が必要 | 変更は未入荷数量のみに適用。既入荷分は「価格差異」として三単マッチで処理 | finance-designer / inventory-designer | 第一版（実装順 P1） |
 
 ---
 

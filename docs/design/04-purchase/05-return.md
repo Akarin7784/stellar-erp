@@ -563,10 +563,10 @@ stateDiagram-v2
 
 | # | 事項 | 理由 | 暫定仕様 | 担当 | 期限 |
 |---|---|---|---|---|---|
-| 1 | 红字发票信息表（红字确认单）との連携 | 中国增值税红字发票需税局红字确认信息表/数电票红字确认，接口属 INT Phase 2 | Phase 1 は供应商から受領した红字发票を手動登録（`invoice_type=50`）。紅字確認单番号は `remark` に保持 | integration 担当 / finance-designer | Phase 2 |
-| 2 | 返修（handling_type=3）の戻入フロー | 返修品の再受入は「新規 GR」か「返修専用入荷」か業務未確定 | Phase 1 は新規 GR（`source_type=RETURN_REPAIR`）で受入 | 品質部 / purchase-designer | Phase 1.5 |
-| 3 | 退货運賃・手数料の会計処理 | 社内負担時の科目（販売費/製造費用）が FIN 未確定 | Phase 1 は `freight_burden` を記録し、FIN が手動仕訳 | finance-designer | Phase 1.5 |
-| 4 | 退货率の供应商绩效指標化 | 現行の绩效指標に返品率が未定義 | Phase 1 は参考値として `pur_return` から集計、正式指標は F-PUR-026 で検討 | purchase-designer | 2026-10-27 |
+| 1 | 红字发票信息表（红字确认单）との連携 | 中国增值税红字发票需税局红字确认信息表/数电票红字确认，接口属 INT 第一版（実装順 P2） | P0 実装時点は供应商から受領した红字发票を手動登録（`invoice_type=50`）。紅字確認单番号は `remark` に保持 | integration 担当 / finance-designer | 第一版（実装順 P2） |
+| 2 | 返修（handling_type=3）の戻入フロー | 返修品の再受入は「新規 GR」か「返修専用入荷」か業務未確定 | P0 実装時点は新規 GR（`source_type=RETURN_REPAIR`）で受入 | 品質部 / purchase-designer | 第一版（実装順 P1） |
+| 3 | 退货運賃・手数料の会計処理 | 社内負担時の科目（販売費/製造費用）が FIN 未確定 | P0 実装時点は `freight_burden` を記録し、FIN が手動仕訳 | finance-designer | 第一版（実装順 P1） |
+| 4 | 退货率の供应商绩效指標化 | 現行の绩效指標に返品率が未定義 | 第一版 は参考値として `pur_return` から集計、正式指標は F-PUR-026 で検討 | purchase-designer | 2026-10-27 |
 
 ---
 

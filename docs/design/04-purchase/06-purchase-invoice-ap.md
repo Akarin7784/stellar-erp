@@ -24,7 +24,7 @@
 | 利用シーン | ① 供应商开具增值税专用发票后的登记与三单匹配；② 单价小幅调整（容差内）的自动通过；③ 钢材涨价导致单价差异超容差时的差异理由+承認；④ 短装/超发导致数量差异时的保留与后续处理；⑤ 月结时的「入荷済未請求（暂估）台账」确认；⑥ 月次供应商对账；⑦ 依据应付/预付款条件向财务发起付款申请 |
 | 優先度 | P0（发票登记・三单匹配・暂估应付・付款申请入口）/ P1（对账单・预付款・批量匹配） |
 | 画面 ID | SCR-PUR-019（发票登记）、SCR-PUR-020（三单匹配与差异）、SCR-PUR-021（对账单）、SCR-PUR-022（应付/暂估台账）、SCR-PUR-023（付款申请）、SCR-PUR-024（预付款申请） |
-| 関連 IF | IF-PUR-007（E17→FIN、E28 受信）、IF-PUR-002（电子发票采集 Phase 2） |
+| 関連 IF | IF-PUR-007（E17→FIN、E28 受信）、IF-PUR-002（电子发票采集 第一版（実装順 P2）） |
 
 ### 1.1 機能分解
 
@@ -66,7 +66,7 @@
 | BR-06 | 已计上应付（`ap_status=1`）的发票不可修改；错误处理为「取消→再登记」或红字发票（取消需未付款） | 08 §3.3-3 | `ap_status` |
 | BR-07 | 发票可跨多张 PO/GR 合并开票（明细行分别指定 PO/GR）；一张发票明细最多 1,000 行 | 本域设计 | 明細 |
 | BR-08 | 发票登记时进行「重复发票检查」：同一 `(supplier_id, invoice_code, invoice_number)` 已存在则拒绝；同一金额・同一供应商・近似日期的发票给出警告（潜在重复） | 内部控制（示例企业） | — |
-| BR-09 | 发票查验（真伪）Phase 1 为手工确认（`verified_flag`），Phase 2 通过 INT 数电票查验接口自动校验 | 本域设计、未決 | `verified_flag` |
+| BR-09 | 发票查验（真伪）P0 実装時点 为手工确认（`verified_flag`），P2 実装で通过 INT 数电票查验接口自动校验 | 本域设计、未決 | `verified_flag` |
 
 #### 2.2.2 三单匹配
 
@@ -111,7 +111,7 @@
 | CALC-07 | 发票行税額 | 发票行金額 × 税率 | 2 桁 | 91,520.00 × 13% = 11,897.60 |
 | CALC-08 | 税额差异 | `发票税額 − (匹配数量 × PO 税抜単価 × 税率)` | 2 桁 | 11,897.60 − 11,752.00 = 145.60 |
 | CALC-09 | 差异合计（匹配単位） | 单价差异额 + 税额差异 + 金额尾差 | 2 桁 | 1,120.00 + 145.60 = 1,265.60 |
-| CALC-10 | 容差判定 | `|差异| ≤ max(率容差 × 基准, 绝对容差)` | — | 1.2389% > 1% → 超容差 |
+| CALC-10 | 容差判定 | `\|差异\| ≤ max(率容差 × 基准, 绝对容差)` | — | 1.2389% > 1% → 超容差 |
 | CALC-11 | 暂估残高 | Σ（`accepted_qty + concession_qty − returned_qty − invoiced_qty` × PO 税抜単価） | 2 桁 | 未請求 588 − 588 = 0（当該 GR は消込済） |
 | CALC-12 | 预付款可申请額 | `PO 税込金額 × prepay_ratio − 已预付税込額` | 2 桁 | 490,872 × 30% − 0 = 147,261.60 |
 | CALC-13 | 对账期末应付 | `期初应付 + 本期发票（税込） − 本期付款 − 本期退货（税込）` | 2 桁 | FIN 側計算と一致すること |
@@ -242,8 +242,8 @@ stateDiagram-v2
 | 7 | `invoiceNumber` | 发票号码 | テキスト | VARCHAR(32) | ○ | 空 | 一意（供应商+代码+号码） | 外部 | `invoice_number` | 数电票 20 位 |
 | 8 | `invoiceDate` | 开票日期 | 日付 | DATE | ○ | 空 | ≤ 登録日 + 1 日、会計期間 OPEN | — | `invoice_date` | — |
 | 9 | `registrationDate` | 登记日期 | 日付 | DATE | ○ | 当日 | — | — | `registration_date` | — |
-| 10 | `currencyCode` | 币种 | 選択 | VARCHAR(8) | ○ | CNY | ISO 4217 | `mdm_currency` | `currency_code` | Phase 1 固定 |
-| 11 | `exchangeRate` | 汇率 | 数値 | NUMERIC(18,8) | △ | 1.00000000 | > 0 | `mdm_exchange_rate` | `exchange_rate` | Phase 2 |
+| 10 | `currencyCode` | 币种 | 選択 | VARCHAR(8) | ○ | CNY | ISO 4217 | `mdm_currency` | `currency_code` | 既定 CNY（外貨は実装順 P2） |
+| 11 | `exchangeRate` | 汇率 | 数値 | NUMERIC(18,8) | △ | 1.00000000 | > 0 | `mdm_exchange_rate` | `exchange_rate` | 第一版（実装順 P2） |
 | 12 | `priceTerms` | 金额基准 | ラジオ | SMALLINT | ○ | 1 税抜 | 1 税抜/2 税込 | 固定値 | `price_terms` | 税込入力時は税抜換算 |
 | 13 | `totalAmount` | 税抜合計 | 数値 | NUMERIC(18,2) | 自動 | 0.00 | = Σ明細（差 >0.01 拒絕） | 明細計算 | `total_amount` | — |
 | 14 | `taxAmount` | 税額合計 | 数値 | NUMERIC(18,2) | 自動 | 0.00 | = Σ明細税額 | 明細計算 | `tax_amount` | — |
@@ -251,7 +251,7 @@ stateDiagram-v2
 | 16 | `matchedStatus` | 匹配状态 | バッジ | SMALLINT | 自動 | 0 | — | — | `matched_status` | 0/1/2/3/4/5/6/9 |
 | 17 | `apStatus` | 计上状态 | バッジ | SMALLINT | 自動 | 0 | — | E17/E28 | `ap_status` | 0 未計上/1 已計上/2 部分付款/3 支払済/9 取消 |
 | 18 | `diffTotalAmount` | 差异合计 | 数値 | NUMERIC(18,2) | 自動 | 0.00 | — | 匹配計算 | `diff_total_amount` | — |
-| 19 | `verifiedFlag` | 发票查验 | チェック | BOOLEAN | △ | false | — | 手動/INT | `verified_flag` | Phase 2 自動化 |
+| 19 | `verifiedFlag` | 发票查验 | チェック | BOOLEAN | △ | false | — | 手動/INT | `verified_flag` | 第一版（実装順 P2） 自動化 |
 | 20 | `remark` | 备注 | テキストエリア | VARCHAR(500) | △ | 空 | 桁数 | — | `remark` | 红字確認单号等 |
 | 21 | `attachments` | 附件 | 添付 | — | △ | 空 | 01 §9 | `sys_attachment` | — | 发票扫描/XML |
 | 22 | `version` | 版数 | 数値 | INT | 自動 | 0 | — | — | `version` | 楽観排他 |
@@ -896,11 +896,11 @@ function matchInvoice(invoice):
 
 | # | 事項 | 理由 | 暫定仕様 | 担当 | 期限 |
 |---|---|---|---|---|---|
-| 1 | 数电票の自動取得・查验 | INT 域 Phase 2（税局接口・数电票平台） | Phase 1 は手動登録＋`verified_flag` 手動確認 | integration 担当 | Phase 2 |
-| 2 | 红字确认单（红字发票信息表）の取扱い | 中国税務手続きの詳細が INT/FIN 未確定 | 红字発票の `remark` に確認单番号を保持。帳票・API は Phase 2 拡張 | finance-designer / integration 担当 | Phase 2 |
-| 3 | 外貨建て発票の換算・為替差損益 | Phase 2 多通貨 | Phase 1 は CNY のみ。`exchange_rate` 項目のみ保持 | finance-designer | Phase 2 |
+| 1 | 数电票の自動取得・查验 | INT 域 第一版（実装順 P2）（税局接口・数电票平台） | P0 実装時点は手動登録＋`verified_flag` 手動確認 | integration 担当 | 第一版（実装順 P2） |
+| 2 | 红字确认单（红字发票信息表）の取扱い | 中国税務手続きの詳細が INT/FIN 未確定 | 红字発票の `remark` に確認单番号を保持。帳票・API は 第一版（実装順 P2） 拡張 | finance-designer / integration 担当 | 第一版（実装順 P2） |
+| 3 | 外貨建て発票の換算・為替差損益 | 第一版（実装順 P2） 多通貨 | P0 実装時点は CNY のみ。`exchange_rate` 項目のみ保持 | finance-designer | 第一版（実装順 P2） |
 | 4 | 差异金额の会計処理閾値 | 「調整存貨成本」と「当期損益」の振分け基準が社内規程未確定 | 差異額 < 10,000 元かつ在庫比率 > 50% は原価調整、その他は当期損益（`sys_param` で変更可） | 財務部 | 2026-10-27 |
-| 5 | 支払予定日・支払条件の起算日 | FIN の PA 設計と整合が必要（検収日基準/発票日基準） | Phase 1 は発票日 + 付款条件（NET30 等）。FIN と協議 | finance-designer | Phase 1.5 |
+| 5 | 支払予定日・支払条件の起算日 | FIN の PA 設計と整合が必要（検収日基準/発票日基準） | P0 実装時点は発票日 + 付款条件（NET30 等）。FIN と協議 | finance-designer | 第一版（実装順 P1） |
 
 > 已解決（Lead 2026-10-20）：対账单番号プレフィックス `PST`（13 桁、日次）は 08 §2.1 に追加承認済み。本域は `PST{YYMMDD}{4桁}` で設計（§4.4.4、[90](90-db-design.md) §5.18）。
 

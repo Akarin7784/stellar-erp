@@ -446,7 +446,7 @@
 | 6 | `lines[].receiptLineId`/`qty` | BIGINT/NUMERIC | 暫估冲回の対象特定（J02） | — |
 | — | `paymentId`/`paymentNo`/`amount`/`paidAt`（E28 受信） | — | AP 支払済表示 | PUR は参照のみ |
 
-### 5.5 IF-PUR-001 採購訂単送信（項目定義・Phase 2）
+### 5.5 IF-PUR-001 採購訂単送信（項目定義・第一版（実装順 P2））
 
 | No | 項目 | 型/桁 | 必須 | 説明 | 備考 |
 |---|---|---|---|---|---|

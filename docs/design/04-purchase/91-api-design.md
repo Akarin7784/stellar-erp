@@ -523,7 +523,7 @@
 
 | イベント | 発行タイミング | 購読者 | トランザクション境界 | 冪等キー |
 |---|---|---|---|---|
-| E13 `purchase.order.approved` | PO 最終承認（25 遷移） | INT（Phase 2 供應商送信） | 承認トランザクション内で Outbox INSERT | `aggregateId + aggregateVersion` |
+| E13 `purchase.order.approved` | PO 最終承認（25 遷移） | INT（第一版（実装順 P2） 供應商送信） | 承認トランザクション内で Outbox INSERT | `aggregateId + aggregateVersion` |
 | E14 `purchase.receipt.posted` | 収貨確定（25→30） | INV/PRD/FIN | 同上 | 同上 |
 | E16 `purchase.return.confirmed` | 退貨出庫確定（25→30） | INV/FIN | 同上 | 同上 |
 | E17 `purchase.invoice.matched` | 三単マッチ計上確定 | FIN | 同上 | 同上 |
@@ -557,7 +557,8 @@
         "uom": "KGM",
         "warehouseId": "1845000000000000101",
         "batchNo": "S000001-20261101-01",
-        "unitPrice": "5.650000"
+        "unitPrice": "5.650000",
+        "inspectionFlag": true
       }
     ],
     "receivedAt": "2026-11-03T10:25:00+08:00"
@@ -565,7 +566,7 @@
 }
 ```
 
-> 購読側処理（09 §3）：INV＝待検在庫の入庫、PRD＝IQC 起票（`inspectionType=IQC`、`sourceType=RECEIPT`、`sourceId=receiptId`）、FIN＝仕入暫估計上（J01、金額＝`Σ receivedQty × unitPrice`）。
+> 購読側処理（09 §3）：INV＝待検在庫の入庫、PRD＝`inspectionFlag=true` の明細のみ IQC 起票（`inspectionType=IQC`、`sourceType=PURCHASE_RECEIPT`、`sourceId=receiptId`）。`lines[].inspectionFlag` は PUR の入荷確定時スナップショット（後方互換追加。欠落時の旧メッセージは購読側で true 扱い）で、INV・PRD は再導出しない。FIN＝仕入暫估計上（J01、金額＝`Σ receivedQty × unitPrice`）。
 
 ### 7.3 E35 `purchase.receipt.cancelled` payload（契約：09 §3）
 
@@ -657,7 +658,7 @@
 }
 ```
 
-> 購読側：INT＝供應商送信（Phase 2、IF-PUR-001）。WF は 09 §3 改訂で購読者から除外済（PO 状態は WF が E31/E32 を発行し業務域が更新する責任分界のため）。本域は承認 TX 内で Outbox INSERT のみ行い、送信結果は待たない。
+> 購読側：INT＝供應商送信（第一版（実装順 P2）、IF-PUR-001）。WF は 09 §3 改訂で購読者から除外済（PO 状態は WF が E31/E32 を発行し業務域が更新する責任分界のため）。本域は承認 TX 内で Outbox INSERT のみ行い、送信結果は待たない。
 
 ### 7.7 購読イベントと処理
 
@@ -683,17 +684,17 @@
 
 | IF ID | 名称 | 相手先 | 方向 | 方式 | 頻度 | 状態 |
 |---|---|---|---|---|---|---|
-| IF-PUR-001 | 採購訂単送信 | INT（門戸/メール/EDI） | 送信 | REST/ファイル | イベント | Phase 2（Phase 1 は手動） |
-| IF-PUR-002 | 電子発票採集 | INT（税局/数電票） | 受信 | REST/ファイル | 日次/イベント | Phase 2 |
-| IF-PUR-003 | MRP 計画オーダー受信 | PRD | 受信 | REST（同期参照） | 日次/イベント | Phase 1（実装済想定） |
-| IF-PUR-004 | IQC 起票（E14） | PRD | 送信 | イベント | イベント | Phase 1 |
-| IF-PUR-005 | IQC 判定受信（E15） | PRD | 受信 | イベント | イベント | Phase 1 |
-| IF-PUR-006 | 在庫入出庫（E14/E16/E35/E18） | INV | 送受信 | イベント | イベント | Phase 1 |
-| IF-PUR-007 | 買挂・暫估・支払（E17/E28） | FIN | 送受信 | イベント | イベント | Phase 1 |
-| IF-PUR-008 | 供應商・価格受信（E03/E04） | MDM | 受信 | イベント | イベント | Phase 1 |
-| IF-PUR-009 | PDA・条碼収貨 | INT | 受信 | REST | リアルタイム | Phase 1.5 |
-| IF-PUR-010 | 供應商門戸報価 | INT | 受信 | REST/ファイル | 日次 | Phase 2 |
-| IF-PUR-011 | 収貨取消逆処理（E35） | INV/PRD/FIN | 送信 | イベント | イベント | Phase 1 |
+| IF-PUR-001 | 採購訂単送信 | INT（門戸/メール/EDI） | 送信 | REST/ファイル | イベント | 第一版（実装順 P2）（P0 実装時点は手動） |
+| IF-PUR-002 | 電子発票採集 | INT（税局/数電票） | 受信 | REST/ファイル | 日次/イベント | 第一版（実装順 P2） |
+| IF-PUR-003 | MRP 計画オーダー受信 | PRD | 受信 | REST（同期参照） | 日次/イベント | 第一版（実装順 P0） |
+| IF-PUR-004 | IQC 起票（E14） | PRD | 送信 | イベント | イベント | 第一版 |
+| IF-PUR-005 | IQC 判定受信（E15） | PRD | 受信 | イベント | イベント | 第一版 |
+| IF-PUR-006 | 在庫入出庫（E14/E16/E35/E18） | INV | 送受信 | イベント | イベント | 第一版 |
+| IF-PUR-007 | 買挂・暫估・支払（E17/E28） | FIN | 送受信 | イベント | イベント | 第一版 |
+| IF-PUR-008 | 供應商・価格受信（E03/E04） | MDM | 受信 | イベント | イベント | 第一版 |
+| IF-PUR-009 | PDA・条碼収貨 | INT | 受信 | REST | リアルタイム | 第一版（実装順 P1） |
+| IF-PUR-010 | 供應商門戸報価 | INT | 受信 | REST/ファイル | 日次 | 第一版（実装順 P2） |
+| IF-PUR-011 | 収貨取消逆処理（E35） | INV/PRD/FIN | 送信 | イベント | イベント | 第一版 |
 
 **ジョブ API**：`POST /api/purchase/exports`（202 + `{jobId}`）→ `GET /api/purchase/jobs/{jobId}`（`QUEUED/RUNNING/SUCCEEDED/FAILED`、`progress`、`resultFileId`）→ `GET /api/purchase/jobs/{jobId}/files/{fileId}`（ダウンロード）。結果は 7 日保存（03 §12.1）。
 
