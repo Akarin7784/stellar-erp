@@ -143,7 +143,7 @@ CREATE TABLE sys_sequence (
 |---|---|
 | 主キー | 全テーブル必須。`pk_{table}` 命名 |
 | 外部キー | マスタ参照・親子関係は FK を張る（`ON DELETE RESTRICT`、CASCADE 禁止）。参照先が論理削除対象の場合は FK を張らずアプリで検証（削除は使用停止で運用）。**跨域参照は 6.2 に従う**（FK は同一域内と sys/mdm 参照のみ） |
-| 一意 | 業務キーは `UNIQUE INDEX WHERE deleted = FALSE`（部分一意）。先頭列は必ず `tenant_id`、原則 `(tenant_id, company_id, ...)`。詳細は 6.1 |
+| 一意 | 業務キーは `UNIQUE INDEX WHERE deleted = FALSE`（部分一意）。先頭列は必ず `tenant_id`、`(tenant_id, company_id, ...)` 必須（6.1 項 4 を除く）。詳細は 6.1 |
 | CHECK | 列挙値（status/txn_type）、符号（数量 > 0、金額 >= 0）、日付整合（有効期間）に付与。可変の区分値は付けない |
 | NOT NULL | 業務上必須の項目は DB でも NOT NULL。NULL 許容は「未設定」に意味がある場合のみ |
 | DEFAULT | 共通カラムの既定値のみ DB に置く。業務既定値はアプリで設定（変更可能なため） |
@@ -172,27 +172,12 @@ DO UPDATE SET material_name = EXCLUDED.material_name;
 
 PostgreSQL の一意制約チェックは RLS を経由しないため、`tenant_id` を含まない一意キーは租户間の衝突と、重複エラーによる他租户データの存在探知を許す。以下を必須とする。
 
-1. すべての業務一意キー（`UNIQUE` 制約・一意インデックス・部分一意インデックスを含む。主キーを除く）の**先頭列は `tenant_id`**。原則 `(tenant_id, company_id, 業務キー...)`。
+1. すべての業務一意キー（`UNIQUE` 制約・一意インデックス・部分一意インデックスを含む。主キーを除く）の**先頭列は `tenant_id`**。`(tenant_id, company_id, 業務キー...)` を必須とする（項 4 の租户共有データを除く。例外登録は認めない）。
 2. `company_id` は `NOT NULL`、**既定値なし（`DEFAULT 1` 禁止）**。アプリが明示的に設定する。
 3. `ON CONFLICT` の衝突対象列・`WHERE` 条件は対応する一意インデックスと**完全一致**させ、`tenant_id` を含める。
-4. 租户内で全公司共有のデータ（例：汇率 `uk_mdm_exchange_rate`）は `(tenant_id, ...)` とし、`company_id` を含めなくてよい。
-5. 例外：全局一意の親テーブル id（雪花 BIGINT）を先頭列とする明細テーブルの一意インデックスのみ。下表に登録したものに限る。`uk_mdm_bank_account_owner_no` は例外に該当しない（`tenant_id` 先頭にする）。
-6. `sys_sequence` の増分は `DO UPDATE SET current_value = sys_sequence.current_value + sys_sequence.step`（`EXCLUDED.step` 禁止）。
-7. CI：`RlsCoverageTest.everyUniqueIndexStartsWithTenantId` が業務 schema の全一意インデックス（主キー除く）を検査する。例外は同テストの `UNIQUE_INDEX_EXCEPTIONS` と下表の両方に登録する。
-
-**例外一覧（親 id 先頭の明細一意インデックス）**
-
-| インデックス名 | テーブル | 列 | 先頭の親 id（参照先） | 登録 PR |
-|---|---|---|---|---|
-| `uk_mdm_material_factory` | mdm_material_factory | (material_id, factory_id) WHERE deleted=FALSE | material_id → mdm_material | #49 |
-| `uk_mdm_substitute` | mdm_material_substitute | (material_id, substitute_material_id, valid_from) WHERE deleted=FALSE | material_id → mdm_material | #49 |
-| `uk_mdm_warehouse_zone_code` | mdm_warehouse_zone | (warehouse_id, zone_code) WHERE deleted=FALSE | warehouse_id → mdm_warehouse | #49 |
-| `uk_mdm_price_line_no` | mdm_price_list_line | (price_list_id, line_no) WHERE deleted=FALSE | price_list_id → mdm_price_list | #49 |
-| `uk_mdm_quotation_line_no` | mdm_supplier_quotation_line | (quotation_id, line_no) WHERE deleted=FALSE | quotation_id → mdm_supplier_quotation | #49 |
-| `uk_mdm_payment_term_line` | mdm_payment_term_line | (payment_term_id, seq_no) WHERE deleted=FALSE | payment_term_id → mdm_payment_term | #49 |
-| `uk_mdm_evaluation` | mdm_supplier_evaluation | (supplier_id, evaluation_period) WHERE deleted=FALSE | supplier_id → mdm_partner | #49 |
-| `uk_mdm_eval_item` | mdm_supplier_eval_item | (evaluation_id, dimension_code) | evaluation_id → mdm_supplier_evaluation | #49 |
-| `uk_mdm_change_line_no` | mdm_change_request_line | (request_id, line_no) | request_id → mdm_change_request | #49 |
+4. **唯一の例外**：`company_id` 列を持たない租户内全公司共有テーブル（例：汇率 `uk_mdm_exchange_rate`）は `(tenant_id, ...)` とする。親 id 先頭の一意キーはいかなる場合も認めない。
+5. `sys_sequence` の増分は `DO UPDATE SET current_value = sys_sequence.current_value + sys_sequence.step`（`EXCLUDED.step` 禁止）。
+6. CI：`RlsCoverageTest.everyUniqueIndexStartsWithTenantId` が業務 schema の全一意インデックス（主キー除く）を検査する。親 id 先頭の例外は認めない（2026-10-21 蓝色大肥鱼 決定、例外一覧は廃止）。
 
 ### 6.2 跨域外键规则（2026-10-21 決定）
 
@@ -207,7 +192,8 @@ PostgreSQL の一意制約チェックは RLS を経由しないため、`tenant
 | 方針 | 内容 |
 |---|---|
 | 必須 | 主キー、全 FK 列、一意制約列 |
-| 検索 | 一覧・帳票の WHERE/ORDER BY に使う列。複合索引は選択性の高い列を先頭に |
+| 先頭列 | btree 索引は必ず `tenant_id` を先頭とする（`company_id` を持つテーブルは続けて `company_id`）。GIN は除く（2026-10-21 蓝色大肥鱼 決定） |
+| 検索 | 一覧・帳票の WHERE/ORDER BY に使う列。`tenant_id`(, `company_id`) の後は選択性の高い列を先頭に |
 | 部分索引 | `WHERE deleted = FALSE`、`WHERE status IN (10,20)` 等の頻出条件 |
 | 曖昧検索 | `pg_trgm` の GIN インデックス（`gin (name gin_trgm_ops)`）。`LIKE '%xx%'` 用 |
 | JSONB | `USING gin (ext_data jsonb_path_ops)`（必要なテーブルのみ） |
@@ -431,6 +417,7 @@ V{yyyyMMdd}{NNNN}__{module}_{description}.sql     # バージョンは 12 桁
 | v1.1 | 2026-10-20 | 第一版全量範囲（分期表記削除）、§8.1 パーティション表 FK 不可、§11.1 ロック順序（RLS・DB ロールは [10](10-rls-and-db-roles.md)、`ON CONFLICT` は #50） | 业务分析 |
 | v1.2 | 2026-10-21 | §6.2 跨域外键规则を新設（跨域は `*_id` のみ・FK なし・サービス層で同一 TX 検証、sys/mdm は例外、将来 FK は NOT VALID→VALIDATE・複合 `(tenant_id, x_id)`）、§6 外部キー行に 6.2 参照を追記 | 业务分析 |
 | v1.3 | 2026-10-21 | §3 明細テーブルの `company_id` 省略を廃止（親と同値を冗長保持） | 业务分析 |
+| v1.4 | 2026-10-21 | §6/§6.1：一意キー `(tenant_id, company_id, …)` を「原則」→「必須」に変更、§6.1 項 5（親 id 先頭の例外）と例外一覧表を削除（蓝色大肥鱼 決定）。項 4（`company_id` なしの租户共有テーブルは `(tenant_id, …)`）を唯一の例外として明記。§7 に btree 索引の先頭列規則（`tenant_id`→`company_id`、GIN 除く）を 1 行追加 | 业务分析 |
 
 ## Flowable 引擎表の schema 分離（issue #7）
 
