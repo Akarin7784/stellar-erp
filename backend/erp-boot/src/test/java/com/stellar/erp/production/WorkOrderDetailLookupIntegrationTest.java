@@ -227,14 +227,14 @@ class WorkOrderDetailLookupIntegrationTest {
         mvc.perform(get("/api/mdm/warehouses/options").param("factoryId", String.valueOf(FACTORY_CO2)))
                 .andExpect(status().isNotFound());
         mvc.perform(get("/api/mdm/materials").param("keyword", "部品"))
-                .andExpect(jsonPath("$.data.total").value("1"))
+                .andExpect(jsonPath("$.data.total").value(1))
                 .andExpect(jsonPath("$.data.list[0].id").value(String.valueOf(COMP)))
                 .andExpect(jsonPath("$.data.list[0].baseUomCode").value("PCE"))
                 .andExpect(jsonPath("$.data.list[0].unitId").value("995071"))
                 .andExpect(jsonPath("$.data.list[0].unitName").value("个"));
         mvc.perform(get("/api/mdm/materials").param("pageSize", "1"))
-                .andExpect(jsonPath("$.data.total").value("2"))
-                .andExpect(jsonPath("$.data.pages").value("2"));
+                .andExpect(jsonPath("$.data.total").value(2))
+                .andExpect(jsonPath("$.data.pages").value(2));
         mvc.perform(get("/api/production/boms/effective").param("materialId", String.valueOf(MAT)).param("date", "2026-11-01")
                         .param("factoryId", String.valueOf(FACTORY)))
                 .andExpect(status().isOk())
@@ -354,6 +354,10 @@ class WorkOrderDetailLookupIntegrationTest {
                 .andExpect(jsonPath("$.data[0].factoryId").value(String.valueOf(FACTORY)));
         mvc.perform(get("/api/mdm/materials").param("keyword", "部品"))
                 .andExpect(jsonPath("$.data.list[0].id").isString())
-                .andExpect(jsonPath("$.data.list[0].unitId").isString());
+                .andExpect(jsonPath("$.data.list[0].unitId").isString())
+                .andExpect(jsonPath("$.data.total").isNumber())
+                .andExpect(jsonPath("$.data.pages").isNumber())
+                .andExpect(jsonPath("$.data.pageNum").isNumber())
+                .andExpect(jsonPath("$.data.pageSize").isNumber());
     }
 }
