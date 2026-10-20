@@ -273,7 +273,7 @@ JDK 21 的虚拟线程让传统「一请求一线程 + 阻塞 JDBC」模型重�
 
 ## 7. 前端选型
 
-### 7.1 框架：Vue 3.5.44 + TypeScript 7.0.2 + Vite 8.3.4 + Element Plus 2.14.7
+### 7.1 框架：Vue 3.5.44 + TypeScript 6.0.3 + Vite 8.3.4 + Element Plus 2.14.7
 
 | 维度 | Vue 3 + Element Plus | React 19 + Ant Design |
 |---|---|---|
@@ -287,7 +287,7 @@ JDK 21 的虚拟线程让传统「一请求一线程 + 阻塞 JDBC」模型重�
 
 | 能力 | 选型 | 版本 |
 |---|---|---|
-| 语言 | TypeScript | 7.0.2 ⚠️ 需验证 |
+| 语言 | TypeScript | 6.0.3 ✅ 已验证（7.0.2 与 vue-tsc 3.3.13 不兼容） |
 | 构建 | Vite | 8.3.4 |
 | 路由 | Vue Router | 5.4.0 |
 | 状态管理 | Pinia | 4.1.0 |
@@ -305,7 +305,7 @@ JDK 21 的虚拟线程让传统「一请求一线程 + 阻塞 JDBC」模型重�
 
 ### 7.3 前端风险与兜底
 
-- **TypeScript 7**（原生 Go 编译器）是新一代实现，`vue-tsc` 生态兼容性需实际构建验证；若不兼容，降级 TypeScript 5.9/6.x（版本锁定在 `package.json`，不影响架构）
+- **TypeScript 7**（原生 Go 编译器）已实测：`vue-tsc` 3.3.13 报 `ERR_PACKAGE_PATH_NOT_EXPORTED: typescript/lib/tsc`，**不兼容**。已按兜底方案降级 **TypeScript 6.0.3**，`pnpm build` 通过；同时移除 TS 6 已废弃的 `baseUrl`（改用 `paths` 相对解析）
 - **Vite 8** 插件生态（unplugin 系列）需验证；兜底 Vite 7
 - **ESLint 10** 为 flat config，配置模板按 v10 规范编写
 - 验证方式：`pnpm install && pnpm build` 在 CI 与本地均通过
@@ -348,8 +348,8 @@ JDK 21 的虚拟线程让传统「一请求一线程 + 阻塞 JDBC」模型重�
 | Node.js | 24.21.0 | 本机已安装 | ✅ 可用 |
 | pnpm | 12.8.1 | 本机已安装 | ✅ 可用 |
 | Vue | 3.5.44 | npm 最新 | ✅ 可用 |
-| TypeScript | 7.0.2 | npm 最新 | ⚠️ 待验证 |
-| Vite | 8.3.4 | npm 最新 | ⚠️ 待验证 |
+| TypeScript | 6.0.3 | 7.0.2 为 npm 最新，但与 vue-tsc 不兼容；降级 6.0.3 | ✅ 构建通过 |
+| Vite | 8.3.4 | npm 最新；`manualChunks` 对象写法已移除 | ✅ 构建通过 |
 | Element Plus | 2.14.7 | npm 最新 | ✅ 可用 |
 | Pinia | 4.1.0 | npm 最新 | ✅ 可用 |
 | Vue Router | 5.4.0 | npm 最新 | ✅ 可用 |
@@ -364,12 +364,14 @@ JDK 21 的虚拟线程让传统「一请求一线程 + 阻塞 JDBC」模型重�
 | # | 风险 | 影响 | 验证方式 | 兜底方案 |
 |---|---|---|---|---|
 | R1 | Flowable 8.0.0 在 Boot 4.1.1 运行时异常 | 工作流模块不可用 | M2 前：启动上下文 + 部署 BPMN + 完成审批任务 | Boot 降 4.0.8 + Modulith 2.0.x |
-| R2 | TypeScript 7 与 vue-tsc / ESLint 不兼容 | 前端无法构建 | `pnpm build`、`pnpm lint` CI 校验 | TS 降 5.9 / 6.x |
-| R3 | Vite 8 插件生态（unplugin）兼容性 | 前端构建失败 | CI 构建 | Vite 降 7 |
+| R2 | TypeScript 7 与 vue-tsc / ESLint 不兼容 | 前端无法构建 | **已验证**：TS 7.0.2 下 `vue-tsc` 读取 `typescript/lib/tsc` 被 exports 拦截；降级 TS 6.0.3 后通过 | 已落地 TS 6.0.3 |
+| R3 | Vite 8 插件生态（unplugin）兼容性 | 前端构建失败 | **已验证**：unplugin 插件正常；Vite 8 不再接受 `manualChunks` 对象写法，已改用默认分包 | 构建通过 |
 | R4 | MyBatis-Plus boot4 starter 兼容问题 | 数据访问层 | 集成测试（Testcontainers PostgreSQL） | 原生 MyBatis + mybatis-spring-boot-starter 4.0 |
 | R5 | Sa-Token boot4 starter 兼容问题 | 登录鉴权 | 登录接口集成测试 | Spring Security 7 |
 | R6 | Spring Boot 4 资料少于 3.x | 排障成本 | 建立内部踩坑记录 | 无（接受） |
 | R7 | MinIO 官方 Docker Hub 镜像下架 | 对象存储不可用 | 使用 `quay.io/minio/minio` | 本地文件系统 |
+
+> **验证记录（2026-10-20）**：后端 `mvnw verify` 通过（5 个模块，含 Spring Modulith 模块结构校验，`ApplicationModules.verify()` 无违规）；前端 `pnpm build` 通过（1697 个模块）。Flowable 当前仅完成编译级验证（依赖解析 + 编译通过），**运行时验证（R1）待 Docker 环境可用后在 M2 前补做**。
 
 ---
 

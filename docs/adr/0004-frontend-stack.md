@@ -14,7 +14,7 @@ ERP 前端是中后台密集型应用：大量表格、表单、树、详情页�
 | 能力 | 选型 | 版本 |
 |---|---|---|
 | 框架 | Vue | 3.5.44 |
-| 语言 | TypeScript | 7.0.2（待验证） |
+| 语言 | TypeScript | 6.0.3（7.0.2 与 vue-tsc 不兼容，已验证降级） |
 | 构建 | Vite | 8.3.4 |
 | UI 组件 | Element Plus | 2.14.7 |
 | 路由 | Vue Router | 5.4.0 |
@@ -41,7 +41,9 @@ ERP 前端是中后台密集型应用：大量表格、表单、树、详情页�
 
 ## 风险与兜底
 
-- **TypeScript 7** 为原生编译器实现，`vue-tsc` 3.3.13 兼容性需 `pnpm build` 验证；不兼容则降级 TS 5.9/6.x
+- **TypeScript 7** 为原生编译器实现，已实测与 `vue-tsc` 3.3.13 不兼容（`typescript/lib/tsc` 被 package exports 拦截），已按预案降级 **TypeScript 6.0.3**，`pnpm build` 通过
+- **Vite 8** 已实测：unplugin 插件正常，但 `manualChunks` 对象写法已被移除，改用默认分包策略
+- **ESLint 10** 使用 flat config，配置已按 v10 规范编写
 - **Vite 8** 的 unplugin 生态需验证；不兼容则降级 Vite 7
 - **ESLint 10** 使用 flat config，团队需按 v10 规范编写配置
 
