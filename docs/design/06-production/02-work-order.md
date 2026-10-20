@@ -335,7 +335,7 @@ stateDiagram-v2
 | 6 | CHK-PRD-002-06 | 受注 | 業務 | 受注が承認済（≥25）、受注明細の品目と一致 | 保存時 | `MSG-PRD-002` |
 | 7 | CHK-PRD-002-07 | BOM | 業務 | 有効 BOM が存在（基準日＝`planned_start_date`（計画着手日）。未入力時は会社のタイムゾーンの当日（現時点では Asia/Shanghai のみ）） | 品目選択/保存/承認提出時は警告のみ、下达時はエラー（422／`60020`）（蓝色大肥鱼 2026-10-21 #36 決定） | `MSG-PRD-020` |
 | 8 | CHK-PRD-002-08 | 工艺 | 業務 | 有効工艺が存在（または工序 1 件以上） | 品目選択/保存時 | `MSG-PRD-021` |
-| 9 | CHK-PRD-002-09 | 材料明細 | 必須 | 1 行以上（製造品） | 保存/提出時 | `MSG-COM-040` |
+| 9 | CHK-PRD-002-09 | 材料明細 | 必須 | 保存・提出時はチェックしない（0 行可（蓝色大肥鱼 2026-10-21 PR #37 決定））。下达時は 0 行なら BOM 展開（§6.4 2a） | — | — |
 | 10 | CHK-PRD-002-10 | 材料単位 | 業務 | BOM 單位と物料基本単位が整合 | 展開時 | `MSG-PRD-022` |
 | 11 | CHK-PRD-002-11 | 状態 | 状態 | 編集は 10/25 のみ、提出は 10 のみ | 操作時 | `MSG-COM-034` |
 | 12 | CHK-PRD-002-12 | 自己承認 | 権限 | 起案者と承認者が同一でない | 承認時 | `MSG-PRD-005` |
@@ -368,7 +368,7 @@ stateDiagram-v2
 3. 基準日 = `planned_start_date` として、有効 BOM（`bom_status=30`、有効期間内、`is_default` 優先）と有効工艺（同条件）を解決する。基準日の `planned_start_date` が未入力なら会社のタイムゾーンの当日（現時点では Asia/Shanghai）を使う。BOM がなくても登録は続行し（材料明細 0 件）、`MSG-PRD-020` を警告として返す（蓝色大肥鱼 2026-10-21 #36 決定）。
 4. 工单番号を採番する（`sys_sequence` キー `PRD_WORK_ORDER`、`WO{YYMMDD}{4桁}`）。採番は同一トランザクション内。
 5. `prd_work_order` を INSERT する（`order_status=10`、`source_type`、`parent_work_order_id`、`standard_cost` は NULL のまま。卷算値（[01](01-bom-routing-workcenter.md) 5.3）は画面の参考表示のみで、正式値は下达時にスナップショットする（§6.4、PR #8 決定 2（蓝色大肥鱼 2026-10-21）））。
-6. BOM を展開し `prd_work_order_material` を INSERT する（CALC-WO-01/02）。`prd_bom_line.is_key_part`・`substitute_group`・`operation_seq` を引き継ぐ。
+6. 有効 BOM がある場合のみ、BOM を展開し `prd_work_order_material` を INSERT する（BOM なしは材料明細 0 行のまま）（CALC-WO-01/02）。`prd_bom_line.is_key_part`・`substitute_group`・`operation_seq` を引き継ぐ。
 7. 工艺を展開し `prd_work_order_operation` を INSERT する（CALC-WO-04/05/06）。工序日程は [05](05-mrp-planning.md) 6.3 の式で算出する。
 8. `create_child_wo=true` の場合、製造品の子品目について子工单を生成する（PRC-PRD-002-10）。子工单は `order_status=10`、`parent_work_order_id` に親 ID を設定。
 9. 変更履歴の初版（`prd_work_order_change` の `change_type=10` 相当は登録時は作らない。初回登録は監査ログのみ）。
@@ -384,11 +384,13 @@ stateDiagram-v2
 
 ### 6.4 工单下达（PRC-PRD-002-04）
 
+チェック順序（蓝色大肥鱼 2026-10-21 PR #37 決定）：`60104`（下达日過去日）→ `allowed_qty` NULL は `5000`（工单ロック前）→ 工单 `FOR UPDATE` → 状態・保留・引当チェック → 材料明細 0 行時の有効 BOM 解決（なしは `60020`）または展開 → 状態変更。
+
 1. `order_status=25` を確認。MTO は先に受注行を `FOR UPDATE`、続けて工单を id 昇順で `FOR UPDATE`（[04 §11.1](../00-common/04-common-db-spec.md)）。`material_id`＝受注行物料を検証（不一致 `MSG-PRD-056`/`60056`）。`allowed_qty` を受注行からスナップショット。
 2. 保留中（`is_hold=true`）は下达不可（`MSG-PRD-047`）。
 2a. 工单の `FOR UPDATE` 取得後、同一トランザクションで材料明細件数を確認する（蓝色大肥鱼 2026-10-21 PR #37 決定）。
    - 0 行：有効 BOM（基準日＝`planned_start_date`、未入力時は下达処理日の会社タイムゾーン当日（現時点 Asia/Shanghai。登録時と同一規則））を解決し、CALC-WO-01/02 で `prd_work_order_material` を INSERT してから以降の手順と状態変更を行う。
-   - 0 行で有効 BOM なし：422／`60020`／`MSG-PRD-020` で中止し、全体ロールバック（`order_status`・`version` 不変、材料明細を書かない）（蓝色大肥鱼 2026-10-21 #36 決定）。
+   - 0 行で有効 BOM なし：422／`60020`／`MSG-PRD-020` で中止し、全体ロールバック（`order_status=25`・`version` 不変、材料明細を書かない、E21 を Outbox に記録しない）（蓝色大肥鱼 2026-10-21 #36 決定）。
    - 1 行以上：再展開せず既存明細のまま下达する。
    - 同一工单の同時下达は行ロックで直列化され、後続は状態 30 のため 409／`4002`。展開は 1 回のみ。
 3. 材料行の引当依頼データを作成する：`lines[] = {materialId, requiredQty（total_required_qty − 既引当）, uom, warehouseId}`。
@@ -689,3 +691,4 @@ stateDiagram-v2
 | v1.6 | 2026-10-21 | §4.5 品目選択の呼出 API を `boms/effective?materialId&factoryId&date` に変更（`factoryId` 必須。蓝色大肥鱼 2026-10-21 PR #32 決定） | 业务分析 |
 | v1.7 | 2026-10-21 | 有効 BOM は下达時のみ必須（登録・草稿保存・承認提出は警告のみ、下达は 422／`60020`）、BOM 基準日＝計画着手日（未入力時は会社タイムゾーン当日、現時点 Asia/Shanghai）を前提条件 2・T-01/T-05・§4.4・CHK-PRD-002-07・§6.2/§6.4・§6.10・TST-F-PRD-005-07 に反映（蓝色大肥鱼 2026-10-21 #36 決定） | 业务分析 |
 | v1.8 | 2026-10-21 | T-01 承認提出の材料明細 1 行以上の条件を削除。T-05／§6.4 2a：工单ロック後、材料明細 0 行なら同一トランザクションで有効 BOM を展開（基準日は登録時と同一規則）、BOM なしは 60020 で状態・明細不変、既存明細は再展開しない（蓝色大肥鱼 2026-10-21 PR #37 決定） | 业务分析 |
+| v1.9 | 2026-10-21 | CHK-PRD-002-09（保存・提出時の材料明細 1 行以上）を削除、§6.2 手順 6 を BOM ありの場合のみ展開に変更、§6.4 にチェック順序（60104→allowed_qty NULL 5000→ロック→状態/引当→60020/展開→状態変更）を明記、60020 時は E21 なし（蓝色大肥鱼 2026-10-21 PR #37 決定） | 业务分析 |
