@@ -1,0 +1,7 @@
+# 生产配置：DB_URL / DB_USER / DB_PASSWORD 必须由环境变量提供，无默认值。
+# 缺失时由 RequiredEnvironmentCheck 在启动早期直接失败（fail fast）。
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}

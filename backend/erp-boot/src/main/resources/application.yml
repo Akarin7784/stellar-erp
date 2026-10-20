@@ -4,10 +4,14 @@ server:
 spring:
   application:
     name: stellar-erp
+  profiles:
+    # 未显式指定 SPRING_PROFILES_ACTIVE 时使用 dev（本地开发）；生产必须设置 SPRING_PROFILES_ACTIVE=prod
+    default: dev
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/stellar_erp}
-    username: ${DB_USER:erp}
-    password: ${DB_PASSWORD:erp_dev_password}
+    # 不在此处提供默认值；dev 默认值见 application-dev.yml，prod 由环境变量提供
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
     hikari:
       maximum-pool-size: 20
       minimum-idle: 5

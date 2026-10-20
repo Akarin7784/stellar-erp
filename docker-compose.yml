@@ -5,7 +5,8 @@ services:
     environment:
       POSTGRES_DB: stellar_erp
       POSTGRES_USER: erp
-      POSTGRES_PASSWORD: erp_dev_password
+      # 从 .env 读取；未配置时使用本地开发默认值（仅限开发环境）
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-erp_dev_password}
       TZ: Asia/Shanghai
     ports:
       - "5432:5432"
@@ -38,7 +39,7 @@ services:
     container_name: stellar-erp-rabbitmq
     environment:
       RABBITMQ_DEFAULT_USER: erp
-      RABBITMQ_DEFAULT_PASS: erp_dev_password
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-erp_dev_password}
       TZ: Asia/Shanghai
     ports:
       - "5672:5672"

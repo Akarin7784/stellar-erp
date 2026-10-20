@@ -58,6 +58,8 @@ docker compose up -d
 | Redis | 6379 | 无密码（仅本地） |
 | RabbitMQ | 5672 / 15672 | `erp` / `erp_dev_password` |
 
+> 凭据可在仓库根目录 `.env` 中覆盖（`cp .env.example .env`），`.env` 已被 git 忽略。
+
 ### 2. 启动后端
 
 ```bash
@@ -68,6 +70,8 @@ cd backend
 - API: http://localhost:8080
 - Swagger UI: http://localhost:8080/swagger-ui.html
 - 健康检查: http://localhost:8080/actuator/health
+
+**配置 Profile**：未指定时默认 `dev`（`application-dev.yml`，带本地默认凭据）。生产需设置 `SPRING_PROFILES_ACTIVE=prod`，并通过环境变量提供 `DB_URL` / `DB_USER` / `DB_PASSWORD`（无默认值，缺失时启动立即失败）。
 
 ### 3. 启动前端
 
