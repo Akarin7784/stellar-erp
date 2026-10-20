@@ -28,7 +28,7 @@ import com.stellar.erp.support.PostgresContainerConfig;
 
 /**
  * G2-18 并发用例。pgTAP 单会话无法模拟并发，这里用多条 erp_app 连接（NOBYPASSRLS）+ CountDownLatch 同时起跑。
- * 被测对象：db/draft/g2_18_completion.sql；T2/T3 表未迁移，用 pgtap-support/g2_18_stub_tables.sql 的桩表。
+ * 被测对象：db/draft/g2_18_completion.sql；prd_ 用正式表（PR #13），T2 受注表未迁移，用 pgtap-support/g2_18_stub_tables.sql 的桩表。
  * 并发需要已提交的数据，所以 owner 在每个用例前提交建表与数据，用例后用 g2_18_teardown.sql 清掉。
  * 不变量：0 <= completed_qty <= allowed_qty；受注行与工单合计对账差异为 0；不出现死锁（40P01）。
  */
@@ -57,6 +57,7 @@ class G218ConcurrencyTest {
               VALUES (992001, 101, 1, '99C2180001', 'conc', 10, 992001, 's', 'PCE', 20, 1);
             INSERT INTO sys_param (id, tenant_id, company_id, param_key, param_name, param_group, param_value, value_type)
               VALUES (992001, 101, 1, 'prd.completion_over_rate', 'rate', 'PRD', '0.05', 3);
+            INSERT INTO mdm_factory (id, tenant_id, company_id, factory_code, factory_name) VALUES (992001, 101, 1, '9C1', 'g218 conc');
             INSERT INTO sal_sales_order (id, tenant_id, company_id, order_no) VALUES (992001, 101, 1, 'SO-CONC');
             INSERT INTO sal_sales_order_line (id, tenant_id, sales_order_id, line_no, material_id, base_qty, over_receipt_rate, allowed_qty, completed_qty)
               VALUES (992011, 101, 992001, 1, 992001, 100, 0.05, 105, 100);
@@ -64,8 +65,10 @@ class G218ConcurrencyTest {
         StringBuilder wo = new StringBuilder();
         for (int i = 1; i <= THREADS; i++) {
             wo.append(String.format(
-                "INSERT INTO prd_work_order (id, tenant_id, company_id, sales_order_line_id, material_id, order_status, order_qty, completed_qty, allowed_qty)"
-                + " VALUES (%d, 101, 1, 992011, 992001, 35, 100, %d, 105);", 992100 + i, i == 1 ? 100 : 0));
+                "INSERT INTO prd_work_order (id, tenant_id, company_id, sales_order_line_id, material_id, order_status, order_qty, completed_qty, allowed_qty, over_receipt_rate,"
+                + " work_order_no, material_code, material_name, uom_code, factory_id, planned_start_date, planned_end_date)"
+                + " VALUES (%d, 101, 1, 992011, 992001, 35, 100, %d, 105, 0.05, 'WO-CONC-%d', '99C2180001', 'conc', 'PCE', 992001, DATE '2026-10-01', DATE '2026-10-31');",
+                992100 + i, i == 1 ? 100 : 0, i));
         }
         owner.execute(wo.toString());
         pool = Executors.newFixedThreadPool(THREADS);
@@ -91,8 +94,9 @@ class G218ConcurrencyTest {
     @Test
     void mixedOperationsNoDeadlock() throws Exception {
         owner.execute("""
-            INSERT INTO prd_overproduction_approval (id, tenant_id, company_id, approval_no, sales_order_line_id, work_order_id, material_id, request_qty, approval_status)
-              VALUES (992001, 101, 1, 'OA-CONC', 992011, NULL, 992001, 3, 20)""");
+            INSERT INTO prd_overproduction_approval (id, tenant_id, company_id, approval_no, sales_order_line_id, work_order_id, material_id, request_qty, approval_status,
+                                                      sales_order_id, current_allowed_qty, requested_by, requested_at)
+              VALUES (992001, 101, 1, 'OA-CONC', 992011, NULL, 992001, 3, 20, 992001, 105, 9, now())""");
         List<String> results = race(i -> switch (i) {
             case 1 -> "SELECT g2_18_reverse_completion(992101, 2, 9)";
             case 2 -> "SELECT g2_18_approve_overproduction(992001, 9, 992001)";

@@ -1,6 +1,6 @@
 -- pgTAP：G2-18 受注行累计完工上限（单会话规则）。并发场景见 Java db.G218ConcurrencyTest。
 -- 被测对象：db/draft/g2_18_completion.sql（PR #4 定稿 32b4493），在本事务内加载，结尾 ROLLBACK。
--- T2/T3/#58 的表还没迁移，先用 pgtap-support/g2_18_stub_tables.sql 的桩表（RLS 写法同正式表）；
+-- prd_work_order / prd_overproduction_approval 用 prd/V202610210702 的正式表；T2 受注表还没迁移，用 pgtap-support/g2_18_stub_tables.sql 的桩表；
 -- 物料/分类的 completion_over_rate、mdm_uom、sys_param、sys_audit_log 用的是 main 上的正式表。
 -- 断言全部在 SET ROLE erp_app（NOBYPASSRLS）下进行，app.tenant_id / app.company_id 用 set_config(...,true)。
 -- 业务错误由 g2_18_raise 抛出：SQLSTATE P0001，MESSAGE = 错误码。
@@ -40,22 +40,35 @@ INSERT INTO sal_sales_order_line (id, tenant_id, sales_order_id, line_no, materi
     (991016, 101, 991001, 6, 991001, 100, 50, 0.05, 105, 0),    -- L6 已发货 50
     (991017, 101, 991001, 7, 991001, 100, 0,  0,    100, 0),    -- L7 60103
     (991901, 202, 991901, 1, 991001, 100, 0,  0.05, 105, 0);    -- 租户 202
-INSERT INTO prd_work_order (id, tenant_id, company_id, sales_order_line_id, material_id, order_status, order_qty, completed_qty, allowed_qty) VALUES
+INSERT INTO mdm_factory (id, tenant_id, company_id, factory_code, factory_name) VALUES
+    (991001, 101, 1, '9G1', 'g218 工厂'),
+    (991901, 202, 1, '9G1', 'g218 工厂 T202');
+-- 正式表的 NOT NULL 快照列按物料补齐；order_status 显式给（DEFAULT 是 10，G2-18 需要 30/35）
+INSERT INTO prd_work_order (id, tenant_id, company_id, sales_order_line_id, material_id, order_status, order_qty, completed_qty, allowed_qty, over_receipt_rate, work_order_no, material_code, material_name, uom_code, factory_id, planned_start_date, planned_end_date)
+SELECT v.*, 0.05, 'WO-G218-' || v.id,  -- over_receipt_rate 显式快照 0.05（NOT NULL、无 DEFAULT）
+       m.material_code, m.material_name, m.base_uom_code,
+       CASE v.tenant_id WHEN 202 THEN 991901 ELSE 991001 END, DATE '2026-10-01', DATE '2026-10-31'
+FROM (VALUES
     (991101, 101, 1, 991011, 991001, 35, 100, 100, 105),
-    (991102, 101, 1, 991011, 991001, 30, 0,   0,   0),
+    (991102, 101, 1, 991011, 991001, 30, 1,   0,   0),   -- 正式表 CHECK order_qty > 0，桩表用的 0 改成 1（allowed 仍 0）
     (991103, 101, 1, 991011, 991002, 35, 10,  0,   10),   -- 物料与受注行不一致
     (991201, 101, 1, 991012, 991001, 30, 60,  0,   63),
     (991202, 101, 1, 991012, 991001, 30, 40,  0,   42),
     (991301, 101, 1, 991013, 991001, 30, 60,  0,   63),
     (991302, 101, 1, 991013, 991001, 30, 40,  0,   42),
-    (991501, 101, 1, NULL,   991001, 35, 10,  0,   NULL), -- MTS，allowed 未快照、rate NULL → 走容许率链
-    (991901, 202, 1, 991901, 991001, 35, 100, 0,   105);
-INSERT INTO prd_overproduction_approval (id, tenant_id, company_id, approval_no, sales_order_line_id, work_order_id, material_id, request_qty, approval_status) VALUES
-    (991301, 101, 1, 'OA-L3',     991013, NULL,   991001, 10,  20),  -- L3 整行
+    (991501, 101, 1, NULL,   991001, 35, 10,  0,   NULL), -- MTS，allowed 未快照 → 用工单快照 rate 0.05
+    (991901, 202, 1, 991901, 991001, 35, 100, 0,   105)
+) v(id, tenant_id, company_id, sales_order_line_id, material_id, order_status, order_qty, completed_qty, allowed_qty)
+JOIN mdm_material m ON m.id = v.material_id;
+
+INSERT INTO prd_overproduction_approval (id, tenant_id, company_id, approval_no, sales_order_line_id, work_order_id, material_id, request_qty, approval_status, sales_order_id, current_allowed_qty, requested_by, requested_at)
+SELECT v.*, 991001, 100, 9, now() FROM (VALUES
+    (991301, 101, 1, 'OA-L3',     991013, NULL::bigint,   991001, 10,  20),  -- L3 整行
     (991401, 101, 1, 'OA-L4-OK',  991014, NULL,   991001, 10,  30),
     (991402, 101, 1, 'OA-L4-NG',  991014, NULL,   991001, 7,   40),
-    (991701, 101, 1, 'OA-L7-NULL',991017, NULL,   991001, NULL,20),
-    (991702, 101, 1, 'OA-L7-0.4', 991017, NULL,   991001, 0.4, 20);
+    (991702, 101, 1, 'OA-L7-0.4', 991017, NULL,   991001, 0.4, 20)
+) v;  -- current_allowed_qty 为申请时快照，G2-18 不读，统一给 100
+-- 原 991701（request_qty NULL）删掉：正式表 request_qty NOT NULL，插不进去，A16 已删（2026-10-21 定稿，NULL 校验移到服务层）
 
 SET ROLE erp_app;
 SELECT set_config('app.tenant_id', '101', true);
@@ -111,13 +124,13 @@ SELECT is((SELECT ARRAY[over_receipt_rate, allowed_qty] FROM sal_sales_order_lin
 SELECT throws_ok($$SELECT g2_18_report_completion(991101, 0, 9)$$, 'P0001', '1003', 'P1 数量 0 → 1003');
 SELECT throws_ok($$SELECT g2_18_report_completion(991101, 10, 9)$$, 'P0001', '60100', 'P2 无审批：60100 优先于工单上限 60040');
 RESET ROLE;
-INSERT INTO prd_overproduction_approval (id, tenant_id, company_id, approval_no, sales_order_line_id, work_order_id, material_id, request_qty, approval_status)
-VALUES (991102, 101, 1, 'OA-L1-WO2', 991011, 991102, 991001, 10, 30);   -- 只针对 WO 991102
+INSERT INTO prd_overproduction_approval (id, tenant_id, company_id, approval_no, sales_order_line_id, work_order_id, material_id, request_qty, approval_status, sales_order_id, current_allowed_qty, requested_by, requested_at)
+VALUES (991102, 101, 1, 'OA-L1-WO2', 991011, 991102, 991001, 10, 30, 991001, 105, 9, now());   -- 只针对 WO 991102
 SET ROLE erp_app;
 SELECT throws_ok($$SELECT g2_18_report_completion(991101, 10, 9)$$, 'P0001', '60100', 'P3 只有其他工单的已批审批不算本工单 → 60100');
 RESET ROLE;
-INSERT INTO prd_overproduction_approval (id, tenant_id, company_id, approval_no, sales_order_line_id, work_order_id, material_id, request_qty, approval_status)
-VALUES (991101, 101, 1, 'OA-L1-WO1', 991011, 991101, 991001, 10, 20);
+INSERT INTO prd_overproduction_approval (id, tenant_id, company_id, approval_no, sales_order_line_id, work_order_id, material_id, request_qty, approval_status, sales_order_id, current_allowed_qty, requested_by, requested_at)
+VALUES (991101, 101, 1, 'OA-L1-WO1', 991011, 991101, 991001, 10, 20, 991001, 105, 9, now());
 SET ROLE erp_app;
 SELECT throws_ok($$SELECT g2_18_report_completion(991101, 10, 9)$$, 'P0001', '60100', 'P4 审批承認待ち(20) → 60100');
 UPDATE prd_overproduction_approval SET approval_status = 10 WHERE id = 991101;
@@ -134,6 +147,15 @@ SELECT is((SELECT ARRAY[l.completed_qty, w.completed_qty] FROM sal_sales_order_l
 SELECT throws_ok($$SELECT g2_18_report_completion(991103, 1, 9)$$, 'P0001', '60056', 'P11 工单物料 ≠ 受注行物料 → 60056');
 SELECT throws_ok($$SELECT g2_18_report_completion(991501, 11, 9)$$, 'P0001', '60040', 'P12 MTS 超 floor(10×1.05)=10 → 60040');
 SELECT lives_ok($$SELECT g2_18_report_completion(991501, 10, 9)$$, 'P13 MTS 恰好 10 成功');
+RESET ROLE;
+SELECT CASE WHEN (SELECT is_nullable FROM information_schema.columns
+                   WHERE table_schema = 'public' AND table_name = 'prd_work_order' AND column_name = 'over_receipt_rate') = 'NO'
+    THEN throws_ok($$INSERT INTO prd_work_order (id, tenant_id, company_id, material_id, order_status, order_qty, work_order_no, material_code,
+                       material_name, uom_code, factory_id, planned_start_date, planned_end_date, over_receipt_rate)
+                     VALUES (991502, 101, 1, 991001, 30, 10, 'WO-G218-991502', '99G2180001', 'M1', 'PCE', 991001, DATE '2026-10-01', DATE '2026-10-31', NULL)$$,
+                   '23502', NULL, 'P14 工单 over_receipt_rate 为 NULL → 23502（NOT NULL，工单层不继承）')
+    ELSE skip('P14 待 #13 迁移把 prd_work_order.over_receipt_rate 改成 NOT NULL 无 DEFAULT（2026-10-21 定稿）', 1) END;
+SET ROLE erp_app;
 
 -- ---------------------------------------------------------------- V 冲销
 SELECT throws_ok($$SELECT g2_18_reverse_completion(991101, 200, 9)$$, 'P0001', '60102', 'V1 冲销量 > 已完工 → 60102');
@@ -166,7 +188,6 @@ SELECT throws_ok($$SELECT g2_18_raise_allowed_qty(991017, NULL, NULL, 'X', 9, 99
 SELECT throws_ok($$SELECT g2_18_raise_allowed_qty(991017, NULL, 0, 'X', 9, 990008)$$, 'P0001', '60103', 'A13 delta 0 → 60103');
 SELECT throws_ok($$SELECT g2_18_raise_allowed_qty(991017, NULL, -1, 'X', 9, 990009)$$, 'P0001', '60103', 'A14 delta 负数 → 60103');
 SELECT throws_ok($$SELECT g2_18_approve_overproduction(991702, 9, 990010)$$, 'P0001', '60103', 'A15 审批单 request_qty 0.4（PCE 取整为 0）→ 60103');
-SELECT throws_ok($$SELECT g2_18_approve_overproduction(991701, 9, 990011)$$, 'P0001', '60103', 'A16 审批单 request_qty NULL → 60103（先于 CHECK）');
 SELECT is((SELECT ARRAY[(SELECT allowed_qty FROM sal_sales_order_line WHERE id = 991017),
                         (SELECT approval_status FROM prd_overproduction_approval WHERE id = 991702)]),
           ARRAY[100, 20]::numeric[], 'A17 60103 后受注行 100、审批单仍 20');
