@@ -1674,6 +1674,11 @@ CREATE TABLE fin_standard_cost (
 -- 同一物料・同一開始期間の発行済み版は 1 件（期間重複はアプリ検証＋発行関数で拒否）
 CREATE UNIQUE INDEX uk_fin_standard_cost_period ON fin_standard_cost (tenant_id, company_id, material_id, period_from) WHERE status = 40;
 CREATE INDEX idx_fin_standard_cost_lookup ON fin_standard_cost (company_id, material_id, status, period_from DESC);
+ALTER TABLE fin_standard_cost ENABLE ROW LEVEL SECURITY;
+ALTER TABLE fin_standard_cost FORCE ROW LEVEL SECURITY;
+CREATE POLICY rls_fin_standard_cost ON fin_standard_cost
+    USING (tenant_id = current_setting('app.tenant_id')::bigint)
+    WITH CHECK (tenant_id = current_setting('app.tenant_id')::bigint);
 COMMENT ON TABLE fin_standard_cost IS '标准成本（物料×版本×適用期間、材料/人工/製造費用/委外）。唯一の正。mdm_material/prd_work_order の standard_cost はスナップショット';
 ```
 
