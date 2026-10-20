@@ -8,6 +8,13 @@ CLEAN_PATHS=(
   docs/design/00-common
   docs/design/_template
   docs/design/00-common/09-cross-domain-flow.md
+  docs/design/03-sales
+  docs/design/04-purchase
+  docs/design/05-inventory
+  docs/design/06-production
+  docs/design/07-finance
+  docs/design/09-integration
+  docs/design/10-analytics
 )
 # 行内 tenant_id 后（不跨行）出现 DEFAULT 0（后接非数字/非小数点）
 PATTERN='\btenant_id\b.*\bDEFAULT[[:space:]]+0([^0-9.]|$)'
