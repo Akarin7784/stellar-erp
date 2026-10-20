@@ -16,8 +16,17 @@
 --      - 受注改量：新 allowed_qty < completed_qty 时拒绝；不用乐观锁（version 只 +1 不校验，G2-06）。
 --   D2 加锁顺序（群内 蓝色大肥鱼 2026-10-20 最终裁定）：
 --      先锁受注行，再锁工单；同类多行按 id 升序。完工/冲销/返工入库/受注变更/超产审批统一。
---   D3 错误码：00-common/03-common-api-spec.md 6 章 4002 状态不整合（MSG-COM-034）；
+--   D3 错误码：00-common/03-common-api-spec.md 6 章 4002 状态不整合（MSG-COM-034）、1003 値域外、1004 コード不存在；
+--      SAL 30022 为占位（受注改量低于已完工/已发货、超产调高值不合法），HTTP 422；
 --      06-production/91-api-design.md 60040 超過入庫（MSG-PRD-040）。
+--   D5 蓝色大肥鱼 2026-10-20 追加裁定：
+--      - 上限按基本单位计算：allowed_qty / completed_qty 以基本单位存储，基数取 base_qty；
+--      - 完工容许率优先级：受注行 > 物料 > 物料分类 > 公司；容许率一律存 rate NUMERIC(5,4)，不做 /100 换算；
+--      - 公司默认取 01-system 公司参数表（表名未定），不硬编码 0.05；
+--      - 超产审批单独建表（审批单号、申请数量、批准 allowed_qty、审批人、审批时间），走 Flowable 审批；
+--      - 软删除统一 deleted BOOLEAN。
+--   D6 错误码分工：4002 只用于真正的状态冲突（单据状态不允许、并发改绑），HTTP 409；
+--      业务规则拒绝用领域码（HTTP 422），入参值域错误用 1003（HTTP 400）。
 --   D4 RLS：依赖 #43（app.tenant_id，set_config(...,true)，erp_app NOBYPASSRLS）。
 --      全部 SECURITY INVOKER，不自行写 tenant_id（由列默认值 current_setting 取得），
 --      没有租户上下文或租户为 0 时直接报错。
@@ -55,27 +64,36 @@ END $$;
 --    受注行指定 > 物料设定 > 公司默认 0.05
 -- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION g2_18_resolve_over_receipt_rate(
-    p_line_rate   numeric,   -- 受注行上明确指定的值（rate，0.05 = 5%），NULL 表示未指定
+    p_line_rate   numeric,   -- 受注行上明确指定的值（rate NUMERIC(5,4)，0.0500 = 5%），NULL 表示未指定
     p_material_id bigint
 ) RETURNS numeric
 LANGUAGE plpgsql STABLE SECURITY INVOKER AS $$
 DECLARE
-    v_mat_pct numeric;
+    v_rate numeric;
 BEGIN
     PERFORM g2_18_assert_tenant();
+    -- (1) 受注行
     IF p_line_rate IS NOT NULL THEN
         RETURN p_line_rate;
     END IF;
-    -- mdm_material.over_receipt_tolerance_pct 是百分数（%），此处换算为 rate
-    -- TODO(待T2/T3定稿) 是否沿用这个采购超收容差列作为生产超入库的物料设定，以及单位（% / rate）
-    SELECT m.over_receipt_tolerance_pct INTO v_mat_pct
+    -- (2) 物料  (3) 物料分类：均为 rate，不做 /100 换算
+    -- TODO(待T2/T3定稿) 物料/分类上「完工超入库容许率」列名未定（现有 over_receipt_tolerance_pct 为采购超收 %，
+    --                   是否复用、改名或新增 NUMERIC(5,4) 列由 MDM 定），下面的列名 completion_over_rate 为占位
+    SELECT COALESCE(m.completion_over_rate, c.completion_over_rate)
+      INTO v_rate
       FROM mdm_material m
+      JOIN mdm_material_category c ON c.id = m.category_id AND c.deleted = FALSE
      WHERE m.id = p_material_id AND m.deleted = FALSE;
-    IF v_mat_pct IS NOT NULL THEN
-        RETURN v_mat_pct / 100;
+    IF v_rate IS NOT NULL THEN
+        RETURN v_rate;
     END IF;
-    -- TODO(待T2/T3定稿) 公司默认值的存放位置（系统参数表/列）未定，暂硬编码 0.05
-    RETURN 0.05;
+    -- (4) 公司默认：01-system 公司参数表
+    -- TODO(待T2/T3定稿) 公司参数表名/参数键未定（01-system），不硬编码 0.05；取不到时报错而不是默认
+    -- SELECT ... INTO v_rate FROM <sys_company_param?> WHERE company_id = ? AND param_key = ?;
+    IF v_rate IS NULL THEN
+        PERFORM g2_18_raise(1004, 'company default completion over-receipt rate not configured');
+    END IF;
+    RETURN v_rate;
 END $$;
 
 -- ---------------------------------------------------------------------
@@ -118,7 +136,7 @@ DECLARE
 BEGIN
     PERFORM g2_18_assert_tenant();
     IF p_qty IS NULL OR p_qty <= 0 THEN
-        PERFORM g2_18_raise(60040, 'qty must be > 0');
+        PERFORM g2_18_raise(1003, 'qty must be > 0');   -- 入参值域错误，HTTP 400
     END IF;
 
     -- 先无锁读出受注行 ID，用于确定加锁对象（不能先锁工单）
@@ -168,7 +186,9 @@ BEGIN
             v_wo.id, v_wo.completed_qty, p_qty, v_wo.order_qty * (1 + v_wo.over_receipt_rate)));
     END IF;
 
-    -- 受注行累计上限：0 ≤ completed_qty + qty ≤ allowed_qty
+    -- 受注行累计上限：0 ≤ completed_qty + qty ≤ allowed_qty（均为基本单位）
+    -- TODO(待T2/T3定稿) p_qty 为工单单位，需换算为受注行基本单位后再比较；舍入规则未定，
+    --                   参照 测试与评审 提案：按基本单位精度向下取整，并在受注行确认时快照
     IF v_line_id IS NOT NULL THEN
         IF v_line_done + p_qty < 0 OR v_line_done + p_qty > v_line_allowed THEN
             PERFORM g2_18_raise(60040, format('sales_order_line %s: %s + %s > allowed %s',
@@ -206,7 +226,7 @@ DECLARE
 BEGIN
     PERFORM g2_18_assert_tenant();
     IF p_qty IS NULL OR p_qty <= 0 THEN
-        PERFORM g2_18_raise(4002, 'reverse qty must be > 0');
+        PERFORM g2_18_raise(1003, 'reverse qty must be > 0');   -- 入参值域错误，HTTP 400
     END IF;
 
     SELECT w.sales_order_line_id INTO v_line_id          -- TODO(待T2/T3定稿)
@@ -228,10 +248,11 @@ BEGIN
     END IF;
 
     IF v_wo.completed_qty - p_qty < 0 THEN
-        PERFORM g2_18_raise(4002, format('work_order completed_qty %s < reverse %s', v_wo.completed_qty, p_qty));
+        -- 业务规则拒绝（HTTP 422），非并发冲突
+        PERFORM g2_18_raise(60032, format('work_order completed_qty %s < reverse %s', v_wo.completed_qty, p_qty));
     END IF;
     IF v_line_id IS NOT NULL AND v_line_done - p_qty < 0 THEN
-        PERFORM g2_18_raise(4002, format('sales_order_line completed_qty %s < reverse %s', v_line_done, p_qty));
+        PERFORM g2_18_raise(60032, format('sales_order_line completed_qty %s < reverse %s', v_line_done, p_qty));
     END IF;
 
     IF v_line_id IS NOT NULL THEN
@@ -271,7 +292,8 @@ BEGIN
      WHERE l.id = p_sales_order_line_id;
 
     IF p_new_allowed_qty IS NULL OR p_new_allowed_qty <= v_old THEN
-        PERFORM g2_18_raise(4002, format('new allowed_qty %s must be > current %s', p_new_allowed_qty, v_old));
+        -- 业务规则拒绝（HTTP 422），非并发冲突
+        PERFORM g2_18_raise(30022, format('new allowed_qty %s must be > current %s', p_new_allowed_qty, v_old));   -- TODO(待SAL定编号/MSG编号)
     END IF;
 
     UPDATE sal_sales_order_line
@@ -279,8 +301,10 @@ BEGIN
            version = version + 1, updated_at = now(), updated_by = p_approver_id
      WHERE id = p_sales_order_line_id;
 
+    -- TODO(待T2/T3定稿) 超产审批单独建表（审批单号、申请数量、批准 allowed_qty、审批人、审批时间），
+    --                   经 Flowable 审批通过后由回调在同一事务调用本函数；表名/列名未定，届时在此 INSERT 审批记录
     -- 审计：审批单号、原值、新值、审批人、时间
-    -- TODO(待T2/T3定稿) 超产审批是否另有专用审批记录表；sys_audit_log 的 module_code/resource_code 取值待定
+    -- TODO(待T2/T3定稿) sys_audit_log 的 module_code/resource_code 取值待定
     -- tenant_id 不显式写入，由列默认值 current_setting('app.tenant_id') 取得（#43）
     INSERT INTO sys_audit_log (
         id, company_id, user_id, operation_type, module_code, resource_code,
@@ -301,7 +325,7 @@ END $$;
 -- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION g2_18_check_line_qty_change(
     p_sales_order_line_id bigint,
-    p_new_ordered_qty     numeric
+    p_new_base_qty        numeric    -- 改后基本单位数量（base_qty）
 ) RETURNS numeric
 LANGUAGE plpgsql SECURITY INVOKER AS $$
 DECLARE
@@ -317,15 +341,18 @@ BEGIN
       INTO v_done, v_shipped, v_rate
       FROM sal_sales_order_line l WHERE l.id = p_sales_order_line_id;
 
-    -- TODO(待T2/T3定稿) 基数用 ordered_qty（销售单位）还是 base_qty（基本单位）；工单 completed_qty 是工单单位
-    v_new_allowed := p_new_ordered_qty * (1 + v_rate);
+    -- 已定：按基本单位，基数为 base_qty
+    -- TODO(待T2/T3定稿) 舍入规则未定，参照 测试与评审 提案：按基本单位精度向下取整，受注行确认时快照
+    v_new_allowed := p_new_base_qty * (1 + v_rate);
 
     IF v_new_allowed < v_done THEN
-        -- TODO(待T2/T3定稿) 销售域专用错误码（03-sales 91-api-design）待确认，暂用 4002
-        PERFORM g2_18_raise(4002, format('new allowed_qty %s < completed_qty %s; 先完工退回或走受注变更审批', v_new_allowed, v_done));
+        -- 业务规则拒绝 → HTTP 422，不是并发冲突（不用 4002/409）
+        -- 30022 为 SAL 领域占位码（03-sales 已用 30001-30021/30050/30090）
+        PERFORM g2_18_raise(30022, format('new allowed_qty %s < completed_qty %s; 先完工退回或走受注变更审批', v_new_allowed, v_done));   -- TODO(待SAL定编号/MSG编号)
     END IF;
-    IF p_new_ordered_qty < v_shipped THEN
-        PERFORM g2_18_raise(4002, format('new ordered_qty %s < shipped_qty %s', p_new_ordered_qty, v_shipped));
+    -- TODO(待T2/T3定稿) shipped_qty 现为销售单位，需确认是否有基本单位口径
+    IF p_new_base_qty < v_shipped THEN
+        PERFORM g2_18_raise(30022, format('new base_qty %s < shipped_qty %s', p_new_base_qty, v_shipped));   -- TODO(待SAL定编号/MSG编号) HTTP 422
     END IF;
     RETURN v_new_allowed;
 END $$;
