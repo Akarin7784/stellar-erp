@@ -29035,7 +29035,7 @@
     {
       "method": "POST",
       "path": "/api/finance/standard-costs/{id}/publish",
-      "name": "発行（fin_publish_standard_cost 呼出、mdm_material 行ロックで同一物料を直列化、旧版自動打切り。23P01 も 70134 に変換）",
+      "name": "発行（fin_publish_standard_cost 呼出、advisory lock で同一物料を直列化、旧版自動打切り。23P01 も 70134 に変換）",
       "permission": "finance:standard-cost:publish",
       "domain": "FIN",
       "source": "07-finance/91-api-design.md"
