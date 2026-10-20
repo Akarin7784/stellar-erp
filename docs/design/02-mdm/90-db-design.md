@@ -807,7 +807,8 @@ CREATE INDEX idx_mdm_supplier_his_supplier ON mdm_supplier_his (supplier_id, cre
 
 > `mdm_bank` は本口座表から参照されるため DDL をここで先に定義する（論理上は 4.5.4 結算・支払条件・銀行に属する）。
 
-```sqlCREATE TABLE mdm_bank (
+```sql
+CREATE TABLE mdm_bank (
     id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
     bank_code VARCHAR(16) NOT NULL,                    -- 银行行别代码（CNAPS 先頭 3 桁と同値。例 102=中国工商银行）
     bank_name VARCHAR(100) NOT NULL, bank_short_name VARCHAR(64) NULL,
