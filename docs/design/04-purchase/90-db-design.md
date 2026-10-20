@@ -26,7 +26,7 @@
 | 5 | スナップショット | 取引先名・品名・仕様・税码・税率・単位・為替レートは伝票に保持し、マスタ変更の影響を排除（04 §12） |
 | 6 | 累計項目 | 伝票明細に `received_qty`／`accepted_qty`／`rejected_qty`／`returned_qty`／`invoiced_qty`／`cancelled_qty` を持ち、進捗を JOIN なしで参照可能とする。`remain_qty` は導出（保存しない） |
 | 7 | イベント整合 | イベント発行は `sys_outbox_event` に同一トランザクションで記録（09 §10.1）。重複処理は `sys_event_consume_log` で排除 |
-| 8 | 一意制約 | 伝票番号は `company_id` を含む完全一意。部分一意（`WHERE deleted = FALSE`）は論理削除テーブルがないため不要 |
+| 8 | 一意制約 | 業務一意索引は `(tenant_id, company_id, 業務キー)` 先頭（例外は §6.1）。部分一意（`WHERE deleted = FALSE`）は論理削除テーブルがないため不要 |
 | 9 | コメント | 全テーブル・全カラムに `COMMENT ON` を付与（04 §6）。本設計書では DDL 内コメントで代替し、実装時に `COMMENT ON` を展開する |
 | 10 | データ量 | [04 §13](../00-common/04-common-db-spec.md) の見積に準拠。`pur_receipt_line`・`pur_invoice_line`・`pur_invoice_match` が最大規模（5 年 60 万行規模） |
 
@@ -42,8 +42,8 @@
 
 ```sql
 id          BIGINT       NOT NULL,                 -- 主キー（雪花 ID）
-tenant_id   BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,       -- 租户（首期 0）
-company_id  BIGINT       NOT NULL DEFAULT 1,       -- 公司（ヘッダのみ）
+tenant_id   BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,       -- 租户（字面量默认租户禁止）
+company_id  BIGINT       NOT NULL,       -- 公司（ヘッダのみ・既定値なし）
 created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
 created_by  BIGINT       NOT NULL DEFAULT 0,
 updated_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),   -- 追記専用ログは省略
@@ -97,28 +97,28 @@ erDiagram
 
 | # | 物理名 | 論理名 | 種別 | 主キー以外の一意キー | 更新元機能 | 件数見積（5 年） |
 |---|---|---|---|---|---|---|
-| 1 | `pur_purchase_requisition` | 请购单 | 伝票ヘッダ | `(company_id, pr_no)` | F-PUR-001/002/003 | 17,000 |
+| 1 | `pur_purchase_requisition` | 请购单 | 伝票ヘッダ | `(tenant_id, company_id, pr_no)` | F-PUR-001/002/003 | 17,000 |
 | 2 | `pur_purchase_requisition_line` | 请购单明细 | 伝票明細 | `(purchase_requisition_id, line_no)` | 同上 | 68,000 |
-| 3 | `pur_rfq` | 询价单 | 伝票ヘッダ | `(company_id, rfq_no)` | F-PUR-004 | 3,300 |
+| 3 | `pur_rfq` | 询价单 | 伝票ヘッダ | `(tenant_id, company_id, rfq_no)` | F-PUR-004 | 3,300 |
 | 4 | `pur_rfq_line` | 询价单明细 | 伝票明細 | `(rfq_id, line_no)` | F-PUR-004 | 13,200 |
 | 5 | `pur_rfq_supplier` | 询价供应商 | 関連 | `(rfq_id, supplier_id)` | F-PUR-004/005 | 16,500 |
 | 6 | `pur_supplier_quotation` | 供应商报价 | 伝票ヘッダ | `(rfq_id, supplier_id)` | F-PUR-005 | 27,500 |
 | 7 | `pur_supplier_quotation_line` | 供应商报价明细 | 伝票明細 | `(quotation_id, rfq_line_id)` | F-PUR-005/006 | 110,000 |
-| 8 | `pur_purchase_order` | 采购订单 | 伝票ヘッダ | `(company_id, po_no)` | F-PUR-007～010 | 80,000 |
+| 8 | `pur_purchase_order` | 采购订单 | 伝票ヘッダ | `(tenant_id, company_id, po_no)` | F-PUR-007～010 | 80,000 |
 | 9 | `pur_purchase_order_line` | 采购订单明细 | 伝票明細 | `(purchase_order_id, line_no)` | F-PUR-007～011 | 400,000 |
 | 10 | `pur_purchase_order_his` | 采购订单变更履历 | 履歴 | `(purchase_order_id, version_no)` | F-PUR-009 | 40,000 |
-| 11 | `pur_receipt` | 收货单 | 伝票ヘッダ | `(company_id, receipt_no)` | F-PUR-011/012 | 120,000 |
+| 11 | `pur_receipt` | 收货单 | 伝票ヘッダ | `(tenant_id, company_id, receipt_no)` | F-PUR-011/012 | 120,000 |
 | 12 | `pur_receipt_line` | 收货单明细 | 伝票明細 | `(receipt_id, line_no)` | F-PUR-011～014 | 600,000 |
-| 13 | `pur_return` | 采购退货单 | 伝票ヘッダ | `(company_id, return_no)` | F-PUR-015/016 | 6,000 |
+| 13 | `pur_return` | 采购退货单 | 伝票ヘッダ | `(tenant_id, company_id, return_no)` | F-PUR-015/016 | 6,000 |
 | 14 | `pur_return_line` | 采购退货单明细 | 伝票明細 | `(return_id, line_no)` | F-PUR-015/016 | 13,000 |
-| 15 | `pur_invoice` | 采购发票登记 | 伝票ヘッダ | `(company_id, invoice_no)`／`(supplier_id, COALESCE(invoice_code,''), invoice_number)` | F-PUR-017/018 | 60,000 |
+| 15 | `pur_invoice` | 采购发票登记 | 伝票ヘッダ | `(tenant_id, company_id, invoice_no)`／`(tenant_id, company_id, supplier_id, COALESCE(invoice_code,''), invoice_number)` | F-PUR-017/018 | 60,000 |
 | 16 | `pur_invoice_line` | 采购发票明细 | 伝票明細 | `(invoice_id, line_no)` | F-PUR-017/018 | 360,000 |
 | 17 | `pur_invoice_match` | 三单匹配结果 | 履歴 | `(invoice_line_id, receipt_line_id)` | F-PUR-018 | 360,000 |
-| 18 | `pur_statement` | 采购对账单 | 伝票ヘッダ | `(supplier_id, period_code)` | F-PUR-019 | 14,000 |
+| 18 | `pur_statement` | 采购对账单 | 伝票ヘッダ | `(tenant_id, company_id, statement_no)`／`(tenant_id, company_id, supplier_id, period_code)` | F-PUR-019 | 14,000 |
 | 19 | `pur_statement_line` | 采购对账单明细 | 伝票明細 | `(statement_id, line_no)` | F-PUR-019 | 210,000 |
-| 20 | `pur_tolerance_rule` | 容差规则 | 設定 | `(company_id, rule_type, scope_level, scope_id, valid_from)` | F-PUR-011/018 | 50（マスタ相当） |
+| 20 | `pur_tolerance_rule` | 容差规则 | 設定 | `(tenant_id, company_id, rule_type, scope_level, scope_id, valid_from)` | F-PUR-011/018 | 50（マスタ相当） |
 | 21 | `pur_delivery_followup` | 催货记录 | ログ（追記） | `(id)` のみ | F-PUR-023 | 30,000 |
-| 22 | `pur_supplier_performance` | 供应商绩效快照 | 集計 | `(period_code, supplier_id)` | F-PUR-026 | 48,000 |
+| 22 | `pur_supplier_performance` | 供应商绩效快照 | 集計 | `(tenant_id, company_id, period_code, supplier_id)` | F-PUR-026 | 48,000 |
 
 ---
 
@@ -141,7 +141,7 @@ erDiagram
 CREATE TABLE pur_purchase_requisition (
     id                    BIGINT       NOT NULL,
     tenant_id             BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id            BIGINT       NOT NULL DEFAULT 1,
+    company_id            BIGINT       NOT NULL,
     pr_no                 VARCHAR(32)  NOT NULL,                  -- 请购单号 PR{YYMMDD}{4桁}
     pr_type               SMALLINT     NOT NULL DEFAULT 1,        -- 1通常/2计划/3紧急/4费用性
     source_type           VARCHAR(32)  NOT NULL DEFAULT 'MANUAL', -- MANUAL/MRP/SAFETY_STOCK
@@ -175,7 +175,7 @@ CREATE TABLE pur_purchase_requisition (
     updated_at            TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_by            BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_pur_purchase_requisition PRIMARY KEY (id),
-    CONSTRAINT uk_pur_purchase_requisition_no UNIQUE (company_id, pr_no),
+    CONSTRAINT uk_pur_purchase_requisition_no UNIQUE (tenant_id, company_id, pr_no),
     CONSTRAINT fk_pur_purchase_requisition_dept FOREIGN KEY (department_id) REFERENCES sys_department (id),
     CONSTRAINT fk_pur_purchase_requisition_applicant FOREIGN KEY (applicant_id) REFERENCES sys_user (id),
     CONSTRAINT fk_pur_purchase_requisition_factory FOREIGN KEY (factory_id) REFERENCES mdm_factory (id),
@@ -197,7 +197,7 @@ CREATE TABLE pur_purchase_requisition (
 | 8 | `warehouse_id` | 收货仓库 | BIGINT | NOT NULL | — | `mdm_warehouse.id` | — | 明細で上書き可 |
 | 9 | `required_date` | 希望交期 | DATE | NOT NULL | — | — | — | ≥ 当日 |
 | 10 | `budget_check_status` | 预算检查结果 | SMALLINT | NOT NULL | — | — | 0 | 0 未/1 通过/2 警告/3 超预算 |
-| 11 | `budget_subject_code` | 预算科目 | VARCHAR(32) | NULL | — | FIN 预算科目（P2） | NULL | Phase 1 未使用 |
+| 11 | `budget_subject_code` | 预算科目 | VARCHAR(32) | NULL | — | FIN 预算科目（P2） | NULL | FIN 予算連携で使用（第一版） |
 | 12 | `currency_code` | 币种 | VARCHAR(8) | NOT NULL | — | `mdm_currency.currency_code` | CNY | ISO 4217 |
 | 13 | `total_amount` | 税抜合計 | NUMERIC(18,2) | NOT NULL | — | — | 0 | Σ明細 |
 | 14 | `tax_amount` | 税額合計 | NUMERIC(18,2) | NOT NULL | — | — | 0 | Σ明細税額 |
@@ -217,7 +217,7 @@ CREATE TABLE pur_purchase_requisition (
 
 | No | 索引名 | 種別 | 対象列 | 目的 |
 |---|---|---|---|---|
-| 1 | `uk_pur_purchase_requisition_no` | UNIQUE | (`company_id`, `pr_no`) | 伝票番号一意 |
+| 1 | `uk_pur_purchase_requisition_no` | UNIQUE | (`tenant_id`, `company_id`, `pr_no`) | 伝票番号一意 |
 | 2 | `idx_pur_purchase_requisition_status_date` | B-Tree | (`pr_status`, `required_date` DESC) | 状態別一覧・未完了検索 |
 | 3 | `idx_pur_purchase_requisition_dept` | B-Tree | (`department_id`, `pr_status`) | 部門別一覧・データ権限 |
 | 4 | `idx_pur_purchase_requisition_applicant` | B-Tree | (`applicant_id`) | 申請者検索 |
@@ -230,7 +230,7 @@ CREATE TABLE pur_purchase_requisition (
 | CK-01 | `pr_status` は許可値のみ | CHECK | `MSG-COM-034` |
 | CK-02 | 金額は非負 | CHECK | `MSG-COM-048` |
 | FK-01～04 | 部門・申請者・工厂・倉庫の参照 | FK | `MSG-COM-049` |
-| UK-01 | `(company_id, pr_no)` 一意 | UNIQUE | `MSG-COM-050` |
+| UK-01 | `(tenant_id, company_id, pr_no)` 一意 | UNIQUE | `MSG-COM-050` |
 
 **更新仕様**：INSERT は F-PUR-001（登録）・F-PUR-025（計画変換）。UPDATE は提出・承認・転単・取消・关闭の各状態遷移時（[01](01-requisition.md) §8）。
 
@@ -330,7 +330,7 @@ CREATE TABLE pur_purchase_requisition_line (
 CREATE TABLE pur_rfq (
     id                   BIGINT       NOT NULL,
     tenant_id            BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id           BIGINT       NOT NULL DEFAULT 1,
+    company_id           BIGINT       NOT NULL,
     rfq_no               VARCHAR(32)  NOT NULL,
     rfq_type             SMALLINT     NOT NULL DEFAULT 1,      -- 1一般/2紧急/3年度框架
     purchase_requisition_id BIGINT,
@@ -355,7 +355,7 @@ CREATE TABLE pur_rfq (
     updated_at           TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_by           BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_pur_rfq PRIMARY KEY (id),
-    CONSTRAINT uk_pur_rfq_no UNIQUE (company_id, rfq_no),
+    CONSTRAINT uk_pur_rfq_no UNIQUE (tenant_id, company_id, rfq_no),
     CONSTRAINT fk_pur_rfq_pr FOREIGN KEY (purchase_requisition_id) REFERENCES pur_purchase_requisition (id),
     CONSTRAINT fk_pur_rfq_dept FOREIGN KEY (department_id) REFERENCES sys_department (id),
     CONSTRAINT ck_pur_rfq_status CHECK (rfq_status IN (10,30,35,40,90)),
@@ -547,7 +547,7 @@ CREATE TABLE pur_supplier_quotation (
 | 1 | `rfq_id`/`supplier_id` | 询价・供应商 | BIGINT | NOT NULL | `pur_rfq.id`/`mdm_supplier.id` | 一意キー |
 | 2 | `quotation_no` | 供应商报价番号 | VARCHAR(64) | NULL | — | 外部番号そのまま |
 | 3 | `quote_date` | 报价日 | DATE | NOT NULL | — | ≤ 截止日 |
-| 4 | `currency_code`/`exchange_rate` | 币种・汇率 | VARCHAR(8)/NUMERIC(18,8) | NOT NULL | `mdm_currency` | Phase 1 CNY=1 |
+| 4 | `currency_code`/`exchange_rate` | 币种・汇率 | VARCHAR(8)/NUMERIC(18,8) | NOT NULL | `mdm_currency` | 既定 CNY（rate=1）。外貨は実装順 P2（第一版） |
 | 5 | `price_terms` | 报价基準 | SMALLINT | NOT NULL | — | 1 税抜/2 税込 |
 | 6 | `freight_amount` | 运费 | NUMERIC(18,2) | NOT NULL | — | 买方承担时 |
 | 7 | `payment_term_code` | 付款条件 | VARCHAR(20) | NULL | `mdm_payment_term.payment_term_code` | 06 §8.2 |
@@ -648,7 +648,7 @@ CREATE TABLE pur_supplier_quotation_line (
 CREATE TABLE pur_purchase_order (
     id                     BIGINT       NOT NULL,
     tenant_id              BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id             BIGINT       NOT NULL DEFAULT 1,
+    company_id             BIGINT       NOT NULL,
     po_no                  VARCHAR(32)  NOT NULL,
     po_type                SMALLINT     NOT NULL DEFAULT 1,        -- 1标准/2框架/3试作
     source_type            VARCHAR(32)  NOT NULL DEFAULT 'MANUAL', -- REQUISITION/RFQ/MRP/MANUAL/CONTRACT
@@ -695,7 +695,7 @@ CREATE TABLE pur_purchase_order (
     updated_at             TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_by             BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_pur_purchase_order PRIMARY KEY (id),
-    CONSTRAINT uk_pur_purchase_order_no UNIQUE (company_id, po_no),
+    CONSTRAINT uk_pur_purchase_order_no UNIQUE (tenant_id, company_id, po_no),
     CONSTRAINT fk_pur_purchase_order_supplier FOREIGN KEY (supplier_id) REFERENCES mdm_supplier (id),
     CONSTRAINT fk_pur_purchase_order_dept FOREIGN KEY (department_id) REFERENCES sys_department (id),
     CONSTRAINT fk_pur_purchase_order_buyer FOREIGN KEY (buyer_id) REFERENCES sys_user (id),
@@ -716,7 +716,7 @@ CREATE TABLE pur_purchase_order (
 | 5 | `department_id`/`buyer_id` | 部門・購買担当 | BIGINT | NOT NULL | `sys_department`/`sys_user` | — |
 | 6 | `factory_id`/`warehouse_id` | 工厂・倉庫 | BIGINT | NOT NULL | `mdm_factory`/`mdm_warehouse` | — |
 | 7 | `order_date` | 订单日 | DATE | NOT NULL | — | 承認日と区別 |
-| 8 | `currency_code`/`exchange_rate` | 币种・汇率 | VARCHAR(8)/NUMERIC(18,8) | NOT NULL | `mdm_currency` | Phase 2 外貨 |
+| 8 | `currency_code`/`exchange_rate` | 币种・汇率 | VARCHAR(8)/NUMERIC(18,8) | NOT NULL | `mdm_currency` | 外貨対応（第一版） |
 | 9 | `price_terms` | 价格基準 | SMALLINT | NOT NULL | — | 1 税抜/2 税込 |
 | 10 | `settlement_type`/`payment_term_code` | 決済方法・支払条件 | VARCHAR(20) | NOT NULL | `mdm_settlement_method`/`mdm_payment_term` | 06 §8 |
 | 11 | `prepay_ratio` | 预付款比例 | NUMERIC(7,4) | NOT NULL | — | 0～100% |
@@ -734,7 +734,7 @@ CREATE TABLE pur_purchase_order (
 
 | No | 索引名 | 種別 | 対象列 | 目的 |
 |---|---|---|---|---|
-| 1 | `uk_pur_purchase_order_no` | UNIQUE | (`company_id`, `po_no`) | 伝票番号一意 |
+| 1 | `uk_pur_purchase_order_no` | UNIQUE | (`tenant_id`, `company_id`, `po_no`) | 伝票番号一意 |
 | 2 | `idx_pur_purchase_order_status_date` | B-Tree | (`po_status`, `order_date` DESC) | 一覧・未完了 |
 | 3 | `idx_pur_purchase_order_supplier` | B-Tree | (`supplier_id`, `po_status`) | 供应商別・対账 |
 | 4 | `idx_pur_purchase_order_buyer` | B-Tree | (`buyer_id`, `po_status`) | 購買担当別 |
@@ -895,7 +895,7 @@ CREATE TABLE pur_purchase_order_his (
 CREATE TABLE pur_receipt (
     id                   BIGINT       NOT NULL,
     tenant_id            BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id           BIGINT       NOT NULL DEFAULT 1,
+    company_id           BIGINT       NOT NULL,
     receipt_no           VARCHAR(32)  NOT NULL,
     purchase_order_id    BIGINT       NOT NULL,
     supplier_id          BIGINT       NOT NULL,
@@ -906,7 +906,7 @@ CREATE TABLE pur_receipt (
     receiving_user_id    BIGINT       NOT NULL,
     delivery_note_no     VARCHAR(64),
     carrier              VARCHAR(100),
-    inspection_required  BOOLEAN      NOT NULL DEFAULT TRUE,
+    inspection_flag      BOOLEAN      NOT NULL,                  -- 明細 inspection_flag のいずれか true（表示用集約）
     receipt_status       SMALLINT     NOT NULL DEFAULT 25,       -- 25/30/35/40/90
     confirmed_at         TIMESTAMPTZ,
     confirmed_by         BIGINT,
@@ -922,7 +922,7 @@ CREATE TABLE pur_receipt (
     updated_at           TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_by           BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_pur_receipt PRIMARY KEY (id),
-    CONSTRAINT uk_pur_receipt_no UNIQUE (company_id, receipt_no),
+    CONSTRAINT uk_pur_receipt_no UNIQUE (tenant_id, company_id, receipt_no),
     CONSTRAINT fk_pur_receipt_po FOREIGN KEY (purchase_order_id) REFERENCES pur_purchase_order (id) ON DELETE RESTRICT,
     CONSTRAINT fk_pur_receipt_supplier FOREIGN KEY (supplier_id) REFERENCES mdm_supplier (id),
     CONSTRAINT fk_pur_receipt_wh FOREIGN KEY (warehouse_id) REFERENCES mdm_warehouse (id),
@@ -940,7 +940,7 @@ CREATE TABLE pur_receipt (
 | 5 | `warehouse_id` | 收货仓库 | BIGINT | NOT NULL | `mdm_warehouse.id` | — |
 | 6 | `receiving_user_id` | 收货人 | BIGINT | NOT NULL | `sys_user.id` | 倉管員 |
 | 7 | `delivery_note_no`/`carrier` | 送り状番号・運送会社 | VARCHAR(64/100) | NULL | — | 外部参照 |
-| 8 | `inspection_required` | 检验要求 | BOOLEAN | NOT NULL | — | 免検は false |
+| 8 | `inspection_flag` | 入庫検査要否 | BOOLEAN | NOT NULL | — | 明細の集約（いずれか true）。既定値なし（[05-inventory 02 §2.6.1a](../05-inventory/02-inbound-outbound.md)） |
 | 9 | `receipt_status` | 状态 | SMALLINT | NOT NULL | — | 25/30/35/40/90 |
 | 10 | `confirmed_at`/`confirmed_by` | 入荷確定日時・者 | TIMESTAMPTZ/BIGINT | NULL | `sys_user.id` | E14 発行時 |
 | 11 | `total_received_amount` | 入荷金額（税抜） | NUMERIC(18,2) | NOT NULL | — | 暂估基準 |
@@ -984,7 +984,7 @@ CREATE TABLE pur_receipt_line (
     production_date       DATE,
     expiry_date           DATE,
     serial_nos            JSONB,
-    inspection_required   BOOLEAN      NOT NULL DEFAULT TRUE,
+    inspection_flag       BOOLEAN      NOT NULL,                -- スナップショット：mdm_material.inspection_stage ∈ {10,40}
     inspection_id         BIGINT,                               -- PRD 検査単（論理参照）
     inspection_status     SMALLINT     NOT NULL DEFAULT 1,      -- 0不要/1待检/2检验中/3合格/4特采/5不合格
     sample_qty            NUMERIC(18,4),
@@ -1030,7 +1030,7 @@ CREATE TABLE pur_receipt_line (
 | 4 | `uom_code`/`received_qty`/`base_received_qty` | 単位・入荷数量 | VARCHAR/NUMERIC | NOT NULL | 基本単位換算 |
 | 5 | `unit_price`/`tax_code`/`tax_rate`/`amount` | PO 単価・税・金額 | NUMERIC/VARCHAR | NOT NULL | 暂估基準 |
 | 6 | `batch_no`/`production_date`/`expiry_date`/`serial_nos` | 批次・期限・序列 | VARCHAR/DATE/JSONB | NULL | 批次管理物料で必須 |
-| 7 | `inspection_required`/`inspection_id`/`inspection_status` | 検査要求・IQC | BOOLEAN/BIGINT/SMALLINT | NOT NULL/NULL | 0～5 |
+| 7 | `inspection_flag`/`inspection_id`/`inspection_status` | 入庫検査要否・IQC | BOOLEAN/BIGINT/SMALLINT | NOT NULL/NULL | `inspection_flag` は入荷確定時に `inspection_stage ∈ {10,40}` で true（NOT NULL スナップショット、マスタ変更後も不変）。false のとき `inspection_status=0`。`inspection_status` 0～5 |
 | 8 | `sample_qty`/`defect_qty` | 検査数量 | NUMERIC(18,4) | NULL | E15 反映 |
 | 9 | `accepted_qty`/`concession_qty`/`rejected_qty` | 合格・特采・不合格 | NUMERIC(18,4) | NOT NULL | E15 反映 |
 | 10 | `stocked_qty`/`stocked_at` | 入庫数量・日時 | NUMERIC/TIMESTAMPTZ | NOT NULL/NULL | E18 反映 |
@@ -1058,7 +1058,7 @@ CREATE TABLE pur_receipt_line (
 CREATE TABLE pur_return (
     id                   BIGINT       NOT NULL,
     tenant_id            BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id           BIGINT       NOT NULL DEFAULT 1,
+    company_id           BIGINT       NOT NULL,
     return_no            VARCHAR(32)  NOT NULL,
     return_type          SMALLINT     NOT NULL DEFAULT 1,      -- 1質量/2数量/3錯発/4換貨/5貸項
     source_type          VARCHAR(32)  NOT NULL,                -- RECEIPT/INSPECTION/PURCHASE_ORDER/MANUAL
@@ -1093,7 +1093,7 @@ CREATE TABLE pur_return (
     updated_at           TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_by           BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_pur_return PRIMARY KEY (id),
-    CONSTRAINT uk_pur_return_no UNIQUE (company_id, return_no),
+    CONSTRAINT uk_pur_return_no UNIQUE (tenant_id, company_id, return_no),
     CONSTRAINT fk_pur_return_supplier FOREIGN KEY (supplier_id) REFERENCES mdm_supplier (id),
     CONSTRAINT fk_pur_return_wh FOREIGN KEY (warehouse_id) REFERENCES mdm_warehouse (id),
     CONSTRAINT fk_pur_return_orig_invoice FOREIGN KEY (original_invoice_id) REFERENCES pur_invoice (id),
@@ -1209,7 +1209,7 @@ CREATE TABLE pur_return_line (
 CREATE TABLE pur_invoice (
     id                     BIGINT       NOT NULL,
     tenant_id              BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id             BIGINT       NOT NULL DEFAULT 1,
+    company_id             BIGINT       NOT NULL,
     invoice_no             VARCHAR(32)  NOT NULL,                 -- 登記番号 PIV{YYMMDD}{4桁}
     invoice_type           SMALLINT     NOT NULL DEFAULT 10,      -- 10增值税专票/20增值税普票/30数电专票/40数电普票/50红字发票
     original_invoice_id    BIGINT,
@@ -1242,7 +1242,7 @@ CREATE TABLE pur_invoice (
     updated_at             TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_by             BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_pur_invoice PRIMARY KEY (id),
-    CONSTRAINT uk_pur_invoice_no UNIQUE (company_id, invoice_no),
+    CONSTRAINT uk_pur_invoice_no UNIQUE (tenant_id, company_id, invoice_no),
     CONSTRAINT fk_pur_invoice_supplier FOREIGN KEY (supplier_id) REFERENCES mdm_supplier (id),
     CONSTRAINT fk_pur_invoice_original FOREIGN KEY (original_invoice_id) REFERENCES pur_invoice (id),
     CONSTRAINT ck_pur_invoice_type CHECK (invoice_type IN (10,20,30,40,50)),
@@ -1251,7 +1251,7 @@ CREATE TABLE pur_invoice (
 );
 -- 数電票は invoice_code が NULL のため、COALESCE で発票番号の一意性を保証する
 CREATE UNIQUE INDEX uk_pur_invoice_number ON pur_invoice
-    (supplier_id, COALESCE(invoice_code, ''), invoice_number);
+    (tenant_id, company_id, supplier_id, COALESCE(invoice_code, ''), invoice_number);
 ```
 
 | No | 物理名 | 論理名 | 型/桁 | NULL | 備考 |
@@ -1262,12 +1262,12 @@ CREATE UNIQUE INDEX uk_pur_invoice_number ON pur_invoice
 | 4 | `supplier_id`+snapshot | 供应商 | BIGINT/VARCHAR | NOT NULL | 税号をスナップショット |
 | 5 | `invoice_code`/`invoice_number` | 発票コード・番号 | VARCHAR(32) | NULL/NOT NULL | 数電票 20 桁 |
 | 6 | `invoice_date`/`registration_date` | 開票日・登録日 | DATE | NOT NULL | 期間判定 |
-| 7 | `currency_code`/`exchange_rate` | 币种・汇率 | VARCHAR(8)/NUMERIC(18,8) | NOT NULL | Phase 2 |
+| 7 | `currency_code`/`exchange_rate` | 币种・汇率 | VARCHAR(8)/NUMERIC(18,8) | NOT NULL | 外貨対応（第一版） |
 | 8 | `total_amount`/`tax_amount`/`total_amount_with_tax` | 税抜・税額・价税合計 | NUMERIC(18,2) | NOT NULL | 発票記載値 |
 | 9 | `matched_status` | 匹配状态 | SMALLINT | NOT NULL | 0/1/2/3/4/5/6/9 |
 | 10 | `ap_status` | 計上状態 | SMALLINT | NOT NULL | 0 未/1 已/2 部分/3 済/9 取消 |
 | 11 | `diff_total_amount` | 差異合計 | NUMERIC(18,2) | NOT NULL | 匹配結果 |
-| 12 | `verified_flag` | 発票査験 | BOOLEAN | NOT NULL | Phase 2 自動化 |
+| 12 | `verified_flag` | 発票査験 | BOOLEAN | NOT NULL | INT 査験連携で自動化（第一版） |
 | 13 | `ap_posted_at`/`ap_posted_by` | 計上日時・者 | TIMESTAMPTZ/BIGINT | NULL | E17 発行時 |
 
 **索引**：`uk_pur_invoice_no`、`uk_pur_invoice_number`、`idx_pur_invoice_match_status`（`matched_status`, `invoice_date` DESC）、`idx_pur_invoice_supplier`（`supplier_id`, `invoice_date`）、`idx_pur_invoice_ap`（`ap_status`, `registration_date`）。
@@ -1440,7 +1440,7 @@ CREATE TABLE pur_invoice_match (
 CREATE TABLE pur_statement (
     id                     BIGINT       NOT NULL,
     tenant_id              BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id             BIGINT       NOT NULL DEFAULT 1,
+    company_id             BIGINT       NOT NULL,
     statement_no           VARCHAR(32)  NOT NULL,            -- PST{YYMMDD}{4桁}
     supplier_id            BIGINT       NOT NULL,
     supplier_code          VARCHAR(20)  NOT NULL,
@@ -1466,8 +1466,8 @@ CREATE TABLE pur_statement (
     updated_at             TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_by             BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_pur_statement PRIMARY KEY (id),
-    CONSTRAINT uk_pur_statement_no UNIQUE (company_id, statement_no),
-    CONSTRAINT uk_pur_statement_period UNIQUE (supplier_id, period_code),
+    CONSTRAINT uk_pur_statement_no UNIQUE (tenant_id, company_id, statement_no),
+    CONSTRAINT uk_pur_statement_period UNIQUE (tenant_id, company_id, supplier_id, period_code),
     CONSTRAINT fk_pur_statement_supplier FOREIGN KEY (supplier_id) REFERENCES mdm_supplier (id),
     CONSTRAINT ck_pur_statement_status CHECK (statement_status IN (10,30,40,90)),
     CONSTRAINT ck_pur_statement_period CHECK (period_code ~ '^[0-9]{4}-[0-9]{2}$')
@@ -1557,7 +1557,7 @@ CREATE TABLE pur_statement_line (
 CREATE TABLE pur_tolerance_rule (
     id               BIGINT       NOT NULL,
     tenant_id        BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id       BIGINT       NOT NULL DEFAULT 1,
+    company_id       BIGINT       NOT NULL,
     rule_type        SMALLINT     NOT NULL,     -- 1超收/2単価差異/3数量差異/4税額差異/5金額差異
     rule_name        VARCHAR(100) NOT NULL,
     scope_level      SMALLINT     NOT NULL DEFAULT 1, -- 1公司/2供应商/3供应商分类/4物料分類/5物料
@@ -1583,7 +1583,7 @@ CREATE TABLE pur_tolerance_rule (
     CONSTRAINT ck_pur_tolerance_rule_period CHECK (valid_to IS NULL OR valid_to >= valid_from)
 );
 CREATE UNIQUE INDEX uk_pur_tolerance_rule ON pur_tolerance_rule
-    (company_id, rule_type, scope_level, COALESCE(scope_id, 0), valid_from);
+    (tenant_id, company_id, rule_type, scope_level, COALESCE(scope_id, 0), valid_from);
 ```
 
 | No | 物理名 | 論理名 | 型/桁 | NULL | 備考 |
@@ -1674,7 +1674,7 @@ CREATE TABLE pur_delivery_followup (
 CREATE TABLE pur_supplier_performance (
     id                     BIGINT       NOT NULL,
     tenant_id              BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id             BIGINT       NOT NULL DEFAULT 1,
+    company_id             BIGINT       NOT NULL,
     period_code            VARCHAR(7)   NOT NULL,          -- YYYY-MM
     supplier_id            BIGINT       NOT NULL,
     supplier_code          VARCHAR(20)  NOT NULL,
@@ -1705,7 +1705,7 @@ CREATE TABLE pur_supplier_performance (
     updated_at             TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_by             BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_pur_supplier_performance PRIMARY KEY (id),
-    CONSTRAINT uk_pur_supplier_performance UNIQUE (period_code, supplier_id),
+    CONSTRAINT uk_pur_supplier_performance UNIQUE (tenant_id, company_id, period_code, supplier_id),
     CONSTRAINT fk_pur_supplier_performance_supplier FOREIGN KEY (supplier_id) REFERENCES mdm_supplier (id),
     CONSTRAINT ck_pur_supplier_performance_period CHECK (period_code ~ '^[0-9]{4}-[0-9]{2}$'),
     CONSTRAINT ck_pur_supplier_performance_score CHECK (total_score >= 0 AND total_score <= 100),
@@ -1733,18 +1733,25 @@ CREATE TABLE pur_supplier_performance (
 
 | # | テーブル | 索引名 | 種別 | 対象列 | 目的 |
 |---|---|---|---|---|---|
-| 1 | 全ヘッダ | `uk_*_no` | UNIQUE | (`company_id`, 伝票番号) | 伝票番号一意 |
+| 1 | 全ヘッダ | `uk_*_no` | UNIQUE | (`tenant_id`, `company_id`, 伝票番号) | 伝票番号一意 |
 | 2 | `pur_purchase_order` | `idx_pur_purchase_order_status_date` | B-Tree | (`po_status`, `order_date` DESC) | 未完了 PO 一覧 |
 | 3 | `pur_purchase_order_line` | `idx_pur_purchase_order_line_delivery` | B-Tree | (`delivery_date`, `line_status`) | 交期跟踪・未入荷抽出 |
 | 4 | `pur_receipt_line` | `idx_pur_receipt_line_po_line` | B-Tree | (`purchase_order_line_id`, `inspection_status`) | 三单匹配・待検一覧 |
 | 5 | `pur_invoice_match` | `idx_pur_invoice_match_status` | B-Tree | (`match_status`, `created_at`) | 差異滞留監視（BAT-PUR-004） |
 | 6 | `pur_receipt` | `idx_pur_receipt_status_date` | B-Tree | (`receipt_status`, `receipt_date` DESC) | 收货一覧・月結照合 |
 | 7 | `pur_return` | `idx_pur_return_credit` | B-Tree | (`credit_note_status`, `return_status`) | 紅字待ち抽出 |
-| 8 | `pur_statement` | `uk_pur_statement_period` | UNIQUE | (`supplier_id`, `period_code`) | 対账重複防止 |
+| 8 | `pur_statement` | `uk_pur_statement_period` | UNIQUE | (`tenant_id`, `company_id`, `supplier_id`, `period_code`) | 対账重複防止 |
 | 9 | `pur_delivery_followup` | `idx_pur_delivery_followup_next` | B-Tree | (`next_followup_date`) | 日次リマインド |
-| 10 | `pur_supplier_performance` | `uk_pur_supplier_performance` | UNIQUE | (`period_code`, `supplier_id`) | 月次 UPSERT |
+| 10 | `pur_supplier_performance` | `uk_pur_supplier_performance` | UNIQUE | (`tenant_id`, `company_id`, `period_code`, `supplier_id`) | 月次 UPSERT |
 
 > 更新系テーブルの索引は 1 テーブル 5 本以内を目安とする（04 §7）。上記以外の過剰索引は追加しない。
+
+### 6.1 一意索引の先頭列ルールと例外（2026-10-21、05-inventory と同一方針）
+
+- 業務一意索引（`uk_`）は DDL 本文・本一覧とも `(tenant_id, company_id, 業務キー)` で始める。
+- `tenant_id` は `NOT NULL DEFAULT current_setting('app.tenant_id')::bigint`（字面量默认租户禁止）。`company_id` は NOT NULL・既定値なし（ヘッダ・設定・集計テーブル）。
+- **例外（親 ID 先頭。明細・関連テーブルは `company_id` を持たず、親行が tenant/company を保証）**：`uk_pur_purchase_requisition_line_no`, `uk_pur_rfq_line_no`, `uk_pur_rfq_supplier`（`rfq_id`）, `uk_pur_supplier_quotation`（`rfq_id`）, `uk_pur_supplier_quotation_line`（`quotation_id`）, `uk_pur_purchase_order_line_no`, `uk_pur_purchase_order_his`（`purchase_order_id`）, `uk_pur_receipt_line_no`, `uk_pur_return_line_no`, `uk_pur_invoice_line_no`, `uk_pur_invoice_match`（`invoice_line_id`）, `uk_pur_statement_line_no`。
+- **G2-20**：非一意の照会索引（`idx_`）は `(company_id, …)` 先頭としてよい。`uk_` を company_id 先頭と書いてはならない。
 
 ---
 
@@ -1752,8 +1759,8 @@ CREATE TABLE pur_supplier_performance (
 
 | # | 制約 | 実現方法 | 関連テーブル |
 |---|---|---|---|
-| 1 | 伝票番号の完全一意 | UNIQUE（`company_id` 含む） | 全ヘッダ |
-| 2 | 発票番号の一意（同一供应商） | UNIQUE INDEX (`supplier_id`, COALESCE(`invoice_code`,''), `invoice_number`)（数電票の NULL 対応） | `pur_invoice` |
+| 1 | 伝票番号の完全一意 | UNIQUE（`(tenant_id, company_id, 伝票番号)` 先頭） | 全ヘッダ |
+| 2 | 発票番号の一意（同一供应商） | UNIQUE INDEX (`tenant_id`, `company_id`, `supplier_id`, COALESCE(`invoice_code`,''), `invoice_number`)（数電票の NULL 対応） | `pur_invoice` |
 | 3 | 数量の非負・正値 | CHECK（受入 > 0、累計 ≥ 0 等） | 各明細 |
 | 4 | 累計数量の整合（受入 = 合格 + 特采 + 不合格） | アプリ検証 + 日次照合バッチ（BAT-PUR-003/004） | `pur_receipt_line` |
 | 5 | 請求数量 ≤ 受入数量 | アプリ検証（匹配） | `pur_invoice_match` |
@@ -1797,7 +1804,7 @@ CREATE TABLE pur_supplier_performance (
 | `pur_supplier_performance` | — | 9,600 | 48,000 | 5 年 | 集計 |
 
 > 合計（5 年後）：約 245 万行。最大テーブル `pur_receipt_line`（60 万行）。
-> パーティション・アーカイブは Phase 2 で検討（年間 90 万行超のテーブルのみ）。
+> パーティション・アーカイブは第一版の範囲で、年間 90 万行超のテーブルのみ対象とする（実装順は P2）。
 
 ---
 
@@ -1836,3 +1843,4 @@ CREATE TABLE pur_supplier_performance (
 |---|---|---|---|
 | v1.0 | 2026-10-20 | 初版：22 テーブル（请购・询价・报价・订单・变更履歴・收货・退货・発票・匹配・対账・容差・催货・績效）の DDL・項目定義・索引・制約・データ量見積 | purchase-designer |
 | v1.1 | 2026-10-20 | 红队第 2 轮修复：invoice_type コードを 10/20/30/40/50 に統一、pur_tolerance_rule を MDM 既定への上書き規則に限定（二重定義解消）、E16/E35 金額項目を 09 改訂に追従 | purchase-designer |
+| v1.2 | 2026-10-21 | 第一版全量化：`company_id` 既定値 1 を削除、業務一意索引を `(tenant_id, company_id, …)` 先頭に統一（DDL・一覧）、§6.1 例外一覧追加、段階表記を削除 | 业务分析 |
