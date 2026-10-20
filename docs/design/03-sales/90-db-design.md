@@ -433,7 +433,7 @@ CREATE TABLE sal_sales_order (
 | `idx_sal_sales_order_customer` | B-Tree | (`customer_id`, `order_date` DESC) | 顧客別 |
 | `idx_sal_sales_order_owner` | B-Tree | (`owner_user_id`, `order_status`) | 擔當者別 |
 | `idx_sal_sales_order_delivery` | B-Tree | (`delivery_date`, `order_status`) | 納期遅延検出 |
-| `uk_sal_sales_order_source` | UNIQUE | (`tenant_id`, `source_type`, `source_id`) WHERE `source_id` IS NOT NULL | 受注転換の二重作成防止 |
+| `uk_sal_sales_order_source` | UNIQUE | (`tenant_id`, `company_id`, `source_type`, `source_id`) WHERE `source_id` IS NOT NULL | 受注転換の二重作成防止 |
 
 ### 3.7 `sal_sales_order_line`（销售订单明细）
 
@@ -1194,7 +1194,7 @@ CREATE TABLE sal_credit_ledger_snapshot (
     CONSTRAINT fk_sal_credit_occ_customer FOREIGN KEY (customer_id) REFERENCES mdm_customer (id),
     CONSTRAINT ck_sal_credit_occ_amt CHECK (amount >= 0 AND released_amount >= 0 AND released_amount <= amount)
 );
-CREATE UNIQUE INDEX uk_sal_credit_occ_source ON sal_credit_ledger_snapshot (tenant_id, source_type, source_id, release_seq);
+CREATE UNIQUE INDEX uk_sal_credit_occ_source ON sal_credit_ledger_snapshot (tenant_id, company_id, source_type, source_id, release_seq);
 CREATE INDEX idx_sal_credit_occ_customer ON sal_credit_ledger_snapshot (customer_id, status);
 CREATE INDEX idx_sal_credit_occ_source_lookup ON sal_credit_ledger_snapshot (source_type, source_id);
 ```
@@ -1274,7 +1274,7 @@ CREATE TABLE sal_receivable_snapshot (
     synced_at           TIMESTAMPTZ  NOT NULL DEFAULT now(),   -- 同期日時
     CONSTRAINT pk_sal_receivable_snapshot PRIMARY KEY (id)
 );
-CREATE UNIQUE INDEX uk_sal_receivable_snapshot_fin ON sal_receivable_snapshot (tenant_id, receivable_id);
+CREATE UNIQUE INDEX uk_sal_receivable_snapshot_fin ON sal_receivable_snapshot (tenant_id, company_id, receivable_id);
 CREATE INDEX idx_sal_receivable_snapshot_cust ON sal_receivable_snapshot (customer_id, due_date);
 CREATE INDEX idx_sal_receivable_snapshot_open ON sal_receivable_snapshot (customer_id, receivable_status);
 ```
@@ -1410,13 +1410,13 @@ CREATE INDEX idx_sal_forecast_line_material ON sal_sales_forecast_line (material
 
 | # | 制約 | 実現方法 | エラーメッセージ |
 |---|---|---|---|
-| 1 | 傳票番號の一意 | UNIQUE (`company_id`, `*_no`) | MSG-COM-050 |
+| 1 | 傳票番號の一意 | UNIQUE (`tenant_id`, `company_id`, `*_no`) | MSG-COM-050 |
 | 2 | 明細行番號の一意 | UNIQUE (`tenant_id`, `company_id`, `*_id`, `line_no`) | MSG-COM-050 |
-| 3 | 與信コミットの二重防止 | UNIQUE (`source_type`, `source_id`, `release_seq`) | MSG-COM-050 |
-| 4 | 受注転換の二重作成防止 | UNIQUE (`source_type`, `source_id`) WHERE `source_id` IS NOT NULL | MSG-COM-050 |
-| 5 | 特價の重複 | UNIQUE (`company_id`, `customer_id`, `material_id`, `valid_from`) WHERE `status=25` | MSG-SAL-093 |
-| 6 | 發票番號の一意（コード考慮） | UNIQUE (`company_id`, COALESCE(`invoice_code`,''), `invoice_no`) | MSG-SAL-156 |
-| 7 | 對账单の版數一意 | UNIQUE (`company_id`, `customer_id`, `period_code`, `statement_version`) | MSG-COM-050 |
+| 3 | 與信コミットの二重防止 | UNIQUE (`tenant_id`, `company_id`, `source_type`, `source_id`, `release_seq`) | MSG-COM-050 |
+| 4 | 受注転換の二重作成防止 | UNIQUE (`tenant_id`, `company_id`, `source_type`, `source_id`) WHERE `source_id` IS NOT NULL | MSG-COM-050 |
+| 5 | 特價の重複 | UNIQUE (`tenant_id`, `company_id`, `customer_id`, `material_id`, `valid_from`) WHERE `status=25` | MSG-SAL-093 |
+| 6 | 發票番號の一意（コード考慮） | UNIQUE (`tenant_id`, `company_id`, COALESCE(`invoice_code`,''), `invoice_no`) | MSG-SAL-156 |
+| 7 | 對账单の版數一意 | UNIQUE (`tenant_id`, `company_id`, `customer_id`, `period_code`, `statement_version`) | MSG-COM-050 |
 | 8 | 數量・金額の符號 | CHECK（數量 > 0、金額 ≥ 0 等） | MSG-COM-047/048 |
 | 9 | 状態値の妥当性 | CHECK（各テーブルの状態コード列挙） | MSG-COM-034 |
 | 10 | 期間整合 | CHECK（`valid_from <= valid_to`、`period_from <= period_to`） | MSG-COM-046 |
@@ -1506,6 +1506,7 @@ CREATE INDEX idx_sal_forecast_line_material ON sal_sales_forecast_line (material
 | v1.1 | 2026-10-20 | 紅隊修復第 2 輪：`sal_credit_ledger_snapshot` を FIN 與信台帳の読取投影へ再定義（SAL 直接更新禁止）、與信判定コードを 10/20/30/40/90 に統一、与信使用額の権威を FIN へ一本化 | sales-designer |
 | v1.2 | 2026-10-21 | 蓝色大肥鱼 決定反映：①明細表 16 本に `company_id` を付与（§1.3 改訂）②受注明細に `ck_sal_sol_completed_qty`（G2-18、23514→60040）③親 ID 先頭の一意索引例外 12 本を `(tenant_id, company_id, …)` 先頭へ変更し例外登録を削除 | 業務分析 |
 | v1.3 | 2026-10-21 | `sal_sales_order_line.allowed_qty` を NULL 可・既定値なしに変更（NULL＝未スナップショット、承認／完工時に NULL なら 5000、CHECK は NULL 通過）。完工上報処理に「受注行ロック後 `allowed_qty IS NULL` は 5000」を追記 | 業務分析 |
+| v1.4 | 2026-10-21 | `uk_sal_sales_order_source`・`uk_sal_credit_occ_source`・`uk_sal_receivable_snapshot_fin` に `company_id` を追加（`(tenant_id, company_id, …)` 先頭）、§5 制約一覧を DDL に一致 | 業務分析 |
 
 
 
