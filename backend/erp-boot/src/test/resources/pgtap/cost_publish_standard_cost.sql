@@ -4,7 +4,7 @@
 --   * 不使用 app.cost_publish 标记；
 --   * erp_app 对 mdm_material 无表级 UPDATE，按列授权且不含 standard_cost。
 -- T1（#55）已合：角色 / 触发器 / 列权限可实跑。
--- 07-finance fin/V202610210702 已建 fin_standard_cost / fin_publish_standard_cost：C1、C10 已启用。
+-- 07-finance fin/V202610210703 已建 fin_standard_cost / fin_publish_standard_cost：C1、C10 已启用。
 BEGIN;
 SELECT plan(10);
 
