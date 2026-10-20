@@ -271,32 +271,16 @@ backend/erp-*/src/main/resources/db/migration/
 ### 10.2 ファイル命名とバージョン範囲
 
 ```
-V{yyyyMMdd}{DD}{NN}__{module}_{description}.sql     # バージョンは 12 桁
+V{yyyyMMdd}{NNNN}__{module}_{description}.sql     # バージョンは 12 桁
   yyyyMMdd : 作成日
-  DD       : ドメインコード（下表、docs/design のディレクトリ番号と同じ）
-  NN       : 同一日・同一ドメイン内の連番 01〜99
-例: V202610200101__sys_create_sys_user.sql
-    V202610200201__mdm_create_mdm_material.sql
-    V202610210501__inv_create_stock_balance.sql
+  NNNN     : 同一日の全体通し番号 0001〜9999（ドメイン共通、単調増加）
+例: V202610210701__fin_create_extension_btree_gist.sql
+    V202610210702__prd_create_tables.sql
 ```
 
-| DD | module | 対象 |
-|---|---|---|
-| 00 | `common` | 横断（拡張・共通関数・`sys_sequence` 等の基盤） |
-| 01 | `sys` | 01-system |
-| 02 | `mdm` | 02-mdm |
-| 03 | `sal` | 03-sales |
-| 04 | `pur` | 04-purchase |
-| 05 | `inv` | 05-inventory |
-| 06 | `prd` | 06-production |
-| 07 | `fin` | 07-finance |
-| 08 | `wf` | 08-workflow |
-| 09 | `int` | 09-integration |
-| 10 | `rpt` | 10-analytics |
-
-- ドメインごとに 1 日 99 本の専用範囲を持つため、**ドメイン間でバージョンが衝突しない**。同一ドメイン内の衝突は PR レビューと CI チェック（`.github/scripts/check-migrations.sh`）で検出する。
-- `DD` と `{module}` は上表の組合せと一致させる（例：`05` なら `inv_`）。
-- **新規スクリプトのバージョンは main 上の既存最大バージョンより大きくすること**（Flyway `outOfOrder` は使わない）。同日に小さいドメインコードでは max を超えられない場合、マージ前に採番し直す（日付を後ろにずらす等）。CI（`check-migrations.sh`、PR の base sha と比較）で強制する。
+- ドメインは**配置ディレクトリ**（10.1）で表し、ファイル名の `{module}` はディレクトリ名と一致させる。バージョン番号はドメインを表さない（2026-10-21 改定。改定前にマージ済みのファイル名はそのまま有効）。
+- 同一日の番号はドメインを問わず、マージ時点の main 上の最大バージョンの次から取る。
+- **新規スクリプトのバージョンは main 上の既存最大バージョンより大きくすること**（Flyway `outOfOrder` は使わない）。後からマージする PR は、マージ前に最新 main の最大バージョンより大きい番号へ採番し直す。CI（`check-migrations.sh`、PR の base sha と比較）で強制する。
 - **マイグレーションを含む PR はマージ前に最新 main へ rebase し、CI を再実行して全緑を確認してからマージする**（PR の CI は作成時の base sha で判定され、main 更新後は自動再実行されないため）。
 - バージョンは全体で一意。一度適用したスクリプトは編集しない（新規スクリプトで差分適用）。
 - 破壊的変更（列削除・型変更）は 2 段階（新列追加 → 移行 → 旧列削除）で行う。
@@ -307,7 +291,7 @@ V{yyyyMMdd}{DD}{NN}__{module}_{description}.sql     # バージョンは 12 桁
 - `backend/erp-boot/src/main/resources/db/migration/V1__baseline.sql`（`sys_user`）は**改名・編集しない**。既に適用済みの環境で `flyway_schema_history` のチェックサム・バージョンが一致しなくなるため。
 - Flyway はバージョンを数値比較するため、`1` は全ての 12 桁バージョンより先に実行され、順序上の問題はない。
 - `V1__baseline.sql` は CI チェックの唯一の例外（許可リスト）とし、以降 `V2__`〜 等の短い連番は**新規作成禁止**。
-- `sys_user` への今後の変更は `sys/V{yyyyMMdd}01{NN}__sys_*.sql` として追加する。
+- `sys_user` への今後の変更は `sys/V{yyyyMMdd}{NNNN}__sys_*.sql` として追加する。
 
 ### 10.3 ロールバック
 

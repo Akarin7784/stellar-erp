@@ -3,7 +3,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
-declare -A CODE=([00]=common [01]=sys [02]=mdm [03]=sal [04]=pur [05]=inv [06]=prd [07]=fin [08]=wf [09]=int [10]=rpt)
+# 版本 = 日期 + 当天全局 4 位序号（不再编码域）；域只看迁移所在目录。
+declare -A MODULES=([common]=1 [sys]=1 [mdm]=1 [sal]=1 [pur]=1 [inv]=1 [prd]=1 [fin]=1 [wf]=1 [int]=1 [rpt]=1)
 ALLOW_LEGACY="V1__baseline.sql"
 fail=0
 declare -A seen=()
@@ -16,16 +17,16 @@ while IFS= read -r -d '' f; do
   fi
   if [[ "$name" == "$ALLOW_LEGACY" ]]; then
     ver=1
-  elif [[ "$name" =~ ^V([0-9]{8})([0-9]{2})([0-9]{2})__([a-z]+)_[a-z0-9_]+\.sql$ ]]; then
-    dd=${BASH_REMATCH[2]}; nn=${BASH_REMATCH[3]}; mod=${BASH_REMATCH[4]}
-    ymd=${BASH_REMATCH[1]}
-    ver="${ymd}${dd}${nn}"
+  elif [[ "$name" =~ ^V([0-9]{8})([0-9]{4})__([a-z]+)_[a-z0-9_]+\.sql$ ]]; then
+    ymd=${BASH_REMATCH[1]}; seq=${BASH_REMATCH[2]}; mod=${BASH_REMATCH[3]}
+    ver="${ymd}${seq}"
+    dir=$(basename "$(dirname "$f")")
     if [[ "$(date -u -d "$ymd" +%Y%m%d 2>/dev/null || true)" != "$ymd" ]]; then
       echo "ERROR: $f 日期段 $ymd 不是合法日期（yyyyMMdd）"; fail=1
     fi
-    if [[ -z "${CODE[$dd]:-}" ]]; then echo "ERROR: $f 域代码 $dd 未定义"; fail=1; continue; fi
-    if [[ "${CODE[$dd]}" != "$mod" ]]; then echo "ERROR: $f 域代码 $dd 应对应模块 ${CODE[$dd]}，实际为 $mod"; fail=1; fi
-    if [[ "$nn" == "00" ]]; then echo "ERROR: $f 序号 NN 必须为 01-99"; fail=1; fi
+    if [[ "$seq" == "0000" ]]; then echo "ERROR: $f 当天序号必须为 0001-9999"; fail=1; fi
+    if [[ -z "${MODULES[$dir]:-}" ]]; then echo "ERROR: $f 所在目录 $dir 不是已定义的模块目录"; fail=1; continue; fi
+    if [[ "$dir" != "$mod" ]]; then echo "ERROR: $f 文件名模块 $mod 与所在目录 $dir 不一致"; fail=1; fi
   elif [[ "$name" =~ ^R__(seed_[a-z]+_[a-z0-9_]+)\.sql$ ]]; then
     desc=${BASH_REMATCH[1]}
     if [[ -n "${seen_r[$desc]:-}" ]]; then echo "ERROR: 可重复迁移描述 R__$desc 重复：$f 与 ${seen_r[$desc]}"; fail=1; fi
