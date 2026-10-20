@@ -220,10 +220,10 @@ CREATE TABLE pur_purchase_requisition (
 | No | 索引名 | 種別 | 対象列 | 目的 |
 |---|---|---|---|---|
 | 1 | `uk_pur_purchase_requisition_no` | UNIQUE | (`tenant_id`, `company_id`, `pr_no`) | 伝票番号一意 |
-| 2 | `idx_pur_purchase_requisition_status_date` | B-Tree | (`pr_status`, `required_date` DESC) | 状態別一覧・未完了検索 |
-| 3 | `idx_pur_purchase_requisition_dept` | B-Tree | (`department_id`, `pr_status`) | 部門別一覧・データ権限 |
-| 4 | `idx_pur_purchase_requisition_applicant` | B-Tree | (`applicant_id`) | 申請者検索 |
-| 5 | `idx_pur_purchase_requisition_source` | B-Tree | (`source_type`, `source_id`) | MRP 由来自動請購の重複チェック |
+| 2 | `idx_pur_purchase_requisition_status_date` | B-Tree | (`tenant_id`, `company_id`, `pr_status`, `required_date` DESC) | 状態別一覧・未完了検索 |
+| 3 | `idx_pur_purchase_requisition_dept` | B-Tree | (`tenant_id`, `company_id`, `department_id`, `pr_status`) | 部門別一覧・データ権限 |
+| 4 | `idx_pur_purchase_requisition_applicant` | B-Tree | (`tenant_id`, `company_id`, `applicant_id`) | 申請者検索 |
+| 5 | `idx_pur_purchase_requisition_source` | B-Tree | (`tenant_id`, `company_id`, `source_type`, `source_id`) | MRP 由来自動請購の重複チェック |
 
 **制約・整合性**
 
@@ -312,7 +312,7 @@ CREATE TABLE pur_purchase_requisition_line (
 | 18 | `line_status` | 行状态 | SMALLINT | NOT NULL | — | — | 10 | 10/30/35/40/90 |
 | 19 | `line_remark` | 行备注 | VARCHAR(500) | NULL | — | — | NULL | — |
 
-**索引**：`uk_pur_purchase_requisition_line_no`（一意）、`idx_pur_purchase_requisition_line_material`（`material_id`）、`idx_pur_purchase_requisition_line_status`（`line_status`）。
+**索引**：`uk_pur_purchase_requisition_line_no`（一意）、`idx_pur_purchase_requisition_line_material`（`tenant_id`, `company_id`, `material_id`）、`idx_pur_purchase_requisition_line_status`（`tenant_id`, `company_id`, `line_status`）。
 **更新仕様**：INSERT は请购登録・計画変換。UPDATE は `converted_qty`／`line_status`（転単・戻し）。
 
 ---
@@ -383,7 +383,7 @@ CREATE TABLE pur_rfq (
 | 13 | `awarded_at`/`awarded_by` | 中选日時・者 | TIMESTAMPTZ/BIGINT | NULL | `sys_user.id` | — |
 | 14 | `total_award_amount` | 中选金额（税込） | NUMERIC(18,2) | NULL | — | — |
 
-**索引**：`uk_pur_rfq_no`、`idx_pur_rfq_status_deadline`（`rfq_status`, `quote_deadline`）、`idx_pur_rfq_pr`（`purchase_requisition_id`）。
+**索引**：`uk_pur_rfq_no`、`idx_pur_rfq_status_deadline`（`tenant_id`, `company_id`, `rfq_status`, `quote_deadline`）、`idx_pur_rfq_pr`（`tenant_id`, `company_id`, `purchase_requisition_id`）。
 
 ---
 
@@ -448,7 +448,7 @@ CREATE TABLE pur_rfq_line (
 | 10 | `selected_supplier_id` | 中选供应商 | BIGINT | NULL | `mdm_supplier.id` | 中选後 |
 | 11 | `line_status` | 行状态 | SMALLINT | NOT NULL | — | 10/30/35/40/90 |
 
-**索引**：`uk_pur_rfq_line_no`、`idx_pur_rfq_line_material`（`material_id`）、`idx_pur_rfq_line_pr_line`（`purchase_requisition_line_id`）。
+**索引**：`uk_pur_rfq_line_no`、`idx_pur_rfq_line_material`（`tenant_id`, `company_id`, `material_id`）、`idx_pur_rfq_line_pr_line`（`tenant_id`, `company_id`, `purchase_requisition_line_id`）。
 
 ---
 
@@ -498,7 +498,7 @@ CREATE TABLE pur_rfq_supplier (
 | 5 | `sent_at` | 送信日時 | TIMESTAMPTZ | NULL | — | 发出時 |
 | 6 | `response_status` | 回答状態 | SMALLINT | NOT NULL | — | 0 未送信/1 送信済/2 報価済/3 拒否/4 期限切れ |
 
-**索引**：`uk_pur_rfq_supplier`、`idx_pur_rfq_supplier_supplier`（`supplier_id`）。
+**索引**：`uk_pur_rfq_supplier`、`idx_pur_rfq_supplier_supplier`（`tenant_id`, `company_id`, `supplier_id`）。
 
 ---
 
@@ -560,7 +560,7 @@ CREATE TABLE pur_supplier_quotation (
 | 8 | `valid_from`/`valid_to` | 報価有効期間 | DATE | NOT NULL | — | 期限切れは中选不可 |
 | 9 | `total_amount`/`tax_amount`/`total_amount_with_tax` | 合計 | NUMERIC(18,2) | NOT NULL | — | 税抜・税額・税込 |
 
-**索引**：`uk_pur_supplier_quotation`、`idx_pur_supplier_quotation_supplier`（`supplier_id`, `quote_date`）。
+**索引**：`uk_pur_supplier_quotation`、`idx_pur_supplier_quotation_supplier`（`tenant_id`, `company_id`, `supplier_id`, `quote_date`）。
 
 ---
 
@@ -634,7 +634,7 @@ CREATE TABLE pur_supplier_quotation_line (
 | 11 | `is_selected`/`selected_qty`/`selected_reason` | 中选 | BOOLEAN/NUMERIC/VARCHAR | NULL | 行単位 1 社 |
 | 12 | `price_diff_reason` | 価格差異理由 | VARCHAR(500) | NULL | 目安比 > 10% |
 
-**索引**：`uk_pur_supplier_quotation_line`、`idx_pur_supplier_quotation_line_rfq_line`（`rfq_line_id`）、`idx_pur_supplier_quotation_line_selected`（`is_selected`）。
+**索引**：`uk_pur_supplier_quotation_line`、`idx_pur_supplier_quotation_line_rfq_line`（`tenant_id`, `company_id`, `rfq_line_id`）、`idx_pur_supplier_quotation_line_selected`（`tenant_id`, `company_id`, `is_selected`）。
 
 ---
 
@@ -744,10 +744,10 @@ CREATE TABLE pur_purchase_order (
 | No | 索引名 | 種別 | 対象列 | 目的 |
 |---|---|---|---|---|
 | 1 | `uk_pur_purchase_order_no` | UNIQUE | (`tenant_id`, `company_id`, `po_no`) | 伝票番号一意 |
-| 2 | `idx_pur_purchase_order_status_date` | B-Tree | (`po_status`, `order_date` DESC) | 一覧・未完了 |
-| 3 | `idx_pur_purchase_order_supplier` | B-Tree | (`supplier_id`, `po_status`) | 供应商別・対账 |
-| 4 | `idx_pur_purchase_order_buyer` | B-Tree | (`buyer_id`, `po_status`) | 購買担当別 |
-| 5 | `idx_pur_purchase_order_source` | B-Tree | (`source_type`, `source_id`) | 请购・询价由来の追跡 |
+| 2 | `idx_pur_purchase_order_status_date` | B-Tree | (`tenant_id`, `company_id`, `po_status`, `order_date` DESC) | 一覧・未完了 |
+| 3 | `idx_pur_purchase_order_supplier` | B-Tree | (`tenant_id`, `company_id`, `supplier_id`, `po_status`) | 供应商別・対账 |
+| 4 | `idx_pur_purchase_order_buyer` | B-Tree | (`tenant_id`, `company_id`, `buyer_id`, `po_status`) | 購買担当別 |
+| 5 | `idx_pur_purchase_order_source` | B-Tree | (`tenant_id`, `company_id`, `source_type`, `source_id`) | 请购・询价由来の追跡 |
 
 ---
 
@@ -839,7 +839,7 @@ CREATE TABLE pur_purchase_order_line (
 | 14 | `is_batch_managed` | 批次管理 | BOOLEAN | NOT NULL | 收货時批次必須 |
 | 15 | `line_status` | 行状态 | SMALLINT | NOT NULL | 10/30/35/40/90 |
 
-**索引**：`uk_pur_purchase_order_line_no`、`idx_pur_purchase_order_line_material`（`material_id`, `line_status`）、`idx_pur_purchase_order_line_delivery`（`delivery_date`, `line_status`）、`idx_pur_purchase_order_line_pr_line`（`purchase_requisition_line_id`）。
+**索引**：`uk_pur_purchase_order_line_no`、`idx_pur_purchase_order_line_material`（`tenant_id`, `company_id`, `material_id`, `line_status`）、`idx_pur_purchase_order_line_delivery`（`tenant_id`, `company_id`, `delivery_date`, `line_status`）、`idx_pur_purchase_order_line_pr_line`（`tenant_id`, `company_id`, `purchase_requisition_line_id`）。
 
 ---
 
@@ -888,7 +888,7 @@ CREATE TABLE pur_purchase_order_his (
 | 6 | `approval_status`/`approved_at`/`approved_by` | 承認情報 | SMALLINT/TIMESTAMPTZ/BIGINT | NOT NULL/NULL | — |
 | 7 | `changed_at`/`changed_by` | 変更日時・者 | TIMESTAMPTZ/BIGINT | NOT NULL | — |
 
-**索引**：`uk_pur_purchase_order_his`、`idx_pur_purchase_order_his_date`（`changed_at` DESC）。
+**索引**：`uk_pur_purchase_order_his`、`idx_pur_purchase_order_his_date`（`tenant_id`, `company_id`, `changed_at` DESC）。
 
 ### 5.11 pur_receipt（收货单）
 
@@ -955,7 +955,7 @@ CREATE TABLE pur_receipt (
 | 11 | `total_received_amount` | 入荷金額（税抜） | NUMERIC(18,2) | NOT NULL | — | 暂估基準 |
 | 12 | `cancel_reason`/`cancelled_at`/`cancelled_by` | 取消情報 | VARCHAR(500)/TIMESTAMPTZ/BIGINT | NULL | — | E35 発行時 |
 
-**索引**：`uk_pur_receipt_no`、`idx_pur_receipt_status_date`（`receipt_status`, `receipt_date` DESC）、`idx_pur_receipt_po`（`purchase_order_id`）、`idx_pur_receipt_supplier`（`supplier_id`, `receipt_date`）。
+**索引**：`uk_pur_receipt_no`、`idx_pur_receipt_status_date`（`tenant_id`, `company_id`, `receipt_status`, `receipt_date` DESC）、`idx_pur_receipt_po`（`tenant_id`, `company_id`, `purchase_order_id`）、`idx_pur_receipt_supplier`（`tenant_id`, `company_id`, `supplier_id`, `receipt_date`）。
 
 ---
 
@@ -1050,7 +1050,7 @@ CREATE TABLE pur_receipt_line (
 | 14 | `early_flag`/`late_days` | 早入荷・遅延日数 | BOOLEAN/INT | NOT NULL | 绩效連携 |
 | 15 | `disposition` | 不合格処置 | SMALLINT | NULL | 1 返品/2 廃棄/3 換貨/4 選別 |
 
-**索引**：`uk_pur_receipt_line_no`、`idx_pur_receipt_line_po_line`（`purchase_order_line_id`, `inspection_status`）、`idx_pur_receipt_line_material`（`material_id`, `receipt_id`）、`idx_pur_receipt_line_inspection`（`inspection_status`, `stocked_qty`）、`idx_pur_receipt_line_batch`（`batch_no`）。
+**索引**：`uk_pur_receipt_line_no`、`idx_pur_receipt_line_po_line`（`tenant_id`, `company_id`, `purchase_order_line_id`, `inspection_status`）、`idx_pur_receipt_line_material`（`tenant_id`, `company_id`, `material_id`, `receipt_id`）、`idx_pur_receipt_line_inspection`（`tenant_id`, `company_id`, `inspection_status`, `stocked_qty`）、`idx_pur_receipt_line_batch`（`tenant_id`, `company_id`, `batch_no`）。
 
 ---
 
@@ -1128,7 +1128,7 @@ CREATE TABLE pur_return (
 | 11 | `total_amount`/`tax_amount`/`total_amount_with_tax` | 合計 | NUMERIC(18,2) | NOT NULL | 税抜・税額・税込 |
 | 12 | `reason`/`cancel_reason` | 理由 | VARCHAR(500) | NOT NULL/NULL | 取消時必須 |
 
-**索引**：`uk_pur_return_no`、`idx_pur_return_status_date`（`return_status`, `return_date` DESC）、`idx_pur_return_supplier`（`supplier_id`）、`idx_pur_return_credit`（`credit_note_status`, `return_status`）。
+**索引**：`uk_pur_return_no`、`idx_pur_return_status_date`（`tenant_id`, `company_id`, `return_status`, `return_date` DESC）、`idx_pur_return_supplier`（`tenant_id`, `company_id`, `supplier_id`）、`idx_pur_return_credit`（`tenant_id`, `company_id`, `credit_note_status`, `return_status`）。
 
 ---
 
@@ -1199,7 +1199,7 @@ CREATE TABLE pur_return_line (
 | 8 | `replacement_qty`/`replacement_receipt_id` | 換貨 | NUMERIC/BIGINT | NOT NULL/NULL | 補貨 GR |
 | 9 | `invoice_status`/`original_invoice_line_id` | 発票状態・原発票行 | SMALLINT/BIGINT | NOT NULL/NULL | 已開票→紅字 |
 
-**索引**：`uk_pur_return_line_no`、`idx_pur_return_line_receipt_line`（`receipt_line_id`）、`idx_pur_return_line_material`（`material_id`）。
+**索引**：`uk_pur_return_line_no`、`idx_pur_return_line_receipt_line`（`tenant_id`, `company_id`, `receipt_line_id`）、`idx_pur_return_line_material`（`tenant_id`, `company_id`, `material_id`）。
 
 ---
 
@@ -1281,7 +1281,7 @@ CREATE UNIQUE INDEX uk_pur_invoice_number ON pur_invoice
 | 12 | `verified_flag` | 発票査験 | BOOLEAN | NOT NULL | INT 査験連携で自動化（第一版） |
 | 13 | `ap_posted_at`/`ap_posted_by` | 計上日時・者 | TIMESTAMPTZ/BIGINT | NULL | E17 発行時 |
 
-**索引**：`uk_pur_invoice_no`、`uk_pur_invoice_number`、`idx_pur_invoice_match_status`（`matched_status`, `invoice_date` DESC）、`idx_pur_invoice_supplier`（`supplier_id`, `invoice_date`）、`idx_pur_invoice_ap`（`ap_status`, `registration_date`）。
+**索引**：`uk_pur_invoice_no`、`uk_pur_invoice_number`、`idx_pur_invoice_match_status`（`tenant_id`, `company_id`, `matched_status`, `invoice_date` DESC）、`idx_pur_invoice_supplier`（`tenant_id`, `company_id`, `supplier_id`, `invoice_date`）、`idx_pur_invoice_ap`（`tenant_id`, `company_id`, `ap_status`, `registration_date`）。
 
 ---
 
@@ -1349,7 +1349,7 @@ CREATE TABLE pur_invoice_line (
 | 8 | `invoice_amount`/`total_amount` | 税抜金額・税込金額 | NUMERIC(18,2) | NOT NULL | — |
 | 9 | `original_invoice_line_id` | 原発票行 | BIGINT | NULL | 紅字時 |
 
-**索引**：`uk_pur_invoice_line_no`、`idx_pur_invoice_line_po_line`（`purchase_order_line_id`）、`idx_pur_invoice_line_receipt_line`（`receipt_line_id`）、`idx_pur_invoice_line_material`（`material_id`）。
+**索引**：`uk_pur_invoice_line_no`、`idx_pur_invoice_line_po_line`（`tenant_id`, `company_id`, `purchase_order_line_id`）、`idx_pur_invoice_line_receipt_line`（`tenant_id`, `company_id`, `receipt_line_id`）、`idx_pur_invoice_line_material`（`tenant_id`, `company_id`, `material_id`）。
 
 ### 5.17 pur_invoice_match（三单匹配结果）
 
@@ -1434,7 +1434,7 @@ CREATE TABLE pur_invoice_match (
 | 13 | `auto_matched` | 自動匹配 | BOOLEAN | NOT NULL | — |
 | 14 | `approved_by`/`approved_at` | 差異承認 | BIGINT/TIMESTAMPTZ | NULL | — |
 
-**索引**：`uk_pur_invoice_match`、`idx_pur_invoice_match_invoice`（`invoice_id`, `match_status`）、`idx_pur_invoice_match_po_line`（`purchase_order_line_id`）、`idx_pur_invoice_match_status`（`match_status`, `created_at`）、`idx_pur_invoice_match_receipt_line`（`receipt_line_id`）。
+**索引**：`uk_pur_invoice_match`、`idx_pur_invoice_match_invoice`（`tenant_id`, `company_id`, `invoice_id`, `match_status`）、`idx_pur_invoice_match_po_line`（`tenant_id`, `company_id`, `purchase_order_line_id`）、`idx_pur_invoice_match_status`（`tenant_id`, `company_id`, `match_status`, `created_at`）、`idx_pur_invoice_match_receipt_line`（`tenant_id`, `company_id`, `receipt_line_id`）。
 
 ---
 
@@ -1499,7 +1499,7 @@ CREATE TABLE pur_statement (
 | 8 | `statement_status` | 状態 | SMALLINT | NOT NULL | 10/30/40/90 |
 | 9 | `sent_at`/`confirmed_at`/`confirmed_by` | 送付・確認 | TIMESTAMPTZ/BIGINT | NULL | — |
 
-**索引**：`uk_pur_statement_no`、`uk_pur_statement_period`、`idx_pur_statement_status`（`statement_status`, `period_code`）。
+**索引**：`uk_pur_statement_no`、`uk_pur_statement_period`、`idx_pur_statement_status`（`tenant_id`, `company_id`, `statement_status`, `period_code`）。
 
 ---
 
@@ -1551,7 +1551,7 @@ CREATE TABLE pur_statement_line (
 | 5 | `debit_amount`/`credit_amount`/`balance_amount` | 増・減・残 | NUMERIC(18,2) | NOT NULL | 買挂増減 |
 | 6 | `diff_flag`/`diff_reason` | 差異 | BOOLEAN/VARCHAR(500) | NOT NULL/NULL | 差異確認 |
 
-**索引**：`uk_pur_statement_line_no`、`idx_pur_statement_line_source`（`source_type`, `source_id`）。
+**索引**：`uk_pur_statement_line_no`、`idx_pur_statement_line_source`（`tenant_id`, `company_id`, `source_type`, `source_id`）。
 
 ---
 
@@ -1612,7 +1612,7 @@ CREATE UNIQUE INDEX uk_pur_tolerance_rule ON pur_tolerance_rule
 | 8 | `priority` | 優先度 | INT | NOT NULL | 小さいほど優先 |
 | 9 | `is_active` | 有効 | BOOLEAN | NOT NULL | 無効化は false |
 
-**索引**：`uk_pur_tolerance_rule`、`idx_pur_tolerance_rule_lookup`（`company_id`, `rule_type`, `scope_level`, `is_active`, `valid_from`）。
+**索引**：`uk_pur_tolerance_rule`、`idx_pur_tolerance_rule_lookup`（`tenant_id`, `company_id`, `rule_type`, `scope_level`, `is_active`, `valid_from`）。
 
 **既定データ（例）**
 
@@ -1671,7 +1671,7 @@ CREATE TABLE pur_delivery_followup (
 | 7 | `followup_by` | 担当者 | BIGINT | NOT NULL | `sys_user.id` |
 | 8 | `correct_flag` | 訂正フラグ | BOOLEAN | NOT NULL | 追記専用のため訂正は新規行 |
 
-**索引**：`idx_pur_delivery_followup_po_line`（`purchase_order_line_id`, `followup_date` DESC）、`idx_pur_delivery_followup_next`（`next_followup_date`）、`idx_pur_delivery_followup_date`（`followup_date` DESC）。
+**索引**：`idx_pur_delivery_followup_po_line`（`tenant_id`, `company_id`, `purchase_order_line_id`, `followup_date` DESC）、`idx_pur_delivery_followup_next`（`tenant_id`, `company_id`, `next_followup_date`）、`idx_pur_delivery_followup_date`（`tenant_id`, `company_id`, `followup_date` DESC）。
 
 ---
 
@@ -1740,7 +1740,7 @@ CREATE TABLE pur_supplier_performance (
 | 8 | `insufficient_data` | データ不足 | BOOLEAN | NOT NULL | 基準点補完 |
 | 9 | `calc_at`/`confirmed_at`/`confirmed_by`/`adjust_reason` | 計算・確定 | TIMESTAMPTZ/BIGINT/VARCHAR(500) | NOT NULL/NULL | 購買经理確定 |
 
-**索引**：`uk_pur_supplier_performance`、`idx_pur_supplier_performance_supplier`（`supplier_id`, `period_code` DESC）、`idx_pur_supplier_performance_grade`（`period_code`, `grade`）。
+**索引**：`uk_pur_supplier_performance`、`idx_pur_supplier_performance_supplier`（`tenant_id`, `company_id`, `supplier_id`, `period_code` DESC）、`idx_pur_supplier_performance_grade`（`tenant_id`, `company_id`, `period_code`, `grade`）。
 
 ---
 
@@ -1749,14 +1749,14 @@ CREATE TABLE pur_supplier_performance (
 | # | テーブル | 索引名 | 種別 | 対象列 | 目的 |
 |---|---|---|---|---|---|
 | 1 | 全ヘッダ | `uk_*_no` | UNIQUE | (`tenant_id`, `company_id`, 伝票番号) | 伝票番号一意 |
-| 2 | `pur_purchase_order` | `idx_pur_purchase_order_status_date` | B-Tree | (`po_status`, `order_date` DESC) | 未完了 PO 一覧 |
-| 3 | `pur_purchase_order_line` | `idx_pur_purchase_order_line_delivery` | B-Tree | (`delivery_date`, `line_status`) | 交期跟踪・未入荷抽出 |
-| 4 | `pur_receipt_line` | `idx_pur_receipt_line_po_line` | B-Tree | (`purchase_order_line_id`, `inspection_status`) | 三单匹配・待検一覧 |
-| 5 | `pur_invoice_match` | `idx_pur_invoice_match_status` | B-Tree | (`match_status`, `created_at`) | 差異滞留監視（BAT-PUR-004） |
-| 6 | `pur_receipt` | `idx_pur_receipt_status_date` | B-Tree | (`receipt_status`, `receipt_date` DESC) | 收货一覧・月結照合 |
-| 7 | `pur_return` | `idx_pur_return_credit` | B-Tree | (`credit_note_status`, `return_status`) | 紅字待ち抽出 |
+| 2 | `pur_purchase_order` | `idx_pur_purchase_order_status_date` | B-Tree | (`tenant_id`, `company_id`, `po_status`, `order_date` DESC) | 未完了 PO 一覧 |
+| 3 | `pur_purchase_order_line` | `idx_pur_purchase_order_line_delivery` | B-Tree | (`tenant_id`, `company_id`, `delivery_date`, `line_status`) | 交期跟踪・未入荷抽出 |
+| 4 | `pur_receipt_line` | `idx_pur_receipt_line_po_line` | B-Tree | (`tenant_id`, `company_id`, `purchase_order_line_id`, `inspection_status`) | 三单匹配・待検一覧 |
+| 5 | `pur_invoice_match` | `idx_pur_invoice_match_status` | B-Tree | (`tenant_id`, `company_id`, `match_status`, `created_at`) | 差異滞留監視（BAT-PUR-004） |
+| 6 | `pur_receipt` | `idx_pur_receipt_status_date` | B-Tree | (`tenant_id`, `company_id`, `receipt_status`, `receipt_date` DESC) | 收货一覧・月結照合 |
+| 7 | `pur_return` | `idx_pur_return_credit` | B-Tree | (`tenant_id`, `company_id`, `credit_note_status`, `return_status`) | 紅字待ち抽出 |
 | 8 | `pur_statement` | `uk_pur_statement_period` | UNIQUE | (`tenant_id`, `company_id`, `supplier_id`, `period_code`) | 対账重複防止 |
-| 9 | `pur_delivery_followup` | `idx_pur_delivery_followup_next` | B-Tree | (`next_followup_date`) | 日次リマインド |
+| 9 | `pur_delivery_followup` | `idx_pur_delivery_followup_next` | B-Tree | (`tenant_id`, `company_id`, `next_followup_date`) | 日次リマインド |
 | 10 | `pur_supplier_performance` | `uk_pur_supplier_performance` | UNIQUE | (`tenant_id`, `company_id`, `period_code`, `supplier_id`) | 月次 UPSERT |
 | 11 | `pur_invoice` | `uk_pur_invoice_number` | UNIQUE | §5 `pur_invoice` DDL のとおり（`tenant_id`, `company_id` 先頭） | 発票二重登録防止（BR-08） |
 | 12 | `pur_tolerance_rule` | `uk_pur_tolerance_rule` | UNIQUE | (`tenant_id`, `company_id`, `rule_type`, `scope_level`, `scope_id`, `valid_from`) NULLS NOT DISTINCT | 上書き規則重複防止 |
@@ -1864,3 +1864,4 @@ CREATE TABLE pur_supplier_performance (
 | v1.3 | 2026-10-21 | 明細・関連・履歴 12 一意制約を `(tenant_id, …)` 先頭に変更し §6.1 例外を廃止；PO ヘッダに `change_approved_at` 追加；ER 図列名を DDL に統一；`uk_pur_tolerance_rule` を `scope_id` NULLS NOT DISTINCT に変更；`prd_planned_order`→`prd_mrp_plan_order` | 业务分析 |
 | v1.4 | 2026-10-21 | sys/mdm への単列 FK 33 件を複合 FK `(tenant_id, x_id) → (tenant_id, id)` に変更（0707 規約）、§6.1 例外記述を更新、§7 #9 を複合 FK に（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.5 | 2026-10-21 | 明細・関連・履歴 13 表に `company_id BIGINT NOT NULL` を追加、親 ID 先頭の一意制約 12 件を `(tenant_id, company_id, …)` 先頭に変更（§4 一覧・§7 #11 含む）、§6.1 注記削除・例外一覧に `uk_sys_user_username`（`(tenant_id, username)`、テナント単位）を追加（蓝色大肥鱼 2026-10-21 決定）。G2-20：非一意 btree `idx_` も `tenant_id` 先頭（次に `company_id`）、GIN 除外に修正 | 业务分析 |
+| v1.6 | 2026-10-21 | 非一意 btree 索引（`idx_`）35 箇所を `tenant_id` 先頭（`company_id` がある表は次に `company_id`）に変更（DDL・索引一覧。既存迁移の索引は sys/V202610210707 と同一列。GIN は対象外。蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

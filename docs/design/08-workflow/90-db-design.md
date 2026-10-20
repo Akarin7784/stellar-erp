@@ -131,8 +131,8 @@ COMMENT ON TABLE wf_process_definition_ext IS '流程定义扩展（BPMN 定義�
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
 | uk_wf_proc_def_ext | UNIQUE | (tenant_id, company_id, proc_def_id) | WHERE deleted=FALSE | 定義 ID 一意 |
-| idx_wf_proc_def_ext_key | B-Tree | (proc_def_key, proc_def_version DESC) | — | 最新版取得 |
-| idx_wf_proc_def_ext_active | B-Tree | (process_category, is_active) | — | 有効定義一覧 |
+| idx_wf_proc_def_ext_key | B-Tree | (tenant_id, company_id, proc_def_key, proc_def_version DESC) | — | 最新版取得 |
+| idx_wf_proc_def_ext_active | B-Tree | (tenant_id, company_id, process_category, is_active) | — | 有効定義一覧 |
 
 **制約**：同一 `proc_def_key` で `is_default=true` は 1 件（部分一意）。使用中（進行中プロセスあり）の版は削除・無効化不可（`MSG-WF-006`）。
 
@@ -169,7 +169,7 @@ COMMENT ON TABLE wf_business_type IS '业务类型（承認対象の業務種別
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
 | uk_wf_business_type | UNIQUE | (tenant_id, company_id, business_type) | WHERE deleted=FALSE | 業務類型一意 |
-| idx_wf_business_type_module | B-Tree | (module_code, status) | — | モジュール別一覧 |
+| idx_wf_business_type_module | B-Tree | (tenant_id, company_id, module_code, status) | — | モジュール別一覧 |
 
 **制約**：使用中（マッピング・進行中プロセスあり）の削除禁止。`business_type` は作成後変更不可（業務域コードとの整合）。
 
@@ -206,8 +206,8 @@ COMMENT ON TABLE wf_process_mapping IS '流程映射（業務類型→流程定�
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
 | uk_wf_process_mapping_code | UNIQUE | (tenant_id, company_id, mapping_code) | WHERE deleted=FALSE | マッピングコード一意 |
-| idx_wf_process_mapping_bt | B-Tree | (business_type, is_active, priority) | — | 開始時のマッピング解決 |
-| idx_wf_process_mapping_matrix | B-Tree | (approval_matrix_id) | — | マトリクス逆引き |
+| idx_wf_process_mapping_bt | B-Tree | (tenant_id, company_id, business_type, is_active, priority) | — | 開始時のマッピング解決 |
+| idx_wf_process_mapping_matrix | B-Tree | (tenant_id, company_id, approval_matrix_id) | — | マトリクス逆引き |
 
 **制約**：`condition_json` の演算子は `eq/ne/gt/gte/lt/lte/in/between/exists` に限定（アプリ検証 `MSG-WF-052`）。同一 `business_type` 内で「条件なし」行は 1 件のみ。
 
@@ -248,7 +248,7 @@ COMMENT ON TABLE wf_approval_matrix IS '承认マトリクス（金額・条件�
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
 | uk_wf_approval_matrix_code | UNIQUE | (tenant_id, company_id, matrix_code) | WHERE deleted=FALSE | マトリクスコード一意 |
-| idx_wf_approval_matrix_bt | B-Tree | (business_type, is_active, priority) | — | 条件評価 |
+| idx_wf_approval_matrix_bt | B-Tree | (tenant_id, company_id, business_type, is_active, priority) | — | 条件評価 |
 
 **制約**：`amount_min <= amount_max`。同一 `business_type` 内で金額範囲が重複する有効行は警告（`MSG-WF-053`）。金額境界は「下限含む・上限含まず」で評価し、最上位は `amount_max=NULL`（無限）。
 
@@ -283,7 +283,7 @@ COMMENT ON TABLE wf_approval_matrix_line IS '承认マトリクス明細（経�
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
 | uk_wf_approval_matrix_line | UNIQUE | (tenant_id, company_id, matrix_id, line_no) | WHERE deleted=FALSE | 行番号一意 |
-| idx_wf_approval_matrix_line_matrix | B-Tree | (matrix_id) | — | 経路取得 |
+| idx_wf_approval_matrix_line_matrix | B-Tree | (tenant_id, company_id, matrix_id) | — | 経路取得 |
 
 **制約**：`approver_type=1/2/3/6` は `approver_ref` 必須。`node_name` は経路図・履歴に表示する。承認者が解決できない場合、プロセス開始は失敗し `MSG-WF-004`（承認者未設定）。
 
@@ -332,10 +332,10 @@ COMMENT ON TABLE wf_business_process IS '業務流程関連（業務伝票とプ
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
 | uk_wf_business_process | UNIQUE | (tenant_id, company_id, business_type, business_id) | — | 業務×プロセス一意 |
-| idx_wf_business_process_pi | B-Tree | (process_instance_id) | — | プロセス逆引き |
-| idx_wf_business_process_status | B-Tree | (process_status, submit_at DESC) | — | 状態別一覧 |
-| idx_wf_business_process_applicant | B-Tree | (applicant_id, submit_at DESC) | — | 我发起的 |
-| idx_wf_business_process_no | B-Tree | (business_no) | — | 番号検索 |
+| idx_wf_business_process_pi | B-Tree | (tenant_id, company_id, process_instance_id) | — | プロセス逆引き |
+| idx_wf_business_process_status | B-Tree | (tenant_id, company_id, process_status, submit_at DESC) | — | 状態別一覧 |
+| idx_wf_business_process_applicant | B-Tree | (tenant_id, company_id, applicant_id, submit_at DESC) | — | 我发起的 |
+| idx_wf_business_process_no | B-Tree | (tenant_id, company_id, business_no) | — | 番号検索 |
 
 **制約**：承認中（`process_status=20`）の同一業務の再提出は不可（`MSG-WF-073`）。`process_status` は Flowable の完了イベントで更新するが、業務ステータスの更新責任は業務域にある（本列は WF 側の参照用コピー）。
 
@@ -394,10 +394,10 @@ COMMENT ON TABLE wf_task IS '承认タスク拡張（待办一覧の検索用属
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
 | uk_wf_task | UNIQUE | (tenant_id, company_id, task_id) | — | タスク ID 一意 |
-| idx_wf_task_assignee | B-Tree | (assignee_id, task_status, create_at DESC) | WHERE task_status=20 | 待办一覧 |
-| idx_wf_task_pi | B-Tree | (process_instance_id) | — | プロセス別タスク |
-| idx_wf_task_due | B-Tree | (task_status, due_at) | WHERE task_status=20 | 超時検出 |
-| idx_wf_task_business | B-Tree | (business_type, business_id) | — | 業務別タスク |
+| idx_wf_task_assignee | B-Tree | (tenant_id, company_id, assignee_id, task_status, create_at DESC) | WHERE task_status=20 | 待办一覧 |
+| idx_wf_task_pi | B-Tree | (tenant_id, company_id, process_instance_id) | — | プロセス別タスク |
+| idx_wf_task_due | B-Tree | (tenant_id, company_id, task_status, due_at) | WHERE task_status=20 | 超時検出 |
+| idx_wf_task_business | B-Tree | (tenant_id, company_id, business_type, business_id) | — | 業務別タスク |
 
 **制約**：`task_id` は Flowable と 1:1。Flowable 側のタスク削除（プロセス強制終了）時は `task_status=90` に更新する（物理削除しない）。`assignee_id` が NULL のタスク（候補グループ）は、承認者解決時にロールメンバーへ展開して個別タスクを生成する。
 
@@ -439,9 +439,9 @@ COMMENT ON TABLE wf_task_operation IS '承认操作履歴（タイムライン�
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| idx_wf_task_operation_pi | B-Tree | (process_instance_id, occurred_at) | — | 承認経路タイムライン |
-| idx_wf_task_operation_operator | B-Tree | (operator_id, occurred_at DESC) | — | 操作者別履歴 |
-| idx_wf_task_operation_type | B-Tree | (operation_type, occurred_at DESC) | — | 自動承認・強制終了の監査 |
+| idx_wf_task_operation_pi | B-Tree | (tenant_id, company_id, process_instance_id, occurred_at) | — | 承認経路タイムライン |
+| idx_wf_task_operation_operator | B-Tree | (tenant_id, company_id, operator_id, occurred_at DESC) | — | 操作者別履歴 |
+| idx_wf_task_operation_type | B-Tree | (tenant_id, company_id, operation_type, occurred_at DESC) | — | 自動承認・強制終了の監査 |
 
 **制約**：追記専用（UPDATE/DELETE 不可）。`comment` は 驳回（2）・差戻し（3）・强制終了（10）で必須。個人情報・添付内容はコメントに書かない（運用ルール）。
 
@@ -478,7 +478,7 @@ COMMENT ON TABLE wf_cc IS '抄送（参照通知・既読管理）';
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
 | uk_wf_cc | UNIQUE | (tenant_id, company_id, process_instance_id, cc_user_id) | — | 抄送重複防止 |
-| idx_wf_cc_user | B-Tree | (cc_user_id, status, created_at DESC) | — | 抄送我的一覧 |
+| idx_wf_cc_user | B-Tree | (tenant_id, company_id, cc_user_id, status, created_at DESC) | — | 抄送我的一覧 |
 
 ### 3.10 wf_delegation 代理委托
 
@@ -512,9 +512,9 @@ COMMENT ON TABLE wf_delegation IS '代理委托（期間指定の代理承認）
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| idx_wf_delegation_delegator | B-Tree | (delegator_id, status, valid_to DESC) | — | 委任者の有効委任取得 |
-| idx_wf_delegation_delegate | B-Tree | (delegate_id, status, valid_to DESC) | — | 代理人の担当範囲 |
-| idx_wf_delegation_valid | B-Tree | (status, valid_to) | — | 期限切れバッチ |
+| idx_wf_delegation_delegator | B-Tree | (tenant_id, company_id, delegator_id, status, valid_to DESC) | — | 委任者の有効委任取得 |
+| idx_wf_delegation_delegate | B-Tree | (tenant_id, company_id, delegate_id, status, valid_to DESC) | — | 代理人の担当範囲 |
+| idx_wf_delegation_valid | B-Tree | (tenant_id, company_id, status, valid_to) | — | 期限切れバッチ |
 
 **制約**：`valid_from < valid_to`、最大 90 日。`delegator_id ≠ delegate_id`。自己への委任禁止（`MSG-WF-042`）。循環委任（A→B、B→A）禁止。高権限（总经理・财务总监）への委任は承認必須。
 
@@ -558,7 +558,7 @@ COMMENT ON TABLE wf_timeout_rule IS '超时规则（リマインダ・エスカ�
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
 | uk_wf_timeout_rule_code | UNIQUE | (tenant_id, company_id, rule_code) | WHERE deleted=FALSE | ルールコード一意 |
-| idx_wf_timeout_rule_bt | B-Tree | (business_type, node_name, priority) | — | 規則解決 |
+| idx_wf_timeout_rule_bt | B-Tree | (tenant_id, company_id, business_type, node_name, priority) | — | 規則解決 |
 
 **制約**：`reminder_hours < escalate_hours`。`auto_approve=true` の場合は `auto_approve_hours` と `auto_approve_max_amount` 必須。自動承認は「最終承認ノード以外」または「金額上限内」の条件を両方満たす場合のみ実行（安全弁）。
 
@@ -594,8 +594,8 @@ COMMENT ON TABLE wf_timeout_record IS '超时记录（リマインダ・エス�
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| idx_wf_timeout_record_task | B-Tree | (task_id, record_type, occurred_at DESC) | — | タスク別履歴 |
-| idx_wf_timeout_record_time | B-Tree | (occurred_at DESC) | — | 運用監視 |
+| idx_wf_timeout_record_task | B-Tree | (tenant_id, task_id, record_type, occurred_at DESC) | — | タスク別履歴 |
+| idx_wf_timeout_record_time | B-Tree | (tenant_id, occurred_at DESC) | — | 運用監視 |
 
 ### 3.13 wf_form_field_permission 表单字段权限
 
@@ -629,7 +629,7 @@ COMMENT ON TABLE wf_form_field_permission IS '表单字段权限（ノード別�
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
 | uk_wf_form_field_perm | UNIQUE | (tenant_id, company_id, proc_def_key, node_def_key, field_key, apply_role_code) | WHERE deleted=FALSE | ノード×項目×ロール一意 |
-| idx_wf_form_field_perm_node | B-Tree | (proc_def_key, node_def_key) | — | 承認画面の権限解決 |
+| idx_wf_form_field_perm_node | B-Tree | (tenant_id, company_id, proc_def_key, node_def_key) | — | 承認画面の権限解決 |
 
 **制約**：`permission_type=3`（非表示）は API レスポンスからも項目を除外する（フロント制御のみに依存しない）。`field_key` は業務域の DTO 項目名と一致させる（[跨域流程](../00-common/09-cross-domain-flow.md) 9.1 の `formSnapshot` 項目）。
 
@@ -667,7 +667,7 @@ COMMENT ON TABLE wf_process_stat IS '流程统计（KPI スナップショット
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
 | uk_wf_process_stat | UNIQUE | (tenant_id, company_id, stat_date, stat_type, business_type, department_id) | NULLS NOT DISTINCT（`department_id` NULL=全体の重複防止） | 統計単位一意 |
-| idx_wf_process_stat_date | B-Tree | (stat_date DESC, stat_type) | — | 期間別参照 |
+| idx_wf_process_stat_date | B-Tree | (tenant_id, company_id, stat_date DESC, stat_type) | — | 期間別参照 |
 
 ### 3.15 wf_variable 流程変数
 
@@ -696,7 +696,7 @@ COMMENT ON TABLE wf_variable IS '流程変数（業務変数スナップショ�
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
 | uk_wf_variable | UNIQUE | (tenant_id, company_id, process_instance_id) | — | プロセス単位一意 |
-| idx_wf_variable_business | B-Tree | (business_type, business_id) | — | 業務から変数参照 |
+| idx_wf_variable_business | B-Tree | (tenant_id, company_id, business_type, business_id) | — | 業務から変数参照 |
 | gin_wf_variable_ext | GIN | (variables jsonb_path_ops) | — | 変数条件検索（監査・分析） |
 
 **制約**：`variables` は 64KB 以下。金額・日付は文字列（ISO/10 進）で保存し、型は `business_type.snapshot_fields` で定義する。
@@ -737,3 +737,4 @@ COMMENT ON TABLE wf_variable IS '流程変数（業務変数スナップショ�
 | v1.1 | 2026-10-21 | DDL 整備（建迁移前）：唯一索引 12 件を `tenant_id` 先頭（`(tenant_id[, company_id], …)`、`wf_approval_matrix` は `(tenant_id, …)`、L セットの `wf_process_stat` は `(tenant_id, …)`）、T セット（`deleted` なし）の `uk_wf_business_process`/`uk_wf_task`/`uk_wf_cc`/`uk_wf_variable` から `WHERE deleted=FALSE` を削除、`wf_business_process` の重複 `company_id … DEFAULT 1` を削除、RLS 方針を追記（Flowable `ACT_*`/`FLW_*` は対象外）、既存の枚挙注釈どおり CHECK を追加、`wf_task.parent_task_id`（加签の親タスク、域内自己参照 FK）を追加（蓝色大肥鱼 決定） | 业务分析 |
 | v1.2 | 2026-10-21 | `wf_business_process.status` の注釈を伝票状態（10 草稿 / 20 承認中 / 30 承認済 / 40 却下 / 90 撤回、DEFAULT 20 維持）に修正し CHECK `ck_wf_business_process_doc_status` を追加、`wf_task.task_type`（10 通常 / 20 加签 / 30 转办、DEFAULT 10）と CHECK `ck_wf_task_type` を追加（蓝色大肥鱼 決定） | 业务分析 |
 | v1.3 | 2026-10-21 | 評審指摘対応：`wf_task` に `uk_wf_task_tenant_id UNIQUE (tenant_id, id)` を追加し `fk_wf_task_parent` を `(tenant_id, parent_task_id)` 複合 FK に変更、`process_status` に 21 挂起を追加（03 と整合）、Flowable 租户隔離（引擎 `tenantId`、`wf_*` 経由のみ `ACT_*` 参照）を追記、`uk_wf_approval_matrix_code`／`uk_wf_approval_matrix_line` を `(tenant_id, company_id, …)` に、`wf_process_stat` に `company_id` を追加し唯一键を `(tenant_id, company_id, …)` + NULLS NOT DISTINCT に変更 | 业务分析 |
+| v1.4 | 2026-10-21 | 非一意 btree 索引（`idx_`）28 箇所を `tenant_id` 先頭（`company_id` がある表は次に `company_id`）に変更（DDL・索引一覧。既存迁移の索引は sys/V202610210707 と同一列。GIN は対象外。蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

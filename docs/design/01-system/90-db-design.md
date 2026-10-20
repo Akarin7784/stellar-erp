@@ -202,7 +202,7 @@ COMMENT ON TABLE sys_factory_setting IS '工厂组织设置（工厂主数据は
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
 | uk_sys_factory_setting | UNIQUE | (tenant_id, company_id, factory_id) | WHERE deleted=FALSE | 工厂×設定一意 |
-| idx_sys_factory_setting_default | B-Tree | (company_id, is_default) | WHERE is_default AND deleted=FALSE | 既定工厂一意 |
+| idx_sys_factory_setting_default | B-Tree | (tenant_id, company_id, is_default) | WHERE is_default AND deleted=FALSE | 既定工厂一意 |
 
 **更新仕様**：F-SYS-014 のみ。`is_default=true` は会社ごとに 1 件（アプリで保証、部分一意インデックス）。`factory_id` の有効性は MDM の公開 Service（`FactoryService.exists`）で検証する。MDM 側で工場が無効化された場合は本設定も `is_enabled=false` に更新する（起動時の整合性検査 BAT-SYS-010 で検出）。
 
@@ -273,8 +273,8 @@ COMMENT ON TABLE sys_department IS '部门（组织ツリー）';
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
 | uk_sys_department_company_code | UNIQUE | (tenant_id, company_id, department_code) | WHERE deleted=FALSE | 部門コード一意 |
-| idx_sys_department_parent | B-Tree | (parent_id, sort_no) | — | ツリー表示 |
-| idx_sys_department_path | B-Tree | (department_path) | — | 子孫検索（`LIKE '/1/12/%'`） |
+| idx_sys_department_parent | B-Tree | (tenant_id, company_id, parent_id, sort_no) | — | ツリー表示 |
+| idx_sys_department_path | B-Tree | (tenant_id, company_id, department_path) | — | 子孫検索（`LIKE '/1/12/%'`） |
 
 **制約**：`parent_id` は自己参照 FK（`ON DELETE RESTRICT`）。循環参照はアプリで検出（`MSG-SYS-031`）。子部門・所属ユーザ・進行中承認経路がある場合は削除不可。
 
@@ -308,7 +308,7 @@ COMMENT ON TABLE sys_position IS '岗位（職位）';
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
 | uk_sys_position_company_code | UNIQUE | (tenant_id, company_id, position_code) | WHERE deleted=FALSE | 岗位コード一意 |
-| idx_sys_position_department | B-Tree | (department_id, status) | — | 部門別岗位一覧 |
+| idx_sys_position_department | B-Tree | (tenant_id, company_id, department_id, status) | — | 部門別岗位一覧 |
 
 ### 3.6 sys_user 用户
 
@@ -361,9 +361,9 @@ COMMENT ON TABLE sys_user IS '用户（ログインアカウント＋社員属�
 |---|---|---|---|---|
 | uk_sys_user_code | UNIQUE | (tenant_id, company_id, user_code) | WHERE deleted=FALSE | 工号一意 |
 | uk_sys_user_username | UNIQUE | (tenant_id, username) | WHERE deleted=FALSE | ログイン ID 一意。テナント単位の豁免（蓝色大肥鱼 2026-10-21 決定）。※ 現行 DB では `V1__baseline.sql:18` の `uk_sys_user_tenant_username`（租户列の既定値が字面量 0）。sys_user の正式迁移時に本名へ改名し、字面量 0 の既定値を `current_setting('app.tenant_id')::bigint` に修正、pgTAP 豁免に追加する |
-| idx_sys_user_dept_status | B-Tree | (department_id, status) | — | 部門別ユーザ一覧 |
+| idx_sys_user_dept_status | B-Tree | (tenant_id, company_id, department_id, status) | — | 部門別ユーザ一覧 |
 | idx_sys_user_name_trgm | GIN | (real_name gin_trgm_ops) | — | 氏名曖昧検索 |
-| idx_sys_user_mobile | B-Tree | (mobile) | — | 電話番号検索 |
+| idx_sys_user_mobile | B-Tree | (tenant_id, company_id, mobile) | — | 電話番号検索 |
 
 **制約**：`manager_user_id` の循環参照禁止（アプリ）。`is_builtin=true` のアカウントは削除・停用不可（`MSG-SYS-002`）。退職処理時は `status=0`・`account_status=3` とし、進行中タスクは代理者へ転送する（F-WF-007）。
 
@@ -398,7 +398,7 @@ COMMENT ON TABLE sys_role IS '角色（権限集合）';
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
 | uk_sys_role_code | UNIQUE | (tenant_id, company_id, role_code) | WHERE deleted=FALSE | ロールコード一意 |
-| idx_sys_role_status | B-Tree | (status, sort_no) | — | 有効ロール一覧 |
+| idx_sys_role_status | B-Tree | (tenant_id, company_id, status, sort_no) | — | 有効ロール一覧 |
 
 **制約**：`role_type=1`（内置）は `role_code` 変更・削除不可。SoD（職務分掌）チェックは付与時にアプリで実施（[共通业务规则](../00-common/08-common-business-rules.md) 9.2、`MSG-SYS-012` 警告）。
 
@@ -433,7 +433,7 @@ COMMENT ON TABLE sys_user_role IS '用户角色（付与履歴付き）';
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
 | uk_sys_user_role | UNIQUE | (tenant_id, company_id, user_id, role_id, grant_type) | WHERE deleted=FALSE | 重複付与防止 |
-| idx_sys_user_role_role | B-Tree | (role_id, status) | — | ロール別ユーザ一覧 |
+| idx_sys_user_role_role | B-Tree | (tenant_id, company_id, role_id, status) | — | ロール別ユーザ一覧 |
 
 **制約**：有効期間 `valid_from <= valid_to`。期限切れ `valid_to < today` は認可判定時に無効扱い（バッチで `status=0` に更新）。自己付与（`granted_by = user_id`）は禁止（`MSG-SYS-011`）。
 
@@ -464,7 +464,7 @@ COMMENT ON TABLE sys_role_permission IS '角色权限（ロール×メニュー/
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
 | uk_sys_role_permission | UNIQUE | (tenant_id, company_id, role_id, menu_id) | WHERE deleted=FALSE | 重複付与防止 |
-| idx_sys_role_permission_code | B-Tree | (permission_code) | — | 権限コード逆引き（監査用） |
+| idx_sys_role_permission_code | B-Tree | (tenant_id, company_id, permission_code) | — | 権限コード逆引き（監査用） |
 
 **更新仕様**：F-SYS-003 の保存時に「全削除→再登録」（トランザクション内）。権限キャッシュ（Redis）を無効化し、影響ユーザの次回リクエストから反映。
 
@@ -535,7 +535,7 @@ COMMENT ON TABLE sys_user_data_scope IS '用户数据范围（個別上書き。
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
 | uk_sys_user_data_scope | UNIQUE | (tenant_id, company_id, user_id, resource_code) | WHERE deleted=FALSE | リソース単位一意 |
-| idx_sys_user_data_scope_user | B-Tree | (user_id, valid_to) | — | 認可時の有効範囲取得 |
+| idx_sys_user_data_scope_user | B-Tree | (tenant_id, company_id, user_id, valid_to) | — | 認可時の有効範囲取得 |
 
 ### 3.12 sys_menu 菜单/权限
 
@@ -577,8 +577,8 @@ COMMENT ON TABLE sys_menu IS '菜单/权限（メニューツリー＋ボタン�
 |---|---|---|---|---|
 | uk_sys_menu_code | UNIQUE | (tenant_id, menu_code) | WHERE deleted=FALSE | メニューコード一意 |
 | uk_sys_menu_permission | UNIQUE | (tenant_id, permission_code) | WHERE deleted=FALSE AND permission_code IS NOT NULL | 権限コード一意 |
-| idx_sys_menu_parent | B-Tree | (parent_id, sort_no) | — | ツリー表示 |
-| idx_sys_menu_module | B-Tree | (module_code, menu_type) | — | モジュール別一覧 |
+| idx_sys_menu_parent | B-Tree | (tenant_id, company_id, parent_id, sort_no) | — | ツリー表示 |
+| idx_sys_menu_module | B-Tree | (tenant_id, company_id, module_code, menu_type) | — | モジュール別一覧 |
 
 **制約**：`menu_type=3`（ボタン）は `permission_code` 必須。親に `menu_type=1/2`、子に `2/3` の階層ルールをアプリで強制（`MSG-SYS-021`）。メニュー削除時、子メニュー・権限付与がある場合は禁止。
 
@@ -611,7 +611,7 @@ COMMENT ON TABLE sys_dict_type IS '数据字典类型';
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
 | uk_sys_dict_type_code | UNIQUE | (tenant_id, dict_code) | WHERE deleted=FALSE | 字典コード一意 |
-| idx_sys_dict_type_module | B-Tree | (module_code, status) | — | モジュール別一覧 |
+| idx_sys_dict_type_module | B-Tree | (tenant_id, company_id, module_code, status) | — | モジュール別一覧 |
 
 ### 3.14 sys_dict_item 字典项目
 
@@ -645,7 +645,7 @@ COMMENT ON TABLE sys_dict_item IS '数据字典项目';
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
 | uk_sys_dict_item | UNIQUE | (tenant_id, company_id, dict_type_id, item_code) | WHERE deleted=FALSE | 同一字典内コード一意 |
-| idx_sys_dict_item_type | B-Tree | (dict_type_id, status, sort_no) | — | 字典参照（キャッシュ元） |
+| idx_sys_dict_item_type | B-Tree | (tenant_id, company_id, dict_type_id, status, sort_no) | — | 字典参照（キャッシュ元） |
 
 **キャッシュ**：起動時に全件を Caffeine（ローカル、10 分 TTL）へ、Redis（`sys:dict:{dictCode}`、無期限）へロード。更新時は更新 API が Redis を更新し、他ノードへ pub/sub 通知（または TTL 失効）。辞書削除はキャッシュから除去。
 
@@ -741,7 +741,7 @@ COMMENT ON TABLE sys_number_rule IS '编号规则（採番ルール）';
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
 | uk_sys_number_rule_code | UNIQUE | (tenant_id, company_id, rule_code) | WHERE deleted=FALSE | ルールコード一意 |
-| idx_sys_number_rule_status | B-Tree | (status, module_code) | — | 有効ルール一覧 |
+| idx_sys_number_rule_status | B-Tree | (tenant_id, company_id, status, module_code) | — | 有効ルール一覧 |
 
 **制約**：`seq_length` 1〜10。`reset_cycle=1` のとき `date_format` は日を含む形式（`yyMMdd` 等）必須（アプリ検証 `MSG-SYS-051`）。採番実績（`sys_sequence`）が存在する状態での桁数短縮は禁止（欠番・桁溢れ防止）。
 
@@ -820,10 +820,10 @@ COMMENT ON TABLE sys_audit_log IS '操作审计日志（追記専用）';
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| idx_sys_audit_log_time | B-Tree | (occurred_at DESC) | — | 期間検索・アーカイブ |
-| idx_sys_audit_log_user | B-Tree | (user_id, occurred_at DESC) | — | ユーザ別監査 |
-| idx_sys_audit_log_resource | B-Tree | (module_code, resource_code, resource_id) | — | 対象伝票の履歴 |
-| idx_sys_audit_log_type | B-Tree | (operation_type, result, occurred_at DESC) | — | 失敗操作の異常検知 |
+| idx_sys_audit_log_time | B-Tree | (tenant_id, company_id, occurred_at DESC) | — | 期間検索・アーカイブ |
+| idx_sys_audit_log_user | B-Tree | (tenant_id, company_id, user_id, occurred_at DESC) | — | ユーザ別監査 |
+| idx_sys_audit_log_resource | B-Tree | (tenant_id, company_id, module_code, resource_code, resource_id) | — | 対象伝票の履歴 |
+| idx_sys_audit_log_type | B-Tree | (tenant_id, company_id, operation_type, result, occurred_at DESC) | — | 失敗操作の異常検知 |
 
 **更新仕様**：アプリ層の AOP（`@AuditLog`）または共通インターセプタで記録。**重要操作（POST/REVERSE/APPROVE/CLOSE/DELETE 等の更新・状態操作）は業務トランザクションと同一 TX で同期 INSERT し、INSERT 失敗時は業務をロールバックして `MSG-SYS-091` を返す（監査証跡なしの業務完了を禁止）**。参照系・非重要操作のみ非同期キュー（`BlockingQueue`、容量 10,000）→ 100 件 or 1 秒バッチで INSERT し、キュー飽和時は同期 INSERT に切替えて**破棄しない**。同期 INSERT も失敗した場合はローカルファイル（`audit-spool/{yyyyMMdd}.jsonl`）へ退避してアラート（`MSG-SYS-092`）を送信し、起動時のリカバリ処理（`AuditSpoolRecovery`。未投入スプールを検出して再 INSERT）で再投入する（REV-006 対応）。`before_data`/`after_data` は機密項目（パスワード、銀行口座、身份证号）をマスキングしてから保存。監査ログ自体の削除・更新 API は提供しない。
 
@@ -859,9 +859,9 @@ COMMENT ON TABLE sys_login_log IS '登录日志（認証履歴）';
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| idx_sys_login_log_user_time | B-Tree | (username, occurred_at DESC) | — | ユーザ別履歴・ロック判定 |
-| idx_sys_login_log_result | B-Tree | (login_result, occurred_at DESC) | — | 失敗ログ分析 |
-| idx_sys_login_log_ip | B-Tree | (ip_address, occurred_at DESC) | — | 同一 IP からの攻撃検知 |
+| idx_sys_login_log_user_time | B-Tree | (tenant_id, company_id, username, occurred_at DESC) | — | ユーザ別履歴・ロック判定 |
+| idx_sys_login_log_result | B-Tree | (tenant_id, company_id, login_result, occurred_at DESC) | — | 失敗ログ分析 |
+| idx_sys_login_log_ip | B-Tree | (tenant_id, company_id, ip_address, occurred_at DESC) | — | 同一 IP からの攻撃検知 |
 
 **更新仕様**：ログイン API 内で同期 INSERT（成否とも）。成功時は `sys_user.last_login_at/last_login_ip/login_fail_count=0` を更新。失敗時は `login_fail_count+1`、5 回で `account_status=2`・`lock_until=now()+30 分`。
 
@@ -890,7 +890,7 @@ COMMENT ON TABLE sys_user_password_history IS '密码历史（再利用禁止判
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| idx_sys_user_password_history_user | B-Tree | (user_id, created_at DESC) | — | 直近 5 代取得 |
+| idx_sys_user_password_history_user | B-Tree | (tenant_id, user_id, created_at DESC) | — | 直近 5 代取得 |
 
 ### 3.21 sys_attachment 附件
 
@@ -928,9 +928,9 @@ COMMENT ON TABLE sys_attachment IS '附件（ファイルメタ情報）';
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
 | uk_sys_attachment_no | UNIQUE | (tenant_id, company_id, attachment_no) | WHERE deleted=FALSE | 附件番号一意 |
-| idx_sys_attachment_sha | B-Tree | (sha256) | — | 同一ファイル検出（重複排除） |
-| idx_sys_attachment_user | B-Tree | (upload_user_id, created_at DESC) | — | マイ附件一覧 |
-| idx_sys_attachment_expire | B-Tree | (expire_at) | WHERE expire_at IS NOT NULL | 一時ファイル清理 |
+| idx_sys_attachment_sha | B-Tree | (tenant_id, company_id, sha256) | — | 同一ファイル検出（重複排除） |
+| idx_sys_attachment_user | B-Tree | (tenant_id, company_id, upload_user_id, created_at DESC) | — | マイ附件一覧 |
+| idx_sys_attachment_expire | B-Tree | (tenant_id, company_id, expire_at) | WHERE expire_at IS NOT NULL | 一時ファイル清理 |
 
 **制約**：1 ファイル 20MB 以下（`sys_param: file.max-size-mb`）、許可拡張子は [共通项目定义](../00-common/01-common-item-definitions.md) 第 9 章。アップロード時に拡張子・サイズ・MIME を検証し、SHA-256 を計算。保存失敗時は実体ファイルを削除。
 
@@ -962,7 +962,7 @@ COMMENT ON TABLE sys_attachment_biz IS '附件业务关联（業務×附件）';
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
 | uk_sys_attachment_biz | UNIQUE | (tenant_id, company_id, attachment_id, biz_type, biz_id) | WHERE deleted=FALSE | 重複紐付け防止 |
-| idx_sys_attachment_biz | B-Tree | (biz_type, biz_id, sort_no) | — | 業務詳細の添付一覧 |
+| idx_sys_attachment_biz | B-Tree | (tenant_id, company_id, biz_type, biz_id, sort_no) | — | 業務詳細の添付一覧 |
 
 **制約**：1 業務 20 ファイル・合計 100MB 以下（`sys_param` で変更可）。業務データ削除（取消）時も添付は保持し、参照のみ不可とする。
 
@@ -1001,9 +1001,9 @@ COMMENT ON TABLE sys_notification IS '站内通知（通知本体）';
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
 | uk_sys_notification_no | UNIQUE | (tenant_id, company_id, notification_no) | — | 通知番号一意 |
-| idx_sys_notification_scene | B-Tree | (biz_scene, created_at DESC) | — | シーン別監視 |
-| idx_sys_notification_status | B-Tree | (send_status, created_at) | — | 再送対象抽出 |
-| idx_sys_notification_expire | B-Tree | (expire_at) | WHERE expire_at IS NOT NULL | 期限切れ清理 |
+| idx_sys_notification_scene | B-Tree | (tenant_id, company_id, biz_scene, created_at DESC) | — | シーン別監視 |
+| idx_sys_notification_status | B-Tree | (tenant_id, company_id, send_status, created_at) | — | 再送対象抽出 |
+| idx_sys_notification_expire | B-Tree | (tenant_id, company_id, expire_at) | WHERE expire_at IS NOT NULL | 期限切れ清理 |
 
 ### 3.24 sys_notification_receiver 通知受信者
 
@@ -1033,7 +1033,7 @@ COMMENT ON TABLE sys_notification_receiver IS '通知受信者（既読管理）
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
 | uk_sys_notification_receiver | UNIQUE | (tenant_id, company_id, notification_id, receiver_user_id) | — | 受信者重複防止 |
-| idx_sys_notification_receiver_inbox | B-Tree | (receiver_user_id, status, created_at DESC) | — | 受信箱一覧 |
+| idx_sys_notification_receiver_inbox | B-Tree | (tenant_id, company_id, receiver_user_id, status, created_at DESC) | — | 受信箱一覧 |
 
 **更新仕様**：通知作成時に受信者を一括 INSERT。既読 API は `read_flag=true`・`read_at`・`status=1` を更新。ユーザ削除（退職）時も受信者レコードは保持（1 年で清理）。
 
@@ -1072,7 +1072,7 @@ COMMENT ON TABLE sys_notification_template IS '通知模板（站内/邮件/短�
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
 | uk_sys_notification_template | UNIQUE | (tenant_id, company_id, template_code, channel_type, version_no) | WHERE deleted=FALSE | テンプレート×渠道×版数一意 |
-| idx_sys_notification_template_scene | B-Tree | (biz_scene, channel_type, status) | — | シーン別有効テンプレート取得 |
+| idx_sys_notification_template_scene | B-Tree | (tenant_id, company_id, biz_scene, channel_type, status) | — | シーン別有効テンプレート取得 |
 
 **制約**：`title_template`/`content_template` のプレースホルダ（`{n}`）は `variables_schema` の件数と一致（アプリ検証 `MSG-SYS-061`）。使用中テンプレートの削除禁止（無効化で対応）。
 
@@ -1108,8 +1108,8 @@ COMMENT ON TABLE sys_notification_send_log IS '通知发送日志（外部渠道
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| idx_sys_notification_send_log_retry | B-Tree | (send_status, next_retry_at) | WHERE send_status IN (0,3) | 再送対象抽出 |
-| idx_sys_notification_send_log_user | B-Tree | (receiver_user_id, created_at DESC) | — | ユーザ別送信履歴 |
+| idx_sys_notification_send_log_retry | B-Tree | (tenant_id, send_status, next_retry_at) | WHERE send_status IN (0,3) | 再送対象抽出 |
+| idx_sys_notification_send_log_user | B-Tree | (tenant_id, receiver_user_id, created_at DESC) | — | ユーザ別送信履歴 |
 
 **更新仕様**：BAT-SYS-005（1 分間隔）が `send_status IN (0,3) AND next_retry_at <= now()` を抽出して再送。最大 5 回、指数バックオフ（1 分/5 分/30 分/2 時間/6 時間）。最終失敗時は `sys_notification.send_status=4` とし、運用担当へアラート。
 
@@ -1154,9 +1154,9 @@ COMMENT ON TABLE sys_import_export_job IS '导入导出任务（非同期ジョ�
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
 | uk_sys_import_export_job_no | UNIQUE | (tenant_id, company_id, job_no) | — | 任务番号一意 |
-| idx_sys_import_export_job_user | B-Tree | (created_by, created_at DESC) | — | 自分のジョブ一覧 |
-| idx_sys_import_export_job_status | B-Tree | (job_status, created_at) | — | 実行待ち抽出・多重起動防止 |
-| idx_sys_import_export_job_expire | B-Tree | (expire_at) | WHERE expire_at IS NOT NULL | ファイル清理 |
+| idx_sys_import_export_job_user | B-Tree | (tenant_id, company_id, created_by, created_at DESC) | — | 自分のジョブ一覧 |
+| idx_sys_import_export_job_status | B-Tree | (tenant_id, company_id, job_status, created_at) | — | 実行待ち抽出・多重起動防止 |
+| idx_sys_import_export_job_expire | B-Tree | (tenant_id, company_id, expire_at) | WHERE expire_at IS NOT NULL | ファイル清理 |
 
 **制約**：同時実行上限は 1 ユーザ 3 ジョブ・全体 10 ジョブ（`sys_param: job.max-concurrent`）。状態遷移は `0→1→2/3/5`、`1→4`（キャンセル）。完了後の再実行は不可（新規ジョブ）。
 
@@ -1187,7 +1187,7 @@ COMMENT ON TABLE sys_import_export_error IS '导入错误行（行単位エラ�
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| idx_sys_import_export_error_job | B-Tree | (job_id, row_no) | — | ジョブ詳細・エラー報告出力 |
+| idx_sys_import_export_error_job | B-Tree | (tenant_id, job_id, row_no) | — | ジョブ詳細・エラー報告出力 |
 
 ### 3.29 sys_import_template 导入模板
 
@@ -1222,7 +1222,7 @@ COMMENT ON TABLE sys_import_template IS '导入模板（Excel テンプレート
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
 | uk_sys_import_template_code | UNIQUE | (tenant_id, company_id, template_code, version_no) | WHERE deleted=FALSE | 模板×版数一意 |
-| idx_sys_import_template_biz | B-Tree | (module_code, biz_type, status) | — | 業務別テンプレート取得 |
+| idx_sys_import_template_biz | B-Tree | (tenant_id, company_id, module_code, biz_type, status) | — | 業務別テンプレート取得 |
 
 ### 3.30 sys_print_template 打印模板
 
@@ -1261,7 +1261,7 @@ COMMENT ON TABLE sys_print_template IS '打印模板（帳票レイアウト）'
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
 | uk_sys_print_template | UNIQUE | (tenant_id, company_id, template_code, version_no) | WHERE deleted=FALSE | 模板×版数一意 |
-| idx_sys_print_template_report | B-Tree | (report_id, is_default, status) | — | 帳票の既定テンプレート取得 |
+| idx_sys_print_template_report | B-Tree | (tenant_id, company_id, report_id, is_default, status) | — | 帳票の既定テンプレート取得 |
 
 ### 3.31 sys_print_log 打印日志
 
@@ -1294,8 +1294,8 @@ COMMENT ON TABLE sys_print_log IS '打印日志（帳票出力履歴）';
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| idx_sys_print_log_biz | B-Tree | (biz_type, biz_id, occurred_at DESC) | — | 伝票別出力履歴 |
-| idx_sys_print_log_user | B-Tree | (printer_user_id, occurred_at DESC) | — | ユーザ別履歴 |
+| idx_sys_print_log_biz | B-Tree | (tenant_id, company_id, biz_type, biz_id, occurred_at DESC) | — | 伝票別出力履歴 |
+| idx_sys_print_log_user | B-Tree | (tenant_id, company_id, printer_user_id, occurred_at DESC) | — | ユーザ別履歴 |
 
 ### 3.32 sys_scheduled_job 定时任务定义
 
@@ -1336,7 +1336,7 @@ COMMENT ON TABLE sys_scheduled_job IS '定时任务定义';
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
 | uk_sys_scheduled_job_code | UNIQUE | (tenant_id, company_id, job_code) | WHERE deleted=FALSE | ジョブコード一意 |
-| idx_sys_scheduled_job_status | B-Tree | (status, next_run_at) | — | スケジューラ起動時のロード |
+| idx_sys_scheduled_job_status | B-Tree | (tenant_id, company_id, status, next_run_at) | — | スケジューラ起動時のロード |
 
 **制約**：`schedule_type=1` は `cron_expression` 必須、`=2` は `fixed_interval_ms` 必須。`job_code` はバッチ ID（`BAT-{DOM}-{3桁}`）と一致させる。
 
@@ -1370,9 +1370,9 @@ COMMENT ON TABLE sys_scheduled_job_log IS '定时任务日志（実行履歴）'
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| idx_sys_scheduled_job_log_job | B-Tree | (job_id, start_at DESC) | — | ジョブ別実行履歴 |
-| idx_sys_scheduled_job_log_result | B-Tree | (execute_result, start_at DESC) | — | 失敗ジョブ抽出 |
-| idx_sys_scheduled_job_log_running | B-Tree | (job_id, end_at) | WHERE end_at IS NULL | 実行中判定・多重起動防止 |
+| idx_sys_scheduled_job_log_job | B-Tree | (tenant_id, job_id, start_at DESC) | — | ジョブ別実行履歴 |
+| idx_sys_scheduled_job_log_result | B-Tree | (tenant_id, execute_result, start_at DESC) | — | 失敗ジョブ抽出 |
+| idx_sys_scheduled_job_log_running | B-Tree | (tenant_id, job_id, end_at) | WHERE end_at IS NULL | 実行中判定・多重起動防止 |
 
 **多重起動防止**：`allow_concurrent=false` の場合、開始前に `SELECT ... FROM sys_scheduled_job_log WHERE job_id=? AND end_at IS NULL FOR UPDATE` で実行中を検出し、存在すれば `execute_result=2`（スキップ）で記録。
 
@@ -1410,8 +1410,8 @@ COMMENT ON TABLE sys_outbox_event IS 'Outbox 事件（ドメインイベント�
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
 | uk_sys_outbox_event_id | UNIQUE | (tenant_id, event_id) | — | イベント冪等 |
-| idx_sys_outbox_event_pending | B-Tree | (status, next_retry_at) | — | 配信対象抽出 |
-| idx_sys_outbox_event_type | B-Tree | (event_type, occurred_at DESC) | — | イベント監視 |
+| idx_sys_outbox_event_pending | B-Tree | (tenant_id, company_id, status, next_retry_at) | — | 配信対象抽出 |
+| idx_sys_outbox_event_type | B-Tree | (tenant_id, company_id, event_type, occurred_at DESC) | — | イベント監視 |
 
 **配信仕様**：BAT-SYS-001 が `status IN (0,2) AND (next_retry_at IS NULL OR next_retry_at <= now())` を 100 件取得 → `SELECT ... FOR UPDATE SKIP LOCKED` → 配信 → 成功 `status=1`、失敗 `retry_count+1`・指数バックオフ（1 分/5 分/30 分/2 時間/6 時間、最大 10 回）→ 10 回失敗で `status=9` + アラート。
 
@@ -1444,7 +1444,7 @@ COMMENT ON TABLE sys_event_consume_log IS '事件消费日志（冪等重複排�
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
 | uk_sys_event_consume_log | UNIQUE | (tenant_id, event_id, consumer_name) | — | 二重消費防止 |
-| idx_sys_event_consume_log_type | B-Tree | (event_type, consumed_at DESC) | — | 消費状況監視 |
+| idx_sys_event_consume_log_type | B-Tree | (tenant_id, event_type, consumed_at DESC) | — | 消費状況監視 |
 
 ### 3.36 sys_idempotency 幂等键
 
@@ -1476,7 +1476,7 @@ COMMENT ON TABLE sys_idempotency IS '幂等键（Idempotency-Key 管理）';
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
 | uk_sys_idempotency_key | UNIQUE | (tenant_id, idempotency_key) | — | キー一意 |
-| idx_sys_idempotency_expire | B-Tree | (expires_at) | — | 期限切れ削除 |
+| idx_sys_idempotency_expire | B-Tree | (tenant_id, company_id, expires_at) | — | 期限切れ削除 |
 
 **制約**：同一キーで `process_status=0`（処理中）は `409 + code=4005`。`request_hash` が異なる同一キーは `400` で拒否（キー使い回し検出）。
 
@@ -1542,8 +1542,8 @@ COMMENT ON TABLE sys_data_maintenance_log IS '数据维护历史（初期化・�
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| idx_sys_data_maintenance_log_type | B-Tree | (maintenance_type, start_at DESC) | — | 種別別履歴 |
-| idx_sys_data_maintenance_log_operator | B-Tree | (operator_id, start_at DESC) | — | 実行者別履歴 |
+| idx_sys_data_maintenance_log_type | B-Tree | (tenant_id, maintenance_type, start_at DESC) | — | 種別別履歴 |
+| idx_sys_data_maintenance_log_operator | B-Tree | (tenant_id, operator_id, start_at DESC) | — | 実行者別履歴 |
 
 ## 4. インデックス一覧（横断）
 
@@ -1604,3 +1604,4 @@ COMMENT ON TABLE sys_data_maintenance_log IS '数据维护历史（初期化・�
 | v1.4 | 2026-10-21 | sys 一意索引 23 件を 0708 に合わせ `(tenant_id, company_id, …)` 先頭に変更、豁免 7 件（company/menu/dict_type/outbox/idempotency）は `(tenant_id, …)`（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.5 | 2026-10-21 | `uk_sys_user_username` を `(tenant_id, username)` に戻しテナント単位の豁免とする（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.6 | 2026-10-21 | `uk_sys_user_username (tenant_id, username)` を目標名として記載、現行 `V1__baseline.sql:18` `uk_sys_user_tenant_username` からの改名・租户既定値（字面量 0）の修正・pgTAP 豁免は sys_user 正式迁移時と注記（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.7 | 2026-10-21 | 非一意 btree 索引（`idx_`）52 箇所を `tenant_id` 先頭（`company_id` がある表は次に `company_id`）に変更（DDL・索引一覧。既存迁移の索引は sys/V202610210707 と同一列。GIN は対象外。蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

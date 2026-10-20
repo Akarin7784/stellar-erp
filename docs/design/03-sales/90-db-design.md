@@ -171,9 +171,9 @@ CREATE TABLE sal_inquiry (
 | 索引 | 種別 | 対象列 | 目的 |
 |---|---|---|---|
 | `uk_sal_inquiry_no` | UNIQUE | (`tenant_id`, `company_id`, `inquiry_no`) | 引合番號一意 |
-| `idx_sal_inquiry_customer` | B-Tree | (`customer_id`, `inquiry_date` DESC) | 顧客別照会 |
-| `idx_sal_inquiry_owner_status` | B-Tree | (`owner_user_id`, `inquiry_status`) | 擔當者別一覧 |
-| `idx_sal_inquiry_date` | B-Tree | (`inquiry_date` DESC) | 日付検索 |
+| `idx_sal_inquiry_customer` | B-Tree | (`tenant_id`, `company_id`, `customer_id`, `inquiry_date` DESC) | 顧客別照会 |
+| `idx_sal_inquiry_owner_status` | B-Tree | (`tenant_id`, `company_id`, `owner_user_id`, `inquiry_status`) | 擔當者別一覧 |
+| `idx_sal_inquiry_date` | B-Tree | (`tenant_id`, `company_id`, `inquiry_date` DESC) | 日付検索 |
 
 制約：`inquiry_status IN (10,30,40,90)`、`inquiry_date <= CURRENT_DATE`。
 
@@ -209,7 +209,7 @@ CREATE TABLE sal_inquiry_line (
 | 索引 | 種別 | 対象列 | 目的 |
 |---|---|---|---|
 | `uk_sal_inquiry_line_no` | UNIQUE | (`tenant_id`, `company_id`, `inquiry_id`, `line_no`) | 行番號一意 |
-| `idx_sal_inquiry_line_material` | B-Tree | (`material_id`) | 物料別照会 |
+| `idx_sal_inquiry_line_material` | B-Tree | (`tenant_id`, `company_id`, `material_id`) | 物料別照会 |
 
 ### 3.3 `sal_quotation`（报价单）
 
@@ -262,10 +262,10 @@ CREATE TABLE sal_quotation (
 | 索引 | 種別 | 対象列 | 目的 |
 |---|---|---|---|
 | `uk_sal_quotation_no` | UNIQUE | (`tenant_id`, `company_id`, `quotation_no`) | 見積番號一意 |
-| `idx_sal_quotation_status_valid` | B-Tree | (`quotation_status`, `valid_to`) | 失効バッチ・有効検索 |
-| `idx_sal_quotation_customer` | B-Tree | (`customer_id`, `issue_date` DESC) | 顧客別照会 |
-| `idx_sal_quotation_owner` | B-Tree | (`owner_user_id`, `quotation_status`) | 擔當者別 |
-| `idx_sal_quotation_inquiry` | B-Tree | (`inquiry_id`) | 引合連携 |
+| `idx_sal_quotation_status_valid` | B-Tree | (`tenant_id`, `company_id`, `quotation_status`, `valid_to`) | 失効バッチ・有効検索 |
+| `idx_sal_quotation_customer` | B-Tree | (`tenant_id`, `company_id`, `customer_id`, `issue_date` DESC) | 顧客別照会 |
+| `idx_sal_quotation_owner` | B-Tree | (`tenant_id`, `company_id`, `owner_user_id`, `quotation_status`) | 擔當者別 |
+| `idx_sal_quotation_inquiry` | B-Tree | (`tenant_id`, `company_id`, `inquiry_id`) | 引合連携 |
 
 制約：`quotation_status IN (10,25,30,35,90,95)`、`valid_from <= valid_to`、`revision_no >= 1`。
 
@@ -313,7 +313,7 @@ CREATE TABLE sal_quotation_line (
 | 索引 | 種別 | 対象列 | 目的 |
 |---|---|---|---|
 | `uk_sal_quotation_line_no` | UNIQUE | (`tenant_id`, `company_id`, `quotation_id`, `line_no`) | 行番號一意 |
-| `idx_sal_quotation_line_material` | B-Tree | (`material_id`) | 物料別 |
+| `idx_sal_quotation_line_material` | B-Tree | (`tenant_id`, `company_id`, `material_id`) | 物料別 |
 
 ### 3.5 `sal_quotation_version`（报价单版本）
 
@@ -426,10 +426,10 @@ CREATE TABLE sal_sales_order (
 | 索引 | 種別 | 対象列 | 目的 |
 |---|---|---|---|
 | `uk_sal_sales_order_no` | UNIQUE | (`tenant_id`, `company_id`, `sales_order_no`) | 引合番號一意 |
-| `idx_sal_sales_order_status_date` | B-Tree | (`order_status`, `order_date` DESC) | 一覧・追蹤 |
-| `idx_sal_sales_order_customer` | B-Tree | (`customer_id`, `order_date` DESC) | 顧客別 |
-| `idx_sal_sales_order_owner` | B-Tree | (`owner_user_id`, `order_status`) | 擔當者別 |
-| `idx_sal_sales_order_delivery` | B-Tree | (`delivery_date`, `order_status`) | 納期遅延検出 |
+| `idx_sal_sales_order_status_date` | B-Tree | (`tenant_id`, `company_id`, `order_status`, `order_date` DESC) | 一覧・追蹤 |
+| `idx_sal_sales_order_customer` | B-Tree | (`tenant_id`, `company_id`, `customer_id`, `order_date` DESC) | 顧客別 |
+| `idx_sal_sales_order_owner` | B-Tree | (`tenant_id`, `company_id`, `owner_user_id`, `order_status`) | 擔當者別 |
+| `idx_sal_sales_order_delivery` | B-Tree | (`tenant_id`, `company_id`, `delivery_date`, `order_status`) | 納期遅延検出 |
 | `uk_sal_sales_order_source` | UNIQUE | (`tenant_id`, `company_id`, `source_type`, `source_id`) WHERE `source_id` IS NOT NULL | 受注転換の二重作成防止 |
 
 ### 3.7 `sal_sales_order_line`（销售订单明细）
@@ -499,9 +499,9 @@ CREATE TABLE sal_sales_order_line (
 | 索引 | 種別 | 対象列 | 目的 |
 |---|---|---|---|
 | `uk_sal_sales_order_line_no` | UNIQUE | (`tenant_id`, `company_id`, `sales_order_id`, `line_no`) | 行番號一意（安定キー） |
-| `idx_sal_sales_order_line_status` | B-Tree | (`line_status`, `delivery_date`) | 追蹤・遅延検出 |
-| `idx_sal_sales_order_line_material` | B-Tree | (`material_id`, `delivery_date`) | 物料別引當整理 |
-| `idx_sal_sales_order_line_open` | B-Tree | (`sales_order_id`) WHERE `line_status IN (10,30,35)` | 未完了明細 |
+| `idx_sal_sales_order_line_status` | B-Tree | (`tenant_id`, `company_id`, `line_status`, `delivery_date`) | 追蹤・遅延検出 |
+| `idx_sal_sales_order_line_material` | B-Tree | (`tenant_id`, `company_id`, `material_id`, `delivery_date`) | 物料別引當整理 |
+| `idx_sal_sales_order_line_open` | B-Tree | (`tenant_id`, `company_id`, `sales_order_id`) WHERE `line_status IN (10,30,35)` | 未完了明細 |
 
 **数量・単位（2026-10-20 決定）**：
 
@@ -544,7 +544,7 @@ CREATE TABLE sal_sales_order_version (
     CONSTRAINT fk_sal_sales_order_version_o FOREIGN KEY (sales_order_id) REFERENCES sal_sales_order (id)
 );
 CREATE UNIQUE INDEX uk_sal_sales_order_version_no ON sal_sales_order_version (tenant_id, company_id, sales_order_id, version_no);
-CREATE INDEX idx_sal_sales_order_version_status ON sal_sales_order_version (change_status, requested_at DESC);
+CREATE INDEX idx_sal_sales_order_version_status ON sal_sales_order_version (tenant_id, company_id, change_status, requested_at DESC);
 ```
 
 ### 3.9 `sal_sales_order_line_version`（销售订单明细版本）
@@ -577,7 +577,7 @@ CREATE TABLE sal_sales_order_line_version (
     CONSTRAINT pk_sal_sales_order_line_version PRIMARY KEY (id),
     CONSTRAINT fk_sal_sales_order_line_version_v FOREIGN KEY (sales_order_id) REFERENCES sal_sales_order (id)
 );
-CREATE INDEX idx_sal_so_line_version ON sal_sales_order_line_version (sales_order_id, version_no, line_no);
+CREATE INDEX idx_sal_so_line_version ON sal_sales_order_line_version (tenant_id, company_id, sales_order_id, version_no, line_no);
 ```
 
 ### 3.10 `sal_delivery_note`（发货通知）
@@ -626,9 +626,9 @@ CREATE TABLE sal_delivery_note (
 | 索引 | 種別 | 対象列 | 目的 |
 |---|---|---|---|
 | `uk_sal_delivery_note_no` | UNIQUE | (`tenant_id`, `company_id`, `delivery_no`) | DN 番號一意 |
-| `idx_sal_delivery_note_status_date` | B-Tree | (`delivery_status`, `delivery_date` DESC) | 一覧・未出荷 |
-| `idx_sal_delivery_note_order` | B-Tree | (`sales_order_id`) | 受注別 |
-| `idx_sal_delivery_note_customer` | B-Tree | (`customer_id`, `delivery_date` DESC) | 顧客別 |
+| `idx_sal_delivery_note_status_date` | B-Tree | (`tenant_id`, `company_id`, `delivery_status`, `delivery_date` DESC) | 一覧・未出荷 |
+| `idx_sal_delivery_note_order` | B-Tree | (`tenant_id`, `company_id`, `sales_order_id`) | 受注別 |
+| `idx_sal_delivery_note_customer` | B-Tree | (`tenant_id`, `company_id`, `customer_id`, `delivery_date` DESC) | 顧客別 |
 
 ### 3.11 `sal_delivery_note_line`（发货通知明细）
 
@@ -679,8 +679,8 @@ CREATE TABLE sal_delivery_note_line (
 | 索引 | 種別 | 対象列 | 目的 |
 |---|---|---|---|
 | `uk_sal_dn_line_no` | UNIQUE | (`tenant_id`, `company_id`, `delivery_note_id`, `line_no`) | 行番號一意 |
-| `idx_sal_dn_line_order_line` | B-Tree | (`sales_order_line_id`) | 受注明細別の出荷集計 |
-| `idx_sal_dn_line_material` | B-Tree | (`material_id`) | 物料別 |
+| `idx_sal_dn_line_order_line` | B-Tree | (`tenant_id`, `company_id`, `sales_order_line_id`) | 受注明細別の出荷集計 |
+| `idx_sal_dn_line_material` | B-Tree | (`tenant_id`, `company_id`, `material_id`) | 物料別 |
 
 ### 3.12 `sal_pick_detail`（拣货明细）
 
@@ -713,8 +713,8 @@ CREATE TABLE sal_pick_detail (
     CONSTRAINT fk_sal_pick_detail_dn_line FOREIGN KEY (delivery_note_line_id) REFERENCES sal_delivery_note_line (id),
     CONSTRAINT ck_sal_pick_detail_qty CHECK (pick_qty > 0)
 );
-CREATE INDEX idx_sal_pick_detail_line ON sal_pick_detail (delivery_note_line_id, pick_seq);
-CREATE INDEX idx_sal_pick_detail_batch ON sal_pick_detail (material_id, batch_no);
+CREATE INDEX idx_sal_pick_detail_line ON sal_pick_detail (tenant_id, company_id, delivery_note_line_id, pick_seq);
+CREATE INDEX idx_sal_pick_detail_batch ON sal_pick_detail (tenant_id, company_id, material_id, batch_no);
 ```
 
 ### 3.13 `sal_delivery_serial`（发货序列号）
@@ -743,7 +743,7 @@ CREATE TABLE sal_delivery_serial (
     CONSTRAINT fk_sal_delivery_serial_line FOREIGN KEY (delivery_note_line_id) REFERENCES sal_delivery_note_line (id)
 );
 CREATE UNIQUE INDEX uk_sal_delivery_serial_line ON sal_delivery_serial (tenant_id, company_id, delivery_note_line_id, serial_no);
-CREATE INDEX idx_sal_delivery_serial_no ON sal_delivery_serial (material_id, serial_no);
+CREATE INDEX idx_sal_delivery_serial_no ON sal_delivery_serial (tenant_id, company_id, material_id, serial_no);
 ```
 
 ### 3.14 `sal_sales_return`（销售退货单）
@@ -795,9 +795,9 @@ CREATE TABLE sal_sales_return (
     CONSTRAINT ck_sal_sales_return_status CHECK (return_status IN (10,20,25,30,40,90,95))
 );
 CREATE UNIQUE INDEX uk_sal_sales_return_no ON sal_sales_return (tenant_id, company_id, return_no);
-CREATE INDEX idx_sal_sales_return_deadline ON sal_sales_return (return_status, return_deadline_date);
-CREATE INDEX idx_sal_sales_return_customer ON sal_sales_return (customer_id, return_date DESC);
-CREATE INDEX idx_sal_sales_return_delivery ON sal_sales_return (original_delivery_id);
+CREATE INDEX idx_sal_sales_return_deadline ON sal_sales_return (tenant_id, company_id, return_status, return_deadline_date);
+CREATE INDEX idx_sal_sales_return_customer ON sal_sales_return (tenant_id, company_id, customer_id, return_date DESC);
+CREATE INDEX idx_sal_sales_return_delivery ON sal_sales_return (tenant_id, company_id, original_delivery_id);
 ```
 
 ### 3.15 `sal_sales_return_line`（销售退货明细）
@@ -845,7 +845,7 @@ CREATE TABLE sal_sales_return_line (
     CONSTRAINT ck_sal_return_line_qty CHECK (return_qty > 0 AND return_qty <= returnable_qty)
 );
 CREATE UNIQUE INDEX uk_sal_return_line_no ON sal_sales_return_line (tenant_id, company_id, return_id, line_no);
-CREATE INDEX idx_sal_return_line_dn_line ON sal_sales_return_line (original_delivery_line_id);
+CREATE INDEX idx_sal_return_line_dn_line ON sal_sales_return_line (tenant_id, company_id, original_delivery_line_id);
 ```
 
 ### 3.16 `sal_return_inspection`（退货检验）
@@ -875,7 +875,7 @@ CREATE TABLE sal_return_inspection (
     CONSTRAINT fk_sal_return_inspection_r FOREIGN KEY (return_id) REFERENCES sal_sales_return (id),
     CONSTRAINT fk_sal_return_inspection_l FOREIGN KEY (return_line_id) REFERENCES sal_sales_return_line (id)
 );
-CREATE INDEX idx_sal_return_inspection_line ON sal_return_inspection (return_line_id, inspection_seq DESC);
+CREATE INDEX idx_sal_return_inspection_line ON sal_return_inspection (tenant_id, company_id, return_line_id, inspection_seq DESC);
 ```
 
 ### 3.17 `sal_invoice_application`（开票申请）
@@ -923,8 +923,8 @@ CREATE TABLE sal_invoice_application (
     CONSTRAINT ck_sal_iva_period CHECK (period_from <= period_to)
 );
 CREATE UNIQUE INDEX uk_sal_iva_no ON sal_invoice_application (tenant_id, company_id, application_no);
-CREATE INDEX idx_sal_iva_customer_period ON sal_invoice_application (customer_id, period_from DESC);
-CREATE INDEX idx_sal_iva_status ON sal_invoice_application (application_status, period_from DESC);
+CREATE INDEX idx_sal_iva_customer_period ON sal_invoice_application (tenant_id, company_id, customer_id, period_from DESC);
+CREATE INDEX idx_sal_iva_status ON sal_invoice_application (tenant_id, company_id, application_status, period_from DESC);
 ```
 
 ### 3.18 `sal_invoice_application_line`（开票申请明细）
@@ -962,7 +962,7 @@ CREATE TABLE sal_invoice_application_line (
     CONSTRAINT fk_sal_iva_line_dn FOREIGN KEY (delivery_id) REFERENCES sal_delivery_note (id)
 );
 CREATE UNIQUE INDEX uk_sal_iva_line_no ON sal_invoice_application_line (tenant_id, company_id, application_id, line_no);
-CREATE INDEX idx_sal_iva_line_dn ON sal_invoice_application_line (delivery_id);
+CREATE INDEX idx_sal_iva_line_dn ON sal_invoice_application_line (tenant_id, company_id, delivery_id);
 ```
 
 ### 3.19 `sal_invoice`（销售发票）
@@ -1009,9 +1009,9 @@ CREATE TABLE sal_invoice (
     CONSTRAINT fk_sal_invoice_application FOREIGN KEY (application_id) REFERENCES sal_invoice_application (id)
 );
 CREATE UNIQUE INDEX uk_sal_invoice_no ON sal_invoice (tenant_id, company_id, COALESCE(invoice_code, ''), invoice_no);
-CREATE INDEX idx_sal_invoice_issued ON sal_invoice (issued_at DESC, invoice_status);
-CREATE INDEX idx_sal_invoice_customer ON sal_invoice (customer_id, issued_at DESC);
-CREATE INDEX idx_sal_invoice_original ON sal_invoice (original_invoice_id);
+CREATE INDEX idx_sal_invoice_issued ON sal_invoice (tenant_id, company_id, issued_at DESC, invoice_status);
+CREATE INDEX idx_sal_invoice_customer ON sal_invoice (tenant_id, company_id, customer_id, issued_at DESC);
+CREATE INDEX idx_sal_invoice_original ON sal_invoice (tenant_id, company_id, original_invoice_id);
 ```
 
 ### 3.20 `sal_invoice_line`（发票明细）
@@ -1047,7 +1047,7 @@ CREATE TABLE sal_invoice_line (
     CONSTRAINT ck_sal_invoice_line_qty CHECK (qty > 0)
 );
 CREATE UNIQUE INDEX uk_sal_invoice_line_no ON sal_invoice_line (tenant_id, company_id, invoice_id, line_no);
-CREATE INDEX idx_sal_invoice_line_material ON sal_invoice_line (material_id);
+CREATE INDEX idx_sal_invoice_line_material ON sal_invoice_line (tenant_id, company_id, material_id);
 ```
 
 ### 3.21 `sal_invoice_relation`（发票关联）
@@ -1070,8 +1070,8 @@ CREATE TABLE sal_invoice_relation (
     CONSTRAINT pk_sal_invoice_relation PRIMARY KEY (id),
     CONSTRAINT fk_sal_invoice_relation_inv FOREIGN KEY (invoice_id) REFERENCES sal_invoice (id)
 );
-CREATE INDEX idx_sal_invoice_relation_inv ON sal_invoice_relation (invoice_id, relate_type);
-CREATE INDEX idx_sal_invoice_relation_target ON sal_invoice_relation (relate_type, relate_id);
+CREATE INDEX idx_sal_invoice_relation_inv ON sal_invoice_relation (tenant_id, company_id, invoice_id, relate_type);
+CREATE INDEX idx_sal_invoice_relation_target ON sal_invoice_relation (tenant_id, company_id, relate_type, relate_id);
 ```
 
 ### 3.22 `sal_statement`（客户对账单）
@@ -1112,7 +1112,7 @@ CREATE TABLE sal_statement (
     CONSTRAINT fk_sal_statement_customer FOREIGN KEY (customer_id) REFERENCES mdm_customer (id)
 );
 CREATE UNIQUE INDEX uk_sal_statement_version ON sal_statement (tenant_id, company_id, customer_id, period_code, statement_version);
-CREATE INDEX idx_sal_statement_status ON sal_statement (statement_status, period_code DESC);
+CREATE INDEX idx_sal_statement_status ON sal_statement (tenant_id, company_id, statement_status, period_code DESC);
 ```
 
 ### 3.23 `sal_statement_line`（对账单明细）
@@ -1143,7 +1143,7 @@ CREATE TABLE sal_statement_line (
     CONSTRAINT fk_sal_statement_line_s FOREIGN KEY (statement_id) REFERENCES sal_statement (id)
 );
 CREATE UNIQUE INDEX uk_sal_statement_line_no ON sal_statement_line (tenant_id, company_id, statement_id, line_no);
-CREATE INDEX idx_sal_statement_line_date ON sal_statement_line (statement_id, transaction_date);
+CREATE INDEX idx_sal_statement_line_date ON sal_statement_line (tenant_id, company_id, statement_id, transaction_date);
 ```
 
 ### 3.24 `sal_credit_ledger_snapshot`（与信台帳投影）
@@ -1176,8 +1176,8 @@ CREATE TABLE sal_credit_ledger_snapshot (
     CONSTRAINT ck_sal_credit_occ_amt CHECK (amount >= 0 AND released_amount >= 0 AND released_amount <= amount)
 );
 CREATE UNIQUE INDEX uk_sal_credit_occ_source ON sal_credit_ledger_snapshot (tenant_id, company_id, source_type, source_id, release_seq);
-CREATE INDEX idx_sal_credit_occ_customer ON sal_credit_ledger_snapshot (customer_id, status);
-CREATE INDEX idx_sal_credit_occ_source_lookup ON sal_credit_ledger_snapshot (source_type, source_id);
+CREATE INDEX idx_sal_credit_occ_customer ON sal_credit_ledger_snapshot (tenant_id, company_id, customer_id, status);
+CREATE INDEX idx_sal_credit_occ_source_lookup ON sal_credit_ledger_snapshot (tenant_id, company_id, source_type, source_id);
 ```
 
 ### 3.25 `sal_credit_check_log`（与信检查日志）
@@ -1214,8 +1214,8 @@ CREATE TABLE sal_credit_check_log (
     CONSTRAINT pk_sal_credit_check_log PRIMARY KEY (id),
     CONSTRAINT fk_sal_credit_log_customer FOREIGN KEY (customer_id) REFERENCES mdm_customer (id)
 );
-CREATE INDEX idx_sal_credit_log_customer ON sal_credit_check_log (customer_id, checked_at DESC);
-CREATE INDEX idx_sal_credit_log_order ON sal_credit_check_log (sales_order_id, check_type);
+CREATE INDEX idx_sal_credit_log_customer ON sal_credit_check_log (tenant_id, company_id, customer_id, checked_at DESC);
+CREATE INDEX idx_sal_credit_log_order ON sal_credit_check_log (tenant_id, company_id, sales_order_id, check_type);
 ```
 
 ### 3.26 `sal_receivable_snapshot`（应收投影）
@@ -1256,8 +1256,8 @@ CREATE TABLE sal_receivable_snapshot (
     CONSTRAINT pk_sal_receivable_snapshot PRIMARY KEY (id)
 );
 CREATE UNIQUE INDEX uk_sal_receivable_snapshot_fin ON sal_receivable_snapshot (tenant_id, company_id, receivable_id);
-CREATE INDEX idx_sal_receivable_snapshot_cust ON sal_receivable_snapshot (customer_id, due_date);
-CREATE INDEX idx_sal_receivable_snapshot_open ON sal_receivable_snapshot (customer_id, receivable_status);
+CREATE INDEX idx_sal_receivable_snapshot_cust ON sal_receivable_snapshot (tenant_id, company_id, customer_id, due_date);
+CREATE INDEX idx_sal_receivable_snapshot_open ON sal_receivable_snapshot (tenant_id, company_id, customer_id, receivable_status);
 ```
 
 ### 3.27 `sal_special_price`（特价申请）
@@ -1306,7 +1306,7 @@ CREATE TABLE sal_special_price (
 );
 CREATE UNIQUE INDEX uk_sal_special_price_no ON sal_special_price (tenant_id, company_id, special_price_no);
 CREATE UNIQUE INDEX uk_sal_special_price_active ON sal_special_price (tenant_id, company_id, customer_id, material_id, valid_from) WHERE status = 25;
-CREATE INDEX idx_sal_special_price_lookup ON sal_special_price (customer_id, material_id, status, valid_to);
+CREATE INDEX idx_sal_special_price_lookup ON sal_special_price (tenant_id, company_id, customer_id, material_id, status, valid_to);
 ```
 
 ### 3.28 `sal_sales_forecast`（销售预测）
@@ -1338,7 +1338,7 @@ CREATE TABLE sal_sales_forecast (
     CONSTRAINT ck_sal_forecast_period CHECK (period_code ~ '^[0-9]{4}-[0-9]{2}$')
 );
 CREATE UNIQUE INDEX uk_sal_forecast_ver ON sal_sales_forecast (tenant_id, company_id, forecast_no, forecast_version);
-CREATE INDEX idx_sal_forecast_period ON sal_sales_forecast (period_code, department_id, forecast_status);
+CREATE INDEX idx_sal_forecast_period ON sal_sales_forecast (tenant_id, company_id, period_code, department_id, forecast_status);
 ```
 
 ### 3.29 `sal_sales_forecast_line`（销售预测明细）
@@ -1369,22 +1369,22 @@ CREATE TABLE sal_sales_forecast_line (
     CONSTRAINT ck_sal_forecast_line_qty CHECK (forecast_qty >= 0)
 );
 CREATE UNIQUE INDEX uk_sal_forecast_line_no ON sal_sales_forecast_line (tenant_id, company_id, forecast_id, line_no);
-CREATE INDEX idx_sal_forecast_line_material ON sal_sales_forecast_line (material_id);
+CREATE INDEX idx_sal_forecast_line_material ON sal_sales_forecast_line (tenant_id, company_id, material_id);
 ```
 
 ## 4. インデックス一覧（橫斷）
 
 | テーブル | 索引 | 対象 | 目的 |
 |---|---|---|---|
-| `sal_sales_order` | `idx_sal_sales_order_status_date` | (`order_status`, `order_date` DESC) | 受注一覧・追蹤 |
-| `sal_sales_order_line` | `idx_sal_sales_order_line_status` | (`line_status`, `delivery_date`) | 欠品・遅延検出 |
-| `sal_delivery_note` | `idx_sal_delivery_note_status_date` | (`delivery_status`, `delivery_date` DESC) | 出荷一覧 |
-| `sal_delivery_serial` | `idx_sal_delivery_serial_no` | (`material_id`, `serial_no`) | 序列號トレース |
-| `sal_sales_return` | `idx_sal_sales_return_deadline` | (`return_status`, `return_deadline_date`) | 返品期限管理 |
-| `sal_invoice` | `idx_sal_invoice_issued` | (`issued_at` DESC, `invoice_status`) | 発票一覧 |
-| `sal_statement` | `idx_sal_statement_status` | (`statement_status`, `period_code` DESC) | 対账一覧 |
-| `sal_credit_ledger_snapshot` | `idx_sal_credit_occ_customer` | (`customer_id`, `status`) | 與信使用額集計 |
-| `sal_receivable_snapshot` | `idx_sal_receivable_snapshot_cust` | (`customer_id`, `due_date`) | 應收・帳齡照会 |
+| `sal_sales_order` | `idx_sal_sales_order_status_date` | (`tenant_id`, `company_id`, `order_status`, `order_date` DESC) | 受注一覧・追蹤 |
+| `sal_sales_order_line` | `idx_sal_sales_order_line_status` | (`tenant_id`, `company_id`, `line_status`, `delivery_date`) | 欠品・遅延検出 |
+| `sal_delivery_note` | `idx_sal_delivery_note_status_date` | (`tenant_id`, `company_id`, `delivery_status`, `delivery_date` DESC) | 出荷一覧 |
+| `sal_delivery_serial` | `idx_sal_delivery_serial_no` | (`tenant_id`, `company_id`, `material_id`, `serial_no`) | 序列號トレース |
+| `sal_sales_return` | `idx_sal_sales_return_deadline` | (`tenant_id`, `company_id`, `return_status`, `return_deadline_date`) | 返品期限管理 |
+| `sal_invoice` | `idx_sal_invoice_issued` | (`tenant_id`, `company_id`, `issued_at` DESC, `invoice_status`) | 発票一覧 |
+| `sal_statement` | `idx_sal_statement_status` | (`tenant_id`, `company_id`, `statement_status`, `period_code` DESC) | 対账一覧 |
+| `sal_credit_ledger_snapshot` | `idx_sal_credit_occ_customer` | (`tenant_id`, `company_id`, `customer_id`, `status`) | 與信使用額集計 |
+| `sal_receivable_snapshot` | `idx_sal_receivable_snapshot_cust` | (`tenant_id`, `company_id`, `customer_id`, `due_date`) | 應收・帳齡照会 |
 
 ## 5. 制約・整合性（橫斷）
 
@@ -1487,3 +1487,4 @@ CREATE INDEX idx_sal_forecast_line_material ON sal_sales_forecast_line (material
 | v1.2 | 2026-10-21 | sal 明細・版表 15 件を 一意索引を `(tenant_id, company_id, …)` 先頭に統一（sys/V202610210707・0708 と整合）、「親 ID 先頭」例外一覧を削除。例外は 00-common/04 §6.1 第 4 条のテナント共有表のみ（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.3 | 2026-10-21 | 例外一覧に `uk_sys_user_username`（`(tenant_id, username)`、テナント単位）を追加（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.4 | 2026-10-21 | §制約一覧 #1〜#7 の UNIQUE を `(tenant_id, company_id, …)` 先頭に修正（95:26 と整合、蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.5 | 2026-10-21 | 非一意 btree 索引（`idx_`）60 箇所を `tenant_id` 先頭（`company_id` がある表は次に `company_id`）に変更（DDL・索引一覧。既存迁移の索引は sys/V202610210707 と同一列。GIN は対象外。蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
