@@ -1011,7 +1011,7 @@ CREATE TABLE prd_work_order (
     actual_labor_cost   NUMERIC(18,2) NOT NULL DEFAULT 0,        -- 実績人工費（E23 累計）
     actual_overhead_cost NUMERIC(18,2) NOT NULL DEFAULT 0,       -- 配賦製造費用（月結で確定）
     actual_total_cost   NUMERIC(18,2) NOT NULL DEFAULT 0,        -- 実績完工原価合計
-    cost_variance       NUMERIC(18,2) NOT NULL DEFAULT 0,        -- 原価差異（実際 − 標準×数量）
+    cost_variance       NUMERIC(18,2) NOT NULL DEFAULT 0,        -- 原価差異（実際 − 標準×数量）。standard_cost IS NULL（標準原価未設定）時は 0 のままだが「差異 0」ではない。判定は必ず standard_cost IS NULL で行う
     cost_status         SMALLINT      NOT NULL DEFAULT 0,        -- 原価状態 0:未帰集 10:暫定 20:確定（FIN 月結）
     submitted_at        TIMESTAMPTZ,                             -- 承認提出日時
     approved_by         BIGINT,                                  -- 承認者 → sys_user.id
