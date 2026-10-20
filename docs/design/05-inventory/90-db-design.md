@@ -1617,18 +1617,18 @@ COMMENT ON COLUMN inv_event_wait.waiting_for IS 'PI=入荷待ち、FGI=完工入
 
 | バージョン | ファイル名 | 内容 |
 |---|---|---|
-| `V2026102101` | `inventory/V2026102101__inv_create_stock_balance.sql` | `inv_stock_balance` + 索引 |
-| `V2026102102` | `inventory/V2026102102__inv_create_stock_txn.sql` | `inv_stock_txn` / `inv_stock_txn_line` + 索引 |
-| `V2026102103` | `inventory/V2026102103__inv_create_transfer.sql` | `inv_transfer` / `_line` |
-| `V2026102104` | `inventory/V2026102104__inv_create_stocktake.sql` | `inv_stocktake_plan` / `inv_stocktake` / `_line` |
-| `V2026102105` | `inventory/V2026102105__inv_create_batch_serial.sql` | `inv_batch` / `inv_batch_genealogy` / `inv_serial` / `inv_serial_txn` |
-| `V2026102106` | `inventory/V2026102106__inv_create_reservation.sql` | `inv_reservation` / `_line` |
-| `V2026102107` | `inventory/V2026102107__inv_create_cost.sql` | `inv_cost_layer` / `inv_cost_adjustment` / `_line` |
-| `V2026102108` | `inventory/V2026102108__inv_create_period_summary.sql` | `inv_period` / `inv_stock_summary` / `inv_age_snapshot` / `inv_replenishment` |
-| `V2026102109` | `inventory/V2026102109__inv_create_scan_log.sql` | `inv_scan_log` + 索引 |
-| `V2026102110` | `inventory/V2026102110__inv_seed_period.sql` | 期間初期データ（2026-01〜2026-12、`R__seed` でも可） |
-| `V2026102111` | `inventory/V2026102111__inv_comment_all.sql` | 全テーブル・全列の `COMMENT ON` |
-| `V2026102112` | `inventory/V2026102112__inv_event_wait.sql` | `inv_event_wait` 新規 + `inv_stock_txn.source_event_at` 追加 |
+| `V202610210501` | `inv/V202610210501__inv_create_stock_balance.sql` | `inv_stock_balance` + 索引 |
+| `V202610210502` | `inv/V202610210502__inv_create_stock_txn.sql` | `inv_stock_txn` / `inv_stock_txn_line` + 索引 |
+| `V202610210503` | `inv/V202610210503__inv_create_transfer.sql` | `inv_transfer` / `_line` |
+| `V202610210504` | `inv/V202610210504__inv_create_stocktake.sql` | `inv_stocktake_plan` / `inv_stocktake` / `_line` |
+| `V202610210505` | `inv/V202610210505__inv_create_batch_serial.sql` | `inv_batch` / `inv_batch_genealogy` / `inv_serial` / `inv_serial_txn` |
+| `V202610210506` | `inv/V202610210506__inv_create_reservation.sql` | `inv_reservation` / `_line` |
+| `V202610210507` | `inv/V202610210507__inv_create_cost.sql` | `inv_cost_layer` / `inv_cost_adjustment` / `_line` |
+| `V202610210508` | `inv/V202610210508__inv_create_period_summary.sql` | `inv_period` / `inv_stock_summary` / `inv_age_snapshot` / `inv_replenishment` |
+| `V202610210509` | `inv/V202610210509__inv_create_scan_log.sql` | `inv_scan_log` + 索引 |
+| `V202610210510` | `inv/V202610210510__inv_seed_period.sql` | 期間初期データ（2026-01〜2026-12、`R__seed` でも可） |
+| `V202610210511` | `inv/V202610210511__inv_comment_all.sql` | 全テーブル・全列の `COMMENT ON` |
+| `V202610210512` | `inv/V202610210512__inv_event_wait.sql` | `inv_event_wait` 新規 + `inv_stock_txn.source_event_at` 追加 |
 
 - シード（コード表・初期マスタ）は [04 §10](../00-common/04-common-db-spec.md) に従い、`R__seed_inventory_*.sql`（冪等）または `V` スクリプトで投入する。**90-data の CSV を正**とする。
 - 一度適用したスクリプトは編集しない。破壊的変更は 2 段階。
@@ -1656,4 +1656,4 @@ COMMENT ON COLUMN inv_event_wait.waiting_for IS 'PI=入荷待ち、FGI=完工入
 | v1.0 | 2026-10-20 | 初版：設計方針・ER、テーブル 22 件（残高・事務・調撥・棚卸・批次・序列号・予約・原価層・原価調整・期間・集計・スキャンログ）、索引 23 件、不変条件 10 件、排他、容量、更新タイミング、Flyway 計画 | inventory-designer |
 
 | v1.1 | 2026-10-20 | 整合性修正：`inv_reservation_line` の CHECK（consumed + released ≤ reserved）を修正（E36/E37 によるテーブル変更なし） | inventory-designer |
-| v1.2 | 2026-10-20 | 红队第 2 轮修复：`inv_event_wait` 追加（テーブル 23 件・索引 24 件）、`inv_stock_txn.source_event_at` 追加、在庫状態コメントを 10=待検/20=可用へ更新、Flyway V2026102112 追加 | inventory-designer |
+| v1.2 | 2026-10-20 | 红队第 2 轮修复：`inv_event_wait` 追加（テーブル 23 件・索引 24 件）、`inv_stock_txn.source_event_at` 追加、在庫状態コメントを 10=待検/20=可用へ更新、Flyway V202610210512 追加（旧表記 V2026102112） | inventory-designer |

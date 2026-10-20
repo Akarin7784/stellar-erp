@@ -1483,7 +1483,7 @@ CREATE UNIQUE INDEX uk_mdm_data_scope_policy ON mdm_data_scope_policy (company_i
 
 ## 9. 実装上の注意・未決事項
 
-1. **Flyway**：`V{yyyyMMdd}{NN}__mdm_{description}.sql`。初期作成は 01〜05（基準マスタ）→ 06〜15（物料・取引先）→ 16〜25（価格・結算）→ 26〜30（信用・評価）→ 31〜35（治理）の順。`pg_trgm` は最初のスクリプトで有効化する。
+1. **Flyway**：`mdm/V{yyyyMMdd}02{NN}__mdm_{description}.sql`（[04](../00-common/04-common-db-spec.md) 10.2、ドメインコード `02`）。初期作成は 01〜05（基準マスタ）→ 06〜15（物料・取引先）→ 16〜25（価格・結算）→ 26〜30（信用・評価）→ 31〜35（治理）の順。`pg_trgm` は最初のスクリプトで有効化する。
 2. **口座番号の暗号化**：`mdm_partner_bank_account.account_no` は AES-256 で暗号化保存（鍵は環境変数）。検索は下 4 桁のハッシュ列（`account_no_hash`）を追加するか、アプリ側で復号比較とする。Phase 1 は暗号化 + 下 4 桁のみ表示。
 3. **JSONB の容量**：`mdm_material_his.before_data/after_data` は全列 JSON のため 1 行最大 8KB 程度。年間 5 万行で 400MB 以内。
 4. **未決事項**：批次/序列号規則の実体（#6）は DB 設計に影響するため、決定後に本節を更新する。工厂テーブル帰属（00-overview #3）は Lead 裁定済み（MDM 所有・`mdm_factory` 維持）、信用占用の保有域（#4）は Lead 裁定済み（MDM 非保有）で本節に反映済み。
