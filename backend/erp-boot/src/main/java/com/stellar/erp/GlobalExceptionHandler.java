@@ -2,11 +2,17 @@ package com.stellar.erp;
 
 import com.stellar.erp.common.BizException;
 import com.stellar.erp.common.Result;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 /**
  * 全局异常处理：把异常统一转换为 {@link Result}，并按
@@ -15,7 +21,9 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  * <p>响应体与业务码保持不变，只修正 HTTP 状态（此前业务异常一律返回 200）。</p>
  */
 @RestControllerAdvice
-public class GlobalExceptionHandler {
+public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(BizException.class)
     public ResponseEntity<Result<Void>> handleBiz(BizException ex) {
@@ -23,17 +31,38 @@ public class GlobalExceptionHandler {
                 .body(Result.fail(ex.getCode(), ex.getMessage(), ex.getMsgId()));
     }
 
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<Result<Void>> handleValidation(MethodArgumentNotValidException ex) {
+    @Override
+    protected ResponseEntity<Object> handleMethodArgumentNotValid(MethodArgumentNotValidException ex,
+            HttpHeaders headers, HttpStatusCode status, WebRequest request) {
         String message = ex.getBindingResult().getFieldErrors().stream()
                 .findFirst()
                 .map(error -> error.getField() + " " + error.getDefaultMessage())
                 .orElse("参数校验失败");
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Result.fail(400, message));
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).headers(headers).body(Result.fail(400, message));
+    }
+
+    /**
+     * Spring MVC 自身的异常（405 方法不支持、400 请求体无法解析、404 路径不存在等）
+     * 保留框架给出的 HTTP 状态，响应体统一为 {@link Result}，业务码取 HTTP 状态值。
+     */
+    @Override
+    protected ResponseEntity<Object> handleExceptionInternal(Exception ex, Object body, HttpHeaders headers,
+            HttpStatusCode statusCode, WebRequest request) {
+        if (statusCode.is5xxServerError()) {
+            log.error("MVC 处理异常", ex);
+        } else {
+            log.debug("MVC 请求异常: {}", ex.getMessage());
+        }
+        String message = HttpStatus.resolve(statusCode.value()) != null
+                ? HttpStatus.valueOf(statusCode.value()).getReasonPhrase()
+                : "请求错误";
+        return ResponseEntity.status(statusCode).headers(headers)
+                .body(Result.fail(statusCode.value(), message));
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Result<Void>> handleUnknown(Exception ex) {
+        log.error("未处理异常", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(Result.fail(500, "服务器内部错误"));
     }

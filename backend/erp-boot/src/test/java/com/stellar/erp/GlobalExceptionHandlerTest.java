@@ -6,12 +6,16 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -29,6 +33,13 @@ class GlobalExceptionHandlerTest {
             throw new BizException(60040, "MSG-PRD-040", "完工数量超过允许上限");
         }
 
+        record Body(int qty) {}
+
+        @PostMapping("/echo")
+        String echo(@RequestBody Body body) {
+            return "ok";
+        }
+
         @GetMapping("/boom")
         String boom() {
             throw new IllegalStateException("secret detail");
@@ -43,6 +54,7 @@ class GlobalExceptionHandlerTest {
     @CsvSource({
             "4002, 409",   // 状态不整合
             "4003, 409",   // 乐观锁冲突
+            "4005, 409",   // 重复处理
             "60001, 422",  // 领域业务规则（PRD）
             "50001, 422",  // 领域业务规则（INV）
             "4001, 404",
@@ -64,6 +76,20 @@ class GlobalExceptionHandlerTest {
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.code").value(60040))
                 .andExpect(jsonPath("$.msgId").value("MSG-PRD-040"));
+    }
+
+    @Test
+    void malformedBodyIs400NotServerError() throws Exception {
+        mvc.perform(post("/echo").contentType(MediaType.APPLICATION_JSON).content("{not json"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400));
+    }
+
+    @Test
+    void wrongMethodIs405() throws Exception {
+        mvc.perform(post("/boom"))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(jsonPath("$.code").value(405));
     }
 
     @Test
