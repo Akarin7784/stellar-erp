@@ -8,7 +8,7 @@
 | 作成日 | 2026-10-20 |
 | 作成者 | Lead（生成工具 gen_matrix.py） |
 | 状態 | ドラフト（自动生成・最終レビュー前） |
-| 備考 | 全 339 件。画面ID/名称/類型/機能/権限/域/提取元 |
+| 備考 | 全 340 件。画面ID/名称/類型/機能/権限/域/提取元 |
 
 > 本文件由 `20-matrix/tools/gen_matrix.py` 从各域设计书中自动提取生成。修改设计书后重新运行即可更新。
 
@@ -75,6 +75,7 @@
 | SCR-FIN-059 | 汇兑损益调整（P2） | EDIT | F-FIN-044 | finance:voucher:create | FIN | 07-finance/00-overview.md |
 | SCR-FIN-060 | 资金计划与付款排程（P2） | LIST | F-FIN-045 | finance:fund-report:view | FIN | 07-finance/00-overview.md |
 | SCR-FIN-061 | 财务报表分析（P2） | DASH | F-FIN-046 | finance:statement:view | FIN | 07-finance/00-overview.md |
+| SCR-FIN-062 | 標準原価メンテナンス | LIST/EDIT | F-FIN-047 | finance:standard-cost:view/register/publish | FIN | 07-finance/00-overview.md |
 | SCR-INT-001 | 接口配置一覧 | LIST | F-INT-001 | integration:interface-config:view | INT | 09-integration/00-overview.md |
 | SCR-INT-002 | 接口配置登録編集 | EDIT | F-INT-001 | integration:interface-config:create | INT | 09-integration/00-overview.md |
 | SCR-INT-003 | 接続テスト/実行結果 | VIEW | F-INT-001 | integration:interface-config:test | INT | 09-integration/00-overview.md |
@@ -209,7 +210,7 @@
 | SCR-PRD-029 | 质量追溯查询 | 照会 | F-PRD-015 | production:trace:view | PRD | 06-production/00-overview.md |
 | SCR-PRD-030 | 生产进度看板 | ダッシュボード | F-PRD-016 | production:dashboard:view | PRD | 06-production/00-overview.md |
 | SCR-PRD-031 | 工时・效率统计 | 一覧検索 | F-PRD-017 | production:report:view | PRD | 06-production/00-overview.md |
-| SCR-PRD-032 | 设备台账（Phase 2） | 一覧検索 | F-PRD-018 | production:equipment:view | PRD | 06-production/00-overview.md |
+| SCR-PRD-032 | 设备台账 | 一覧検索 | F-PRD-018 | production:equipment:view | PRD | 06-production/00-overview.md |
 | SCR-PRD-033 | 生产报表 | 帳票プレビュー | F-PRD-019 | production:report:view | PRD | 06-production/00-overview.md |
 | SCR-PUR-001 | 请购单一覧 | LIST | F-PUR-001 | purchase:requisition:view | PUR | 04-purchase/00-overview.md |
 | SCR-PUR-002 | 请购单登録編集 | EDIT | F-PUR-001/002/003 | purchase:requisition:create | PUR | 04-purchase/00-overview.md |
@@ -305,7 +306,7 @@
 | SCR-SAL-043 | 销售明细报表 | VIEW | F-SAL-015 | sales:report:view | SAL | 03-sales/00-overview.md |
 | SCR-SAL-044 | 毛利分析 | DASH | F-SAL-015 | sales:report:view | SAL | 03-sales/00-overview.md |
 | SCR-SAL-045 | 客户排名 | VIEW | F-SAL-015 | sales:report:view | SAL | 03-sales/00-overview.md |
-| SCR-SAL-046 | 出口销售信息（Phase2） | EDIT | F-SAL-016 | sales:export:update | SAL | 03-sales/00-overview.md |
+| SCR-SAL-046 | 出口销售信息 | EDIT | F-SAL-016 | sales:export:update | SAL | 03-sales/00-overview.md |
 | SCR-SAL-047 | 出荷实绩照会 | LIST | F-SAL-018 | sales:delivery:view | SAL | 03-sales/00-overview.md |
 | SCR-SYS-001 | 登录 | LOGIN | F-SYS-001 | 認証不要（公開） | SYS | 01-system/00-overview.md |
 | SCR-SYS-002 | 密码修改（强制/任意） | EDIT | F-SYS-001 | system:profile:update | SYS | 01-system/00-overview.md |

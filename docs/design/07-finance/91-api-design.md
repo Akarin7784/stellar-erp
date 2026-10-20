@@ -161,6 +161,11 @@
 | 99 | POST | /api/finance/costs/allocations | finance:cost:calculate | 製造費用分配実行 | 70114 |
 | 100 | GET | /api/finance/costs/wip | finance:cost:view | 在制品一覧 | — |
 | 101 | GET | /api/finance/costs/variance | finance:cost:view | 成本差異分析 | — |
+| 126 | GET | /api/finance/standard-costs | finance:standard-cost:view | 標準原価版一覧（`materialId,status,period`） | — |
+| 127 | GET | /api/finance/standard-costs/{id} | finance:standard-cost:view | 標準原価版詳細 | 4001 |
+| 128 | POST | /api/finance/standard-costs | finance:standard-cost:register | 草稿登録（`status=10`） | 70136 |
+| 129 | PUT | /api/finance/standard-costs/{id} | finance:standard-cost:register | 草稿更新（`version` 楽観ロック） | 70135,70136 |
+| 130 | POST | /api/finance/standard-costs/{id}/publish | finance:standard-cost:publish | 発行（`fin_publish_standard_cost` 呼出、`mdm_material` 行ロックで同一物料を直列化、旧版自動打切り。`23P01` も 70134 に変換） | 70134,70135 |
 
 ### 2.7 期末・報表（F-FIN-035～039）
 
@@ -181,7 +186,7 @@
 | 114 | GET | /api/finance/statement-formulas | finance:statement:view | 取数公式一覧 | — |
 | 115 | GET | /api/finance/jobs/{jobId} | （各機能権限） | 非同期ジョブ状態 | 4001 |
 
-### 2.8 Phase 2 APIs（概要）
+### 2.8 実装順 P2 APIs（概要）
 
 | # | メソッド | パス | 権限 | 概要 |
 |---|---|---|---|---|
@@ -196,7 +201,7 @@
 | 124 | GET/POST | /api/finance/cash-plans | finance:fund-report:view | 資金計画 |
 | 125 | GET | /api/finance/cash-plans/shortage | finance:fund-report:view | 資金不足警告 |
 
-> 合計 **125 API**（P2 含む）。各 API の詳細節は本設計の第 5 章に主要 12 件を記載し、残りは「一覧＋共通仕様」で実装可能な粒度とする（リクエスト項目は DB 項目定義と 1:1 対応）。
+> 合計 **130 API**（P2 含む）。各 API の詳細節は本設計の第 5 章に主要 12 件を記載し、残りは「一覧＋共通仕様」で実装可能な粒度とする（リクエスト項目は DB 項目定義と 1:1 対応）。
 
 ---
 
@@ -310,6 +315,9 @@
 | 70130 | 422 | MSG-FIN-130 | 科目余額不平衡 |
 | 70132 | 200(W) | MSG-FIN-132 | CF 不一致（警告） |
 | 70133 | 200 | MSG-FIN-133 | 年結成功 |
+| 70134 | 422 | MSG-FIN-134 | 標準原価発行期間不正 |
+| 70135 | 409 | MSG-FIN-135 | 標準原価版が草稿でない |
+| 70136 | 409 | MSG-FIN-136 | 標準原価版本重複 |
 
 ---
 
@@ -428,6 +436,22 @@
 { "code": 0, "message": "ok", "data": { "jobId": "job-20261031-0001", "status": "QUEUED" } }
 ```
 
+### 4.9a POST /api/finance/standard-costs（標準原価草稿登録）／POST /api/finance/standard-costs/{id}/publish（発行）
+
+期間は API では `YYYY-MM`、DB は月初日 `DATE`（[90 §6.12](90-db-design.md)）。`totalUnitCost` はサーバが 4 要素合計で算出する。
+
+```json
+{ "materialId": 30001, "costVersion": "2026A", "periodFrom": "2026-01", "costMethod": 1, "bomId": 50001, "routingId": 60001,
+  "baseQty": "1.0000", "stdLaborHours": "2.1500", "stdLaborRate": "25.000000", "stdOverheadRate": "30.000000",
+  "materialUnitCost": "659.950000", "laborUnitCost": "53.750000", "overheadUnitCost": "64.500000", "outsourcingUnitCost": "0.000000" }
+```
+
+```json
+{ "code": 0, "message": "ok", "data": { "id": 91001, "status": 10, "totalUnitCost": "778.200000", "periodFrom": "2026-01", "periodTo": null, "version": 0 } }
+```
+
+発行 `POST /api/finance/standard-costs/{id}/publish`（要求 `{ "version": 0 }`）。応答は新版 `status=40`、`publishedAt/By`、および打切りされた旧版 `{ "id", "periodTo" }`。権限は `finance:standard-cost:publish`（財務総監のみ）。成本会計が呼ぶと 403（共通権限エラー）。
+
 ### 4.10 GET /api/finance/periods/2026-10/close-checks（月結チェック）
 
 ```json
@@ -499,6 +523,7 @@
 | vat-returns/tax-accruals | — | — | — | — | generate/view | — | confirm | view | view |
 | auto-vouchers | view/retry | view | view | view | view | — | update/retry | view | view |
 | costs | view | — | — | calculate | — | — | confirm | view | view |
+| standard-costs | — | — | — | view/register | — | — | view | view/publish | view |
 | periods | — | — | — | — | — | — | close | reopen/year-close | view |
 | statements | view | — | — | — | view | — | view/export | view/approve | view |
 
@@ -548,3 +573,5 @@
 |---|---|---|---|
 | v1.0 | 2026-10-20 | 初版：API 125 件（P2 含む）、DTO、エラーコード対応（70001–70133）、主要 12 API の JSON、権限マトリクス、非同期ジョブ | finance-designer |
 | v1.1 | 2026-10-20 | 红队修复：唯一シナリオの数値（BS 297,328,297.80、增值税 8,666,666.67/6,536,666.67）へ更新。`statements/{type}` に SCE（所有者权益变动表）を追加 | finance-designer |
+| v1.3 | 2026-10-21 | 標準原価 API（#126〜130、§4.9a）、70134〜70136、権限マトリクスに standard-costs | 业务分析 |
+| v1.4 | 2026-10-21 | 合計 130 API、#127 の 404 を共通 4001 に修正、#130 の並行発行時 70134 | 业务分析 |

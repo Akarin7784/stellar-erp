@@ -149,7 +149,7 @@
 | PRT-SAL-015 | 信用额度使用状况表 | 手動/月次 | SAL | 03-sales/00-overview.md |
 | PRT-SAL-016 | 特价审批单 | 特価申請時 | SAL | 03-sales/00-overview.md |
 | PRT-SAL-017 | 销售预测表 | 月次 | SAL | 03-sales/00-overview.md |
-| PRT-SAL-018 | 出口发票・装箱单（Phase2） | 出荷確定時 | SAL | 03-sales/00-overview.md |
+| PRT-SAL-018 | 出口发票・装箱单 | 出荷確定時 | SAL | 03-sales/00-overview.md |
 | PRT-SYS-001 | 用户台账 | 手動 | SYS | 01-system/00-overview.md |
 | PRT-SYS-002 | 权限矩阵表（角色×権限） | 手動 | SYS | 01-system/00-overview.md |
 | PRT-SYS-003 | 操作审计日志导出 | 手動（非同期） | SYS | 01-system/00-overview.md |

@@ -39,14 +39,14 @@
 | IF-MDM-001 | 汇率导入 | 中国外汇交易中心 / 银行公开牌价（CSV） | 受信 | ファイル（CSV） | 日次 | MDM | 02-mdm/00-overview.md |
 | IF-MDM-002 | 银行联行号（CNAPS）取込 | 人民银行支付系统公开行号表 | 受信 | ファイル（CSV） | 月次/随時 | MDM | 02-mdm/00-overview.md |
 | IF-MDM-003 | 标准代码取込（货币/单位） | ISO 4217 / UN/ECE Rec20 公开代码表 | 受信 | ファイル（CSV） | 随時 | MDM | 02-mdm/00-overview.md |
-| IF-MDM-004 | PLM 物料/设计 BOM 同步（Phase2） | PLM（如 Siemens Teamcenter） | 双方向 | REST | 随時 | MDM | 02-mdm/00-overview.md |
-| IF-MDM-005 | 供应商工商信息核验（Phase2） | 国家企业信用信息公示系统 / 第三方（如企查查） | 受信 | REST | 随時 | MDM | 02-mdm/00-overview.md |
-| IF-MDM-006 | 税码/税收分类编码取込（Phase2） | 国家税务总局公开代码表 | 受信 | ファイル（CSV） | 随時 | MDM | 02-mdm/00-overview.md |
-| IF-MDM-007 | 庫位マスタ配信（PDA/WMS） | WMS/PDA（Phase 2） | 送信 | REST / ファイル | 日次/随時 | MDM | 02-mdm/00-overview.md |
+| IF-MDM-004 | PLM 物料/设计 BOM 同步 | PLM（如 Siemens Teamcenter） | 双方向 | REST | 随時 | MDM | 02-mdm/00-overview.md |
+| IF-MDM-005 | 供应商工商信息核验 | 国家企业信用信息公示系统 / 第三方（如企查查） | 受信 | REST | 随時 | MDM | 02-mdm/00-overview.md |
+| IF-MDM-006 | 税码/税收分类编码取込 | 国家税务总局公开代码表 | 受信 | ファイル（CSV） | 随時 | MDM | 02-mdm/00-overview.md |
+| IF-MDM-007 | 庫位マスタ配信（PDA/WMS） | WMS/PDA | 送信 | REST / ファイル | 日次/随時 | MDM | 02-mdm/00-overview.md |
 | IF-PRD-001 | MES 工单下发・报工回传 | 制造执行系统（MES） | 双方向 | REST/JSON | リアルタイム | PRD | 06-production/00-overview.md |
 | IF-PRD-002 | PLM BOM/工艺同步 | 产品生命周期管理（PLM） | 受信 | REST/JSON/ファイル | 日次 | PRD | 06-production/00-overview.md |
 | IF-PRD-003 | PDA/条码 报工・领料扫描 | 手持终端/PDA | 双方向 | REST/JSON | リアルタイム | PRD | 06-production/00-overview.md |
-| IF-PRD-004 | 设备数据采集（Phase 2） | 设备 IoT 网关 | 受信 | MQTT/REST | 定期（分） | PRD | 06-production/00-overview.md |
+| IF-PRD-004 | 设备数据采集 | 设备 IoT 网关 | 受信 | MQTT/REST | 定期（分） | PRD | 06-production/00-overview.md |
 | IF-PUR-001 | 采购订单送信 | INT（供应商门户/邮件/EDI） | 送信 | REST/ファイル | イベント | PUR | 04-purchase/00-overview.md |
 | IF-PUR-002 | 电子发票采集 | INT（金税/数电票平台） | 受信 | REST/ファイル | 日次/イベント | PUR | 04-purchase/00-overview.md |
 | IF-PUR-003 | MRP 计划订单受信 | PRD | 受信 | REST（同期参照） | 日次/イベント | PUR | 04-purchase/00-overview.md |
@@ -63,18 +63,18 @@
 | IF-RPT-003 | 外部 BI ツール接続（P2） | BI ツール（Tableau/Power BI 等） | 送信 | JDBC/ODBC（読取専用ビュー） | 随時 | RPT | 10-analytics/00-overview.md |
 | IF-RPT-004 | 大屏表示（P2） | 工場大屏端末 | 送信 | REST/WebSocket | 常時 | RPT | 10-analytics/00-overview.md |
 | IF-RPT-005 | 監査ログ参照 | SYS | 受信 | 内部 API | 随時 | RPT | 10-analytics/00-overview.md |
-| IF-SAL-001 | 数电票/金税发票开具接口 | 国家税务总局电子发票服务平台（経由：INT 域） | 送信/受信 | REST（Phase2。INT 域が実装） | リアルタイム | SAL | 03-sales/00-overview.md |
+| IF-SAL-001 | 数电票/金税发票开具接口 | 国家税务总局电子发票服务平台（経由：INT 域） | 送信/受信 | REST（。INT 域が実装） | リアルタイム | SAL | 03-sales/00-overview.md |
 | IF-SAL-002 | 发票交付状态同步 | 电子发票服务平台（経由：INT） | 受信 | REST/ファイル | 日次 | SAL | 03-sales/00-overview.md |
 | IF-SAL-003 | 客户 EDI 订单接入 | 顧客（EDI/邮件） | 受信 | CSV/XML（INT 域） | 随時 | SAL | 03-sales/00-overview.md |
 | IF-SAL-004 | 物流/快递面单接口 | 物流会社（経由：INT） | 送信/受信 | REST | 出荷確定時 | SAL | 03-sales/00-overview.md |
 | IF-SAL-005 | 出口报关数据接口 | 报关行/单一窗口（経由：INT） | 送信 | ファイル/EDI | 出荷時 | SAL | 03-sales/00-overview.md |
 | IF-SAL-006 | 客户对账单电子送付 | メール/客户ポータル | 送信 | SMTP/ファイル | 月次 | SAL | 03-sales/00-overview.md |
 | IF-SYS-001 | メール送信 | SMTP サーバ（企业邮箱） | 送信 | SMTP/TLS | リアルタイム/再送 | SYS | 01-system/00-overview.md |
-| IF-SYS-002 | 短信送信 | 短信网关（Phase 2） | 送信 | REST | リアルタイム | SYS | 01-system/00-overview.md |
-| IF-SYS-003 | 企业微信/钉钉通知 | 企业微信/钉钉開放平台（Phase 2） | 送信 | REST（Webhook） | リアルタイム | SYS | 01-system/00-overview.md |
-| IF-SYS-004 | 统一身份认证 | LDAP/AD（Phase 2） | 双方向 | LDAP | ログイン時 | SYS | 01-system/00-overview.md |
-| IF-SYS-005 | 对象存储 | MinIO/S3（Phase 2） | 双方向 | S3 API | リアルタイム | SYS | 01-system/00-overview.md |
-| IF-SYS-006 | ウイルススキャン | ClamAV（Phase 2） | 送信 | clamd/ICAP | リアルタイム | SYS | 01-system/00-overview.md |
+| IF-SYS-002 | 短信送信 | 短信网关 | 送信 | REST | リアルタイム | SYS | 01-system/00-overview.md |
+| IF-SYS-003 | 企业微信/钉钉通知 | 企业微信/钉钉開放平台 | 送信 | REST（Webhook） | リアルタイム | SYS | 01-system/00-overview.md |
+| IF-SYS-004 | 统一身份认证 | LDAP/AD | 双方向 | LDAP | ログイン時 | SYS | 01-system/00-overview.md |
+| IF-SYS-005 | 对象存储 | MinIO/S3 | 双方向 | S3 API | リアルタイム | SYS | 01-system/00-overview.md |
+| IF-SYS-006 | ウイルススキャン | ClamAV | 送信 | clamd/ICAP | リアルタイム | SYS | 01-system/00-overview.md |
 | IF-SYS-007 | PDF 変換 | LibreOffice/Puppeteer ローカルプロセス | 送信 | ローカル実行 | リアルタイム | SYS | 01-system/00-overview.md |
 | IF-WF-001 | BPMN モデルインポート | 設計ツール（bpmn-js / Camunda Modeler エクスポート） | 受信 | ファイル（.bpmn20.xml） | 手動 | WF | 08-workflow/00-overview.md |
 | IF-WF-002 | 承認結果通知 | 各業務域 | 送信 | イベント（E31/E32） | リアルタイム | WF | 08-workflow/00-overview.md |

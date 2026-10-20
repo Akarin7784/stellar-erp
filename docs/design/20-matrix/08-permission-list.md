@@ -28,7 +28,6 @@
 | finance:bank-statement:import | FIN | F-FIN-024 |  | 07-finance/00-overview.md |
 | finance:budget:update | FIN | F-FIN-043 |  | 07-finance/00-overview.md |
 | finance:cash-journal:view | FIN | F-FIN-023 |  | 07-finance/00-overview.md |
-| finance:cost:* | FIN | F-FIN-031/032/033/034 |  | 07-finance/00-overview.md |
 | finance:cost:calculate | FIN | F-FIN-031 |  | 07-finance/00-overview.md |
 | finance:cost:view | FIN | F-FIN-031 |  | 07-finance/00-overview.md |
 | finance:expense:create | FIN | F-FIN-040 |  | 07-finance/00-overview.md |
@@ -49,6 +48,7 @@
 | finance:receivable:view | FIN | F-FIN-019 |  | 07-finance/00-overview.md |
 | finance:receivable:view（数据范围：本部门） | FIN | F-FIN-020 |  | 07-finance/00-overview.md |
 | finance:report:view | FIN | F-FIN-039 |  | 07-finance/00-overview.md |
+| finance:standard-cost:view/register/publish | FIN | F-FIN-047 |  | 07-finance/00-overview.md |
 | finance:statement:view | FIN | F-FIN-038 |  | 07-finance/00-overview.md |
 | finance:statement:view/export | FIN |  |  | 07-finance/92-report-batch-design.md |
 | finance:tax-accrual:generate | FIN | F-FIN-028 |  | 07-finance/00-overview.md |

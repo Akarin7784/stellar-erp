@@ -8,7 +8,7 @@
 | 作成日 | 2026-10-20 |
 | 作成者 | Lead（生成工具 gen_matrix.py） |
 | 状態 | ドラフト（自动生成・最終レビュー前） |
-| 備考 | 全 827 件。メッセージID/種別/本文/発生条件/対処/域/提取元 |
+| 備考 | 全 832 件。メッセージID/種別/本文/発生条件/対処/域/提取元 |
 
 > 本文件由 `20-matrix/tools/gen_matrix.py` 从各域设计书中自动提取生成。修改设计书后重新运行即可更新。
 
@@ -113,6 +113,9 @@
 | MSG-FIN-131 | E | 该期间已重新开启，报表快照已失效，请重新生成。 | 再開後の快照 | 再生成 | FIN | 07-finance/07-period-reporting.md |
 | MSG-FIN-132 | W | 现金流量表与现金科目余额变动不一致（差异 {0}），请检查现金流量项目标记。 | CF 不一致 | CF 項目を確認 | FIN | 07-finance/07-period-reporting.md |
 | MSG-FIN-133 | I | 年结完成：本年利润 {0} 转入未分配利润，下一会计年度已开账。 | 年結成功 | — | FIN | 07-finance/07-period-reporting.md |
+| MSG-FIN-134 |  |  |  |  | FIN | 07-finance/91-api-design.md |
+| MSG-FIN-135 |  |  |  |  | FIN | 07-finance/91-api-design.md |
+| MSG-FIN-136 |  |  |  |  | FIN | 07-finance/91-api-design.md |
 | MSG-INT-001 | E | 接口代码格式不正确（应为 IF-INT-三位数字）。 | 形式違反 | 修正 | INT | 09-integration/01-integration-config.md |
 | MSG-INT-002 | E | 接口代码已存在，请勿重复登记。 | 一意違反 | 既存を編集 | INT | 09-integration/01-integration-config.md |
 | MSG-INT-003 | E | 连接测试失败：{0}。请检查地址、证书与网络。 | テスト失敗 | 設定・NW 確認 | INT | 09-integration/01-integration-config.md |
@@ -368,7 +371,7 @@
 | MSG-PRD-037 | E | 指定した批次の在庫がありません。批次を再選択してください。 | 批次なし | 再選択 | PRD | 06-production/03-material-issue-reporting.md |
 | MSG-PRD-038 | 業務 |  |  |  | PRD | 06-production/01-bom-routing-workcenter.md |
 | MSG-PRD-039 | 相関 |  |  |  | PRD | 06-production/03-material-issue-reporting.md |
-| MSG-PRD-040 | E | 完工数量が注文数量＋容许率を超えています。 | 超過入庫 | 数量確認 | PRD | 06-production/02-work-order.md |
+| MSG-PRD-040 | E | 完工数量が許容上限（allowed_qty）を超えています。 | ハード超過 | 数量修正 | PRD | 06-production/02-work-order.md |
 | MSG-PRD-041 | 範囲 |  |  |  | PRD | 06-production/03-material-issue-reporting.md |
 | MSG-PRD-042 | 業務 |  |  |  | PRD | 06-production/03-material-issue-reporting.md |
 | MSG-PRD-044 |  |  |  |  | PRD | 06-production/02-work-order.md |
@@ -397,6 +400,7 @@
 | MSG-PRD-084 | 業務 |  |  |  | PRD | 06-production/04-outsourcing.md |
 | MSG-PRD-085 | 相関 |  |  |  | PRD | 06-production/04-outsourcing.md |
 | MSG-PRD-086 | E | 支給材料の在庫が不足しています。発料できません。 | 在庫不足 | 補充手配 | PRD | 06-production/04-outsourcing.md |
+| MSG-PRD-100 | 範囲 |  |  |  | PRD | 06-production/03-material-issue-reporting.md |
 | MSG-COM-032 |  |  |  |  | PUR | 04-purchase/93-messages.md |
 | MSG-COM-033 |  |  |  |  | PUR | 04-purchase/93-messages.md |
 | MSG-COM-034 |  |  |  |  | PUR | 04-purchase/93-messages.md |
@@ -441,7 +445,7 @@
 | MSG-PUR-041 | E | 未找到有效汇率（{0}→CNY），不能计算比价。 | 為替未設定 | 為替マスタ整備 | PUR | 04-purchase/93-messages.md |
 | MSG-PUR-042 | I | 比价计算完成：{0} 行、{1} 家供应商、{2} 件报价。 | 計算完了 | — | PUR | 04-purchase/93-messages.md |
 | MSG-PUR-043 | I | 询价单已取消。 | 取消成功 | — | PUR | 04-purchase/93-messages.md |
-| MSG-PUR-044 | E | 同一物料行只能中选 1 家供应商（Phase 1）。 | 複数中选 | 1 社に修正 | PUR | 04-purchase/93-messages.md |
+| MSG-PUR-044 | E | 同一物料行只能中选 1 家供应商（数量分拆は実装順 P2）。 | 複数中选 | 1 社に修正 | PUR | 04-purchase/93-messages.md |
 | MSG-PUR-045 | E | 中选数量无效：必须大于 0 且不超过可供应数量 {0}。 | 数量不正 | 数量修正 | PUR | 04-purchase/93-messages.md |
 | MSG-PUR-046 | I | 中选已确定，共 {0} 行、金额（税込）{1}。 | 中选成功 | PO 生成へ | PUR | 04-purchase/93-messages.md |
 | MSG-PUR-047 | I | 该询价单已生成采购订单（{0}），不重复生成。 | 再生成 | 既存 PO 参照 | PUR | 04-purchase/93-messages.md |
@@ -601,6 +605,7 @@
 | MSG-SAL-053 | 相関 |  |  |  | SAL | 03-sales/02-sales-order.md |
 | MSG-SAL-054 |  |  |  |  | SAL | 03-sales/02-sales-order.md |
 | MSG-SAL-055 | W | 本次变更金额增加 {0}，超出与信余力，需要重新审批。 |  | 再承認 | SAL | 03-sales/02-sales-order.md |
+| MSG-SAL-056 | E | 变更后数量（基本单位）不能小于已完工数量或已出库数量 {0}。 |  | 數量修正（≥ max(已完工, 已出库)） | SAL | 03-sales/02-sales-order.md |
 | MSG-SAL-080 | 業務 |  |  |  | SAL | 03-sales/06-credit-pricing.md |
 | MSG-SAL-081 |  |  |  |  | SAL | 03-sales/05-invoice-receivable.md |
 | MSG-SAL-082 | 業務 |  |  |  | SAL | 03-sales/06-credit-pricing.md |

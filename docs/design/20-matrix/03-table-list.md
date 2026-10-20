@@ -8,7 +8,7 @@
 | 作成日 | 2026-10-20 |
 | 作成者 | Lead（生成工具 gen_matrix.py） |
 | 状態 | ドラフト（自动生成・最終レビュー前） |
-| 備考 | 全 326 件。物理名/論理名/域/提取元 |
+| 備考 | 全 328 件。物理名/論理名/域/提取元 |
 
 > 本文件由 `20-matrix/tools/gen_matrix.py` 从各域设计书中自动提取生成。修改设计书后重新运行即可更新。
 
@@ -53,6 +53,7 @@
 | fin_receipt | 收款单 | FIN | 07-finance/90-db-design.md |
 | fin_receivable | 应收单 | FIN | 07-finance/90-db-design.md |
 | fin_receivable_line | 应收单明细 | FIN | 07-finance/90-db-design.md |
+| fin_standard_cost | 标准成本（版管理） | FIN | 07-finance/90-db-design.md |
 | fin_statement_formula | 报表取数公式 | FIN | 07-finance/90-db-design.md |
 | fin_statement_snapshot | 财务报表快照 | FIN | 07-finance/90-db-design.md |
 | fin_statement_template | 报表项目模板 | FIN | 07-finance/90-db-design.md |
@@ -200,6 +201,7 @@
 | prd_outsourcing_receipt_line | 委外收货明细 | PRD | 06-production/90-db-design.md |
 | prd_outsourcing_settlement | 委外结算单头 | PRD | 06-production/90-db-design.md |
 | prd_outsourcing_settlement_line | 委外结算明细 | PRD | 06-production/90-db-design.md |
+| prd_overproduction_approval |  | PRD | 06-production/90-db-design.md |
 | prd_routing | 工艺路线头 | PRD | 06-production/90-db-design.md |
 | prd_routing_operation | 工艺工序 | PRD | 06-production/90-db-design.md |
 | prd_routing_operation_alt | 替代工序 | PRD | 06-production/90-db-design.md |

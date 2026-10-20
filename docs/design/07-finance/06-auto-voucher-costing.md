@@ -66,17 +66,17 @@
 | BC-01 | 成本核算方法：標準機（MTS）は**品种法**、受注機（MTO）は**分批法**。製品ごとに `cost_method` を設定（`mdm_material.cost_method`：1 品种法/2 分批法） | 09 章 6 章；本域設計 | `fin_cost_collection.cost_method` |
 | BC-02 | 成本对象：品种法＝产品+期间；分批法＝生产工单（`work_order_id`、批次）。材料按 BOM 标准用量与实际领料归集 | 09 章 6 章 | `cost_object_type`、`cost_object_id` |
 | BC-03 | 材料费归集：E22（生产领料）按工单归集，金额＝领料数量 × 移动平均单价（E18/E19 提供）；E23 报工归集人工；制造费用按分配标准分配 | 09 章 7.2 J11–J15 | `material_cost`、`labor_cost`、`overhead_cost` |
-| BC-04 | 直接人工费＝Σ(报工工时 × 工序费率)。工序费率维护于工作中心（Phase 2 与 PRD/HR 连携）；Phase 1 采用「直接人工总额 ÷ 总工时」的统一费率 | 本域設計【示例値】 | `work_hours`、`labor_rate` |
+| BC-04 | 直接人工费＝Σ(报工工时 × 工序费率)。工序费率维护于工作中心（実装順 P2 与 PRD/HR 连携）；P0 実装時点 采用「直接人工总额 ÷ 总工时」的统一费率 | 本域設計【示例値】 | `work_hours`、`labor_rate` |
 | BC-05 | 制造费用分配标准：默认**直接人工工时**。可选「机器工时/产量/直接材料成本」（`fin_cost_allocation.basis_type`）。分配率＝待分配费用 ÷ 分配标准合计（6 位） | 08 章 6 章；本域設計 | `allocation_rate` |
 | BC-06 | 品种法在制品：按**约当产量法**（材料一次投入 100%、人工/制造费用按完工率）。完工产品成本＝总成本 × 完工数量 ÷ (完工数量 + 在制品约当产量) | CAS 成本核算惯例【示例値】 | `fin_wip_balance` |
 | BC-07 | 分批法在制品：工单未完工前全部成本留在该工单；完工时按实际归集成本转出（无在制品约当产量概念，部分完工按完工数量比例分摊） | 09 章 6 章 | `fin_product_cost` |
 | BC-08 | 完工入库凭证 J16：借 1405 库存商品、贷 5001 生产成本（材料+人工+制造费用）。单位成本＝完工总成本 ÷ 完工数量（6 位，2 位表示） | 09 章 7.2 J16 | `unit_cost` |
 | BC-09 | 期末 5001 余额＝在制品金额，必须与 `fin_wip_balance` 合计一致（月结检查项）；5101 期末无余额 | 09 章 10.3 | 月结检查 |
-| BC-10 | 成本差异分析：标准成本（BOM 标准用量 × 标准单价 + 标准工时 × 标准费率）与实际成本比较，分解为「材料价差/材料量差/人工效率差异/人工工资率差异/制造费用差异」 | 本域設計；标准成本第一版启用，随首批业务表上线（2026-10-20 Yuri 确认不分期，见 R3 G1-02；标准成本以哪个来源为准仍待定，见 G2-21） | `fin_cost_variance` |
+| BC-10 | 成本差异分析：标准成本（BOM 标准用量 × 标准单价 + 标准工时 × 标准费率）与实际成本比较，分解为「材料价差/材料量差/人工效率差异/人工工资率差异/制造费用差异」 | 本域設計；标准成本第一版启用（2026-10-20 Yuri 确认第一版全量，R3 G1-02）。唯一来源为 `fin_standard_cost`（物料×版本×适用期间，[90 §6.12](90-db-design.md)，R3 G2-21） | `fin_cost_variance` |
 | BC-11 | 成本计算顺序：① 归集材料（E22/E18）→ ② 归集人工（E23）→ ③ 归集制造费用（5101）→ ④ 分配制造费用（J15）→ ⑤ 计算完工/在制品（J16）→ ⑥ 成本差异分析 | 09 章 6.2 | `BAT-FIN-010/011` |
 | BC-12 | 成本计算在库存月结（E20）之后、损益结转之前执行；期间 CLOSED 后不可重算（如需重算须财务总监批准 + 期间重开） | 08 章 10 章 | `fin_period` |
 | BC-13 | 负库存/无领料报工/无 BOM 的成本对象不参与计算，列入异常清单；成本计算不自动补数 | 本域設計 | 异常清单 |
-| BC-14 | 委外加工（Phase 2）：材料成本经 1408 委托加工物资归集，加工费计入成本；J17/J18 | 09 章 7.2 J17/J18 | `fin_cost_collection` |
+| BC-14 | 委外加工（第一版・実装順 P2）：材料成本经 1408 委托加工物资归集，加工费计入成本；J17/J18 | 09 章 7.2 J17/J18 | `fin_cost_collection` |
 | BC-15 | 成本数据与库存域字段契约：`material_id`、`work_order_id`、`qty`、`unit_cost`、`amount`、`txn_id`、`eventId` 必须一致；FIN 不修改 INV 数量 | 09 章 11 章 | `fin_cost_collection.source_id` |
 
 ### 2.4 計算式・判定式
@@ -273,7 +273,7 @@ flowchart LR
 | 標準単位成本 | 778.20 | [bom-demo.md](../90-data/bom-demo.md) §6 |
 | 原価差異 | −6.45（有利） | 実際 93,377.55 − 標準 93,384.00 |
 
-> Phase 1 の簡便法：材料は BOM 標準使用量どおり領料し、材料価格差異のみを認識する。期中の仕掛・約当产量按分は Phase 2（複数工单並行時）で拡張する。
+> 簡便法（実装順 P0）：材料は BOM 標準使用量どおり領料し、材料価格差異のみを認識する。期中の仕掛・約当产量按分は 実装順 P2（複数工单並行時）で拡張する。
 
 ### 5.4 分批法の計算（YVF 受注機、WO2610200003）
 
@@ -312,6 +312,7 @@ flowchart LR
 | SCR-FIN-045 | 制造费用归集与分配 | EDIT | 費用集計、分配標準、配賦実行 |
 | SCR-FIN-046 | 在制品与完工成本 | LIST | WIP 一覧、完工成本一覧 |
 | SCR-FIN-047 | 成本差异分析 | 照会 | 標準/実際差異、要因分解 |
+| SCR-FIN-062 | 標準原価メンテナンス | LIST/EDIT | 版登録（草稿・成本会計）・発行（財務総監）、旧版自動打切り（F-FIN-047） |
 
 ### 6.2 画面項目定義（SCR-FIN-041 自动凭证规则管理）
 
@@ -344,6 +345,35 @@ flowchart LR
 | 3 | プレビュー | ボタン | サンプル payload から凭证プレビュー | POST /api/finance/voucher-templates/{id}/preview |
 | 4 | 有効化/無効化 | ボタン | status 更新（有効期間チェック） | PUT /api/finance/voucher-templates/{id} |
 | 5 | ログ参照 | ボタン | SCR-FIN-042 へ | — |
+
+### 6.2a 画面項目定義（SCR-FIN-062 標準原価メンテナンス）
+
+マスタ型（一覧＋編集）。草稿登録・更新は成本会計（`finance:standard-cost:register`）、発行は財務総監（`finance:standard-cost:publish`）のみ。DB は [90 §6.12](90-db-design.md) `fin_standard_cost`。
+
+| No | 項目 ID | 項目名 | 区分 | 種別 | 型/桁 | 必須 | 初期値 | 入力チェック | データソース | DB 項目 | 権限 | 備考 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | material_id | 物料 | ヘッダ | 選択 | BIGINT | ○ | 空 | 存在・製品/半製品 | `mdm_material` | `material_id` / `material_code` | 編集可（草稿のみ） | コードはスナップショット |
+| 2 | cost_version | 版本 | ヘッダ | テキスト | VARCHAR(16) | ○ | 空 | 1～16 文字、物料内一意（MSG-FIN-136） | 手入力 | `cost_version` | 編集可（草稿のみ） | 例 2026A |
+| 3 | period_from | 適用開始期間 | ヘッダ | 年月 | DATE（月初） | ○ | 翌月 | `YYYY-MM`、有効版より後・未結帳期間（発行時 MSG-FIN-134） | 手入力 | `period_from` | 編集可（草稿のみ） | 表示 `YYYY-MM`、保存は月初日 |
+| 4 | period_to | 適用終了期間 | ヘッダ | 年月 | DATE（月初） | — | 空（無期限） | ≥ 開始 | 発行時に自動設定 | `period_to` | 参照のみ | 後続版発行で自動打切り |
+| 5 | cost_method | 成本核算方法 | ヘッダ | 選択 | SMALLINT | ○ | 物料の `cost_method` | 1/2 | `mdm_material.cost_method` | `cost_method` | 参照のみ | 1 品种法（MTS）/2 分批法（MTO）（BC-01） |
+| 6 | bom_id | 卷算 BOM | ヘッダ | 選択 | BIGINT | — | 有効 BOM | 存在 | `prd_bom` | `bom_id` | 編集可（草稿のみ） | — |
+| 7 | routing_id | 卷算工艺路线 | ヘッダ | 選択 | BIGINT | — | 有効工艺 | 存在 | `prd_routing` | `routing_id` | 編集可（草稿のみ） | — |
+| 8 | base_qty | 原価単位数量 | 明細 | 数値 | NUMERIC(18,4) | ○ | 1.0000 | > 0 | 手入力 | `base_qty` | 編集可（草稿のみ） | — |
+| 9 | std_labor_hours | 標準工時 | 明細 | 数値 | NUMERIC(18,4) | ○ | 0 | ≥ 0 | 工艺卷算/手入力 | `std_labor_hours` | 編集可（草稿のみ） | 例 2.1500 |
+| 10 | std_labor_rate | 標準賃率 | 明細 | 数値 | NUMERIC(18,6) | ○ | 0 | ≥ 0 | 手入力 | `std_labor_rate` | 編集可（草稿のみ） | 例 25.00 元/h |
+| 11 | std_overhead_rate | 標準配賦率 | 明細 | 数値 | NUMERIC(18,6) | ○ | 0 | ≥ 0 | 手入力 | `std_overhead_rate` | 編集可（草稿のみ） | 例 30.00 元/h |
+| 12 | material_unit_cost | 材料 | 明細 | 数値 | NUMERIC(18,6) | ○ | 卷算値 | ≥ 0 | BOM 卷算 | `material_unit_cost` | 編集可（草稿のみ） | 例 659.950000 |
+| 13 | labor_unit_cost | 人工 | 明細 | 数値 | NUMERIC(18,6) | ○ | 工時×賃率 | ≥ 0 | 計算 | `labor_unit_cost` | 編集可（草稿のみ） | 例 53.750000 |
+| 14 | overhead_unit_cost | 製造費用 | 明細 | 数値 | NUMERIC(18,6) | ○ | 工時×配賦率 | ≥ 0 | 計算 | `overhead_unit_cost` | 編集可（草稿のみ） | 例 64.500000 |
+| 15 | outsourcing_unit_cost | 委外 | 明細 | 数値 | NUMERIC(18,6) | ○ | 0 | ≥ 0 | 手入力 | `outsourcing_unit_cost` | 編集可（草稿のみ） | BC-14 |
+| 16 | total_unit_cost | 標準単位原価 | 明細 | 数値 | NUMERIC(18,6) | ○ | 自動 | = 12+13+14+15 | サーバ計算 | `total_unit_cost` | 参照のみ | 例 778.200000 |
+| 17 | status | 状態 | ヘッダ | ラベル | SMALLINT | ○ | 10 | 10/40/90 | システム | `status` | 参照のみ | 10 草稿/40 已发布/90 失效。40/90 は全項目参照のみ（MSG-FIN-135） |
+| 18 | published_at | 発行日時 | ヘッダ | 日時 | TIMESTAMPTZ | — | 空 | — | システム | `published_at` | 参照のみ | 発行時に設定 |
+| 19 | published_by | 発行者 | ヘッダ | 表示 | BIGINT | — | 空 | — | `sys_user` | `published_by` | 参照のみ | 財務総監 |
+| 20 | remark | 備考 | ヘッダ | テキスト | VARCHAR(500) | — | 空 | ≤ 500 | 手入力 | `remark` | 編集可（草稿のみ） | — |
+| 21 | btn_save | 保存（草稿） | ボタン | — | — | — | — | — | `POST/PUT /api/finance/standard-costs` | — | register | 成本会計 |
+| 22 | btn_publish | 発行 | ボタン | — | — | — | — | 確認ダイアログ（旧版の打切り月を表示） | `POST /api/finance/standard-costs/{id}/publish` | — | publish | 財務総監のみ表示 |
 
 ### 6.3 画面項目定義（SCR-FIN-043 成本计算ウィザード）
 
@@ -458,6 +488,10 @@ flowchart LR
 | 14 | POST | /api/finance/costs/allocations | finance:cost:calculate | 製造費用分配実行 | `{periodCode,basisType,overrides?}` | `{allocations[],voucherId}` |
 | 15 | GET | /api/finance/costs/wip | finance:cost:view | 在制品一覧 | `periodCode,workOrderId` | `WipDto[]` |
 | 16 | GET | /api/finance/costs/variance | finance:cost:view | 成本差異分析 | `periodCode,productId,workOrderId` | `VarianceDto` |
+| 17 | GET | /api/finance/standard-costs | finance:standard-cost:view | 標準原価版一覧 | `materialId,status,period(YYYY-MM)` | `PageResult<StandardCostDto>` |
+| 18 | GET | /api/finance/standard-costs/{id} | finance:standard-cost:view | 標準原価版詳細 | — | `StandardCostDto` |
+| 19 | POST/PUT | /api/finance/standard-costs[/{id}] | finance:standard-cost:register | 草稿登録・更新 | `StandardCostRequest` | `StandardCostDto` |
+| 20 | POST | /api/finance/standard-costs/{id}/publish | finance:standard-cost:publish | 発行（旧版自動打切り） | `{version}` | `{published, truncated?}` |
 
 ### 8.1 リクエスト/レスポンス詳細
 
@@ -573,8 +607,8 @@ flowchart LR
 
 | 種別 | 内容 |
 |---|---|
-| 画面権限 | `finance:auto-voucher:view/update/retry`、`finance:cost:view/calculate/confirm` |
-| 操作権限 | テンプレート変更＝財務経理、リトライ＝会計/財務経理、成本計算＝成本会計、成本確定＝財務経理 |
+| 画面権限 | `finance:auto-voucher:view/update/retry`、`finance:cost:view/calculate/confirm`、`finance:standard-cost:view/register/publish` |
+| 操作権限 | テンプレート変更＝財務経理、リトライ＝会計/財務経理、成本計算＝成本会計、成本確定＝財務経理、標準原価の草稿登録＝成本会計、発行＝財務総監のみ |
 | SoD | 自動记账はシステムユーザ（created_by=0）が実行し、人間の审核者を要しない（自動計上ポリシー）。手動凭证の SoD は 02 章に従う |
 | DSL セキュリティ | 金額式 DSL は許可関数（sum/abs/min/max/round）とフィールド参照のみ。`eval`・任意メソッド呼出・ファイル/DB アクセスは禁止 |
 | 監査ログ | テンプレート変更、自動凭证生成（event/payload hash/voucher）、リトライ、成本計算/確定を記録 |
@@ -623,11 +657,11 @@ flowchart LR
 
 | # | 事項 | 理由 | 暫定仕様 | 担当 | 期限 |
 |---|---|---|---|---|---|
-| 1 | 標準原価の設定主体 | 標準原価は Phase 2 正式運用。Phase 1 は実際原価のみ | Phase 1 は差異分析を「実際 vs 前期/標準参考値」で実施 | 財務総監 / PRD | Phase 2 |
-| 2 | 工序別賃率の連携 | HR/PRD の作業者賃率マスタが未設計 | Phase 1 は全部門統一レート（42.00 元/h 等）を `sys_param` で管理 | HR / PRD | Phase 2 |
-| 3 | 製造費用分配基準の最終決定 | 直接人工工时を既定とするが、設備集約工程では機械工時にすべき | Phase 1 は直接人工工時、Phase 2 で費用中心別基準を設定可 | 成本会計 | 2026-10-30 |
-| 4 | 約当产量法の厳密化 | Phase 1 は材料一次投入の簡便法 | Phase 2 で材料も加工進捗に応じ配賦 | 成本会計 | Phase 2 |
-| 5 | 自動記帳（auto_post）の可否 | 内部統制上、自動計上の範囲を限定すべき | Phase 1 は J01/J06/J07/J08/J09/J10/J11/J13/J16 を auto_post=true、月結系（J26/J27/J28/J29/J30）は手動確認 | 財務総監 | 2026-10-24 |
+| 1 | 標準原価の設定主体・改定承認 | **決定済（2026-10-21 蓝色大肥鱼）** | 成本会計が卷算・登録、財務総監が発行（[95](95-acceptance-criteria.md) 未決 #1） | 財務総監 | — |
+| 2 | 工序別賃率の連携 | HR/PRD の作業者賃率マスタが未設計 | P0 実装時点 は全部門統一レート（42.00 元/h 等）を `sys_param` で管理 | HR / PRD | 実装順 P2 |
+| 3 | 製造費用分配基準の最終決定 | 直接人工工时を既定とするが、設備集約工程では機械工時にすべき | P0 実装時点 は直接人工工時、実装順 P2 で費用中心別基準を設定可 | 成本会計 | 2026-10-30 |
+| 4 | 約当产量法の厳密化 | P0 実装時点 は材料一次投入の簡便法 | 実装順 P2 で材料も加工進捗に応じ配賦 | 成本会計 | 実装順 P2 |
+| 5 | 自動記帳（auto_post）の可否 | 内部統制上、自動計上の範囲を限定すべき | P0 実装時点 は J01/J06/J07/J08/J09/J10/J11/J13/J16 を auto_post=true、月結系（J26/J27/J28/J29/J30）は手動確認 | 財務総監 | 2026-10-24 |
 
 ---
 
@@ -638,3 +672,4 @@ flowchart LR
 | v1.0 | 2026-10-20 | 初版：J01–J30 完全対応の自動凭证テンプレート 30 件、DSL/幂等/リトライ、品種法/分批法コスト計算、製造費用分配、WIP、差異分析、画面/API/メッセージ/テスト | finance-designer |
 | v1.1 | 2026-10-20 | 09 章 §3 追補：J12 のトリガを E36 `production.material.returned` として明記（payload・対処理 INV 在庫戻入）し、上流イベント一覧に E36 を追加 | finance-designer |
 | v1.2 | 2026-10-20 | 红队修复：完工例を唯一シナリオ（WO2610200001、120 PCE、標準 93,384.00／実際 93,377.55、材料価格差異 −6.45）へ統一。テンプレート金額式を 09 修正後 payload へ更新。J21 を盤盈/盤亏の 2 行に分割、J29 に所得税を含める。期初 WIP 0・分批法 800h に修正 | finance-designer |
+| v1.3 | 2026-10-21 | SCR-FIN-062 標準原価メンテナンス（画面一覧・項目定義 §6.2a・API・権限） | 业务分析 |

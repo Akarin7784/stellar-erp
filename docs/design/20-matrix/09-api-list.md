@@ -8,7 +8,7 @@
 | 作成日 | 2026-10-20 |
 | 作成者 | Lead（生成工具 gen_matrix.py） |
 | 状態 | ドラフト（自动生成・最終レビュー前） |
-| 備考 | 全 1219 件。メソッド/パス/概要/権限/域/提取元 |
+| 備考 | 全 1227 件。メソッド/パス/概要/権限/域/提取元 |
 
 > 本文件由 `20-matrix/tools/gen_matrix.py` 从各域设计书中自动提取生成。修改设计书后重新运行即可更新。
 
@@ -137,6 +137,14 @@
 | GET | /api/finance/receivables/{id} | 应收詳細 | finance:receivable:view | FIN | 07-finance/91-api-design.md |
 | POST | /api/finance/receivables/{id}/cancel | 应收作废（退货等） | finance:receivable:cancel | FIN | 07-finance/91-api-design.md |
 | POST | /api/finance/receivables/{id}/confirm | 应收確認 | finance:receivable:confirm | FIN | 07-finance/91-api-design.md |
+| GET | /api/finance/standard-costs | 標準原価版一覧 | finance:standard-cost:view | FIN | 07-finance/06-auto-voucher-costing.md |
+| GET | /api/finance/standard-costs | 標準原価版一覧（materialId,status,period） | finance:standard-cost:view | FIN | 07-finance/91-api-design.md |
+| POST | /api/finance/standard-costs | 草稿登録（status=10） | finance:standard-cost:register | FIN | 07-finance/91-api-design.md |
+| GET | /api/finance/standard-costs/{id} | 標準原価版詳細 | finance:standard-cost:view | FIN | 07-finance/91-api-design.md |
+| PUT | /api/finance/standard-costs/{id} | 草稿更新（version 楽観ロック） | finance:standard-cost:register | FIN | 07-finance/91-api-design.md |
+| POST | /api/finance/standard-costs/{id}/publish | 発行（旧版自動打切り） | finance:standard-cost:publish | FIN | 07-finance/06-auto-voucher-costing.md |
+| POST | /api/finance/standard-costs/{id}/publish | 発行（fin_publish_standard_cost 呼出、mdm_material 行ロックで同一物料を直列化、旧版自動打切り。23P01 も 70134 に変換） | finance:standard-cost:publish | FIN | 07-finance/91-api-design.md |
+| POST/PUT | /api/finance/standard-costs[/{id}] | 草稿登録・更新 | finance:standard-cost:register | FIN | 07-finance/06-auto-voucher-costing.md |
 | GET | /api/finance/statement-formulas | 取数公式一覧（保守） | finance:statement:view | FIN | 07-finance/07-period-reporting.md |
 | GET | /api/finance/statement-formulas | 取数公式一覧 | finance:statement:view | FIN | 07-finance/91-api-design.md |
 | GET | /api/finance/statements/{type} | 报表取得（プレビュー/快照） | finance:statement:view | FIN | 07-finance/07-period-reporting.md |
@@ -902,11 +910,11 @@
 | POST | /api/sales/delivery-notes/{id}/start-picking | ピッキング開始 | sales:delivery:pick | SAL | 03-sales/91-api-design.md |
 | POST | /api/sales/exchanges | 換貨作成（返品＋新規受注） | sales:exchange:create | SAL | 03-sales/91-api-design.md |
 | POST | /api/sales/exports | 非同期エクスポート | sales:report:export | SAL | 03-sales/91-api-design.md |
-| GET | /api/sales/forecasts | 予測一覧（Phase2） | sales:forecast:view | SAL | 03-sales/07-tracking-reports.md |
+| GET | /api/sales/forecasts | 予測一覧 | sales:forecast:view | SAL | 03-sales/07-tracking-reports.md |
 | GET | /api/sales/forecasts | 予測一覧（P2） | sales:forecast:view | SAL | 03-sales/91-api-design.md |
-| POST | /api/sales/forecasts | 予測保存（Phase2） | sales:forecast:create | SAL | 03-sales/07-tracking-reports.md |
+| POST | /api/sales/forecasts | 予測保存 | sales:forecast:create | SAL | 03-sales/07-tracking-reports.md |
 | POST | /api/sales/forecasts | 予測保存（P2） | sales:forecast:create | SAL | 03-sales/91-api-design.md |
-| POST | /api/sales/forecasts/{id}/confirm | 予測確定（Phase2） | sales:forecast:create | SAL | 03-sales/07-tracking-reports.md |
+| POST | /api/sales/forecasts/{id}/confirm | 予測確定 | sales:forecast:create | SAL | 03-sales/07-tracking-reports.md |
 | POST | /api/sales/forecasts/{id}/confirm | 予測確定（P2） | sales:forecast:create | SAL | 03-sales/91-api-design.md |
 | GET | /api/sales/inquiries | 引合一覧 | sales:inquiry:view | SAL | 03-sales/91-api-design.md |
 | POST | /api/sales/inquiries | 引合登録 | sales:inquiry:create | SAL | 03-sales/91-api-design.md |
@@ -986,7 +994,7 @@
 | POST | /api/sales/sales-orders/{id}/changes/{versionNo}/submit | 変更提出 | sales:order:submit | SAL | 03-sales/91-api-design.md |
 | POST | /api/sales/sales-orders/{id}/close | クローズ | sales:order:close | SAL | 03-sales/91-api-design.md |
 | GET | /api/sales/sales-orders/{id}/credit-check | 與信再判定 | sales:credit:view | SAL | 03-sales/91-api-design.md |
-| PUT | /api/sales/sales-orders/{id}/export-info | 輸出販売情報（Phase2） | sales:export:update | SAL | 03-sales/07-tracking-reports.md |
+| PUT | /api/sales/sales-orders/{id}/export-info | 輸出販売情報 | sales:export:update | SAL | 03-sales/07-tracking-reports.md |
 | PUT | /api/sales/sales-orders/{id}/export-info | 輸出販売情報（P2） | sales:export:update | SAL | 03-sales/91-api-design.md |
 | POST | /api/sales/sales-orders/{id}/print | 注文請書 PDF（PRT-SAL-002） | sales:order:print | SAL | 03-sales/02-sales-order.md |
 | POST | /api/sales/sales-orders/{id}/print | 注文請書（PRT-SAL-002） | sales:order:print | SAL | 03-sales/91-api-design.md |
@@ -1142,7 +1150,7 @@
 | GET | /api/system/scheduled-jobs/{id}/logs | 実行履歴 | system:job-monitor:view | SYS | 01-system/91-api-design.md |
 | POST | /api/system/scheduled-jobs/{id}/run | 手動実行 | system:job-monitor:run | SYS | 01-system/91-api-design.md |
 | PUT | /api/system/scheduled-jobs/{id}/status | 停止/再開 | system:job-monitor:run | SYS | 01-system/91-api-design.md |
-| GET | /api/system/tenants | 租户一覧（P2） | system:tenant:view | SYS | 01-system/91-api-design.md |
+| GET | /api/system/tenants | 租户一覧 | system:tenant:view | SYS | 01-system/91-api-design.md |
 | GET | /api/system/users | ユーザ一覧（ページング） | system:user:view | SYS | 01-system/02-user-role-permission.md |
 | GET | /api/system/users | ユーザ一覧 | system:user:view | SYS | 01-system/91-api-design.md |
 | POST | /api/system/users | ユーザ登録 | system:user:create | SYS | 01-system/91-api-design.md |
