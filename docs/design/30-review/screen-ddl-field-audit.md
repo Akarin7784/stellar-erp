@@ -9,9 +9,8 @@
 
 1. 画面/API 与 DDL 命名冲突时，**以 DDL 为准**，改画面/API 文档的映射。
 2. PUR：请购行追溯统一使用 `purchase_requisition_line_id`，修正画面文档与 ER 图中的 `pr_line_id`。
-3. INV：DDL 增加列——`inv_stock_txn_line` 增加 `from_status`、`to_status`（状态转换用），`inv_stock_txn` 增加 `inspection_flag`（入库检验要否），具体放置由数据库与运维在 inventory 迁移 PR 中确定。
-4. `inspection_flag` 规则冲突（`05-inventory/02-inbound-outbound.md:157` vs `:360`）待业务分析确认。
-   - 评审意见：建议把 `inspection_flag` 也放在 `inv_stock_txn_line`（与 `from_status`/`to_status` 同表），因为默认值按物料取自 `mdm_material.inspection_required`；最终放置由数据库与运维在 inventory 迁移 PR 中确定。评审倾向采用 `:157` 的规则（ON→`stock_status=10 待检`，OFF→`20 可用`），`:360` 的「ON で状態 20」视为笔误，待业务分析确认。
+3. INV：DDL 增加列——`inv_stock_txn_line` 增加 `from_status`、`to_status`（状态转换用）和 `inspection_flag`（入库检验要否，默认取自 `mdm_material.inspection_required`）。已决（蓝色大肥鱼，2026-10-20）。
+4. `inspection_flag` 规则：以 `05-inventory/02-inbound-outbound.md:157` 为准，ON→明细 `stock_status=10 待检`，OFF→`20 可用`；`:360` 的「ON で状態 20」为笔误。已决（蓝色大肥鱼，2026-10-20）。
 5. FIN（SCR-FIN-030、054～061）与 RPT（SCR-RPT-002、019、020）缺失的画面设计，在各域文档 PR 中补齐。
 
 ## 0. S1 汇总（优先处理）
@@ -23,7 +22,7 @@
 2. **[INV] 入库单「检验要否」无对应列且规则自相矛盾**
    - 画面/API 侧：`05-inventory/02-inbound-outbound.md:360` `inspectionFlag` → `inspection_flag`，备注「ON で状態 20」
    - DDL 侧：`inv_stock_txn`（`05-inventory/90-db-design.md:299`）无 `inspection_flag`；同文件 `02-inbound-outbound.md:157` 写的是 `inspection_required=false` 时为 20 可用（即 ON 应为 10 待检）
-   - 建议：已决：加列（见「处理决定」第 3 条）；ON/OFF 规则待业务分析确认（见第 4 条）。直接影响 SQL 场景里收货后可用量。
+   - 建议：已决（蓝色大肥鱼，2026-10-20）：`inspection_flag` 加在 `inv_stock_txn_line`；规则按 `:157`（ON→10 待检，OFF→20 可用），`:360` 为笔误需改正（见「处理决定」第 3、4 条）。直接影响 SQL 场景里收货后可用量。
 3. **[PUR] 请购行追溯列名不一致**
    - 画面/API 侧：`04-purchase/03-purchase-order.md:242`、`04-purchase/02-rfq-comparison.md:196` 画面 `prLineId` → `pr_line_id`；API 示例 `04-purchase/03-purchase-order.md:497` `prLineId`；ER 图 `04-purchase/90-db-design.md:69` 也写 `pr_line_id`
    - DDL 侧：DDL 实际列名 `purchase_requisition_line_id`（`04-purchase/90-db-design.md:763` PO 行、`:403` RFQ 行）
