@@ -25,7 +25,9 @@
 --      - 完工容许率优先级：受注行 > 物料 > 物料分类 > 公司；容许率一律存 rate NUMERIC(5,4)，不做 /100 换算；
 --      - 公司默认取 01-system 公司参数表（表名未定），不硬编码 0.05；
 --      - 超产审批单独建表（审批单号、申请数量、批准 allowed_qty、审批人、审批时间），走 Flowable 审批；
---      - 软删除统一 deleted BOOLEAN。
+--      - 软删除统一 deleted BOOLEAN；
+--      - 舍入：allowed_qty 按物料基本单位精度（mdm_uom.decimal_places）向下取整，
+--        受注行确认时快照，受注改量、超产审批通过时按同一规则重算。
 --   D6 错误码分工：4002 只用于真正的状态冲突（单据状态不允许、并发改绑），HTTP 409；
 --      业务规则拒绝用领域码（HTTP 422），入参值域错误用 1003（HTTP 400）。
 --   D4 RLS：依赖 #43（app.tenant_id，set_config(...,true)，erp_app NOBYPASSRLS）。
@@ -89,13 +91,75 @@ BEGIN
         RETURN v_rate;
     END IF;
     -- (4) 公司默认：01-system 公司参数表
-    -- TODO(待T2/T3定稿) 公司参数表名/参数键未定（01-system），不硬编码 0.05；取不到时报错而不是默认
+    -- 公司默认取 01-system sys_param（value_type 3 小数），不硬编码 0.05；取不到时报错而不是默认
     -- 由 DB 组在 sys_param 迁移中预置 0.05；缺失属配置/系统错误，报 5000
-    -- SELECT ... INTO v_rate FROM <sys_company_param?> WHERE company_id = ? AND param_key = ?;
+    SELECT p.param_value::numeric INTO v_rate
+      FROM sys_param p
+     WHERE p.param_key = 'prd.completion_over_rate'   -- TODO(待T2/T3定稿) sys_param 参数键名未定，此为占位
+       AND p.company_id = (SELECT m.company_id FROM mdm_material m WHERE m.id = p_material_id)
+       AND p.status = 1
+       AND p.deleted = FALSE;
     IF v_rate IS NULL THEN
         PERFORM g2_18_raise(5000, 'company default completion over-receipt rate not configured');
     END IF;
     RETURN v_rate;
+END $$;
+
+-- ---------------------------------------------------------------------
+-- 1b. allowed_qty 计算（已定）：按物料基本单位精度向下取整
+--     例：PCE（decimal_places = 0）7 × 1.05 = 7.35 → 7
+--     精度来源 mdm_uom.decimal_places（02-mdm/90-db-design.md:925），经 mdm_material.base_uom_code 关联
+--     受注行确认、受注改量、超产审批三处统一调用
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION g2_18_calc_allowed_qty(
+    p_qty         numeric,   -- 基本单位数量（base_qty 或审批批准值）
+    p_rate        numeric,   -- 容许率 rate；超产审批传 0
+    p_material_id bigint
+) RETURNS numeric
+LANGUAGE plpgsql STABLE SECURITY INVOKER AS $$
+DECLARE
+    v_scale smallint;
+BEGIN
+    SELECT u.decimal_places INTO v_scale
+      FROM mdm_material m
+      JOIN mdm_uom u ON u.uom_code = m.base_uom_code
+                    AND u.company_id = m.company_id
+                    AND u.deleted = FALSE
+     WHERE m.id = p_material_id AND m.deleted = FALSE;
+    IF v_scale IS NULL THEN
+        PERFORM g2_18_raise(5000, 'base uom precision not found for material ' || p_material_id);
+    END IF;
+    -- 数量均 ≥ 0，trunc 即向下取整
+    RETURN trunc(p_qty * (1 + p_rate), v_scale);
+END $$;
+
+-- ---------------------------------------------------------------------
+-- 1c. 受注行确认时快照 over_receipt_rate 与 allowed_qty。锁序：受注行 → 工单(id 升序)
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION g2_18_snapshot_on_line_confirm(
+    p_sales_order_line_id bigint,
+    p_line_rate           numeric,   -- 受注行上明确指定的容许率，NULL 表示未指定
+    p_operator_id         bigint
+) RETURNS numeric
+LANGUAGE plpgsql SECURITY INVOKER AS $$
+DECLARE
+    v_base_qty numeric;
+    v_material bigint;
+    v_rate     numeric;
+    v_allowed  numeric;
+BEGIN
+    PERFORM g2_18_assert_tenant();
+    PERFORM g2_18_lock_line_and_work_orders(p_sales_order_line_id);
+    SELECT l.base_qty, l.material_id INTO v_base_qty, v_material
+      FROM sal_sales_order_line l WHERE l.id = p_sales_order_line_id;
+    v_rate    := g2_18_resolve_over_receipt_rate(p_line_rate, v_material);
+    v_allowed := g2_18_calc_allowed_qty(v_base_qty, v_rate, v_material);
+    UPDATE sal_sales_order_line
+       SET over_receipt_rate = v_rate,      -- TODO(待T2/T3定稿) T2 新增列
+           allowed_qty       = v_allowed,   -- TODO(待T2/T3定稿) T2 新增列
+           version = version + 1, updated_at = now(), updated_by = p_operator_id
+     WHERE id = p_sales_order_line_id;
+    RETURN v_allowed;
 END $$;
 
 -- ---------------------------------------------------------------------
@@ -197,7 +261,7 @@ BEGIN
 
     -- 受注行累计上限：0 ≤ completed_qty + qty ≤ allowed_qty
     -- 工单与完工报告均为基本单位，无需换算
-    -- TODO(待T2/T3定稿) 舍入规则未定，参照 测试与评审 提案：按基本单位精度向下取整，并在受注行确认时快照
+    -- allowed_qty 已在受注行确认/改量/超产审批时按基本单位精度向下取整快照，此处直接比较
     IF v_line_id IS NOT NULL THEN
         IF v_line_done + p_qty < 0 OR v_line_done + p_qty > v_line_allowed THEN
             PERFORM g2_18_raise(60040, format('sales_order_line %s: %s + %s > allowed %s',
@@ -290,23 +354,27 @@ LANGUAGE plpgsql SECURITY INVOKER AS $$
 DECLARE
     v_old     numeric;
     v_company bigint;
+    v_material bigint;
+    v_new     numeric;
 BEGIN
     PERFORM g2_18_assert_tenant();
     PERFORM g2_18_lock_line_and_work_orders(p_sales_order_line_id);
 
-    SELECT l.allowed_qty, h.company_id                    -- TODO(待T2/T3定稿) allowed_qty
-      INTO v_old, v_company
+    SELECT l.allowed_qty, h.company_id, l.material_id     -- TODO(待T2/T3定稿) allowed_qty
+      INTO v_old, v_company, v_material
       FROM sal_sales_order_line l
       JOIN sal_sales_order h ON h.id = l.sales_order_id
      WHERE l.id = p_sales_order_line_id;
 
-    IF p_new_allowed_qty IS NULL OR p_new_allowed_qty <= v_old THEN
+    -- 同一规则：批准值按基本单位精度向下取整（rate 传 0）
+    v_new := g2_18_calc_allowed_qty(p_new_allowed_qty, 0, v_material);
+    IF v_new IS NULL OR v_new <= v_old THEN
         -- 业务规则拒绝（HTTP 422），非并发冲突
         PERFORM g2_18_raise(30022, format('new allowed_qty %s must be > current %s', p_new_allowed_qty, v_old));   -- TODO(待SAL定编号/MSG编号)
     END IF;
 
     UPDATE sal_sales_order_line
-       SET allowed_qty = p_new_allowed_qty,                -- TODO(待T2/T3定稿)
+       SET allowed_qty = v_new,                -- TODO(待T2/T3定稿)
            version = version + 1, updated_at = now(), updated_by = p_approver_id
      WHERE id = p_sales_order_line_id;
 
@@ -323,7 +391,7 @@ BEGIN
         p_audit_id, v_company, p_approver_id, 'APPROVE', 'SAL', 'sales-order-line',
         p_sales_order_line_id::text, p_approval_no,
         jsonb_build_object('allowed_qty', v_old),
-        jsonb_build_object('allowed_qty', p_new_allowed_qty, 'approval_no', p_approval_no),
+        jsonb_build_object('allowed_qty', v_new, 'requested_allowed_qty', p_new_allowed_qty, 'approval_no', p_approval_no),
         1, now(), p_approver_id
     );
 END $$;
@@ -342,17 +410,18 @@ DECLARE
     v_shipped  numeric;
     v_rate     numeric;
     v_new_allowed numeric;
+    v_material bigint;
 BEGIN
     PERFORM g2_18_assert_tenant();
     PERFORM g2_18_lock_line_and_work_orders(p_sales_order_line_id);
 
-    SELECT l.completed_qty, l.shipped_base_qty, l.over_receipt_rate   -- TODO(待T2/T3定稿) completed_qty/over_receipt_rate
-      INTO v_done, v_shipped, v_rate
+    SELECT l.completed_qty, l.shipped_base_qty, l.over_receipt_rate, l.material_id   -- TODO(待T2/T3定稿) completed_qty/over_receipt_rate
+      INTO v_done, v_shipped, v_rate, v_material
       FROM sal_sales_order_line l WHERE l.id = p_sales_order_line_id;
 
     -- 已定：按基本单位，基数为 base_qty
-    -- TODO(待T2/T3定稿) 舍入规则未定，参照 测试与评审 提案：按基本单位精度向下取整，受注行确认时快照
-    v_new_allowed := p_new_base_qty * (1 + v_rate);
+    -- 同一规则重算：基本单位精度向下取整；调用方在同一事务把返回值写回 allowed_qty
+    v_new_allowed := g2_18_calc_allowed_qty(p_new_base_qty, v_rate, v_material);
 
     IF v_new_allowed < v_done THEN
         -- 业务规则拒绝 → HTTP 422，不是并发冲突（不用 4002/409）
