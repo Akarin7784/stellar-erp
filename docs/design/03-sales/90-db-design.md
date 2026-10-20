@@ -514,6 +514,7 @@ CREATE TABLE sal_sales_order_line (
 - `conversion_rate` は受注確定時のスナップショット。単位換算後の基本単位数量は `base_qty` / `shipped_base_qty`。
 - `allowed_qty` / `completed_qty` は基本単位。`allowed_qty = floor(ordered_qty × conversion_rate × (1 + rate))`（`mdm_uom.decimal_places` で切捨て）。容差チェーンは受注行 > 物料 > 物料分類 > 会社（`sys_param.prd.completion_over_rate`）。確定時にスナップショットし、承認済の受注変更または超産承認時のみ再計算。
 - 跨表ロック順序：受注行 → 工单（同一表は id 昇順）。過帳は行ロックのみ（[04 §11.1](../00-common/04-common-db-spec.md)）。
+- **完工上報処理（2026-10-21）**：受注行を `SELECT … FOR UPDATE` でロックした直後に `allowed_qty IS NULL` を判定し、NULL（未スナップショット）なら 5000 を返して処理を中断する（0 とみなして比較しない）。非 NULL の場合のみ `completed_qty + 今回 ≤ allowed_qty` を検証する。超産承認時も同様。
 - 工单の物料は受注行の物料と一致しなければならない（生産ドメインで検証）。
 - **`allowed_qty` の NULL（2026-10-21 決定）**：NULL 可・既定値なし。NULL＝受注確定時のスナップショット未取得。超産承認・完工上報で NULL を読んだ場合はサービス層が 5000 を返す（G2-18 S1 と同じ扱い。0 とみなさない）。`ck_sal_sol_completed_qty` および `ck_sal_sales_order_line_qty` の `allowed_qty` 条件は NULL を通過させる（SQL CHECK の UNKNOWN＝通過）。
 - **完工上限 CHECK（2026-10-21 決定）**：`ck_sal_sol_completed_qty CHECK (completed_qty >= 0 AND completed_qty <= allowed_qty)` を受注明細に付与する（G2-18 承認済設計、[30-review/R3-对抗性评审-第2轮-异常路径.md:89](../30-review/R3-对抗性评审-第2轮-异常路径.md)）。サービス層が先に 60040／60100 で拒否し、本制約は DB 層の最終防衛線。SQLSTATE 23514 を受けた場合、制約名 `ck_sal_sol_completed_qty` で判定して 60040 に変換する（OPA と同じ方式。5000 に落とさない）。
@@ -1504,7 +1505,7 @@ CREATE INDEX idx_sal_forecast_line_material ON sal_sales_forecast_line (material
 | v1.0 | 2026-10-20 | 初版作成：29 テーブルの物理設計（DDL・索引・制約・容量・更新責任）、共通カラム方針、イベント連動、Flyway 計画 | sales-designer |
 | v1.1 | 2026-10-20 | 紅隊修復第 2 輪：`sal_credit_ledger_snapshot` を FIN 與信台帳の読取投影へ再定義（SAL 直接更新禁止）、與信判定コードを 10/20/30/40/90 に統一、与信使用額の権威を FIN へ一本化 | sales-designer |
 | v1.2 | 2026-10-21 | 蓝色大肥鱼 決定反映：①明細表 16 本に `company_id` を付与（§1.3 改訂）②受注明細に `ck_sal_sol_completed_qty`（G2-18、23514→60040）③親 ID 先頭の一意索引例外 12 本を `(tenant_id, company_id, …)` 先頭へ変更し例外登録を削除 | 業務分析 |
-| v1.3 | 2026-10-21 | `sal_sales_order_line.allowed_qty` を NULL 可・既定値なしに変更（NULL＝未スナップショット、承認／完工時に NULL なら 5000、CHECK は NULL 通過） | 業務分析 |
+| v1.3 | 2026-10-21 | `sal_sales_order_line.allowed_qty` を NULL 可・既定値なしに変更（NULL＝未スナップショット、承認／完工時に NULL なら 5000、CHECK は NULL 通過）。完工上報処理に「受注行ロック後 `allowed_qty IS NULL` は 5000」を追記 | 業務分析 |
 
 
 

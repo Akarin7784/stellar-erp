@@ -193,7 +193,7 @@ stateDiagram-v2
 | No | 項目 ID | 項目名 | 種別 | 型/桁 | 必須 | 初期値 | 入力チェック | データソース | DB 項目 | 備考 |
 |---|---|---|---|---|---|---|---|---|---|---|
 | 1 | `lineNo` | 行番号 | 数値 | INT | 自動 | 10 刻み | — | — | `line_no` | — |
-| 2 | `prLineId` | 来源请购行 | テキスト | BIGINT | △ | 空 | 请购行の未転単残量に適合 | `pur_purchase_requisition_line` | `purchase_requisition_line_id` | 请购由来时必填 |
+| 2 | `purchaseRequisitionLineId` | 来源请购行 | テキスト | BIGINT | △ | 空 | 请购行の未転単残量に適合 | `pur_purchase_requisition_line` | `purchase_requisition_line_id` | 请购由来时必填 |
 | 3 | `materialId` | 物料 | 選択ダイアログ | BIGINT | ○ | 空 | 存在・有効・采购品 | `mdm_material` | `material_id` | — |
 | 4 | `materialCode`/`materialName`/`spec` | 物料编码・品名・规格 | テキスト | VARCHAR(20/200/200) | 自動 | 空 | — | `mdm_material` | 同名項目 | スナップショット |
 | 5 | `quantity` | 询价数量 | 数値 | NUMERIC(18,4) | ○ | 请购残量 | > 0 | — | `quantity` | — |

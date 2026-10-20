@@ -23,7 +23,7 @@
    - 画面/API 侧：`05-inventory/02-inbound-outbound.md:360` `inspectionFlag` → `inspection_flag`，备注「ON で状態 20」
    - DDL 侧：`inv_stock_txn`（`05-inventory/90-db-design.md:299`）无 `inspection_flag`；同文件 `02-inbound-outbound.md:157` 写的是 `inspection_required=false` 时为 20 可用（即 ON 应为 10 待检）
    - 建议：已决（蓝色大肥鱼，2026-10-20）：`inspection_flag` 加在 `inv_stock_txn_line`；规则按 `:157`（ON→10 待检，OFF→20 可用），`:360` 为笔误需改正（见「处理决定」第 3、4 条）。直接影响 SQL 场景里收货后可用量。
-3. **[PUR] 请购行追溯列名不一致**
+3. **[PUR] 请购行追溯列名不一致**（✅ 已修复：ER 图 #30；画面/API key 统一为 `purchaseRequisitionLineId` #31）
    - 画面/API 侧：`04-purchase/03-purchase-order.md:242`、`04-purchase/02-rfq-comparison.md:196` 画面 `prLineId` → `pr_line_id`；API 示例 `04-purchase/03-purchase-order.md:497` `prLineId`；ER 图 `04-purchase/90-db-design.md:69` 也写 `pr_line_id`
    - DDL 侧：DDL 实际列名 `purchase_requisition_line_id`（`04-purchase/90-db-design.md:763` PO 行、`:403` RFQ 行）
    - 建议：改画面/ER 文档的 DB 項目为 `purchase_requisition_line_id`（DTO 名 `prLineId` 可保留但须写明映射）。请购→询价→订单是 SQL 场景主链路。
@@ -111,7 +111,7 @@ SCR-SAL-001、SCR-SAL-003、SCR-SAL-004、SCR-SAL-006、SCR-SAL-007、SCR-SAL-01
 
 | 严重度 | 类别 | 问题 | 画面/API 证据 | DDL 证据 | 说明 | 建议修改方 |
 |---|---|---|---|---|---|---|
-| S1 | a | 见 S1 #3：`prLineId`/`pr_line_id` ↔ `purchase_requisition_line_id` | `04-purchase/03-purchase-order.md:242,497`、`02-rfq-comparison.md:196` | `04-purchase/90-db-design.md:403,763` |  | 改画面/API 文档 DB 映射 |
+| S1 | a | ✅ 已修复（#30/#31）见 S1 #3：`prLineId`/`pr_line_id` ↔ `purchase_requisition_line_id` | `04-purchase/03-purchase-order.md:242,497`、`02-rfq-comparison.md:196` | `04-purchase/90-db-design.md:403,763` |  | 改画面/API 文档 DB 映射 |
 | S2 | a | 付款申请 `plannedPaymentDate` ↔ FIN 列名 `planned_pay_date` | `04-purchase/91-api-design.md:417`、`04-purchase/06-purchase-invoice-ap.md:338,648` | `07-finance/90-db-design.md:1039` `fin_payment_request.planned_pay_date` | 跨域命名不一致 | DTO 保持 `plannedPaymentDate`，在 FIN API 文档写明映射；或 DDL 改名 `planned_payment_date`（建议改 DDL，与 DTO 一致） |
 | S2 | b | 请购一覧 `departmentName`/`prTypeName`/`applicantName` 型为 VARCHAR，DB 項目写 id/码列 | `04-purchase/01-requisition.md:200-202` | `pur_purchase_requisition.department_id/pr_type/applicant_id` | 显示名为联表或码表翻译 | 画面文档注明来源 |
 | S2 | a | 追踪画面 `remainQty` 无列 | `04-purchase/07-tracking-performance.md:226` | — | 应为计算值（订单量−入库量），文档未写算式 | 画面文档补算式 |

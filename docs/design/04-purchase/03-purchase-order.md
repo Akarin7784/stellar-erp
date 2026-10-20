@@ -239,7 +239,7 @@ stateDiagram-v2
 | No | 項目 ID | 項目名 | 種別 | 型/桁 | 必須 | 初期値 | 入力チェック | データソース | DB 項目 | 備考 |
 |---|---|---|---|---|---|---|---|---|---|---|
 | 1 | `lineNo` | 行番号 | 数値 | INT | 自動 | 10 刻み | — | — | `line_no` | 保存時振り直し |
-| 2 | `prLineId` | 来源请购行 | テキスト | BIGINT | △ | 空 | 请购行存在 | `pur_purchase_requisition_line` | `purchase_requisition_line_id` | 请购由来 |
+| 2 | `purchaseRequisitionLineId` | 来源请购行 | テキスト | BIGINT | △ | 空 | 请购行存在 | `pur_purchase_requisition_line` | `purchase_requisition_line_id` | 请购由来 |
 | 3 | `rfqQuotationLineId` | 来源报价行 | テキスト | BIGINT | △ | 空 | 报价行存在 | `pur_supplier_quotation_line` | `rfq_quotation_line_id` | 询价由来 |
 | 4 | `materialId`/`materialCode`/`materialName`/`spec` | 物料 | 選択ダイアログ | BIGINT/VARCHAR | ○ | 请购/询价由来 | 有効・采购品（`MSG-PUR-002`） | `mdm_material` | 同名項目 | スナップショット |
 | 5 | `uomCode` | 采购单位 | 選択 | VARCHAR(8) | ○ | 物料采购单位 | 同一单位组 | `mdm_uom` | `uom_code` | — |
@@ -494,7 +494,7 @@ stateDiagram-v2
   "remark": "YE3-100L1-4 十一月生产计划用料",
   "lines": [
     {
-      "prLineId": "1845678901234567891",
+      "purchaseRequisitionLineId": "1845678901234567891",
       "materialId": "1845000000000001001",
       "uomCode": "KGM",
       "quantity": "28000.0000",
