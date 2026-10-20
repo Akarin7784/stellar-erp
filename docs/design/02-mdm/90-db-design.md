@@ -845,7 +845,7 @@ CREATE TABLE mdm_partner_bank_account (
     CONSTRAINT ck_mdm_bank_account_type CHECK (account_type IN (10,20,30,40))
 );
 CREATE INDEX idx_mdm_bank_account_owner ON mdm_partner_bank_account (owner_type, owner_id, deleted);
-CREATE UNIQUE INDEX uk_mdm_bank_account_owner_no ON mdm_partner_bank_account (owner_type, owner_id, account_no) WHERE deleted = FALSE;
+CREATE UNIQUE INDEX uk_mdm_bank_account_owner_no ON mdm_partner_bank_account (tenant_id, company_id, owner_type, owner_id, account_no) WHERE deleted = FALSE;
 
 CREATE TABLE mdm_partner_bank_account_his (
     id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
@@ -1457,6 +1457,7 @@ CREATE UNIQUE INDEX uk_mdm_data_scope_policy ON mdm_data_scope_policy (tenant_id
 | 15 | `uk_mdm_evaluation` | mdm_supplier_evaluation | UNIQUE | (supplier_id, evaluation_period) WHERE deleted=FALSE | 月次評価一意 |
 | 16 | `idx_mdm_dq_issue_status` | mdm_data_quality_issue | B-Tree | (status, severity, detected_at DESC) | 品質問題一覧 |
 | 17 | `idx_mdm_supplier_qual_expiry` | mdm_supplier_qualification | B-Tree | (valid_to) WHERE deleted=FALSE | 期限切れ警告 |
+| 18 | `uk_mdm_bank_account_owner_no` | mdm_partner_bank_account | UNIQUE | (tenant_id, company_id, owner_type, owner_id, account_no) WHERE deleted=FALSE | 取引先口座一意 |
 
 - 索引は 1 テーブル 5 本以内を目安（[04 第 7 章](../00-common/04-common-db-spec.md)）。追加時は想定 SQL を本文に書く。
 - `pg_trgm` 拡張を有効化する（`CREATE EXTENSION IF NOT EXISTS pg_trgm;`）。第一版の初期マイグレーションに含める。
@@ -1521,7 +1522,7 @@ CREATE UNIQUE INDEX uk_mdm_data_scope_policy ON mdm_data_scope_policy (tenant_id
 - 業務一意索引は `(tenant_id, company_id, 業務キー)` で始める。`uk_mdm_exchange_rate` はテナント単位（会社間で共有）のため `(tenant_id, from_currency_code, to_currency_code, rate_type, effective_date)`。
 - `ON CONFLICT` の対象列は必ず `tenant_id` を含め、部分一意索引と同じ WHERE を繰り返す。
 - `company_id` は既定値なし・必須（`NOT NULL`）。
-- **例外（親 ID 先頭の明細表、親側で tenant/company が一意に決まるため据え置き）**：`uk_mdm_material_factory`、`uk_mdm_substitute`、`uk_mdm_bank_account_owner_no`、`uk_mdm_warehouse_zone_code`、`uk_mdm_price_line_no`、`uk_mdm_quotation_line_no`、`uk_mdm_payment_term_line`、`uk_mdm_evaluation`、`uk_mdm_eval_item`、`uk_mdm_change_line_no`。
+- **例外（親 ID 先頭の明細表、親側で tenant/company が一意に決まるため据え置き）**：`uk_mdm_material_factory`、`uk_mdm_substitute`、`uk_mdm_warehouse_zone_code`、`uk_mdm_price_line_no`、`uk_mdm_quotation_line_no`、`uk_mdm_payment_term_line`、`uk_mdm_evaluation`、`uk_mdm_eval_item`、`uk_mdm_change_line_no`。
 
 ## 10. 改訂履歴
 
