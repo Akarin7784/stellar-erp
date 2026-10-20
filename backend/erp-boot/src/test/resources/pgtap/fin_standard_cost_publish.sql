@@ -111,8 +111,8 @@ SET ROLE erp_app;
 SELECT set_config('app.tenant_id', '101', true);
 INSERT INTO fin_standard_cost (id, company_id, material_id, material_code, cost_version, period_from, cost_method,
                                material_unit_cost, total_unit_cost)
-VALUES (991201, 1, 991003, '9FSC000002', 'CUR', date_trunc('month', current_date)::date, 2, 10, 10),
-       (991202, 1, 991003, '9FSC000002', 'FUT', (date_trunc('month', current_date) + interval '2 month')::date, 2, 20, 20);
+VALUES (991201, 1, 991003, '9FSC000002', 'CUR', date_trunc('month', (now() AT TIME ZONE 'Asia/Shanghai'))::date, 2, 10, 10),
+       (991202, 1, 991003, '9FSC000002', 'FUT', (date_trunc('month', (now() AT TIME ZONE 'Asia/Shanghai')) + interval '2 month')::date, 2, 20, 20);
 SELECT fin_publish_standard_cost(991201, 7);
 SELECT is((SELECT standard_cost FROM mdm_material WHERE id = 991003), 10.000000::numeric(18,6),
           'F17 当月生效版发布 → standard_cost 更新');

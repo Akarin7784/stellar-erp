@@ -148,9 +148,9 @@ BEGIN
 
     -- 4. 快照写入 mdm_material.standard_cost（触发器仅放行 current_user = erp_cost_publisher）。
     --    仅当新版生效期间覆盖当月时写入；未来月生效的版本由期间开账（BAT-FIN-001）刷新。
-    --    「当月」：fin_period 建表前一律取发布当天所在月（current_date 的月初）；
+    --    「当月」：fin_period 建表前一律取发布当天所在月，按服务器时刻 Asia/Shanghai（00-common/01:101），不依赖会话时区；
     --    建 fin_period 后改按 OPEN 期间判断（另开 PR）。新版 period_to 此时必为 NULL。
-    v_month := date_trunc('month', current_date)::date;
+    v_month := date_trunc('month', (now() AT TIME ZONE 'Asia/Shanghai'))::date;
     IF v_new.period_from <= v_month AND (v_new.period_to IS NULL OR v_new.period_to >= v_month) THEN
         UPDATE mdm_material
            SET standard_cost = v_new.total_unit_cost
