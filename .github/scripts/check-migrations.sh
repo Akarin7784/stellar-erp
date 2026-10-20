@@ -38,5 +38,26 @@ while IFS= read -r -d '' f; do
   seen[$ver]=$f
 done < <(find backend -path '*/src/main/resources/db/migration/*' -iname '*.sql' -print0)
 
+# 版本单调递增：新增迁移的版本号必须大于基线（main）上已有的最大版本号；不开 Flyway outOfOrder。
+# 基线由环境变量 MIGRATION_BASE_REF 指定（CI：PR 的 base sha / push 的 before sha），本地默认 origin/main。
+base="${MIGRATION_BASE_REF:-origin/main}"
+if git rev-parse -q --verify "$base^{commit}" >/dev/null 2>&1; then
+  base_max=0
+  declare -A in_base=()
+  while IFS= read -r p; do
+    n=$(basename "$p"); in_base[$n]=1
+    if [[ "$n" =~ ^V([0-9]{12})__ ]] && (( 10#${BASH_REMATCH[1]} > base_max )); then base_max=$((10#${BASH_REMATCH[1]})); fi
+  done < <(git ls-tree -r --name-only "$base" -- backend | grep -E '/src/main/resources/db/migration/.*\.sql$' || true)
+  for ver in "${!seen[@]}"; do
+    f=${seen[$ver]}; n=$(basename "$f")
+    [[ -n "${in_base[$n]:-}" ]] && continue
+    if (( 10#$ver <= base_max )); then
+      echo "ERROR: $f 版本 $ver 不大于基线 $base 上的最大版本 $base_max（新迁移版本号必须单调递增）"; fail=1
+    fi
+  done
+else
+  echo "WARN: 基线 $base 不存在，跳过版本单调递增检查"
+fi
+
 if [[ $fail -ne 0 ]]; then exit 1; fi
 echo "OK: ${#seen[@]} 个版本化迁移、${#seen_r[@]} 个可重复迁移校验通过"
