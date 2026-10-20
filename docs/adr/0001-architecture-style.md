@@ -16,7 +16,7 @@ ERP 系统涉及 8 个业务域，事务链路长、主数据强依赖、审批�
 具体约束：
 
 1. 每个模块是一个 Maven 子模块，根包为 `com.stellar.erp.{module}`
-2. 模块对外只暴露 `api` 子包（接口 + DTO），`internal` 子包禁止被其他模块引用
+2. 模块对外暴露模块**根包**下的类型（接口 + DTO）；`internal` 等子包禁止被其他模块引用（Spring Modulith 的暴露规则：只有根包类型算暴露）
 3. 模块间同步调用仅允许读操作；写操作通过领域事件（`@ApplicationModuleListener`）异步解耦
 4. CI 中执行 `ApplicationModules.of(ErpApplication.class).verify()`，违规依赖直接失败
 5. 事件外部化预留 `spring-modulith-events-amqp`，Phase 2 切换到 RabbitMQ

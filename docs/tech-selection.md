@@ -86,7 +86,7 @@
 3. Spring Modulith 提供**编译期依赖校验 + 运行时事件解耦**，既有单体的事务简单性，又有微服务的边界纪律性：
    - `ApplicationModules.verify()` 在 CI 中阻止跨模块违规依赖
    - 模块间异步通信用 `@ApplicationModuleListener`（基于 Spring 事件，可换 RabbitMQ 实现）
-   - 模块内领域模型不暴露，只通过 `api` 包对外
+   - 模块根包下的类型即对外 API；子包（`internal` 等）为内部实现，跨模块引用由 CI 拦截
 4. 拆分路径明确：当某个模块出现独立伸缩需求（如报表、库存扣减）时，将其提取为独立服务，通过 `@ApplicationModuleListener` 已解耦的边界迁移事件，业务代码基本不改。
 
 **触发拆分微服务的条件（预先约定）：**
@@ -110,7 +110,7 @@
 | `erp-workflow` | 流程定义、任务、审批历史 | ProcessInstance / Task | system |
 | `erp-integration` | 外部系统对接（MES/WMS/财务软件） | IntegrationConfig | common |
 
-> 模块间只允许通过 `api` 包中的接口与 DTO 交互；跨模块写操作通过领域事件异步处理，读操作允许同步查询。
+> 模块间只允许引用对方**根包**下的公开类型（接口 + DTO）；跨模块写操作通过领域事件异步处理，读操作允许同步查询。
 
 ---
 
@@ -152,7 +152,7 @@ JDK 21 的虚拟线程让传统「一请求一线程 + 阻塞 JDBC」模型重�
 
 - 与 Boot 4.1.1 严格对齐（已验证 POM 依赖）
 - 提供：模块依赖校验、事件外部化（`spring-modulith-events`）、文档生成（`spring-modulith-docs`）、可观测性
-- 落地约束：业务代码按模块分包，模块根包只暴露 `api` 子包，`internal` 子包禁止跨模块访问
+- 落地约束：业务代码按模块分包；对外类型放模块根包（如 `com.stellar.erp.common.Result`），其余放子包（`internal`、`web` 等），跨模块访问子包类型会被 `verify()` 拦截
 
 ### 5.4 数据访问：MyBatis-Plus 3.5.17
 
