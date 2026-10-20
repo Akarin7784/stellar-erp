@@ -360,4 +360,20 @@ class WorkOrderDetailLookupIntegrationTest {
                 .andExpect(jsonPath("$.data.pageNum").isNumber())
                 .andExpect(jsonPath("$.data.pageSize").isNumber());
     }
+
+    /** リクエストの ID は数値でも従来どおり受理される（文字列化はレスポンスのみ）。 */
+    @Test
+    void apiNumericIdsInRequestBodyStillDeserialize() throws Exception {
+        MockMvc mvc = MockMvcBuilders.webAppContextSetup(wac).build();
+        TenantContext.set(TENANT);
+        LoginContext.set(new LoginUser(CREATOR, CO));
+        mvc.perform(post("/api/production/work-orders").contentType(MediaType.APPLICATION_JSON).content("""
+                {"factoryId": %d, "materialId": %d, "warehouseId": %d, "orderQty": 10, "uomCode": "PCE",
+                 "plannedStartDate": "2026-11-02", "plannedEndDate": "2026-11-09"}
+                """.formatted(FACTORY, MAT, WH)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.id").isString());
+        assertThat(owner.queryForObject("SELECT warehouse_id FROM prd_work_order WHERE tenant_id = 305", Long.class))
+                .isEqualTo(WH);
+    }
 }
