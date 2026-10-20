@@ -60,7 +60,9 @@
 
 ## AC-PUR-09 超收容差
 
-- G：容差内超過。W：入荷登録。T：`MSG-PUR-069` 警告で受入可。G：容差超過。T：受入拒否（例外承認 `MSG-PUR-068`）。判定順は PO 明細 > PUR 上書き規則 > MDM 既定（[04](04-receipt-iqc.md) BR-02/BR-03）。
+- G：PO 明細数量 100、`receiving_tolerance_rate=0.05`（比率、5%）、既入荷 0。W：入荷 105 を登録。T：上限 `100×(1+0.05)=105` 以内のため `MSG-PUR-069` 警告で受入可。
+- 同 G。W：入荷 106 を登録。T：上限超過で受入拒否（例外承認 `MSG-PUR-068`）。
+- 判定順は PO 明細 > PUR 上書き規則 > MDM 既定（[04](04-receipt-iqc.md) BR-02/BR-03）。
 
 ## AC-PUR-10 三单匹配（基本）
 
@@ -81,6 +83,6 @@
 
 | # | 事項 | 現状 | 推奨 | 決定者 |
 |---|---|---|---|---|
-| 1 | E14 に `inspectionFlag` を載せるか | [04](04-receipt-iqc.md) §13 #1 | E14 明細に後方互換追加（PUR スナップショットを PRD/INV が共用） | 蓝色大肥鱼 / PRD |
-| 2 | PRD IQC 起票の `sourceType` | INV は `PURCHASE_RECEIPT`、PUR 文書の PRD 向けは `RECEIPT` | `PURCHASE_RECEIPT` に統一 | 蓝色大肥鱼 / PRD |
-| 3 | `pur_receipt.inspection_flag`（ヘッダ）の要否 | 明細集約の表示用として残置 | 削除して明細のみとする | 蓝色大肥鱼 |
+| 1 | E14 に `inspectionFlag` を載せるか | **決定済（蓝色大肥鱼 2026-10-21）**：E14 明細ごとに後方互換追加 | — | 蓝色大肥鱼 |
+| 2 | PRD IQC 起票の `sourceType` | **決定済（同上）**：`PURCHASE_RECEIPT` に統一 | — | 蓝色大肥鱼 |
+| 3 | `pur_receipt.inspection_flag`（ヘッダ）の要否 | **決定済（同上）**：ヘッダ列を削除、明細のみ。一覧表示は `bool_or(line.inspection_flag)` で導出 | — | 蓝色大肥鱼 |

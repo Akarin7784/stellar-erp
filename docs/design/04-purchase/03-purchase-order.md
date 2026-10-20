@@ -255,7 +255,7 @@ stateDiagram-v2
 | 15 | `requiredDate` | 希望交期 | 日付 | DATE | △ | 请购希望交期 | ≥ 当日 | — | `required_date` | 内部管理用 |
 | 16 | `supplierPromisedDate` | 供应商承诺交期 | 日付 | DATE | △ | 空 | — | 回执 | `supplier_promised_date` | 交期跟踪基準 |
 | 17 | `warehouseId` | 收货仓库 | 選択 | BIGINT | ○ | ヘッダ仓库 | コード存在 | `mdm_warehouse` | `warehouse_id` | 行単位 |
-| 18 | `receivingToleranceRate` | 超收容差率 | 数値 | NUMERIC(7,4) | △ | MDM 既定値（品目→分類→仕入先→会社の優先順） | 0～100（%） | MDM 既定 > PUR 上書き規則（優先順） | `receiving_tolerance_rate` | 明細上書きのみ保持 |
+| 18 | `receivingToleranceRate` | 超收容差率 | 数値 | NUMERIC(5,4) | △ | MDM 既定値（品目→分類→仕入先→会社の優先順） | 0～9.9999（比率。0.05=5%） | MDM 既定 > PUR 上書き規則（優先順） | `receiving_tolerance_rate` | 明細上書きのみ保持 |
 | 19 | `moq` | 最小起订量 | 数値 | NUMERIC(18,4) | △ | 供应商默认 | ≥ 0 | `mdm_supplier_material` | `moq` | MOQ チェック |
 | 20 | `priceSourceType` | 价格来源 | テキスト | SMALLINT | 自動 | 1 价格表 | 1 价格表/2 RFQ/3 最近成交/4 手工/5 合同 | — | `price_source_type` | 手工は理由必須 |
 | 21 | `priceDiffReason` | 定价理由 | テキスト | VARCHAR(500) | △ | 空 | 手工/差异 >10% 时必填 | — | `price_diff_reason` | — |

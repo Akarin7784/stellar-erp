@@ -36,6 +36,8 @@
 
 ---
 
+**RLS**：全 `pur_*` テーブルは `ENABLE ROW LEVEL SECURITY` + `FORCE ROW LEVEL SECURITY` とし、ポリシーは `tenant_id = current_setting('app.tenant_id')::bigint` のみで判定する（`company_id` は RLS に含めずアプリ層で制御。[00-common 10](../00-common/10-rls-and-db-roles.md)）。
+
 ## 2. 共通カラム定義
 
 以下を全テーブルの共通カラムとし、各テーブルの項目定義では業務カラムのみ記載する（共通カラムは [01 §2.1](../00-common/01-common-item-definitions.md) を正とする）。
@@ -779,7 +781,7 @@ CREATE TABLE pur_purchase_order_line (
     required_date            DATE,
     supplier_promised_date   DATE,
     warehouse_id             BIGINT       NOT NULL,
-    receiving_tolerance_rate NUMERIC(7,4),
+    receiving_tolerance_rate NUMERIC(5,4),          -- 比率（0.05=5%、MDM over_receipt_tolerance_pct と同型）
     moq                      NUMERIC(18,4),
     price_source_type        SMALLINT     NOT NULL DEFAULT 1,   -- 1価格表/2RFQ/3最近成交/4手工/5合同
     price_source_id          BIGINT,
@@ -822,7 +824,7 @@ CREATE TABLE pur_purchase_order_line (
 | 7 | `unit_price`/`tax_code`/`tax_rate`/`amount`/`tax_amount` | 単価・税・金額 | NUMERIC/VARCHAR | NOT NULL | 税抜単価・进项税码 |
 | 8 | `delivery_date`/`required_date`/`supplier_promised_date` | 約定・希望・承诺交期 | DATE | NOT NULL/NULL | 交期跟踪基準 |
 | 9 | `warehouse_id` | 收货仓库 | BIGINT | NOT NULL | 行単位 |
-| 10 | `receiving_tolerance_rate` | 超收容差率 | NUMERIC(7,4) | NULL | 行上書き（%）、NULL は規則既定 |
+| 10 | `receiving_tolerance_rate` | 超收容差率 | NUMERIC(5,4) | NULL | 行上書き（比率。0.05=5%、MDM `over_receipt_tolerance_pct` と同型）、NULL は規則既定 |
 | 11 | `moq` | 最小起订量 | NUMERIC(18,4) | NULL | MOQ 判定 |
 | 12 | `price_source_type`/`price_source_id`/`price_diff_reason` | 価格来源・理由 | SMALLINT/BIGINT/VARCHAR(500) | NOT NULL/NULL | 取价監査 |
 | 13 | `received_qty`/`accepted_qty`/`rejected_qty`/`returned_qty`/`invoiced_qty`/`cancelled_qty` | 累計数量 | NUMERIC(18,4) | NOT NULL | E14/E15/E16/E17 で更新 |
@@ -906,7 +908,6 @@ CREATE TABLE pur_receipt (
     receiving_user_id    BIGINT       NOT NULL,
     delivery_note_no     VARCHAR(64),
     carrier              VARCHAR(100),
-    inspection_flag      BOOLEAN      NOT NULL,                  -- 明細 inspection_flag のいずれか true（表示用集約）
     receipt_status       SMALLINT     NOT NULL DEFAULT 25,       -- 25/30/35/40/90
     confirmed_at         TIMESTAMPTZ,
     confirmed_by         BIGINT,
@@ -940,7 +941,6 @@ CREATE TABLE pur_receipt (
 | 5 | `warehouse_id` | 收货仓库 | BIGINT | NOT NULL | `mdm_warehouse.id` | — |
 | 6 | `receiving_user_id` | 收货人 | BIGINT | NOT NULL | `sys_user.id` | 倉管員 |
 | 7 | `delivery_note_no`/`carrier` | 送り状番号・運送会社 | VARCHAR(64/100) | NULL | — | 外部参照 |
-| 8 | `inspection_flag` | 入庫検査要否 | BOOLEAN | NOT NULL | — | 明細の集約（いずれか true）。既定値なし（[05-inventory 02 §2.6.1a](../05-inventory/02-inbound-outbound.md)） |
 | 9 | `receipt_status` | 状态 | SMALLINT | NOT NULL | — | 25/30/35/40/90 |
 | 10 | `confirmed_at`/`confirmed_by` | 入荷確定日時・者 | TIMESTAMPTZ/BIGINT | NULL | `sys_user.id` | E14 発行時 |
 | 11 | `total_received_amount` | 入荷金額（税抜） | NUMERIC(18,2) | NOT NULL | — | 暂估基準 |
@@ -1743,6 +1743,8 @@ CREATE TABLE pur_supplier_performance (
 | 8 | `pur_statement` | `uk_pur_statement_period` | UNIQUE | (`tenant_id`, `company_id`, `supplier_id`, `period_code`) | 対账重複防止 |
 | 9 | `pur_delivery_followup` | `idx_pur_delivery_followup_next` | B-Tree | (`next_followup_date`) | 日次リマインド |
 | 10 | `pur_supplier_performance` | `uk_pur_supplier_performance` | UNIQUE | (`tenant_id`, `company_id`, `period_code`, `supplier_id`) | 月次 UPSERT |
+| 11 | `pur_invoice` | `uk_pur_invoice_number` | UNIQUE | §5 `pur_invoice` DDL のとおり（`tenant_id`, `company_id` 先頭） | 発票二重登録防止（BR-08） |
+| 12 | `pur_tolerance_rule` | `uk_pur_tolerance_rule` | UNIQUE | §5 `pur_tolerance_rule` DDL のとおり（`tenant_id`, `company_id` 先頭） | 上書き規則重複防止 |
 
 > 更新系テーブルの索引は 1 テーブル 5 本以内を目安とする（04 §7）。上記以外の過剰索引は追加しない。
 

@@ -557,7 +557,8 @@
         "uom": "KGM",
         "warehouseId": "1845000000000000101",
         "batchNo": "S000001-20261101-01",
-        "unitPrice": "5.650000"
+        "unitPrice": "5.650000",
+        "inspectionFlag": true
       }
     ],
     "receivedAt": "2026-11-03T10:25:00+08:00"
@@ -565,7 +566,7 @@
 }
 ```
 
-> 購読側処理（09 §3）：INV＝待検在庫の入庫、PRD＝IQC 起票（`inspectionType=IQC`、`sourceType=RECEIPT`、`sourceId=receiptId`）、FIN＝仕入暫估計上（J01、金額＝`Σ receivedQty × unitPrice`）。
+> 購読側処理（09 §3）：INV＝待検在庫の入庫、PRD＝`inspectionFlag=true` の明細のみ IQC 起票（`inspectionType=IQC`、`sourceType=PURCHASE_RECEIPT`、`sourceId=receiptId`）。`lines[].inspectionFlag` は PUR の入荷確定時スナップショット（後方互換追加。欠落時の旧メッセージは購読側で true 扱い）で、INV・PRD は再導出しない。FIN＝仕入暫估計上（J01、金額＝`Σ receivedQty × unitPrice`）。
 
 ### 7.3 E35 `purchase.receipt.cancelled` payload（契約：09 §3）
 

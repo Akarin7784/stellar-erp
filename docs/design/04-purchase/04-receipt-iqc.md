@@ -62,7 +62,7 @@
 | BR-06 | 序列号管理物料（第一版・実装順 P1）は受入時にシリアル一覧を JSONB で記録する | 本域设计 | `serial_nos` |
 | BR-07 | 入庫検査要否：明細 `inspection_flag` は入荷確定時に `mdm_material.inspection_stage ∈ {10 IQC, 40 全工程}` のときのみ true（NOT NULL スナップショット、マスタ変更後も不変）。`stage ∈ {0, 20, 30}` は false → `inspection_status=0`（検査不要）、E15 を待たず INV が `20` 可用で直入。true のとき INV は `10` 待检で計上し、IQC（`inspection_type=10`）を起票。`mdm_material` に `inspection_required` 列は存在しない | [05-inventory 02 §2.6.1a](../05-inventory/02-inbound-outbound.md)、[02-mdm 90](../02-mdm/90-db-design.md) | `inspection_flag`、`inspection_status` |
 | BR-07a | 在庫側伝票：INV は E14 を受けて `PI`（`source_type=PURCHASE_RECEIPT`）を過账し、在庫側伝票番号は INV が採番（プレフィックス GR=收货单／GRI=采购入库／IQC=来料检验）。INV は「入庫検査单」を別建てしない。IQC 合格・特采（E15 `resultCode` 20/30）で `10→20`、不合格は `10→40` | [05-inventory 02 §2.6.1a](../05-inventory/02-inbound-outbound.md)、[08 §2.1](../00-common/08-common-business-rules.md) | `inspection_status` |
-| BR-08 | 入荷確定（confirm）：`receipt_status` 25→30、E14 発行。E14 購読者：INV（待検在庫）、PRD（IQC 起票）、FIN（仕入暫估計上 J01） | 09 §3、§4.1 | `receipt_status` |
+| BR-08 | 入荷確定（confirm）：`receipt_status` 25→30、E14 発行（明細ごとに `inspectionFlag` スナップショットを載せる）。E14 購読者：INV（待検在庫）、PRD（IQC 起票）、FIN（仕入暫估計上 J01） | 09 §3、§4.1 | `receipt_status` |
 | BR-09 | IQC 判定（PRD 域 `prd_inspection`、E15）を受信し、明細の `inspection_status` を更新する：`PASS→3 合格`、`CONCESSION→4 特采`、`REJECT→5 不合格`。判定結果・検査員・判定日時・サンプル数・不良数を保存する | 09 §3、§8 | `inspection_status` |
 | BR-10 | 合格数量・特采数量は可用化対象（INV が E15 購読で待検→可用の状態変換を実行）。不合格数量は不合格状態のまま返品・選別・廃棄の対象 | 09 §8 | `accepted_qty`、`concession_qty`、`rejected_qty` |
 | BR-11 | 入库は INV の責任で実行する。PUR は E18 `inventory.txn.posted` を受信して `stocked_qty`・`stocked_at` を更新し、入库进度を表示する（PUR は在庫を直接更新しない） | 09（Lead 裁定 2026-10-20） | `stocked_qty` |
@@ -206,7 +206,7 @@ stateDiagram-v2
 | 6 | `receivingUserId` | 收货人 | 選択 | BIGINT | ○ | ログインユーザ | 倉管権限 | `sys_user` | `receiving_user_id` | — |
 | 7 | `deliveryNoteNo` | 送り状番号 | テキスト | VARCHAR(64) | △ | 空 | 桁数 | 外部 | `delivery_note_no` | 伝票照合 |
 | 8 | `carrier` | 运输公司 | テキスト | VARCHAR(100) | △ | 空 | 桁数 | — | `carrier` | — |
-| 9 | `inspectionFlag` | 入庫検査要否 | バッジ | BOOLEAN | 自動 | 物料 `inspection_stage` から導出 | — | `mdm_material.inspection_stage` | `inspection_flag` | 参照のみ。`stage ∈ {10,40}` で true（BR-07） |
+| 9 | `inspectionFlag` | 入庫検査要否 | バッジ | BOOLEAN | 自動 | 明細から導出 | — | `pur_receipt_line.inspection_flag` | —（DB 列なし。`bool_or(line.inspection_flag)`） | 参照のみ。ヘッダ列は持たない（§13 #1/#5 決定） |
 | 10 | `receiptStatus` | 状态 | バッジ | SMALLINT | 自動 | 25 | — | — | `receipt_status` | 25/30/35/40/90 |
 | 11 | `confirmedAt` | 入荷确定日時 | 日時 | TIMESTAMPTZ | 自動 | 空 | — | — | `confirmed_at` | — |
 | 12 | `totalReceivedAmount` | 入荷金額（税抜） | 数値 | NUMERIC(18,2) | 自動 | 0.00 | — | Σ 明細 | `total_received_amount` | 暂估基準 |
@@ -277,7 +277,7 @@ stateDiagram-v2
 | ソート | 既定：入荷日時降順 |
 | ページング | 20/50/100/200 |
 | 一括操作 | 导出、入荷確定（複数選択時は全件成功 or 全件失敗） |
-| 表示列 | 收货单号、PO 号、供应商、状态、入荷日、数量合計、检验状態（待检/合格/特采/不合格）、入库进度、超收 |
+| 表示列 | 收货单号、PO 号、供应商、状态、入荷日、数量合計、入庫検査要否（`bool_or(line.inspection_flag)` で導出）、检验状態（待检/合格/特采/不合格）、入库进度、超收 |
 | エクスポート | Excel ≤10,000 件、非同期可 |
 
 ### 4.7 表示制御
@@ -372,7 +372,7 @@ function judgeOverReceipt(poLine, receiptLines):
 
 **PRC-PUR-013-01 IQC 判定反映（E15）**
 
-1. `sys_event_consume_log` で `eventId` 重複排除、`inspectionType=IQC`・`sourceType=RECEIPT`・`sourceId` が対象 GR を指すことを確認する。
+1. `sys_event_consume_log` で `eventId` 重複排除、`inspectionType=IQC`・`sourceType=PURCHASE_RECEIPT`・`sourceId` が対象 GR を指すことを確認する。
 2. `result` に応じ明細の `inspection_status` を更新する（PASS→3、CONCESSION→4、REJECT→5）。`lines` の明細対応は `materialId` + `batchNo`（または `receiptLineId` があればそれを優先）で突合する。
 3. `accepted_qty`・`concession_qty`・`rejected_qty`・`sample_qty`・`defect_qty`・`inspection_id`・`inspected_at` を保存する。
 4. 数量整合（CALC-07）を検証し、不一致は `MSG-PUR-074`（W）としてアラートログに記録（受入は継続）。
@@ -615,11 +615,11 @@ function judgeOverReceipt(poLine, receiptLines):
 
 | # | 事項 | 理由 | 暫定仕様 | 担当 | 期限 |
 |---|---|---|---|---|---|
-| 1 | 入庫検査不要明細の E14 運用（IQC 起票スキップ） | 09 の E14 契約に `inspectionFlag` が無い。判定規則（`stage ∈ {10,40}`）は [05-inventory 02 §2.6.1a](../05-inventory/02-inbound-outbound.md) で確定済だが、PRD が E14 から自前導出するか payload に `inspectionFlag` を追加するかが未決 | 推奨：E14 明細に `inspectionFlag`（PUR スナップショット）を後方互換追加し、PRD・INV が同じ値を使う（再導出によるずれ防止）。false 明細は IQC 起票しない | production-designer / Lead | 2026-10-27 |
+| 1 | 入庫検査不要明細の E14 運用（IQC 起票スキップ） | **決定済（蓝色大肥鱼 2026-10-21）** | E14 明細ごとに `inspectionFlag`（PUR スナップショット）を後方互換追加し、PRD・INV は再導出しない。false 明細は IQC 起票しない。併せてヘッダ `pur_receipt.inspection_flag` は削除（一覧は `bool_or(line.inspection_flag)` で導出） | 蓝色大肥鱼 | 決定済 |
 | 2 | 全数選別（100% 選別）後の再検査フロー | PRD の再検査・追加検査の起票方法が未定義 | 選別後に PRD で追加検査を起票、合格分を `accepted_qty` へ振替 | production-designer | 第一版（実装順 P1） |
 | 3 | 特采承認の最終権限（重要件） | 顧客要求・製品安全上の重要件は技術部長の承認が必要か業務未確定 | 第一版 は品質经理 + 采购经理。重要件は技術部長を追加 | 品質部 | 2026-10-27 |
 | 4 | PDA/条码收货（第一版・実装順 P1） | INT 域の実装待ち | P0 実装時点は PC 入力。批次号は手入力/候補選択 | integration 担当 | 第一版（実装順 P1） |
-| 5 | PRD IQC 起票時の `sourceType` 値 | INV 在庫取引は `PURCHASE_RECEIPT`（[05-inventory 02 §2.6.1a](../05-inventory/02-inbound-outbound.md)）に確定。本書 §6.2 と [91](91-api-design.md) §7 の PRD 向け記述は `RECEIPT` のまま | 推奨：PRD の IQC 起票も `PURCHASE_RECEIPT` に統一（PRD 担当の確認後に修正） | production-designer / Lead | 2026-10-27 |
+| 5 | PRD IQC 起票時の `sourceType` 値 | **決定済（蓝色大肥鱼 2026-10-21）** | `PURCHASE_RECEIPT` に統一（§6.2、[91](91-api-design.md) §7 修正済） | 蓝色大肥鱼 | 決定済 |
 
 ---
 
