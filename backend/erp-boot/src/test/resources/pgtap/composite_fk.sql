@@ -22,7 +22,7 @@ SELECT is((SELECT count(*)::int FROM pg_index i JOIN pg_class tc ON tc.oid = i.i
               AND a.attname IS DISTINCT FROM 'tenant_id'),
           0, 'sys/mdm/sal/fin/prd 全部普通 btree 索引以 tenant_id 打头（GIN 除外）');
 -- 唯一键：有 company_id 的表以 (tenant_id, company_id) 打头，无 company_id 的表以 tenant_id 打头（int 域暂不覆盖）
--- 豁免：复合 FK 被引用的 UNIQUE (tenant_id, id)；uk_sys_company_code / uk_sys_company_credit（待定）
+-- 豁免：复合 FK 被引用的 UNIQUE (tenant_id, id)；下列（表名, 索引名）租户级唯一键（已定），只放行列出的组合
 SELECT is((SELECT count(*)::int FROM pg_index i
             JOIN pg_class tc ON tc.oid = i.indrelid JOIN pg_class ic ON ic.oid = i.indexrelid
             JOIN pg_namespace n ON n.oid = tc.relnamespace
@@ -30,7 +30,11 @@ SELECT is((SELECT count(*)::int FROM pg_index i
             LEFT JOIN pg_attribute a1 ON a1.attrelid = tc.oid AND a1.attnum = i.indkey[1]
             WHERE n.nspname = 'public' AND tc.relname ~ '^(sys|mdm|sal|fin|prd)_'
               AND i.indisunique AND NOT i.indisprimary
-              AND ic.relname NOT IN ('uk_sys_company_code', 'uk_sys_company_credit')
+              AND (tc.relname, ic.relname) NOT IN (
+                    ('sys_company', 'uk_sys_company_code'), ('sys_company', 'uk_sys_company_credit'),
+                    ('sys_menu', 'uk_sys_menu_code'), ('sys_menu', 'uk_sys_menu_permission'),
+                    ('sys_dict_type', 'uk_sys_dict_type_code'), ('sys_outbox_event', 'uk_sys_outbox_event_id'),
+                    ('sys_idempotency', 'uk_sys_idempotency_key'), ('mdm_exchange_rate', 'uk_mdm_exchange_rate'))
               AND NOT (i.indnatts = 2 AND a0.attname = 'tenant_id' AND a1.attname = 'id')
               AND (a0.attname IS DISTINCT FROM 'tenant_id'
                    OR (EXISTS (SELECT 1 FROM pg_attribute c WHERE c.attrelid = tc.oid AND c.attname = 'company_id' AND NOT c.attisdropped)

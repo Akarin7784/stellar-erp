@@ -1,12 +1,12 @@
--- 唯一索引统一为 (tenant_id, company_id, …) 打头（49 个：sys 23 / prd 16 / mdm 10）
+-- 唯一索引统一为 (tenant_id, company_id, …) 打头（43 个：sys 18 / prd 16 / mdm 9）
 -- 规则：有 company_id 的表，唯一键以 (tenant_id, company_id, …) 打头；不再允许父表 id 打头。
 -- 索引名、WHERE 条件不变（全部为唯一索引，非约束；后端按名字映射错误码）。
--- 暂不改（待定）：uk_sys_company_code / uk_sys_company_credit（租户级唯一语义，待拍板）。
+-- 豁免（已定，租户级唯一，保持 (tenant_id, …)）：uk_sys_company_code / uk_sys_company_credit /
+--   uk_sys_menu_code / uk_sys_menu_permission / uk_sys_dict_type_code /
+--   uk_sys_outbox_event_id / uk_sys_idempotency_key / uk_mdm_exchange_rate
 -- 不改：复合 FK 被引用的 UNIQUE (tenant_id, id) 约束 17 个（与 FK 列一致）。
 DROP INDEX uk_mdm_change_line_no;
 CREATE UNIQUE INDEX uk_mdm_change_line_no ON mdm_change_request_line USING btree (tenant_id, company_id, request_id, line_no);
-DROP INDEX uk_mdm_exchange_rate;
-CREATE UNIQUE INDEX uk_mdm_exchange_rate ON mdm_exchange_rate USING btree (tenant_id, company_id, from_currency_code, to_currency_code, rate_type, effective_date) WHERE (deleted = false);
 DROP INDEX uk_mdm_material_factory;
 CREATE UNIQUE INDEX uk_mdm_material_factory ON mdm_material_factory USING btree (tenant_id, company_id, material_id, factory_id) WHERE (deleted = false);
 DROP INDEX uk_mdm_substitute;
@@ -61,38 +61,24 @@ DROP INDEX uk_sys_attachment_no;
 CREATE UNIQUE INDEX uk_sys_attachment_no ON sys_attachment USING btree (tenant_id, company_id, attachment_no) WHERE (deleted = false);
 DROP INDEX uk_sys_dict_item;
 CREATE UNIQUE INDEX uk_sys_dict_item ON sys_dict_item USING btree (tenant_id, company_id, dict_type_id, item_code) WHERE (deleted = false);
-DROP INDEX uk_sys_dict_type_code;
-CREATE UNIQUE INDEX uk_sys_dict_type_code ON sys_dict_type USING btree (tenant_id, company_id, dict_code) WHERE (deleted = false);
 DROP INDEX uk_sys_factory_setting;
 CREATE UNIQUE INDEX uk_sys_factory_setting ON sys_factory_setting USING btree (tenant_id, company_id, factory_id) WHERE (deleted = false);
-DROP INDEX uk_sys_idempotency_key;
-CREATE UNIQUE INDEX uk_sys_idempotency_key ON sys_idempotency USING btree (tenant_id, company_id, idempotency_key);
 DROP INDEX uk_sys_import_export_job_no;
 CREATE UNIQUE INDEX uk_sys_import_export_job_no ON sys_import_export_job USING btree (tenant_id, company_id, job_no);
 DROP INDEX uk_sys_import_template_code;
 CREATE UNIQUE INDEX uk_sys_import_template_code ON sys_import_template USING btree (tenant_id, company_id, template_code, version_no) WHERE (deleted = false);
-DROP INDEX uk_sys_menu_code;
-CREATE UNIQUE INDEX uk_sys_menu_code ON sys_menu USING btree (tenant_id, company_id, menu_code) WHERE (deleted = false);
-DROP INDEX uk_sys_menu_permission;
-CREATE UNIQUE INDEX uk_sys_menu_permission ON sys_menu USING btree (tenant_id, company_id, permission_code) WHERE ((deleted = false) AND (permission_code IS NOT NULL));
 DROP INDEX uk_sys_notification_receiver;
 CREATE UNIQUE INDEX uk_sys_notification_receiver ON sys_notification_receiver USING btree (tenant_id, company_id, notification_id, receiver_user_id);
 DROP INDEX uk_sys_notification_template;
 CREATE UNIQUE INDEX uk_sys_notification_template ON sys_notification_template USING btree (tenant_id, company_id, template_code, channel_type, version_no) WHERE (deleted = false);
 DROP INDEX uk_sys_notification_no;
 CREATE UNIQUE INDEX uk_sys_notification_no ON sys_notification USING btree (tenant_id, company_id, notification_no);
-DROP INDEX uk_sys_number_rule_code;
-CREATE UNIQUE INDEX uk_sys_number_rule_code ON sys_number_rule USING btree (tenant_id, company_id, rule_code) WHERE (deleted = false);
-DROP INDEX uk_sys_outbox_event_id;
-CREATE UNIQUE INDEX uk_sys_outbox_event_id ON sys_outbox_event USING btree (tenant_id, company_id, event_id);
 DROP INDEX uk_sys_print_template;
 CREATE UNIQUE INDEX uk_sys_print_template ON sys_print_template USING btree (tenant_id, company_id, template_code, version_no) WHERE (deleted = false);
 DROP INDEX uk_sys_role_data_scope;
 CREATE UNIQUE INDEX uk_sys_role_data_scope ON sys_role_data_scope USING btree (tenant_id, company_id, role_id, module_code, resource_code);
 DROP INDEX uk_sys_role_permission;
 CREATE UNIQUE INDEX uk_sys_role_permission ON sys_role_permission USING btree (tenant_id, company_id, role_id, menu_id);
-DROP INDEX uk_sys_role_code;
-CREATE UNIQUE INDEX uk_sys_role_code ON sys_role USING btree (tenant_id, company_id, role_code) WHERE (deleted = false);
 DROP INDEX uk_sys_scheduled_job_code;
 CREATE UNIQUE INDEX uk_sys_scheduled_job_code ON sys_scheduled_job USING btree (tenant_id, company_id, job_code) WHERE (deleted = false);
 DROP INDEX uk_sys_user_data_scope;
@@ -101,3 +87,7 @@ DROP INDEX uk_sys_user_preference;
 CREATE UNIQUE INDEX uk_sys_user_preference ON sys_user_preference USING btree (tenant_id, company_id, user_id, preference_type, resource_key);
 DROP INDEX uk_sys_user_role;
 CREATE UNIQUE INDEX uk_sys_user_role ON sys_user_role USING btree (tenant_id, company_id, user_id, role_id, grant_type);
+DROP INDEX uk_sys_number_rule_code;
+CREATE UNIQUE INDEX uk_sys_number_rule_code ON sys_number_rule USING btree (tenant_id, company_id, rule_code) WHERE (deleted = false);
+DROP INDEX uk_sys_role_code;
+CREATE UNIQUE INDEX uk_sys_role_code ON sys_role USING btree (tenant_id, company_id, role_code) WHERE (deleted = false);
