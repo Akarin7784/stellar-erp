@@ -1189,7 +1189,7 @@ CREATE TABLE prd_mrp_action (
     ref_doc_type        SMALLINT,                                -- 参照先種別 10:采购订单 20:工单 30:委外订单 40:请购 50:计划订单
     ref_doc_id          BIGINT,                                  -- 参照先 ID
     ref_doc_no          VARCHAR(64),                             -- 参照先单号
-    action_date         DATE,                                    -- 现日期（延期/提前の対象）。设计书列名 current_date 为保留字，按 2026-10-21 决定改名 action_date
+    current_due_date    DATE,                                    -- 现日期（延期/提前の対象）。设计书原列名 current_date 为保留字，按 #15 改名
     suggested_date      DATE,                                    -- 建议日期
     current_qty         NUMERIC(18,4),                           -- 现数量
     suggested_qty       NUMERIC(18,4),                           -- 建议数量
@@ -1224,7 +1224,7 @@ COMMENT ON COLUMN prd_mrp_action.plan_order_id IS '由来计划订单 ID → prd
 COMMENT ON COLUMN prd_mrp_action.ref_doc_type IS '参照先種別 10:采购订单 20:工单 30:委外订单 40:请购 50:计划订单';
 COMMENT ON COLUMN prd_mrp_action.ref_doc_id IS '参照先 ID';
 COMMENT ON COLUMN prd_mrp_action.ref_doc_no IS '参照先单号';
-COMMENT ON COLUMN prd_mrp_action.action_date IS '现日期（延期/提前の対象）。设计书列名 current_date（保留字）改名';
+COMMENT ON COLUMN prd_mrp_action.current_due_date IS '现日期（延期/提前の対象）';
 COMMENT ON COLUMN prd_mrp_action.suggested_date IS '建议日期';
 COMMENT ON COLUMN prd_mrp_action.current_qty IS '现数量';
 COMMENT ON COLUMN prd_mrp_action.suggested_qty IS '建议数量';
@@ -1286,7 +1286,7 @@ CREATE TABLE prd_work_order (
     parent_work_order_id BIGINT,                                 -- 親工单 ID（多阶製造）
     root_work_order_id  BIGINT,                                  -- 最上位工单 ID（追溯用）
     is_backflush        BOOLEAN       NOT NULL DEFAULT FALSE,    -- 倒冲工单フラグ
-    over_receipt_rate   NUMERIC(5,4),                           -- NULL＝继承（2026-10-21 决定：可 NULL、无 DEFAULT）。完工超収容差スナップショット（比率 NUMERIC(5,4)。チェーン：受注行>物料>分類>会社 sys_param key prd.completion_over_rate）
+    over_receipt_rate   NUMERIC(5,4)  NOT NULL,                  -- 创建时快照（2026-10-21 决定：NOT NULL、无 DEFAULT）。完工超収容差スナップショット（比率 NUMERIC(5,4)。チェーン：受注行>物料>分類>会社 sys_param key prd.completion_over_rate）
     over_report_rate    NUMERIC(5,4)  NOT NULL DEFAULT 0.05,     -- 超報工容差（比率 NUMERIC(5,4)）
     is_hold             BOOLEAN       NOT NULL DEFAULT FALSE,    -- 保留フラグ（工程異常・品質問題）
     hold_reason         VARCHAR(500),                            -- 保留理由
@@ -1380,7 +1380,7 @@ COMMENT ON COLUMN prd_work_order.source_no IS '来源单号';
 COMMENT ON COLUMN prd_work_order.parent_work_order_id IS '親工单 ID（多阶製造）';
 COMMENT ON COLUMN prd_work_order.root_work_order_id IS '最上位工单 ID（追溯用）';
 COMMENT ON COLUMN prd_work_order.is_backflush IS '倒冲工单フラグ';
-COMMENT ON COLUMN prd_work_order.over_receipt_rate IS 'NULL＝继承（可 NULL、无 DEFAULT）。完工超収容差スナップショット（比率 NUMERIC(5,4)。チェーン：受注行>物料>分類>会社 sys_param key prd.completion_over_rate）';
+COMMENT ON COLUMN prd_work_order.over_receipt_rate IS '创建时快照（NOT NULL、无 DEFAULT）。完工超収容差スナップショット（比率 NUMERIC(5,4)。チェーン：受注行>物料>分類>会社 sys_param key prd.completion_over_rate）';
 COMMENT ON COLUMN prd_work_order.over_report_rate IS '超報工容差（比率 NUMERIC(5,4)）';
 COMMENT ON COLUMN prd_work_order.is_hold IS '保留フラグ（工程異常・品質問題）';
 COMMENT ON COLUMN prd_work_order.hold_reason IS '保留理由';
@@ -1797,7 +1797,6 @@ CREATE INDEX idx_prd_material_issue_doc ON prd_material_issue (company_id, stock
 CREATE INDEX idx_prd_material_issue_wo ON prd_material_issue (company_id, work_order_id, issue_type, issue_status);
 CREATE INDEX idx_prd_material_issue_date ON prd_material_issue (company_id, issue_date, issue_status);
 
--- 设计书矛盾：列 issue_no 不存在（v1.1 起 INV 单一采番），暂不创建：CREATE UNIQUE INDEX uk_prd_material_issue_no ON prd_material_issue (tenant_id, company_id, issue_no);
 COMMENT ON COLUMN prd_material_issue.id IS '雪花 ID（主键）';
 COMMENT ON COLUMN prd_material_issue.tenant_id IS '租户 ID（RLS 隔离键）';
 COMMENT ON COLUMN prd_material_issue.company_id IS '公司 ID（无默认值）';
@@ -2224,7 +2223,6 @@ CREATE INDEX idx_prd_completion_receipt_doc ON prd_completion_receipt (company_i
 CREATE INDEX idx_prd_completion_receipt_wo ON prd_completion_receipt (company_id, work_order_id, receipt_status);
 CREATE INDEX idx_prd_completion_receipt_date ON prd_completion_receipt (company_id, receipt_date, receipt_status);
 
--- 设计书矛盾：列 receipt_no 不存在（v1.1 起 INV 单一采番），暂不创建：CREATE UNIQUE INDEX uk_prd_completion_receipt_no ON prd_completion_receipt (tenant_id, company_id, receipt_no);
 COMMENT ON COLUMN prd_completion_receipt.id IS '雪花 ID（主键）';
 COMMENT ON COLUMN prd_completion_receipt.tenant_id IS '租户 ID（RLS 隔离键）';
 COMMENT ON COLUMN prd_completion_receipt.company_id IS '公司 ID（无默认值）';
@@ -2532,7 +2530,6 @@ CREATE UNIQUE INDEX uk_prd_outsourcing_issue_req ON prd_outsourcing_issue (tenan
 CREATE INDEX idx_prd_outsourcing_issue_doc ON prd_outsourcing_issue (company_id, stock_doc_no);
 CREATE INDEX idx_prd_outsourcing_issue_order ON prd_outsourcing_issue (company_id, outsourcing_order_id, issue_status);
 
--- 设计书矛盾：列 issue_no 不存在（v1.1 起 INV 单一采番），暂不创建：CREATE UNIQUE INDEX uk_prd_outsourcing_issue_no ON prd_outsourcing_issue (tenant_id, company_id, issue_no);
 COMMENT ON COLUMN prd_outsourcing_issue.id IS '雪花 ID（主键）';
 COMMENT ON COLUMN prd_outsourcing_issue.tenant_id IS '租户 ID（RLS 隔离键）';
 COMMENT ON COLUMN prd_outsourcing_issue.company_id IS '公司 ID（无默认值）';
@@ -2670,7 +2667,6 @@ CREATE UNIQUE INDEX uk_prd_outsourcing_receipt_req ON prd_outsourcing_receipt (t
 CREATE INDEX idx_prd_outsourcing_receipt_doc ON prd_outsourcing_receipt (company_id, stock_doc_no);
 CREATE INDEX idx_prd_outsourcing_receipt_order ON prd_outsourcing_receipt (company_id, outsourcing_order_id, receipt_status);
 
--- 设计书矛盾：列 receipt_no 不存在（v1.1 起 INV 单一采番），暂不创建：CREATE UNIQUE INDEX uk_prd_outsourcing_receipt_no ON prd_outsourcing_receipt (tenant_id, company_id, receipt_no);
 COMMENT ON COLUMN prd_outsourcing_receipt.id IS '雪花 ID（主键）';
 COMMENT ON COLUMN prd_outsourcing_receipt.tenant_id IS '租户 ID（RLS 隔离键）';
 COMMENT ON COLUMN prd_outsourcing_receipt.company_id IS '公司 ID（无默认值）';

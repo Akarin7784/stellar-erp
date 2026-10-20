@@ -34,11 +34,11 @@ SELECT col_is_null('prd_work_order', 'standard_cost', 'standard_cost 允许 NULL
 SELECT col_hasnt_default('prd_work_order', 'standard_cost', 'standard_cost 无 DEFAULT');
 SELECT col_default_is('prd_work_order', 'cost_variance', '0', 'cost_variance DEFAULT 0（NULL 判定靠 standard_cost IS NULL）');
 
--- 2026-10-21 决定：over_receipt_rate 可 NULL 无默认（NULL＝继承）；order_status 默认 10；action_date 改名
-SELECT col_is_null('prd_work_order', 'over_receipt_rate', 'over_receipt_rate 允许 NULL（NULL＝继承）');
+-- 2026-10-21 决定：over_receipt_rate NOT NULL 无默认（创建时快照）；order_status 默认 10；current_date 改名 current_due_date（#15）
+SELECT col_not_null('prd_work_order', 'over_receipt_rate', 'over_receipt_rate NOT NULL（创建时快照）');
 SELECT col_hasnt_default('prd_work_order', 'over_receipt_rate', 'over_receipt_rate 无 DEFAULT');
 SELECT col_default_is('prd_work_order', 'order_status', '10', 'order_status DEFAULT 10');
-SELECT has_column('prd_mrp_action', 'action_date', 'prd_mrp_action 有 action_date');
+SELECT has_column('prd_mrp_action', 'current_due_date', 'prd_mrp_action 有 current_due_date');
 SELECT hasnt_column('prd_mrp_action', 'current_date', 'prd_mrp_action 无保留字列 current_date');
 
 -- G2-18 草稿 / 测试桩使用的工单列
