@@ -27,7 +27,7 @@ public record WorkOrderCreateCommand(
         @NotNull LocalDate plannedEndDate,
         @Min(1) @Max(9) Short priorityNo,
         Long departmentId,
-        Long warehouseId,
+        @NotNull Long warehouseId,
         Long salesOrderLineId,
         Boolean isBackflush,
         @Size(max = 500) String remark) {

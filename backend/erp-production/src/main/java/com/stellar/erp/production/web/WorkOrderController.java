@@ -2,6 +2,7 @@ package com.stellar.erp.production.web;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -10,7 +11,11 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.stellar.erp.common.Result;
 import com.stellar.erp.production.WorkOrderCreateCommand;
+import com.stellar.erp.production.WorkOrderApprovalService;
 import com.stellar.erp.production.WorkOrderCreated;
+import com.stellar.erp.production.WorkOrderDetail;
+import com.stellar.erp.production.WorkOrderQueryService;
+import com.stellar.erp.production.WorkOrderStateCommand;
 import com.stellar.erp.production.WorkOrderReleaseCommand;
 import com.stellar.erp.production.WorkOrderReleaseService;
 import com.stellar.erp.production.WorkOrderReleased;
@@ -25,11 +30,29 @@ public class WorkOrderController {
 
     private final WorkOrderService service;
     private final WorkOrderReleaseService releaseService;
+    private final WorkOrderApprovalService approvalService;
+    private final WorkOrderQueryService queryService;
 
-    public WorkOrderController(WorkOrderService service, WorkOrderReleaseService releaseService) {
+    public WorkOrderController(WorkOrderService service, WorkOrderReleaseService releaseService,
+                               WorkOrderApprovalService approvalService, WorkOrderQueryService queryService) {
         this.service = service;
         this.releaseService = releaseService;
+        this.approvalService = approvalService;
+        this.queryService = queryService;
     }
+
+    /** 詳細（91 #24 / 02 §7 No.2）。 */
+    @GetMapping("/{id}")
+    public Result<WorkOrderDetail> get(@PathVariable long id) {
+        return Result.ok(queryService.get(id));
+    }
+
+    /** 承認提出 10→20（91 #28 / 02 §7 No.5）。 */
+    @PostMapping("/{id}/submit")
+    public Result<WorkOrderDetail> submit(@PathVariable long id, @Valid @RequestBody WorkOrderStateCommand body) {
+        return Result.ok(approvalService.submit(id, body));
+    }
+
 
     @PostMapping
     public ResponseEntity<Result<WorkOrderCreated>> create(@Valid @RequestBody WorkOrderCreateCommand body) {

@@ -30,6 +30,7 @@
         <module>erp-common</module>
         <module>erp-system</module>
         <module>erp-workflow</module>
+        <module>erp-mdm</module>
         <module>erp-production</module>
         <module>erp-boot</module>
     </modules>

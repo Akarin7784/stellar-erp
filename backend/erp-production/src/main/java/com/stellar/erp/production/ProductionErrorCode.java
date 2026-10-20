@@ -16,6 +16,20 @@ public final class ProductionErrorCode {
     public static final int WO_NOT_MANUFACTURED = 60001;
     public static final String MSG_WO_NOT_MANUFACTURED = "MSG-PRD-001";
 
+    /** 起案者と承認者が同一（自己承認不可、CHK-PRD-002-12）。91 の規則 60000 + MSG-PRD-NNN。 */
+    public static final int WO_SELF_APPROVAL = 60005;
+    public static final String MSG_WO_SELF_APPROVAL = "MSG-PRD-005";
+
+    /** 有効 BOM なし（91 §9 60020）。 */
+    public static final int BOM_NOT_FOUND = 60020;
+    public static final String MSG_BOM_NOT_FOUND = "MSG-PRD-020";
+
+    /**
+     * 下达日が過去日（Asia/Shanghai 当日より前）。06 91 §3.2 / 93-messages MSG-PRD-104（蓝色大肥鱼 2026-10-21 確定）。
+     */
+    public static final int WO_RELEASE_DATE_PAST = 60104;
+    public static final String MSG_WO_RELEASE_DATE_PAST = "MSG-PRD-104";
+
     /** 保留中の工单は下达・報工・入庫不可（91 §9）。 */
     public static final int WO_ON_HOLD = 60047;
     public static final String MSG_WO_ON_HOLD = "MSG-PRD-047";
