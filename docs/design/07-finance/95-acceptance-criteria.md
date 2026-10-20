@@ -65,6 +65,7 @@
 - G：YE3-100L1-4 の発行済み版。T：`total_unit_cost=778.20`（材料 659.95 + 人工 53.75 + 製造費用 64.50 + 委外 0）、標準原価 = 778.20 × 120 = 93,384.00（[06](06-auto-voucher-costing.md) CALC-A7、[bom-demo §6](../90-data/bom-demo.md)）。
 - W：当月開始（`period_from` ≤ 当月）の版で `fin_publish_standard_cost` を実行。T：`mdm_material.standard_cost` が発行版の値になる。
 - G：当月 2026-10 OPEN、有効版 A（778.20）。W：版 B（`period_from=2026-11`、800.00）を発行。T：`mdm_material.standard_cost` は 778.20 のまま。W：2026-11 を開帳（BAT-FIN-001）。T：`mdm_material.standard_cost`=800.00。
+- G：物料 Y の有効版なし（当期に該当版なし）、`mdm_material.standard_cost`=500.00。W：期間開帳。T：500.00 のまま（NULL にしない）。
 - T：`erp_app` による `mdm_material.standard_cost` の直接 UPDATE は権限エラー（[02-mdm 95](../02-mdm/95-acceptance-criteria.md)）。
 
 ## AC-FIN-09a 标准成本なし → 差異分析スキップ

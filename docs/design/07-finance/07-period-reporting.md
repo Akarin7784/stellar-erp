@@ -111,7 +111,7 @@ stateDiagram-v2
 
 | 遷移 | トリガ | 権限 | 更新項目 | メッセージ |
 |---|---|---|---|---|
-| FUTURE→OPEN | 月初バッチ/手動 | finance:period:close | status、opened_at。同一トランザクションで当該期間に有効な `fin_standard_cost`（`status=40`、`period_from` ≤ 当期 ≤ `period_to` または NULL）の `total_unit_cost` を `mdm_material.standard_cost` に刷新（`erp_cost_publisher` 経由、[90 §6.12](90-db-design.md)） | MSG-FIN-121 |
+| FUTURE→OPEN | 月初バッチ/手動 | finance:period:close | status、opened_at。同一トランザクションで当該期間に有効な `fin_standard_cost`（`status=40`、`period_from` ≤ 当期 ≤ `period_to` または NULL）の `total_unit_cost` を `mdm_material.standard_cost` に刷新（`erp_cost_publisher` 経由、[90 §6.12](90-db-design.md)）。当期に有効版がない物料は**旧値を保持**（NULL にしない。`period_to` は後続版の発行による自動打切りでのみ設定されるため通常は発生しない）。`fin_period` 作成前は発行日の属する月を「当月」とみなす | MSG-FIN-121 |
 | OPEN→CLOSED | 月結実行 | finance:period:close | status、closed_at/by | MSG-FIN-123 |
 | CLOSED→OPEN | 期間再開 | finance:period:reopen（財務総監） | status、reopen_reason；E37 待ちフラグ | MSG-FIN-124 |
 
