@@ -39,7 +39,8 @@ class WorkOrderReleaseServiceTest {
 
     ProductionRepository repo = mock(ProductionRepository.class);
     SalesOrderLineLookup lines = mock(SalesOrderLineLookup.class);
-    WorkOrderReleaseService service = new WorkOrderReleaseService(repo, lines, CLOCK);
+    BomQueryService boms = mock(BomQueryService.class);
+    WorkOrderReleaseService service = new WorkOrderReleaseService(repo, lines, boms, CLOCK);
 
     @BeforeEach
     void login() {
@@ -52,13 +53,91 @@ class WorkOrderReleaseServiceTest {
     }
 
     WorkOrderForRelease wo(Long line, short status, boolean hold, int version) {
-        return new WorkOrderForRelease(WO, "WO2611010001", MAT, line, status, hold, version);
+        return new WorkOrderForRelease(WO, "WO2611010001", MAT, line, status, hold, version, FACTORY, PLANNED_START,
+                new BigDecimal("10"));
     }
 
     void stubWo(WorkOrderForRelease w) {
         when(repo.findWorkOrderForRelease(CO, WO)).thenReturn(Optional.of(w));
         when(repo.lockWorkOrderForRelease(CO, WO)).thenReturn(Optional.of(w));
         when(repo.markReleased(anyLong(), anyLong(), anyInt(), anyLong(), any(), any(), anyBoolean())).thenReturn(1);
+        when(repo.countWorkOrderMaterials(CO, WO)).thenReturn(1L);   // 既定：材料行あり（展開しない）
+    }
+
+    static final long FACTORY = 77;
+    static final LocalDate PLANNED_START = LocalDate.of(2026, 11, 20);
+
+    static BomQueryService.EffectiveBom bom(BomQueryService.Line... lines) {
+        return new BomQueryService.EffectiveBom(500, "BOM1", MAT, "M", FACTORY, (short) 1, new BigDecimal("2"), "PCE",
+                LocalDate.of(2026, 1, 1), null, true, java.util.List.of(lines));
+    }
+
+    @Test
+    void zeroLinesWithoutBomIs60020AndNothingWritten() {
+        stubWo(wo(null, (short) 25, false, 0));
+        when(repo.countWorkOrderMaterials(CO, WO)).thenReturn(0L);
+        when(boms.find(CO, MAT, FACTORY, PLANNED_START)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> service.release(WO, new WorkOrderReleaseCommand(0)))
+                .isInstanceOfSatisfying(BizException.class, e -> {
+                    assertThat(e.getCode()).isEqualTo(60020);
+                    assertThat(e.getMsgId()).isEqualTo("MSG-PRD-020");
+                });
+        verify(repo, never()).insertMaterialLine(any());
+        verify(repo, never()).markReleased(anyLong(), anyLong(), anyInt(), anyLong(), any(), any(), anyBoolean());
+    }
+
+    @Test
+    void zeroLinesExpandsBomWithCalcWo01And02() {
+        stubWo(wo(null, (short) 25, false, 0));
+        when(repo.countWorkOrderMaterials(CO, WO)).thenReturn(0L);
+        when(repo.findEffectiveStandardCost(anyLong(), anyLong(), any())).thenReturn(Optional.empty());
+        // base_qty 2、order_qty 10、component_qty 3、loss 0.005 → required 15.0000、total 15÷0.995=15.0754（切上）
+        when(boms.find(CO, MAT, FACTORY, PLANNED_START)).thenReturn(Optional.of(bom(
+                new BomQueryService.Line(601, 10, 900, "C1", "部品", "PCE", new BigDecimal("3"), new BigDecimal("0.005"),
+                        new BigDecimal("3.0151"), 10, true, null))));
+        service.release(WO, new WorkOrderReleaseCommand(0));
+        org.mockito.ArgumentCaptor<ProductionRepository.MaterialLineInsert> c =
+                org.mockito.ArgumentCaptor.forClass(ProductionRepository.MaterialLineInsert.class);
+        InOrder order = inOrder(repo);
+        order.verify(repo).lockWorkOrderForRelease(CO, WO);
+        order.verify(repo).insertMaterialLine(c.capture());
+        order.verify(repo).markReleased(anyLong(), anyLong(), anyInt(), anyLong(), any(), any(), anyBoolean());
+        assertThat(c.getValue().requiredQty()).isEqualByComparingTo("15.0000");
+        assertThat(c.getValue().totalRequiredQty()).isEqualByComparingTo("15.0754");
+        assertThat(c.getValue().lossQty()).isEqualByComparingTo("0.0754");
+        assertThat(c.getValue().bomLineId()).isEqualTo(601);
+        assertThat(c.getValue().materialId()).isEqualTo(900);
+    }
+
+    @Test
+    void existingLinesAreNotReExpandedAndBomNotChecked() {
+        stubWo(wo(null, (short) 25, false, 0));
+        when(repo.findEffectiveStandardCost(anyLong(), anyLong(), any())).thenReturn(Optional.empty());
+        service.release(WO, new WorkOrderReleaseCommand(0));
+        verify(boms, never()).find(anyLong(), anyLong(), anyLong(), any());
+        verify(repo, never()).insertMaterialLine(any());
+    }
+
+    @Test
+    void bomBaseDateFallsBackToTodayWhenNoPlannedStart() {
+        WorkOrderForRelease w = new WorkOrderForRelease(WO, "WO2611010001", MAT, null, (short) 25, false, 0, FACTORY, null,
+                BigDecimal.TEN);
+        stubWo(w);
+        when(repo.countWorkOrderMaterials(CO, WO)).thenReturn(0L);
+        when(boms.find(anyLong(), anyLong(), anyLong(), any())).thenReturn(Optional.empty());
+        // CLOCK = 2026-10-31T16:30Z → Asia/Shanghai 2026-11-01
+        assertThatThrownBy(() -> service.release(WO, new WorkOrderReleaseCommand(0, LocalDate.of(2026, 12, 5))))
+                .isInstanceOf(BizException.class);
+        verify(boms).find(CO, MAT, FACTORY, LocalDate.of(2026, 11, 1));
+    }
+
+    @Test
+    void mtoAllowedQtyNullIs5000BeforeWorkOrderLock() {
+        when(repo.findWorkOrderForRelease(CO, WO)).thenReturn(Optional.of(wo(LINE, (short) 25, false, 0)));
+        when(lines.lockForUpdate(CO, LINE)).thenReturn(Optional.of(new SalesOrderLine(LINE, 1L, "SO1", MAT, null, null)));
+        assertThatThrownBy(() -> service.release(WO, new WorkOrderReleaseCommand(0)))
+                .isInstanceOfSatisfying(BizException.class, e -> assertThat(e.getCode()).isEqualTo(5000));
+        verify(repo, never()).lockWorkOrderForRelease(anyLong(), anyLong());
     }
 
     @Test

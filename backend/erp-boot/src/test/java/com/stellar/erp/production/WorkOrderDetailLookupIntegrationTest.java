@@ -75,6 +75,8 @@ class WorkOrderDetailLookupIntegrationTest {
               (995061, 305, 51, 'W51', '成品仓', 30, 995021, 1),
               (995062, 305, 51, 'W51X', '停止仓', 30, 995021, 0),
               (995063, 305, 52, 'W52', '他社仓', 30, 995022, 1);
+            INSERT INTO prd_work_center (id, tenant_id, company_id, work_center_code, work_center_name, factory_id)
+              VALUES (995081, 305, 51, 'WC51', '組立', 995021);
             INSERT INTO prd_material_planning (id, tenant_id, company_id, material_id, material_code, material_name, factory_id, material_type)
               VALUES (995031, 305, 51, 995011, '9950000011', 'E 成品', 995021, 20);
             INSERT INTO sys_param (id, tenant_id, company_id, param_key, param_name, param_group, param_value, value_type)
@@ -92,7 +94,9 @@ class WorkOrderDetailLookupIntegrationTest {
     void cleanup() {
         owner.execute("""
             DELETE FROM prd_work_order_material WHERE tenant_id = 305;
+            DELETE FROM prd_work_order_operation WHERE tenant_id = 305;
             DELETE FROM prd_work_order WHERE tenant_id = 305;
+            DELETE FROM prd_work_center WHERE tenant_id = 305;
             DELETE FROM prd_bom_line WHERE tenant_id = 305;
             DELETE FROM prd_bom WHERE tenant_id = 305;
             DELETE FROM prd_material_planning WHERE tenant_id = 305;
@@ -115,6 +119,12 @@ class WorkOrderDetailLookupIntegrationTest {
         WorkOrderCreated c = as(CREATOR, CO, () -> workOrders.create(new WorkOrderCreateCommand(null, FACTORY, MAT,
                 new BigDecimal("10"), "PCE", LocalDate.of(2026, 11, 2), LocalDate.of(2026, 11, 9), null, null, WH,
                 null, null, "r")));
+        owner.update("""
+            INSERT INTO prd_work_order_operation (id, tenant_id, company_id, work_order_id, operation_seq, operation_code,
+                operation_name, work_center_id, work_center_code, work_center_name, planned_qty, planned_start_date,
+                planned_end_date)
+            VALUES (?, 305, 51, ?, 10, 'OP10', '組立', 995081, 'WC51', '組立', 10, DATE '2026-11-02', DATE '2026-11-09')
+            """, c.id() + 2_000_000, c.id());
         if (withMaterial) {
             owner.update("""
                 INSERT INTO prd_work_order_material (id, tenant_id, company_id, work_order_id, line_no, material_id,
@@ -127,7 +137,7 @@ class WorkOrderDetailLookupIntegrationTest {
 
     @Test
     void submitApproveReleaseLifecycle() {
-        long id = createDraft(true);
+        long id = createDraft(false);   // AC-PRD-12：有効 BOM なし・材料行 0 件で登録
         WorkOrderDetail s = as(CREATOR, CO, () -> approvals.submit(id, new WorkOrderStateCommand(0, null)));
         assertThat(s.orderStatus()).isEqualTo((short) 20);
         assertThat(s.submittedAt()).isNotNull();
@@ -140,16 +150,49 @@ class WorkOrderDetailLookupIntegrationTest {
         assertThat(a.approvedBy()).isEqualTo(APPROVER);
         assertThat(a.version()).isEqualTo(2);
 
+        // 作成・提出・承認は BOM なしで通る。下达は有効 BOM 必須 → 60020、状態は 25 のまま
+        assertThatThrownBy(() -> as(APPROVER, CO, () -> releases.release(id, new WorkOrderReleaseCommand(2))))
+                .isInstanceOfSatisfying(BizException.class, e -> assertThat(e.getCode()).isEqualTo(60020));
+        WorkOrderDetail still = as(APPROVER, CO, () -> queries.get(id));
+        assertThat(still.orderStatus()).isEqualTo((short) 25);
+        assertThat(still.version()).isEqualTo(2);
+        assertThat(still.materials()).isEmpty();
+        bom(995106, CO, MAT, 9, true, 30, "2026-11-01", null);
+        owner.update("""
+            INSERT INTO prd_bom_line (id, tenant_id, company_id, bom_id, line_no, component_material_id, component_code,
+                component_name, uom_code, component_qty, required_qty)
+            VALUES (995116, 305, 51, 995106, 10, 995012, '9950000012', 'E 部品', 'PCE', 2, 2)
+            """);
+
         WorkOrderReleased r = as(APPROVER, CO, () -> releases.release(id, new WorkOrderReleaseCommand(2)));
         assertThat(r.warnings()).singleElement().satisfies(w -> assertThat(w.msgId()).isEqualTo("MSG-FIN-117"));
-        assertThat(as(APPROVER, CO, () -> queries.get(id)).orderStatus()).isEqualTo((short) 30);
+        WorkOrderDetail released = as(APPROVER, CO, () -> queries.get(id));
+        assertThat(released.orderStatus()).isEqualTo((short) 30);
+        assertThat(released.materials()).singleElement()
+                .satisfies(m -> assertThat(m.totalRequiredQty()).isEqualByComparingTo("20"));   // 10 × 2 ÷ 1
     }
 
     @Test
-    void submitWithoutMaterialsIs1001AndStaleVersionIs4003() {
+    void approveNeedsOperationButNotMaterialLines() {
+        long ok = createDraft(false);   // 材料 0 行 + 工序 1 行 → 承認可
+        as(CREATOR, CO, () -> approvals.submit(ok, new WorkOrderStateCommand(0, null)));
+        assertThat(as(APPROVER, CO, () -> approvals.approve(ok, new WorkOrderStateCommand(1, null))).orderStatus())
+                .isEqualTo((short) 25);
+
+        long ng = createDraft(false);
+        owner.update("DELETE FROM prd_work_order_operation WHERE work_order_id = ?", ng);
+        as(CREATOR, CO, () -> approvals.submit(ng, new WorkOrderStateCommand(0, null)));
+        assertThatThrownBy(() -> as(APPROVER, CO, () -> approvals.approve(ng, new WorkOrderStateCommand(1, null))))
+                .isInstanceOfSatisfying(BizException.class, e -> assertThat(e.getCode()).isEqualTo(60021));
+        assertThat(owner.queryForObject("SELECT order_status FROM prd_work_order WHERE id = ?", Integer.class, ng))
+                .isEqualTo(20);
+    }
+
+    @Test
+    void submitWithoutMaterialsSucceedsAndStaleVersionIs4003() {
         long id = createDraft(false);
-        assertThatThrownBy(() -> as(CREATOR, CO, () -> approvals.submit(id, new WorkOrderStateCommand(0, null))))
-                .isInstanceOfSatisfying(BizException.class, e -> assertThat(e.getMsgId()).isEqualTo("MSG-COM-040"));
+        assertThat(as(CREATOR, CO, () -> approvals.submit(id, new WorkOrderStateCommand(0, null))).orderStatus())
+                .isEqualTo((short) 20);
         long id2 = createDraft(true);
         assertThatThrownBy(() -> as(CREATOR, CO, () -> approvals.submit(id2, new WorkOrderStateCommand(5, null))))
                 .isInstanceOfSatisfying(BizException.class, e -> assertThat(e.getCode()).isEqualTo(4003));
@@ -322,5 +365,31 @@ class WorkOrderDetailLookupIntegrationTest {
         long id = createDraft(true);
         as(CREATOR, CO, () -> approvals.submit(id, new WorkOrderStateCommand(0, null)));
         raceOnce(id, APPROVER, () -> approvals.approve(id, new WorkOrderStateCommand(1, null)), 25);
+    }
+
+    /** AC-PRD-12：有効 BOM なしでも登録 201（order_status=10、材料 0 件）＋ warnings[] に 60020。 */
+    @Test
+    void apiCreateWithoutBomIs201WithWarning60020() throws Exception {
+        MockMvc mvc = MockMvcBuilders.webAppContextSetup(wac).build();
+        TenantContext.set(TENANT);
+        LoginContext.set(new LoginUser(CREATOR, CO));
+        String body = """
+                {"factoryId": %d, "materialId": %d, "warehouseId": %d, "orderQty": "10", "uomCode": "PCE",
+                 "plannedStartDate": "2026-11-12", "plannedEndDate": "2026-11-20"}
+                """.formatted(FACTORY, MAT, WH);
+        mvc.perform(post("/api/production/work-orders").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.orderStatus").value(10))
+                .andExpect(jsonPath("$.data.warnings[0].code").value(60020))
+                .andExpect(jsonPath("$.data.warnings[0].msgId").value("MSG-PRD-020"))
+                .andExpect(jsonPath("$.data.warnings[0].message").isString());
+        assertThat(owner.queryForObject("SELECT count(*) FROM prd_work_order_material WHERE tenant_id = 305", Long.class))
+                .isZero();
+
+        // 基準日 2026-11-12 で有効な BOM があれば警告なし
+        bom(995107, CO, MAT, 1, true, 30, "2026-11-12", null);
+        mvc.perform(post("/api/production/work-orders").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.warnings").isEmpty());
     }
 }

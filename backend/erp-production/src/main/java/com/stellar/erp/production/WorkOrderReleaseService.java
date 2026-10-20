@@ -41,16 +41,19 @@ public class WorkOrderReleaseService {
 
     private final ProductionRepository repo;
     private final SalesOrderLineLookup salesOrderLines;
+    private final BomQueryService boms;
     private Clock clock = Clock.system(BUSINESS_ZONE);
 
     @Autowired
-    public WorkOrderReleaseService(ProductionRepository repo, SalesOrderLineLookup salesOrderLines) {
+    public WorkOrderReleaseService(ProductionRepository repo, SalesOrderLineLookup salesOrderLines, BomQueryService boms) {
         this.repo = repo;
         this.salesOrderLines = salesOrderLines;
+        this.boms = boms;
     }
 
-    WorkOrderReleaseService(ProductionRepository repo, SalesOrderLineLookup salesOrderLines, Clock clock) {
-        this(repo, salesOrderLines);
+    WorkOrderReleaseService(ProductionRepository repo, SalesOrderLineLookup salesOrderLines, BomQueryService boms,
+                            Clock clock) {
+        this(repo, salesOrderLines, boms);
         this.clock = clock;
     }
 
@@ -103,6 +106,16 @@ public class WorkOrderReleaseService {
                     ProductionErrorCode.MSG_WO_MATERIAL_MISMATCH, "工单品目与销售订单行品目不一致。");
         }
 
+        // 材料行 0 件なら有効 BOM を展開（状態遷移と同一トランザクション、Lead 2026-10-21 決定）。
+        // 既に材料行がある工单は再展開せず、BOM チェックも行わない。有効 BOM なし → 422 / 60020 で全体ロールバック
+        // （状態 25 のまま、材料行なし、E21 なし）。工单は FOR UPDATE 済みのため並行下达でも展開は 1 回だけ。
+        if (repo.countWorkOrderMaterials(company, wo.id()) == 0) {
+            BomQueryService.EffectiveBom bom = boms.find(company, wo.materialId(), wo.factoryId(), bomBaseDate(wo, today))
+                    .orElseThrow(() -> new BizException(ProductionErrorCode.BOM_NOT_FOUND,
+                            ProductionErrorCode.MSG_BOM_NOT_FOUND, "有効な BOM がありません。BOM を登録・承認してください。"));
+            expand(company, login.userId(), wo, bom);
+        }
+
         Optional<BigDecimal> cost = repo.findEffectiveStandardCost(company, wo.materialId(),
                 releaseDate.withDayOfMonth(1));
         BigDecimal standardCost = cost.orElse(null);
@@ -119,6 +132,31 @@ public class WorkOrderReleaseService {
                 : List.of();
         return new WorkOrderReleased(wo.id(), wo.workOrderNo(), STATUS_RELEASED, releaseDate, standardCost,
                 wo.version() + 1, warnings);
+    }
+
+    /**
+     * BOM 基準日（02 §6.1 第 3 項・§6.4 2a、AC-PRD-12）：{@code planned_start_date}、未入力なら会社タイムゾーン
+     * （現時点では Asia/Shanghai）の当日。基準日ルールの変更はここだけで行う。
+     */
+    static LocalDate bomBaseDate(WorkOrderForRelease wo, LocalDate today) {
+        return wo.plannedStartDate() != null ? wo.plannedStartDate() : today;
+    }
+
+    /**
+     * CALC-WO-01：{@code required_qty = component_qty × order_qty ÷ base_qty}（4 桁四捨五入）。
+     * CALC-WO-02：{@code total_required_qty = required_qty ÷ (1 − loss_rate)}（4 桁切上）。
+     */
+    private void expand(long company, long userId, WorkOrderForRelease wo, BomQueryService.EffectiveBom bom) {
+        for (BomQueryService.Line l : bom.lines()) {
+            BigDecimal required = l.componentQty().multiply(wo.orderQty())
+                    .divide(bom.baseQty(), 4, java.math.RoundingMode.HALF_UP);
+            BigDecimal lossRate = l.lossRate() != null ? l.lossRate() : BigDecimal.ZERO;
+            BigDecimal total = required.divide(BigDecimal.ONE.subtract(lossRate), 4, java.math.RoundingMode.CEILING);
+            repo.insertMaterialLine(new ProductionRepository.MaterialLineInsert(
+                    com.baomidou.mybatisplus.core.toolkit.IdWorker.getId(), company, userId, wo.id(), l.lineNo(), l.id(),
+                    l.operationSeq(), l.componentMaterialId(), l.componentCode(), l.componentName(), l.uomCode(),
+                    required, lossRate, total.subtract(required), total, l.isKeyPart(), l.substituteGroup()));
+        }
     }
 
     private static BizException notFound() {

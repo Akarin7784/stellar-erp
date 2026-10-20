@@ -14,8 +14,7 @@ import com.stellar.erp.production.internal.ProductionRepository.WorkOrderForAppr
  * <ul>
  *   <li>状態不正 → 409 / 4002 / MSG-COM-034（§6.3 第 1 項、CHK-PRD-002-11）。</li>
  *   <li>{@code version} 不一致 → 409 / 4003 / MSG-COM-033（91 §10「状態操作は version 必須」）。</li>
- *   <li>提出：材料明細 1 行以上（CHK-PRD-002-09 / T-01、MSG-COM-040）。</li>
- *   <li>承認：起案者（created_by）≠ 承認者（CHK-PRD-002-12、60005 / MSG-PRD-005）。</li>
+  *   <li>承認：起案者（created_by）≠ 承認者（CHK-PRD-002-12、60005 / MSG-PRD-005）。</li>
  * </ul>
  *
  * <p>未実装：WF 提交（businessType=PRODUCTION_WORK_ORDER）・E31/E32 受信、差戻し（20→10）・却下（20→95）、
@@ -39,9 +38,7 @@ public class WorkOrderApprovalService {
         LoginContext.LoginUser login = LoginContext.require();
         long company = login.companyId();
         WorkOrderForApproval wo = lockAndCheck(company, workOrderId, DRAFT, cmd);
-        if (repo.countWorkOrderMaterials(company, wo.id()) == 0) {
-            throw new BizException(1001, "MSG-COM-040", "请输入必填项「材料明細」。");
-        }
+        // 材料行 0 件でも提出可（Lead 2026-10-21 最終決定、AC-PRD-12）。BOM 展開は下达時に行う。
         if (repo.markSubmitted(company, wo.id(), wo.version(), login.userId()) != 1) {
             throw versionConflict();
         }
@@ -56,6 +53,11 @@ public class WorkOrderApprovalService {
         if (wo.createdBy() == login.userId()) {
             throw new BizException(ProductionErrorCode.WO_SELF_APPROVAL, ProductionErrorCode.MSG_WO_SELF_APPROVAL,
                     "起案者と承認者が同一のため承認できません。");
+        }
+        // 承認は工序明細 1 行以上が必要、材料明細は不要（0 行可、下达時に BOM 展開。Lead 2026-10-21 決定）
+        if (repo.countWorkOrderOperations(company, wo.id()) == 0) {
+            throw new BizException(ProductionErrorCode.ROUTING_NOT_FOUND, ProductionErrorCode.MSG_ROUTING_NOT_FOUND,
+                    "有効な工艺路线がありません。工艺路线を登録してください。");
         }
         if (repo.markApproved(company, wo.id(), wo.version(), login.userId()) != 1) {
             throw versionConflict();
