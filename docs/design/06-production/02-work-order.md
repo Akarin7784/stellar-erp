@@ -107,11 +107,11 @@ stateDiagram-v2
 
 | # | 遷移 | トリガ | 権限 | 更新項目 | 事前条件 | メッセージ |
 |---|---|---|---|---|---|---|
-| T-01 | 10→20 | 承認提出 | `production:work-order:submit` | `order_status=20`、`submitted_at` | 材料明細 1 行以上（有効 BOM は不要（蓝色大肥鱼 2026-10-21 #36 決定）） | `MSG-COM-005` |
+| T-01 | 10→20 | 承認提出 | `production:work-order:submit` | `order_status=20`、`submitted_at` | 条件なし（材料明細 0 行可（蓝色大肥鱼 2026-10-21 PR #37 決定）。有効 BOM は不要（蓝色大肥鱼 2026-10-21 #36 決定）） | `MSG-COM-005` |
 | T-02 | 20→25 | 承認（WF E32） | `production:work-order:approve` | `order_status=25`、`approved_by/at` | 承認者本人、自己承認不可 | — |
 | T-03 | 20→10 | 差戻し | 承認者 | `order_status=10` | 理由必須 | `MSG-COM-034` |
 | T-04 | 20→95 | 却下 | 承認者 | `order_status=95` | 理由必須 | — |
-| T-05 | 25→30 | 下达 | `production:work-order:release` | `order_status=30`、`released_by/at`、E21 発行 | 有効 BOM あり（なしは 422／`60020`／`MSG-PRD-020`（蓝色大肥鱼 2026-10-21 #36 決定））、引当可能（不足可）、工作日历済 | `MSG-PRD-044` |
+| T-05 | 25→30 | 下达 | `production:work-order:release` | `order_status=30`、`released_by/at`、E21 発行 | 材料明細 0 行なら同一トランザクションで有効 BOM を展開（基準日＝`planned_start_date`、未入力時は下达処理日の会社タイムゾーン当日（現時点 Asia/Shanghai。登録時と同一規則））。BOM なしは 422／`60020`／`MSG-PRD-020`、状態不変・書込みなし（蓝色大肥鱼 2026-10-21 #36 決定（蓝色大肥鱼 2026-10-21 PR #37 決定））。既存明細があれば再展開しない、引当可能（不足可）、工作日历済 | `MSG-PRD-044` |
 | T-06 | 30→35 | 首件報工/領料確定 | `production:work-report:create` / `material-issue:create` | `order_status=35`、`actual_start_date` | 保留中でない | — |
 | T-07 | 35→40 | 全数入庫 | `production:completion:create` | `order_status=40`、`completion_status=20`、`actual_end_date` | 入庫累計 ≥ order_qty、FQC 合格/特采 | `MSG-PRD-040` |
 | T-08 | 40→40（closed_at 設定） | 結案 | `production:work-order:close` | `closed_by/at`、`close_reason`、`wip_cost=0`（`order_status` は 40 のまま＝終端） | BR-WO-09 の全条件 | `MSG-PRD-075` |
@@ -386,7 +386,11 @@ stateDiagram-v2
 
 1. `order_status=25` を確認。MTO は先に受注行を `FOR UPDATE`、続けて工单を id 昇順で `FOR UPDATE`（[04 §11.1](../00-common/04-common-db-spec.md)）。`material_id`＝受注行物料を検証（不一致 `MSG-PRD-056`/`60056`）。`allowed_qty` を受注行からスナップショット。
 2. 保留中（`is_hold=true`）は下达不可（`MSG-PRD-047`）。
-2a. 有効 BOM（基準日＝`planned_start_date`（計画着手日）。未入力時は会社のタイムゾーンの当日（現時点では Asia/Shanghai のみ））がなければ 422／`60020`／`MSG-PRD-020` で中止する（蓝色大肥鱼 2026-10-21 #36 決定）。
+2a. 工单の `FOR UPDATE` 取得後、同一トランザクションで材料明細件数を確認する（蓝色大肥鱼 2026-10-21 PR #37 決定）。
+   - 0 行：有効 BOM（基準日＝`planned_start_date`、未入力時は下达処理日の会社タイムゾーン当日（現時点 Asia/Shanghai。登録時と同一規則））を解決し、CALC-WO-01/02 で `prd_work_order_material` を INSERT してから以降の手順と状態変更を行う。
+   - 0 行で有効 BOM なし：422／`60020`／`MSG-PRD-020` で中止し、全体ロールバック（`order_status`・`version` 不変、材料明細を書かない）（蓝色大肥鱼 2026-10-21 #36 決定）。
+   - 1 行以上：再展開せず既存明細のまま下达する。
+   - 同一工单の同時下达は行ロックで直列化され、後続は状態 30 のため 409／`4002`。展開は 1 回のみ。
 3. 材料行の引当依頼データを作成する：`lines[] = {materialId, requiredQty（total_required_qty − 既引当）, uom, warehouseId}`。
 4. 標準原価スナップショット：`material_id` と下达日の期間で（下达日はリクエストの `releaseDate`（未指定時は Asia/Shanghai 当日）で、その月で検索。蓝色大肥鱼 2026-10-21） `fin_standard_cost`（`status=40`、`period_from ≤ 期間 ≤ COALESCE(period_to, ∞)`）を検索し、`total_unit_cost` を `standard_cost` に設定する。発行版がなければ `standard_cost=NULL` のまま下达を続行し、`MSG-FIN-117`（警告「未设定标准成本，本期不进行成本差异分析。」）を返す。下达後は再スナップショットしない（PR #8 決定 2（蓝色大肥鱼 2026-10-21））。
 5. 工单を `order_status=30`、`released_by/at` に更新し、Outbox に E21 `production.workorder.released` を記録する（同一トランザクション）。
@@ -684,3 +688,4 @@ stateDiagram-v2
 | v1.5 | 2026-10-21 | W3 下达日の過去日エラーを 60104／`MSG-PRD-104`（422）に確定（蓝色大肥鱼 2026-10-21 承認）。§4.4 `remark` の No. 重複（23）を 24 に修正 | 业务分析 |
 | v1.6 | 2026-10-21 | §4.5 品目選択の呼出 API を `boms/effective?materialId&factoryId&date` に変更（`factoryId` 必須。蓝色大肥鱼 2026-10-21 PR #32 決定） | 业务分析 |
 | v1.7 | 2026-10-21 | 有効 BOM は下达時のみ必須（登録・草稿保存・承認提出は警告のみ、下达は 422／`60020`）、BOM 基準日＝計画着手日（未入力時は会社タイムゾーン当日、現時点 Asia/Shanghai）を前提条件 2・T-01/T-05・§4.4・CHK-PRD-002-07・§6.2/§6.4・§6.10・TST-F-PRD-005-07 に反映（蓝色大肥鱼 2026-10-21 #36 決定） | 业务分析 |
+| v1.8 | 2026-10-21 | T-01 承認提出の材料明細 1 行以上の条件を削除。T-05／§6.4 2a：工单ロック後、材料明細 0 行なら同一トランザクションで有効 BOM を展開（基準日は登録時と同一規則）、BOM なしは 60020 で状態・明細不変、既存明細は再展開しない（蓝色大肥鱼 2026-10-21 PR #37 決定） | 业务分析 |
