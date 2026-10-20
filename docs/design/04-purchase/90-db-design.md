@@ -1767,7 +1767,7 @@ CREATE TABLE pur_supplier_performance (
 
 - 業務一意索引（`uk_`）は DDL 本文・本一覧とも `(tenant_id, company_id, 業務キー)` で始める。
 - `tenant_id` は `NOT NULL DEFAULT current_setting('app.tenant_id')::bigint`（字面量默认租户禁止）。`company_id` は NOT NULL・既定値なし（全テーブル。明細・関連・履歴を含む）。
-- **例外なし**：「親 ID 先頭」の例外は全域で廃止（蓝色大肥鱼 2026-10-21 決定、sys/V202610210708 と整合）。例外は [00-common/04](../00-common/04-common-db-spec.md) §6.1 第 4 条（`company_id` を持たないテナント共有表、`(tenant_id, …)` 先頭）のみ：`uk_sys_company_code`、`uk_sys_company_credit`、`uk_sys_menu_code`、`uk_sys_menu_permission`、`uk_sys_dict_type_code`、`uk_sys_outbox_event_id`、`uk_sys_idempotency_key`、`uk_sys_user_username`（ログイン ID はテナント単位（蓝色大肥鱼 2026-10-21 決定））、`uk_mdm_exchange_rate`。親 ID・イベント ID 先頭の例外は廃止。明細・関連・履歴テーブル 13 表にも `company_id BIGINT NOT NULL` を持たせ、一意制約は `(tenant_id, company_id, 親 ID, …)` 先頭（例：`UNIQUE (tenant_id, company_id, purchase_requisition_id, line_no)`）（蓝色大肥鱼 2026-10-21 決定）。
+- **例外なし**：「親 ID 先頭」の例外は全域で廃止（蓝色大肥鱼 2026-10-21 決定、sys/V202610210708 と整合）。例外は [00-common/04](../00-common/04-common-db-spec.md) §6.1 第 4 条（`company_id` を持たないテナント共有表、`(tenant_id, …)` 先頭）のみ：`uk_sys_company_code`、`uk_sys_company_credit`、`uk_sys_menu_code`、`uk_sys_menu_permission`、`uk_sys_dict_type_code`、`uk_sys_outbox_event_id`、`uk_sys_idempotency_key`、`uk_sys_user_tenant_username`（ログイン ID はテナント単位（蓝色大肥鱼 2026-10-21 決定））、`uk_mdm_exchange_rate`。親 ID・イベント ID 先頭の例外は廃止。明細・関連・履歴テーブル 13 表にも `company_id BIGINT NOT NULL` を持たせ、一意制約は `(tenant_id, company_id, 親 ID, …)` 先頭（例：`UNIQUE (tenant_id, company_id, purchase_requisition_id, line_no)`）（蓝色大肥鱼 2026-10-21 決定）。
 - **G2-20**：非一意の btree 索引（`idx_`）も `tenant_id` 先頭（`company_id` を持つ表は次に `company_id`）とする（sys/V202610210707）。GIN 索引は対象外。`uk_` を company_id 先頭と書いてはならない（蓝色大肥鱼 2026-10-21 決定）。
 
 ---
@@ -1863,4 +1863,4 @@ CREATE TABLE pur_supplier_performance (
 | v1.2 | 2026-10-21 | 第一版全量化：`company_id` 既定値 1 を削除、業務一意索引を `(tenant_id, company_id, …)` 先頭に統一（DDL・一覧）、§6.1 例外一覧追加、段階表記を削除 | 业务分析 |
 | v1.3 | 2026-10-21 | 明細・関連・履歴 12 一意制約を `(tenant_id, …)` 先頭に変更し §6.1 例外を廃止；PO ヘッダに `change_approved_at` 追加；ER 図列名を DDL に統一；`uk_pur_tolerance_rule` を `scope_id` NULLS NOT DISTINCT に変更；`prd_planned_order`→`prd_mrp_plan_order` | 业务分析 |
 | v1.4 | 2026-10-21 | sys/mdm への単列 FK 33 件を複合 FK `(tenant_id, x_id) → (tenant_id, id)` に変更（0707 規約）、§6.1 例外記述を更新、§7 #9 を複合 FK に（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
-| v1.5 | 2026-10-21 | 明細・関連・履歴 13 表に `company_id BIGINT NOT NULL` を追加、一意制約を `(tenant_id, company_id, …)` 先頭に変更（§4 一覧・§7 #11 含む）、§6.1 注記削除・例外一覧に `uk_sys_user_username`（`(tenant_id, username)`、テナント単位）を追加（蓝色大肥鱼 2026-10-21 決定）。G2-20：非一意 btree `idx_` も `tenant_id` 先頭（次に `company_id`）、GIN 除外に修正 | 业务分析 |
+| v1.5 | 2026-10-21 | 明細・関連・履歴 13 表に `company_id BIGINT NOT NULL` を追加、一意制約を `(tenant_id, company_id, …)` 先頭に変更（§4 一覧・§7 #11 含む）、§6.1 注記削除・例外一覧に `uk_sys_user_tenant_username`（`(tenant_id, username)`、テナント単位）を追加（蓝色大肥鱼 2026-10-21 決定）。G2-20：非一意 btree `idx_` も `tenant_id` 先頭（次に `company_id`）、GIN 除外に修正 | 业务分析 |
