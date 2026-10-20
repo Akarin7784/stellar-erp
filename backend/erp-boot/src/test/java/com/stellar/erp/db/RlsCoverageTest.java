@@ -81,7 +81,24 @@ class RlsCoverageTest {
             "uk_mdm_payment_term_line",
             "uk_mdm_evaluation",
             "uk_mdm_eval_item",
-            "uk_mdm_change_line_no"
+            "uk_mdm_change_line_no",
+            // 06-production 90-db-design.md §8「一意索引の先頭列ルールと例外」（親 ID 先頭、company_id 打头）
+            "uk_prd_bom_line_bom_line",
+            "uk_prd_bom_substitute_line_pri",
+            "uk_prd_routing_operation_routing_seq",
+            "uk_prd_routing_operation_alt_pri",
+            "uk_prd_work_center_calendar_date",
+            "uk_prd_mps_line_mps_line",
+            "uk_prd_work_order_material_wo_line",
+            "uk_prd_work_order_operation_wo_seq",
+            "uk_prd_work_order_change_wo_no",
+            "uk_prd_material_issue_line_issue_line",
+            "uk_prd_work_report_labor_report_line",
+            "uk_prd_work_report_defect_report_line",
+            "uk_prd_completion_receipt_line_rcpt_line",
+            "uk_prd_outsourcing_order_line_order_line",
+            "uk_prd_outsourcing_issue_line_issue_line",
+            "uk_prd_outsourcing_receipt_line_rcpt_line"
     );
 
     /** 业务 schema 中所有非主键唯一索引的第一列必须是 tenant_id（唯一约束检查不经过 RLS）。 */
