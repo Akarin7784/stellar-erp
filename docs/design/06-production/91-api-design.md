@@ -70,7 +70,7 @@
 | 26 | POST | `/api/production/work-orders` | `production:work-order:create` | 工单登録 | F-PRD-005 |
 | 27 | PUT | `/api/production/work-orders/{id}` | `production:work-order:update` | 工单変更 | F-PRD-005 |
 | 28 | POST | `/api/production/work-orders/{id}/submit` | `production:work-order:submit` | 承認提出（10→20。詳細 §3.10） | F-PRD-005 |
-| 28a | POST | `/api/production/work-orders/{id}/approve` | `production:work-order:approve`（TODO：権限チェック未実装） | 承認（20→25。08 WF E32 コールバックと同一サービス。詳細 §3.11） | F-PRD-005 |
+| 28a | POST | `/api/production/work-orders/{id}/approve` | `production:work-order:approve` | 承認（20→25。08 WF E32 コールバックと同一サービス。詳細 §3.11）。TODO：権限チェック未実装、Flowable 接入後に閉鎖 | F-PRD-005 |
 | 29 | POST | `/api/production/work-orders/{id}/release` | `production:work-order:release` | 下达（E21） | F-PRD-005 |
 | 30 | POST | `/api/production/work-orders/batch-release` | 同上 | 一括下达 | F-PRD-005 |
 | 31 | POST | `/api/production/work-orders/{id}/split` | 同上 | 拆分 | F-PRD-005 |
@@ -534,7 +534,8 @@
 | 項目 | 内容 |
 |---|---|
 | 目的 | 工单を 20（承認中）→25（承認済）に遷移する |
-| 権限 | `production:work-order:approve`（02-work-order.md T-02。TODO：権限チェックは未実装） |
+| 権限 | `production:work-order:approve`（02-work-order.md T-02） |
+| 備考 | TODO：権限チェック未実装、Flowable 接入後に閉鎖 |
 | 呼出元 | 08 工作流の E32 承認完了コールバックと**同一のサービスメソッド**を呼ぶ。08（Flowable）接入後は本 API を閉じ、E32 コールバックからのみ遷移可能とする（蓝色大肥鱼 2026-10-21 決定、PR #32）。**Flowable 接入前の暫定入口**であり、統一入口は [08/91 #33](../08-workflow/91-api-design.md) `POST /api/workflow/tasks/{taskId}/approve`。接入後は廃止またはコールバック専用とする |
 | リクエスト | `{ "version": 4 }` |
 | 正常 | 200 + 工单 DTO（`orderStatus=25`、`version`+1） |
@@ -622,3 +623,4 @@
 | v1.2 | 2026-10-21 | §3.2 下达の警告に 70117／MSG-FIN-117 を追記 | 业务分析 |
 | v1.3 | 2026-10-21 | §3.2・§4 に 60104／MSG-PRD-104（422、下达日過去日）を追加（蓝色大肥鱼 2026-10-21 承認） | 业务分析 |
 | v1.4 | 2026-10-21 | §2.2 に #28a 工单承認 API を追加、§3.10 承認提出・§3.11 承認・§3.12 有効 BOM 解決（`factoryId` 必須・欠落 1001、命中規則 is_default→版本号→id DESC）を追加、§4 に 60005 を追加、#28 submit の権限を `production:work-order:submit` に統一（蓝色大肥鱼 2026-10-21 PR #32 決定） | 业务分析 |
+| v1.5 | 2026-10-21 | #28a・§3.11 の権限欄から TODO 文言を除去し、概要欄／備考行へ移動（権限コード欄は権限コードのみ、PR #33 評審非阻塞指摘） | 业务分析 |
