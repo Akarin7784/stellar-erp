@@ -38,7 +38,7 @@
 | `inv_` | 库存 | `inv_stock_balance`、`inv_stock_txn` |
 | `prd_` | 生产 | `prd_work_order`、`prd_bom` |
 | `fin_` | 财务 | `fin_voucher`、`fin_account_balance` |
-| `wf_` | 工作流（业务侧扩展表；Flowable 引擎表 `ACT_` 前缀は変更しない） | `wf_business_process` |
+| `wf_` | 工作流（业务侧扩展表；Flowable 引擎表 `ACT_`/`FLW_` は schema `flowable` に置き前缀は変更しない） | `wf_business_process` |
 | `int_` | 集成 | `int_interface_config`、`int_api_call_log` |
 | `rpt_` | 报表 | `rpt_kpi_snapshot` |
 
@@ -216,7 +216,7 @@ backend/erp-*/src/main/resources/db/migration/
 ├── inventory/  # inv_
 ├── production/ # prd_
 ├── finance/    # fin_
-├── workflow/   # wf_（Flowable 標準テーブルは Flowable が自動生成）
+├── workflow/   # wf_（Flowable 標準テーブルは schema `flowable` に Flyway で事前作成、下記参照）
 └── integration/# int_
 ```
 
@@ -343,3 +343,12 @@ V{yyyyMMdd}{NN}__{module}_{description}.sql
 | 版数 | 日付 | 変更内容 | 変更者 |
 |---|---|---|---|
 | v1.0 | 2026-10-20 | 初版：命名、型、制約、索引、パーティション、Flyway、排他、履歴、容量、多租戸、レビュー観点 | Lead |
+
+## Flowable 引擎表の schema 分離（issue #7）
+
+- Flowable 引擎表（`ACT_*` / `FLW_*`）は専用 schema **`flowable`** に置く。業務表は `public`。`public` に `ACT_*`/`FLW_*` があってはならない（`FlowableSchemaTest` で検査）。
+- 建表は **Flyway（owner 账号）** が `db/migration/wf/V202610200801__wf_create_flowable_schema.sql` で行う。内容は使用中の Flowable バージョン（8.0.0）の jar 同梱 PostgreSQL 建表 SQL（common → engine → history → identity → eventregistry）を無改変で連結したもの。
+- アプリ側は `flowable.database-schema-update=false`（起動時は版本チェックのみ、DDL を発行しない）。よって应用账号 `erp_app` は schema `flowable` に対し `USAGE` と DML（`SELECT/INSERT/UPDATE/DELETE`、序列 `USAGE/SELECT`）のみを持ち、`CREATE` 権限は持たない。owner による `ALTER DEFAULT PRIVILEGES IN SCHEMA flowable` で今後の表・序列にも同じ権限を付与する。
+- 表の解決は接続ごとの `search_path = public, flowable`（`spring.datasource.hikari.connection-init-sql`）で行う。`flowable.database-schema` は設定しない（Flowable が接続に `setSchema()` を発行し、プール接続の `search_path` が `flowable` のみになるため）。
+- Flowable のバージョンアップ時は、新しい jar の `org/flowable/**/db/upgrade/*.postgres.upgradestep.*.sql` を新規 Flyway 迁移として追加する（`database-schema-update=true` に戻さない）。
+- RLS は業務 schema（`public`）の業務表のみ対象。Flowable 表は `tenant_id` を持たず RLS 対象外。
