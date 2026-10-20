@@ -781,7 +781,7 @@ CREATE TABLE pur_purchase_order_line (
     required_date            DATE,
     supplier_promised_date   DATE,
     warehouse_id             BIGINT       NOT NULL,
-    receiving_tolerance_rate NUMERIC(5,4),          -- 比率（0.05=5%、MDM over_receipt_tolerance_pct と同型）
+    receiving_tolerance_rate NUMERIC(5,4),          -- 比率（0.05=5%、MDM over_receipt_tolerance_rate と同型）
     moq                      NUMERIC(18,4),
     price_source_type        SMALLINT     NOT NULL DEFAULT 1,   -- 1価格表/2RFQ/3最近成交/4手工/5合同
     price_source_id          BIGINT,
@@ -824,7 +824,7 @@ CREATE TABLE pur_purchase_order_line (
 | 7 | `unit_price`/`tax_code`/`tax_rate`/`amount`/`tax_amount` | 単価・税・金額 | NUMERIC/VARCHAR | NOT NULL | 税抜単価・进项税码 |
 | 8 | `delivery_date`/`required_date`/`supplier_promised_date` | 約定・希望・承诺交期 | DATE | NOT NULL/NULL | 交期跟踪基準 |
 | 9 | `warehouse_id` | 收货仓库 | BIGINT | NOT NULL | 行単位 |
-| 10 | `receiving_tolerance_rate` | 超收容差率 | NUMERIC(5,4) | NULL | 行上書き（比率。0.05=5%、MDM `over_receipt_tolerance_pct` と同型）、NULL は規則既定 |
+| 10 | `receiving_tolerance_rate` | 超收容差率 | NUMERIC(5,4) | NULL | 行上書き（比率。0.05=5%、MDM `over_receipt_tolerance_rate` と同型）、NULL は規則既定 |
 | 11 | `moq` | 最小起订量 | NUMERIC(18,4) | NULL | MOQ 判定 |
 | 12 | `price_source_type`/`price_source_id`/`price_diff_reason` | 価格来源・理由 | SMALLINT/BIGINT/VARCHAR(500) | NOT NULL/NULL | 取价監査 |
 | 13 | `received_qty`/`accepted_qty`/`rejected_qty`/`returned_qty`/`invoiced_qty`/`cancelled_qty` | 累計数量 | NUMERIC(18,4) | NOT NULL | E14/E15/E16/E17 で更新 |
@@ -1551,7 +1551,7 @@ CREATE TABLE pur_statement_line (
 | 更新元機能 | F-PUR-011（超收）・F-PUR-018（三单匹配） |
 | データ量見積 | 初期 50（マスタ相当） |
 
-**概要**：MDM が「品目→物料分類→仕入先→会社」の優先順で**既定値**を定義し（`mdm_material.over_receipt_tolerance_pct` 等）、本表は PUR の**上書き規則（例外許容）のみ**を保持する。既定値の重複定義は行わない（Lead 裁定 2026-10-20）。上書きは PO 明細 `receiving_tolerance_rate` > 本表（`priority` 小）> MDM 既定 の順で解決する。
+**概要**：MDM が「品目→物料分類→仕入先→会社」の優先順で**既定値**を定義し（`mdm_material.over_receipt_tolerance_rate` 等）、本表は PUR の**上書き規則（例外許容）のみ**を保持する。既定値の重複定義は行わない（Lead 裁定 2026-10-20）。上書きは PO 明細 `receiving_tolerance_rate` > 本表（`priority` 小）> MDM 既定 の順で解決する。
 
 ```sql
 CREATE TABLE pur_tolerance_rule (

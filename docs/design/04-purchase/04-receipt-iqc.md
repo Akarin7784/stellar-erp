@@ -55,7 +55,7 @@
 | # | ルール | 根拠 | 関連項目 |
 |---|---|---|---|
 | BR-01 | 收货单必须关联采购订单（`source_type=PURCHASE_ORDER`），按 PO 明细分纳收货；同一 PO 行可多次收货（分纳） | 09 §4.2、本域设计 | `po_id`、`po_line_id` |
-| BR-02 | 超收容差：**既定値は MDM 正本**（品目→分類→仕入先→会社の優先順、`mdm_material.over_receipt_tolerance_pct` 等）。本域は既定値を再定義せず、①PO 明細 `receiving_tolerance_rate`（明細上書き）②`pur_tolerance_rule`（`rule_type=1`、例外上書き・`priority` 小を優先）③超容差時の例外承認、の 3 層で**上書き規則と優先順位のみ**を定義する。判定順：PO 明細 > PUR 上書き規則 > MDM 既定。容差内は警告（`MSG-PUR-069`）して受入可、超過は受入拒否（例外承認 `MSG-PUR-068`） | 09 §4.3、08 §5、MDM 04/90（既定値の正本） | `receiving_tolerance_rate`、`pur_tolerance_rule` |
+| BR-02 | 超收容差：**既定値は MDM 正本**（品目→分類→仕入先→会社の優先順、`mdm_material.over_receipt_tolerance_rate` 等）。本域は既定値を再定義せず、①PO 明細 `receiving_tolerance_rate`（明細上書き）②`pur_tolerance_rule`（`rule_type=1`、例外上書き・`priority` 小を優先）③超容差時の例外承認、の 3 層で**上書き規則と優先順位のみ**を定義する。判定順：PO 明細 > PUR 上書き規則 > MDM 既定。容差内は警告（`MSG-PUR-069`）して受入可、超過は受入拒否（例外承認 `MSG-PUR-068`） | 09 §4.3、08 §5、MDM 04/90（既定値の正本） | `receiving_tolerance_rate`、`pur_tolerance_rule` |
 | BR-03 | 容差超過でも業務上必要な場合、采购经理の「超收例外承认」により受入可（`over_receipt_approved_by`・`over_receipt_reason` 必須）。承認記録は監査ログに残す | 09 §4.3 | `over_receipt_approval` |
 | BR-04 | 早入荷：`receipt_date < delivery_date − 3 日` の場合は警告（倉庫の受入能力・保管場所確認）。遅入荷：`receipt_date > delivery_date` は `late_days` を記録し、供应商绩效（F-PUR-026）へ連携 | 本域设计 | `early_flag`、`late_days` |
 | BR-05 | 批次管理物料（`is_batch_managed=true`）は `batch_no` 必須。批次号は ① 供应商批次があればそのまま保持（`{仕入先コード}-{YYYYMMDD}-{2 位}`、90-data `batch-number-rule.csv` BN-LOT）② 無ければ購買材料批号 `{YYMMDD}P{3 位流水}`（BN-P、在庫域が入荷時に採番）。保质期物料は `production_date`・`expiry_date` 必須 | 01 §9、08 §5 | `batch_no` |

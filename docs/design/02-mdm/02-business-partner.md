@@ -346,7 +346,7 @@ stateDiagram-v2
 | 35 | 供給範囲 | `is_preferred` | 推奨供應商 | チェック | — | false | 1 物料 1 件推奨 | 編集可 | MRP 参考 |
 | 36 | 供給範囲 | `moq` | 最小発注量 | 数値 | NUMERIC(18,4) | △ | 空 | ≥ 0 | 編集可 | 供給範囲単位の MOQ。未設定時は `mdm_material.min_order_qty`（05 §2.4） |
 | 37 | 供給範囲 | `purchase_lead_time_days` | 購買提前期 | 数値 | INT | △ | 空 | 0〜365 | 編集可 | 供給範囲単位の LT。未設定時は `mdm_supplier.default_lead_time_days`（05 §2.4） |
-| 38 | 供給範囲 | `over_receipt_tolerance_pct` | 過入荷容差 | 数値（%） | NUMERIC(5,4)（比率） | — | 空 | 0〜100、小数 2 桁（画面は % で入出力、保存は比率、フロントで換算。空＝次段を継承、0＝明示 0%） | 編集可 | 仕入先既定の過入荷容差（品目>分類>仕入先>会社の優先順、05 §2.4） |
+| 38 | 供給範囲 | `over_receipt_tolerance_rate` | 過入荷容差 | 数値（%） | NUMERIC(5,4)（比率） | — | 空 | 0〜100、小数 2 桁（画面は % で入出力、保存は比率、フロントで換算。空＝次段を継承、0＝明示 0%） | 編集可 | 仕入先既定の過入荷容差（品目>分類>仕入先>会社の優先順、05 §2.4） |
 | 39 | ボタン | `btn_admission` | 准入申請 | ボタン | — | — | 資格 1 件以上必須 | `mdm:supplier:update` | SCR-MDM-026 へ |
 | 40 | ボタン | `btn_bank_change` | 口座変更申請 | ボタン | — | — | 変更理由必須 | `mdm:supplier:bank:update` | 重要変更 WF（A16B/`APR-MDM-BANK`） |
 
@@ -671,4 +671,4 @@ stateDiagram-v2
 
 | 版数 | 日付 | 変更内容 | 変更者 |
 |---|---|---|---|
-| v1.0 | 2026-10-20 | 初版：客户/供应商 2 機能 11 画面、フィールド定義、入职/准入/口座変更処理、API、エラー、権限、テスト観点。同日追記：WF 提出契約を `MASTER_DATA_CHANGE`＋`masterDataType`＋`processKey` 方式へ変更、承認経路を A16 に整合。第 2 次追記（红队第 2 轮 REV-PURDES-004）：供給範囲に `moq`/`purchase_lead_time_days`/`over_receipt_tolerance_pct` を追加（画面項目 36〜38）、`invoice_type` に 50 紅字発票を追加 | mdm-designer |
+| v1.0 | 2026-10-20 | 初版：客户/供应商 2 機能 11 画面、フィールド定義、入职/准入/口座変更処理、API、エラー、権限、テスト観点。同日追記：WF 提出契約を `MASTER_DATA_CHANGE`＋`masterDataType`＋`processKey` 方式へ変更、承認経路を A16 に整合。第 2 次追記（红队第 2 轮 REV-PURDES-004）：供給範囲に `moq`/`purchase_lead_time_days`/`over_receipt_tolerance_rate` を追加（画面項目 36〜38）、`invoice_type` に 50 紅字発票を追加 | mdm-designer |
