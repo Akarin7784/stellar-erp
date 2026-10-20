@@ -181,7 +181,7 @@ sequenceDiagram
 | source_type | 含义 | 上游单据 | 典型下游 |
 |---|---|---|---|
 | `MANUAL` | 手工创建 | — | PR、PO、PIV |
-| `MRP` | MRP 计划订单 | PRD `prd_planned_order` | PR |
+| `MRP` | MRP 计划订单 | PRD `prd_mrp_plan_order` | PR |
 | `SAFETY_STOCK` | 安全库存补货建议 | PRD MRP | PR |
 | `REQUISITION` | 请购单 | `pur_purchase_requisition` | PO |
 | `RFQ` | 询价比价单 | `pur_rfq` | PO |
@@ -198,7 +198,7 @@ sequenceDiagram
 | 下游单据 | 上游字段 | 约束 |
 |---|---|---|
 | PO ヘッダ | `source_type`、`source_id` | `REQUISITION`/`RFQ`/`MRP`/`MANUAL`/`CONTRACT` |
-| PO 明細 | `pr_line_id`、`rfq_quotation_line_id` | 可空；有值时须与ヘッダ source_type 一致 |
+| PO 明細 | `purchase_requisition_line_id`、`rfq_quotation_line_id` | 可空；有值时须与ヘッダ source_type 一致 |
 | GR ヘッダ | `source_type= PURCHASE_ORDER`、`source_id=po_id` | 必填 |
 | GR 明細 | `po_line_id` | 必填；入荷数量累加至 PO 明细 |
 | PRT ヘッダ | `source_type`、`source_id`（`RECEIPT`/`INSPECTION`/`PURCHASE_ORDER`） | 必填 |
@@ -527,3 +527,4 @@ IF 数：11（うち実装順 P0 は内部イベント IF-PUR-004～008、011）
 |---|---|---|---|
 | v1.0 | 2026-10-20 | 初版：業務概要、ロール・承認経路、P2P フロー・責任分界、追溯链、状態対応表、機能 27・画面 29・帳票 14・バッチ 11・表 22・IF 11・権限 54、未決 6 件（ほか裁定済 4 件）。90-data v1.0（物料・供應商・承認マトリクス・コード）と 06-code-list に整合 | purchase-designer |
 | v1.1 | 2026-10-20 | 红队第 2 轮修复：承認正本を A01〜A20 に明確化（A16 銀行口座 SoD 追記）、税码 21 件参照、E13 購読者 WF 除去、容差は MDM 既定＋PUR 上書きに整理 | purchase-designer |
+| v1.2 | 2026-10-21 | `pr_line_id`→`purchase_requisition_line_id`、`prd_planned_order`→`prd_mrp_plan_order`（90 DDL に統一） | 业务分析 |
