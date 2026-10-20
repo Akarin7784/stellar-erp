@@ -1,0 +1,21 @@
+currency_code,currency_name_cn,currency_name_en,numeric_code,minor_unit,is_base,status,valid_from,remark
+CNY,人民币,Yuan Renminbi,156,2,Y,A,2026-10-20,記帳本位幣；【実データ】ISO 4217／GB/T 12406-2022
+USD,美元,US Dollar,840,2,N,A,2026-10-20,外貨取引（Phase 2）
+EUR,欧元,Euro,978,2,N,A,2026-10-20,外貨取引（Phase 2）
+JPY,日元,Yen,392,0,N,A,2026-10-20,小数桁0に注意
+HKD,港币,Hong Kong Dollar,344,2,N,A,2026-10-20,
+GBP,英镑,Pound Sterling,826,2,N,A,2026-10-20,
+KRW,韩元,Won,410,0,N,A,2026-10-20,小数桁0
+AUD,澳大利亚元,Australian Dollar,036,2,N,A,2026-10-20,
+CAD,加拿大元,Canadian Dollar,124,2,N,A,2026-10-20,
+SGD,新加坡元,Singapore Dollar,702,2,N,A,2026-10-20,
+CHF,瑞士法郎,Swiss Franc,756,2,N,A,2026-10-20,
+TWD,新台币,New Taiwan Dollar,901,2,N,A,2026-10-20,
+RUB,俄罗斯卢布,Russian Ruble,643,2,N,A,2026-10-20,
+INR,印度卢比,Indian Rupee,356,2,N,A,2026-10-20,
+VND,越南盾,Dong,704,0,N,A,2026-10-20,小数桁0
+THB,泰铢,Baht,764,2,N,A,2026-10-20,
+MYR,马来西亚林吉特,Malaysian Ringgit,458,2,N,A,2026-10-20,
+IDR,印尼盾,Rupiah,360,2,N,A,2026-10-20,
+BRL,巴西雷亚尔,Brazilian Real,986,2,N,A,2026-10-20,
+MXN,墨西哥比索,Mexican Peso,484,2,N,A,2026-10-20,

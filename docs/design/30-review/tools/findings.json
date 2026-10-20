@@ -1,0 +1,1010 @@
+[
+  {
+    "id": "REV-DR-001",
+    "severity": "S2",
+    "reviewer": "DR",
+    "targets": "FIN/RPT/90-data",
+    "detail": "`07-finance/06-auto-voucher-costing.md:86,90-91,255`・`07-finance/94-sample-data.md:150,153`・`10-analytics/94-sample-data.md:123,128`・`90-data/bom-demo.md:153,177-178,219` / **同一製品 YE3-100L1-4 の単位原価が 446.70 と 778.20 で矛盾**。FIN は 200 PCE の直接材料 46,700.00（=50W470 2,000 KGM＋漆包線 300 KGM＋軸受 400 PCE＋鋳造ロータ 20",
+    "file": "R-data-researcher.md"
+  },
+  {
+    "id": "REV-DR-002",
+    "severity": "S2",
+    "reviewer": "DR",
+    "targets": "FIN/RPT/90-data",
+    "detail": "`07-finance/06-auto-voucher-costing.md:90,267-273`・`07-finance/94-sample-data.md:154` / **期初在製品 12,000.00 が完工成本・期末残高に反映されず、5001 の成本流転が不平衡**。CALC-A5 は「46,700+21,840+20,800＝89,340」で期初 WIP を無視。§5.3 は期初在製品 12,000（前月繰越）を計上しつつ完工単位成本を 89,340÷200＝446.70 とする。さらに CALC-A7 の約当产量例は「200+40×50%＝220」だが、§5.3 は「在製品数量",
+    "file": "R-data-researcher.md"
+  },
+  {
+    "id": "REV-DR-003",
+    "severity": "S2",
+    "reviewer": "DR",
+    "targets": "FIN/RPT/90-data",
+    "detail": "`07-finance/94-sample-data.md:219,222`・`07-finance/06-auto-voucher-costing.md:171` / **J29（費用の損益転記）55,820,000.00 の金額が構成と一致しない**。注記は「48,800,000＋241,200＋2,300,000＋3,100,000＋950,000＋420,000＋8,800＋所得税 1,300,000 の合計」とするが、この合計は 57,120,000.00。TPL-FIN-J29 も科目に 6801 所得税費用を含む / 94:222 の内訳を加算：48,800,000+241,20",
+    "file": "R-data-researcher.md"
+  },
+  {
+    "id": "REV-DR-004",
+    "severity": "S2",
+    "reviewer": "DR",
+    "targets": "FIN/RPT/90-data",
+    "detail": "`07-finance/94-sample-data.md:179-181`・`07-finance/07-period-reporting.md:91,373` / **BS の未分配利益 2,417,097.80 が「期初未分配 1,877,097.80＋当期純利益 3,900,000.00＝5,777,097.80」と不整合**。CALC-02 は「1,877,097.80＋540,000.00＝2,417,097.80」としており、4103 残高 540,000 は当月末の月次純利益 3.9M と説明できない（「四半期累計の仮置き」と注記するが根拠不明） / 94:179 期初 1,8",
+    "file": "R-data-researcher.md"
+  },
+  {
+    "id": "REV-DR-005",
+    "severity": "S2",
+    "reviewer": "DR",
+    "targets": "FIN/RPT/90-data",
+    "detail": "`07-finance/07-period-reporting.md:360`・`07-finance/94-sample-data.md:168-173,217` / **BS の应交税费 2,251,200.00 に J27 で計上した所得税 1,300,000.00 が含まれていない**。2,251,200＝增值税 2,010,000＋附加税 241,200 であり、2221.11 应交企业所得税 1.3M が欠落 / 94:168-170 附加税 241,200。94:166 应納税額 2,010,000。和＝2,251,200（BS 行 42）。94:217 J27 借 6801 /",
+    "file": "R-data-researcher.md"
+  },
+  {
+    "id": "REV-DR-006",
+    "severity": "S2",
+    "reviewer": "DR",
+    "targets": "FIN/RPT/90-data",
+    "detail": "`07-finance/06-auto-voucher-costing.md:163`・`07-finance/94-sample-data.md:211`・`00-common/09-cross-domain-flow.md:374` / **盤盈盤亏批准（J21）の仕訳方向が誤り**。TPL-FIN-J21 は借方 1901.01・貸方 6602.09／6301.02／6711.01 の一本式。これは盤盈（借 1901・貸 6301/6602）には成立するが、**盤亏は借 6602.09/6711.01・貸 1901.01** で方向が逆。94:211 の例も 1,150（盤亏）を同方向で",
+    "file": "R-data-researcher.md"
+  },
+  {
+    "id": "REV-DR-007",
+    "severity": "S2",
+    "reviewer": "DR",
+    "targets": "FIN/RPT/90-data",
+    "detail": "`07-finance/94-sample-data.md:212-213` / **J22 と J23 の返品数量が不一致**。J22 の売上戻しは 10,278.00＝856.50×**12 PCE**（税 1,336.14）。J23 の在庫戻し原価は 4,467.00＝446.70×**10 PCE**。同一 E11 イベントで数量が 12 と 10 で食い違う / 10,278.00 ÷ 856.50＝12.0。1,336.14＝10,278×13% ✓。4,467.00 ÷ 446.70＝10.0 / 返品数量を統一（例：12 PCE なら J23＝5,360.40、10 PCE な",
+    "file": "R-data-researcher.md"
+  },
+  {
+    "id": "REV-DR-008",
+    "severity": "S2",
+    "reviewer": "DR",
+    "targets": "FIN/RPT/90-data",
+    "detail": "`07-finance/01-accounting-subjects.md:38-39,67,152-184`・`00-common/08-common-business-rules.md:88`・`90-data/accounting-subjects.csv:44-50` / **科目编码の階層・明細コードが 08 §2.2 と 90-data CSV に矛盾**。01 は「一级.01.01」の 3 級（例 `2221.01.02`）を採用するが、08 §2.2 は「4 桁＋補助 2 桁（例 `2221.01`）」で 2 級まで。さらに 90-data CSV の 2221.03〜07 は",
+    "file": "R-data-researcher.md"
+  },
+  {
+    "id": "REV-DR-009",
+    "severity": "S2",
+    "reviewer": "DR",
+    "targets": "FIN/RPT/90-data",
+    "detail": "`07-finance/07-period-reporting.md:336-375`・`07-finance/94-sample-data.md:160-181`・`10-analytics/94-sample-data.md:44-56,69,160-161` / **同一示例期間（2026-10）の財務数値が FIN と RPT で大幅に不一致**。売上 61,000,000 vs 66,666,666.67、在庫 3,240,000 vs 98,000,000、売掛金 56,141.40 vs 149,000,000、買掛金 3,120,000 vs 75,000,000、毛利率 20",
+    "file": "R-data-researcher.md"
+  },
+  {
+    "id": "REV-DR-010",
+    "severity": "S3",
+    "reviewer": "DR",
+    "targets": "FIN/RPT/90-data",
+    "detail": "`07-finance/00-overview.md:71`・`07-finance/94-sample-data.md:42`・`07-finance/92-report-batch-design.md:57-59`・`07-finance/07-period-reporting.md:336-437` / **所有者権益変動表が設計されていない**。会計政策・実データ一覧は法定 4 表（BS/IS/CF/所有者権益変動表）を明示するが、07-period-reporting §7 の取数公式は BS/IS/CF の 3 表のみ、帳票一覧も PRT-FIN-032〜034 の 3 表のみ /",
+    "file": "R-data-researcher.md"
+  },
+  {
+    "id": "REV-DR-011",
+    "severity": "S3",
+    "reviewer": "DR",
+    "targets": "FIN/RPT/90-data",
+    "detail": "`10-analytics/01-dashboard.md:164`・`06-production/90-db-design.md:974-976`・`10-analytics/02-domain-analysis.md:130-131` / **KPI-RPT-037（良品率）の出所フィールド名が実在しない**。KPI 定義は `prd_work_report.reported_good_qty/defect_qty/scrap_qty` とするが、実テーブルの列は `reported_defect_qty`／`scrapped_qty`。抽出表 `rpt_production_detail",
+    "file": "R-data-researcher.md"
+  },
+  {
+    "id": "REV-DR-012",
+    "severity": "S3",
+    "reviewer": "DR",
+    "targets": "FIN/RPT/90-data",
+    "detail": "`10-analytics/01-dashboard.md:111-112`・`10-analytics/94-sample-data.md:69-70,160-161,215-216` / **KPI-RPT-006/007（DSO/DPO）の定義と数値例が不一致**。定義は「平均残高＝(期初+期末)÷2」だが、数値例は「期末売掛金 149,000,000÷月商×30」「期末買掛金 75,000,000÷月次売上原価×30」で期末残高のみを使用（期首残高は未提示） / 10/01:111-112 の定義。10/94:69-70・:215-216 の算式は期末値。期首売掛金・買掛金は §3 前",
+    "file": "R-data-researcher.md"
+  },
+  {
+    "id": "REV-DR-013",
+    "severity": "S3",
+    "reviewer": "DR",
+    "targets": "FIN/RPT/90-data",
+    "detail": "`07-finance/00-overview.md:41`・`10-analytics/01-dashboard.md:111` / **売掛金回転日数の目標値が FIN と RPT で不一致**。FIN は「≤90 天」、RPT の KPI-RPT-006 は「≤68 日」 / 07/00:41「应收账款周转天数 … ≤ 90 天」。10/01:111「KPI-RPT-006 … ≤ 68 日」 / 目標値を一本化（推奨：RPT の ≤68 日とし、FIN 00-overview の KPI 表は KPI-RPT-006 を参照）",
+    "file": "R-data-researcher.md"
+  },
+  {
+    "id": "REV-DR-014",
+    "severity": "S3",
+    "reviewer": "DR",
+    "targets": "FIN/RPT/90-data",
+    "detail": "`10-analytics/03-warning-subscription.md:60`・`10-analytics/01-dashboard.md:486`・`10-analytics/94-sample-data.md:100,225` / **Phase 2 の KPI に対して予警ルールが Phase 1 で有効化されている**。KPI-RPT-040（工单成本差異率）は「Phase 2（標準原価整備後）。Phase 1 は差異率『-』」と明記される一方、WARN-RPT-016 は月次で有効、94 には 5.6% の予警サンプルまで存在 / 10/01:486 の未決表。10/03:",
+    "file": "R-data-researcher.md"
+  },
+  {
+    "id": "REV-DR-015",
+    "severity": "S3",
+    "reviewer": "DR",
+    "targets": "FIN/RPT/90-data",
+    "detail": "`07-finance/00-overview.md:68`・`07-finance/94-sample-data.md:36` / **《增值税暂行条例》の文号が旧版**。現行は 2017-11-19 国务院令第 **691** 号による改正版（6% 税率等を含む）だが、538 号（2008 年公布版）を出典としている / 中国政府网「国务院关于废止《中华人民共和国营业税暂行条例》和修改《中华人民共和国增值税暂行条例》的决定」（2017 年国务院令第 691 号、2017 年第 35 号国务院公报）で現行版を確認（参照日 2026-10-20） / 出典を「《中华人民共和国增值税暂行条例》（",
+    "file": "R-data-researcher.md"
+  },
+  {
+    "id": "REV-DR-016",
+    "severity": "S3",
+    "reviewer": "DR",
+    "targets": "FIN/RPT/90-data",
+    "detail": "`07-finance/00-overview.md:60` / **CAS 基本准则の条番号誤り**。「基本准则第 42 条（历史成本）」とするが、第 42 条は会計計量属性の列挙、**第 43 条**が「一般に歴史原価を採用する」旨の規定 / 深交所公開年報の引用（「根据《企业会计准则-基本准则》第四十三条…主要采用历史成本计量」）で確認（参照日 2026-10-20） / 「基本准则第 43 条」に修正。第 42 条は「計量属性の種類」として別途引用",
+    "file": "R-data-researcher.md"
+  },
+  {
+    "id": "REV-DR-017",
+    "severity": "S3",
+    "reviewer": "DR",
+    "targets": "FIN/RPT/90-data",
+    "detail": "`07-finance/94-sample-data.md:47` / **数电票の出典が誤ったファイルを指す**。数电票（20 位番号体系）の出典として `90-data/code-lists/bank.csv` を引用しているが、bank.csv は銀行・聯行号のデータであり数电票を含まない / 94:47 の記載。90-data/code-lists/bank.csv の内容（銀行行別・聯行号のみ）。正式出典は国家税务总局公告 2024 年第 11 号（sources.md S-050）と 06 第 6.4 節 / 出典を「[06 コード一覧] §6.4／sources.md S-050",
+    "file": "R-data-researcher.md"
+  },
+  {
+    "id": "REV-DR-018",
+    "severity": "S3",
+    "reviewer": "DR",
+    "targets": "FIN/RPT/90-data",
+    "detail": "`07-finance/00-overview.md:67`・`07-finance/05-cashier-tax.md:61` / **企業所得税の年度汇算清缴・纳税調整が実質未設計**。00-overview は「年度汇算清缴」をスコープに含めるが、設計は 05-cashier-tax の BR-16 一行（差異は以前年度損益調整または当期調整）のみ。納税調整項目・亏损弥补・資産税務処理・申告表連携の設計がない / 07/00:67 のスコープ記載。05:61 BR-16 の一行のみ。07-finance 全ファイルで「汇算清缴」ヒットは 2 件だけ（00:67、05:61） / ①Pha",
+    "file": "R-data-researcher.md"
+  },
+  {
+    "id": "REV-DR-019",
+    "severity": "S4",
+    "reviewer": "DR",
+    "targets": "FIN/RPT/90-data",
+    "detail": "`90-data/code-lists/tax.csv:14`・`90-data/sources.md` / **地方教育附加 2% の出典が未収録**。tax.csv は「各省規定（江蘇省 2%）【要確認：省級文件文号】」とするが、財綜〔2010〕98 号により全国統一 2% が規定されている（国家税务总局政策法規庫で確認可能）。sources.md にも該当文号がない / 国家税务总局政策法規庫「财政部关于统一地方教育附加政策有关问题的通知」（財綜〔2010〕98 号）。07-finance 00:69 は同文号を正しく引用済み / sources.md に S-xxx として 財綜〔20",
+    "file": "R-data-researcher.md"
+  },
+  {
+    "id": "REV-DR-020",
+    "severity": "S4",
+    "reviewer": "DR",
+    "targets": "FIN/RPT/90-data",
+    "detail": "`07-finance/01-accounting-subjects.md:67`・`07-finance/94-sample-data.md:49,258` / **90-data/accounting-subjects.csv の行数表記が不正確**。「87 行」と 3 か所で記載するが、CSV はヘッダ 1 行＋**86 データ行**（`Import-Csv` 実測 86 行） / PowerShell 実測：rows=86。CSV ファイルは 87 行（ヘッダ含む） / 「86 行（ヘッダ除く）」または「87 行（ヘッダ含む）」に統一",
+    "file": "R-data-researcher.md"
+  },
+  {
+    "id": "REV-DR-021",
+    "severity": "S4",
+    "reviewer": "DR",
+    "targets": "FIN/RPT/90-data",
+    "detail": "`07-finance/01-accounting-subjects.md:171`・`07-finance/05-cashier-tax.md` / **増値税留抵退税の業務設計がない**。科目 2221.07「增值税留抵税额」と注記「增量留抵退税核算」のみで、留抵退税の申請・受領・仕訳・申告表反映の設計がない（05-cashier-tax に章なし） / 07-finance 全ファイルで「留抵退税」ヒットは 1 件（01:171）のみ / Phase 2 の未決事項に明記、または 05-cashier-tax に「留抵退税」節（借 1002 / 貸 2221.07 等）を追加",
+    "file": "R-data-researcher.md"
+  },
+  {
+    "id": "REV-DR-022",
+    "severity": "S4",
+    "reviewer": "DR",
+    "targets": "FIN/RPT/90-data",
+    "detail": "`07-finance/00-overview.md:64` / **固定資産の最低耐用年数の列挙が不完全**。《企业所得税法实施条例》第 60 条は「器具・工具・家具等 5 年」を含むが、本表は 20/10/4/3 年の 4 区分のみ / 実施条例第 60 条の 5 区分（20/10/5/4/3 年）。07/00:64 は 4 区分 / 5 年区分を追加、または「当社に対象資産なし」と注記",
+    "file": "R-data-researcher.md"
+  },
+  {
+    "id": "REV-FIN-001",
+    "severity": "S2",
+    "reviewer": "FIN",
+    "targets": "MDM/90-data",
+    "detail": "`90-data/code-lists/tax.csv:2,5,6,9,21`、`90-data/sources.md:95-111` / **税の法的根拠が旧法のまま。2026-10-20 時点で失効済みの「增值税暂行条例」「进出口关税条例」を【実データ】の根拠として引用している。** 增值税は 2024-12-25 公布の《中华人民共和国增值税法》（2026-01-01 施行）が現行法、関税は 2024-04-26 公布の《中华人民共和国关税法》（2024-12-01 施行）が現行法。sources.md §3 には両法の出典が**存在しない**（grep 0 件） / `tax.csv:",
+    "file": "R-finance-designer.md"
+  },
+  {
+    "id": "REV-FIN-002",
+    "severity": "S2",
+    "reviewer": "FIN",
+    "targets": "MDM/90-data",
+    "detail": "`90-data/code-lists/bank.csv:1-10`（対照：`02-mdm/90-db-design.md:1201-1213`、`02-mdm/05-price-settlement.md:79`） / **bank.csv が mdm_bank の DDL にそのまま投入できない。** MDM は `mdm_bank.bank_code`（銀行行別コード）と `bank_category`（SMALLINT 10 政策性/20 国有大型/30 股份制/40 城商/50 农商/60 外资）で管理するが、CSV の列は `bank_code / bank_type_code /",
+    "file": "R-finance-designer.md"
+  },
+  {
+    "id": "REV-FIN-003",
+    "severity": "S2",
+    "reviewer": "FIN",
+    "targets": "MDM/90-data",
+    "detail": "`02-mdm/90-db-design.md:120`、`02-mdm/00-overview.md:306`、`02-mdm/94-sample-data.md:206-211`、`00-common/06-code-list.md:158-203` / **業務税码（`mdm_tax_code`）の全件リストが存在せず、「60 件」の内訳・初期データが未定義。** FIN の自動凭证（J03/J07 の税区分、J26/J27 の附加税・所得税）と SAL/PUR の发票税码は `mdm_tax_code.tax_code`（VAT13-OUT/VAT13-IN 等）を直接参照する設計だが",
+    "file": "R-finance-designer.md"
+  },
+  {
+    "id": "REV-FIN-004",
+    "severity": "S3",
+    "reviewer": "FIN",
+    "targets": "MDM/90-data",
+    "detail": "`90-data/README.md:43`、`00-common/06-code-list.md:358`、`02-mdm/94-sample-data.md:57,330`、`02-mdm/90-db-design.md:1486` / **物料マスタの件数が 53／54／55 で三者不一致。** 実ファイルのデータ行は **54 件**。90-data README は「約 53 件」、06-code-list は「54 件」、MDM 94 と MDM 90-db は「55 件」（2 箇所） / 実測：`material-master.csv` のデータ行 54（ヘッダ除く）／[READ",
+    "file": "R-finance-designer.md"
+  },
+  {
+    "id": "REV-FIN-005",
+    "severity": "S3",
+    "reviewer": "FIN",
+    "targets": "MDM/90-data",
+    "detail": "`90-data/README.md:48`、`00-common/06-code-list.md:363` / **会計科目 CSV の行数記述が不一致。** README は「CAS 常用科目 **75 行**」、実ファイルはデータ **86 行**（06-code-list は 86 件と正しい） / 実測：`accounting-subjects.csv` データ行 86（ヘッダ除く）／[README.md:48](../90-data/README.md)「CAS 常用科目 75 行」／[06-code-list.md:363](../00-common/06-code-list.m",
+    "file": "R-finance-designer.md"
+  },
+  {
+    "id": "REV-FIN-006",
+    "severity": "S3",
+    "reviewer": "FIN",
+    "targets": "MDM/90-data",
+    "detail": "`00-common/06-code-list.md:351,364` / **06-code-list §14 のデータ規模記述が実測と乖離。** 「23 ファイル / **約 190KB**」→ 実測 **174.6KB**、「sources.md **約 130 項**」→ 実際の S-ID は **103 件**（sources.md 自身の改訂履歴「国家標準 49・法令税務 14・コード 6・公開企業 34」＝103 と一致） / 実測：90-data 全 23 ファイル合計 174.6KB、sources.md のユニーク S-ID 103／[06-code-list.md:351",
+    "file": "R-finance-designer.md"
+  },
+  {
+    "id": "REV-FIN-007",
+    "severity": "S3",
+    "reviewer": "FIN",
+    "targets": "MDM/90-data",
+    "detail": "`00-common/06-code-list.md:150-151`（対照：`90-data/code-lists/uom.csv`、`02-mdm/04-uom-currency-tax.md:47`） / **単位換算表の体積グループの基本単位が uom.csv／MDM と矛盾。** 06 は「LTR 換算 1（基本単位）」「MLT 0.001 LTR」とするが、uom.csv は VOL グループの基本単位を **MTQ** とし、LTR=0.001 MTQ／MLT=0.000001 MTQ。MDM 04 BR-UOM-03 も「VOL→MTQ」を明文で規定 / [06-code-li",
+    "file": "R-finance-designer.md"
+  },
+  {
+    "id": "REV-FIN-008",
+    "severity": "S3",
+    "reviewer": "FIN",
+    "targets": "MDM/90-data",
+    "detail": "`00-common/06-code-list.md:169,383`、`90-data/code-lists/tax.csv:7`、`90-data/sources.md` / **VAT1（1% 徴収率）のステータスが「実データ＋要確認」の混在で、未決も解消可能なまま残存。** 06 は「【実データ】要確認最新公告」、tax.csv は `status=A` かつ remark「【要確認】文号・期限を公式公告で確認」、06 §15 の未決 #1 にも「1% 征收率公告」を列挙。一方、根拠の「财政部 税务总局公告 2023 年第 19 号」は実在が確認でき、sources.md に登録が無い",
+    "file": "R-finance-designer.md"
+  },
+  {
+    "id": "REV-FIN-009",
+    "severity": "S3",
+    "reviewer": "FIN",
+    "targets": "MDM/90-data",
+    "detail": "`90-data/code-lists/payment-terms.csv:1-19`（対照：`02-mdm/90-db-design.md:1156-1199`） / **payment-terms.csv のスキーマが MDM DDL にマッピング不能。** MDM は `mdm_settlement_method.settlement_type`（SMALLINT 10 現金/20 転帳/30 票拠/40 信用状/50 その他）と `mdm_payment_term.settlement_basis`（SMALLINT 10 発票日/20 検収日/30 出荷日/40 月末/50 注文日）",
+    "file": "R-finance-designer.md"
+  },
+  {
+    "id": "REV-FIN-010",
+    "severity": "S3",
+    "reviewer": "FIN",
+    "targets": "MDM/90-data",
+    "detail": "`90-data/material-master.csv:31`（対照：`90-data/sources.md:67`） / **木箱の執行標準として GB/T 191-2025 を紐付けているが、GB/T 191 は「包装储运图形符号标志」（表示マークの規格）であり、木箱の製品規格ではない。** 標準自体は実在するが適用対象が誤り。木箱の執行標準は普通木箱・框架木箱等の製品規格であるべき（具体番号は未確認） / [material-master.csv:31](../90-data/material-master.csv)「5001000002,木箱,YE3-100 出口包装用,5001,木",
+    "file": "R-finance-designer.md"
+  },
+  {
+    "id": "REV-FIN-011",
+    "severity": "S3",
+    "reviewer": "FIN",
+    "targets": "MDM/90-data",
+    "detail": "`02-mdm/01-material-master.md:132`（対照：`90-data/sources.md:89`、`90-data/material-master.csv:17-18`） / **MDM の項目例が廃止済みの GB/T 5782-2016 を引用。** sources.md は「GB/T 5782 は 2025 年版が発布され、**2016 版等の旧版を引用しないこと**」と明記し、CSV は GB/T 5782-2025 を使用している / [01-material-master.md:132](../02-mdm/01-material-master.md)「例 ",
+    "file": "R-finance-designer.md"
+  },
+  {
+    "id": "REV-FIN-012",
+    "severity": "S3",
+    "reviewer": "FIN",
+    "targets": "MDM/90-data",
+    "detail": "`00-common/06-code-list.md:263,393`（対照：`90-data/routing-demo.md:46-47`） / **工作中心名称が 06 と routing-demo で不一致。** 06 は `WC008 总装 / WC009 试验`、routing-demo は `WC008 装配 / WC009 出厂试验`。しかも 06 の改訂履歴 v1.3 は「routing-demo.md・demo-company.md・production 域の 12 工作中心と一致させた」と**一致を明言**しており、記載が事実と異なる / [06-code-list.md:",
+    "file": "R-finance-designer.md"
+  },
+  {
+    "id": "REV-FIN-013",
+    "severity": "S3",
+    "reviewer": "FIN",
+    "targets": "MDM/90-data",
+    "detail": "`02-mdm/03-warehouse-location.md:454` / **未決事項が解消済みなのに残存。**「倉庫コード体系（WH01〜）と 90-data の倉庫一覧の突合」を『data-researcher の demo-company.md 待ち』としているが、demo-company.md は既に完成（326 行、WH01/WH02/WH03 を記載）しており、warehouse-location.csv とも一致している / [03-warehouse-location.md:454](../02-mdm/03-warehouse-location.md)「倉庫コード体系…",
+    "file": "R-finance-designer.md"
+  },
+  {
+    "id": "REV-FIN-014",
+    "severity": "S4",
+    "reviewer": "FIN",
+    "targets": "MDM/90-data",
+    "detail": "`90-data/code-lists/region.csv:2`、`90-data/code-lists/country.csv:20` / 省級行政区画の `parent_code` が「CN」、また台湾の英語名が ISO 3166 の「Taiwan, Province of China」と完全一致しない（「Taiwan (Province of China)」）。GB/T 2260 の根ノードは 000000（または空）で、国コードを親に持たない / [region.csv:2](../90-data/code-lists/region.csv)「110000,北京市,直辖市,CN,CN",
+    "file": "R-finance-designer.md"
+  },
+  {
+    "id": "REV-FIN-015",
+    "severity": "S4",
+    "reviewer": "FIN",
+    "targets": "MDM/90-data",
+    "detail": "`90-data/sources.md:106,108,121` / 出典の質に改善余地。①会計档案保管期限の補助リンクに商業試験対策サイト（dongao.com）を併記。②S-061（企業所得税法実施条例・512 号）の URL を【要確認】としつつ、設計側では 512 号を【実データ】として使用。③CNAPS 構造の出典が百科事典（baike.eastmoney.com / baike.baidu.com）で、中国人民銀行の公式文書 URL は【要確認】のまま / [sources.md:106](../90-data/sources.md) S-059 に「補助：https://www.",
+    "file": "R-finance-designer.md"
+  },
+  {
+    "id": "REV-FIN-016",
+    "severity": "S4",
+    "reviewer": "FIN",
+    "targets": "MDM/90-data",
+    "detail": "`02-mdm/00-overview.md:296,318`、`02-mdm/90-db-design.md:783-807,1201-1213`（対照：`07-finance/90-db-design.md` の `fin_bank_account`） / **自社（会社）銀行口座の主データ所有が未定義。** MDM は `mdm_bank`（銀行）と `mdm_partner_bank_account`（取引先口座）のみで、会社自身の口座マスタが無い。FIN は `fin_bank_account`（口座・対応科目・対账設定・CNAPS）を独自に持つ設計で、両者をつなぐ契約（同一銀行の ",
+    "file": "R-finance-designer.md"
+  },
+  {
+    "id": "REV-001",
+    "severity": "S1",
+    "reviewer": "INV",
+    "targets": "SYS/PRD",
+    "detail": "`06-production/03-material-issue-reporting.md:49,187`、`06-production/90-db-design.md:1264,1495,1681,1761` / **在庫側伝票（MII/MIR/FGI/OSI/OSR）を PRD と INV が二重に所有し、同一プレフィックスで二重採番する。** PRD は `prd_material_issue`（`MII{YYMMDD}{4桁}`、`sys_sequence(PRD_MATERIAL_ISSUE)` 採番）、`prd_completion_receipt`（`FGI…`）、`prd_ou",
+    "file": "R-inventory-designer.md"
+  },
+  {
+    "id": "REV-002",
+    "severity": "S2",
+    "reviewer": "INV",
+    "targets": "SYS/PRD",
+    "detail": "`06-production/06-quality-management.md:60,62,241-262,267-269` / **E15 の判定値・payload が 09 §3 契約と両立しない。** ①09 は `result(PASS/CONCESSION/REJECT)` の 3 値だが、PRD は「10 合格/20 不合格/30 特采/40 返工/50 报废」の 5 値（数値）と定義し、同節で `result=CONCESSION`（英文）も併記。②payload 例は `lotNo`（INV 側は `batchNo`）、`sourceType` を数値 `10`、`inspec",
+    "file": "R-inventory-designer.md"
+  },
+  {
+    "id": "REV-003",
+    "severity": "S2",
+    "reviewer": "INV",
+    "targets": "SYS/PRD",
+    "detail": "`06-production/06-quality-management.md:33-36,227,237`／`06-production/00-overview.md:111-122,141,222` / **FQC（E15）と完成品入庫（E24）の順序・状態決定が矛盾。** PRD は「FQC は完成品入庫前」「FQC 起票は完工入庫登録（`prd_completion_receipt` 作成）時・入庫確定前」「判定確定で E15 発行」と定義するため、**E15 が E24 より先に到着し得る**。しかし E24 payload には検査結果・入庫状態が無く（09 §3 E24 は `w",
+    "file": "R-inventory-designer.md"
+  },
+  {
+    "id": "REV-004",
+    "severity": "S2",
+    "reviewer": "INV",
+    "targets": "SYS/PRD",
+    "detail": "`06-production/05-mrp-planning.md:37,63,80,118` / **MRP の利用可能在庫式が INV の唯一算式・実在列と矛盾し、在庫テーブルを直接参照する。** ①`OH = Σ inv_stock_balance(on_hand_qty − inspection_qty − frozen_qty − quality_hold_qty)` と定義するが、INV の `inv_stock_balance` に `inspection_qty/frozen_qty/quality_hold_qty` 列は存在しない（INV は `stock_status` ",
+    "file": "R-inventory-designer.md"
+  },
+  {
+    "id": "REV-005",
+    "severity": "S2",
+    "reviewer": "INV",
+    "targets": "SYS/PRD",
+    "detail": "`01-system/02-user-role-permission.md:50`／`01-system/90-db-design.md:384,485`／`06-production/00-overview.md:408,414,421,427,444,448` / **SYS のデータ範囲モデルに「工場」「倉庫」次元が無く、PRD が前提とする行レベル制御が実現できない。** SYS はデータ範囲を 5 区分（全社/本部门及子部门/本部门/本人/自定义）とし、`custom_rule` の例も `{\"departmentIds\":[],\"userIds\":[]}` のみ。一方 PRD の権",
+    "file": "R-inventory-designer.md"
+  },
+  {
+    "id": "REV-006",
+    "severity": "S2",
+    "reviewer": "INV",
+    "targets": "SYS/PRD",
+    "detail": "`01-system/05-audit-attachment-notify.md:228` / **監査ログが設計上「欠落し得る」。** 非同期キュー（容量 10,000）満杯時は同期 INSERT にフォールバックするが「タイムアウト 1 秒で諦めてアプリログに退避する」と定義。監査ログは追記専用・全操作記録が前提（`01-system/00-overview.md:43` の監査カバレッジ 100%、`00-common/01 §12` の記録対象＝全マスタ・伝票の登録/更新/削除、承認、過账/取消）であり、**キュー飽和・DB 遅延時に重要操作（POST/REVERSE/APPROVE/",
+    "file": "R-inventory-designer.md"
+  },
+  {
+    "id": "REV-007",
+    "severity": "S2",
+    "reviewer": "INV",
+    "targets": "SYS/PRD",
+    "detail": "`06-production/06-quality-management.md:67`／`06-production/00-overview.md:387`／`06-production/90-db-design.md`（`prd_wo_lot`）／`05-inventory/04-batch-serial-status.md:60` / **批次追溯の主データが PRD と INV で二重管理。** PRD は `prd_wo_lot`（投入批次→製造指図→完成品批次→出荷先）を F-PRD-015 の中核として定義し、5 年保存・正逆追溯を謳う。INV も `inv_batch_genea",
+    "file": "R-inventory-designer.md"
+  },
+  {
+    "id": "REV-008",
+    "severity": "S2",
+    "reviewer": "INV",
+    "targets": "SYS/PRD",
+    "detail": "`06-production/00-overview.md:157-158`／`06-production/90-db-design.md:1027` / **工单状態 `45 結案` が共通ステータス契約に反する。** 01-common §7.1 は `40 完了/クローズ` を「全数量完了。以後の変更は取消・返品処理のみ（終端）」と定義し、08 §3.2 も「生产订单 WO：10→25→30→35→40／90、40 完了・結案」とする。PRD は `40 完工` の後に `45 結案` を追加し、DDL の CHECK にも 45 を許可。共通契約では 40 が終端であり、45 は「40",
+    "file": "R-inventory-designer.md"
+  },
+  {
+    "id": "REV-009",
+    "severity": "S3",
+    "reviewer": "INV",
+    "targets": "SYS/PRD",
+    "detail": "`01-system/06-import-export-numbering.md:129,180`／`01-system/94-sample-data.md:116`／`00-common/08-common-business-rules.md:58` / **採番ルールの prefix 検証が「大文字英数 1〜10」であり、凭证番号の中文凭证字（`记-0001` 等）を登録・検証できない。** 08 §2.1 は记账凭证を「凭证字＋4 桁（6 桁、`记-0001/收-0001/付-0001/转-0001`、会計期間×凭证字）」と定義。SYS の初期データには `VOUCHER`：prefix",
+    "file": "R-inventory-designer.md"
+  },
+  {
+    "id": "REV-010",
+    "severity": "S3",
+    "reviewer": "INV",
+    "targets": "SYS/PRD",
+    "detail": "`01-system/94-sample-data.md:107-116`／`00-common/08-common-business-rules.md:26-60` / **採番ルールの初期データが「代表例 6 件」のみで、08 §2.1 の全プレフィックス（約 30 件）の投入定義が無い。** SYS は「08 §2.1 のプレフィックス・桁数・リセット周期をそのまま初期データとする」と書きながら、表は SO/PO/WO/C/S/VOUCHER の 6 件のみ。`sys_number_rule` の件数見積は 60 件（00-overview:264）。GRI/SDO/MII/MIR/FG",
+    "file": "R-inventory-designer.md"
+  },
+  {
+    "id": "REV-011",
+    "severity": "S3",
+    "reviewer": "INV",
+    "targets": "SYS/PRD",
+    "detail": "`06-production/02-work-order.md:273`／`06-production/03-material-issue-reporting.md:259,260` / **存在しない INV API を同期参照している。** PRD は `GET /api/inventory/available-quantities`（引当可能量照会）を呼ぶと定義するが、INV の API は `GET /api/inventory/stock-balances/available`（および批次別は `.../available-batches`）。`GET /api/inventory/",
+    "file": "R-inventory-designer.md"
+  },
+  {
+    "id": "REV-012",
+    "severity": "S3",
+    "reviewer": "INV",
+    "targets": "SYS/PRD",
+    "detail": "`00-common/09-cross-domain-flow.md:96,110`／`06-production/00-overview.md:218-220`／`06-production/03-material-issue-reporting.md:75` / **E22/E36 の payload に `warehouseId` が無く、INV の出庫倉庫が一意に決まらない。** PRD は warehouse を「工单材料行の `warehouse_id`」で保持すると定義するが、E22（領料）/E36（退料）の payload は `workOrderId, issueId/ret",
+    "file": "R-inventory-designer.md"
+  },
+  {
+    "id": "REV-013",
+    "severity": "S3",
+    "reviewer": "INV",
+    "targets": "SYS/PRD",
+    "detail": "`06-production/00-overview.md:37,80-81`／`00-common/08-common-business-rules.md:280-285` / **承認マトリクスの帰属・独自閾値が 08 と不整合。** ①PRD は前提で「SYS ユーザ・ロール・**审批矩阵**」と書くが、承認マトリクスは WF 所有（`wf_approval_matrix`、SYS 00-overview 未決 #1 で已裁决）。②委外订单の承認を「加工費 50,000 元以上：采购经理→生产经理→财务经理」と独自定義するが、08 §8.1 に委外承認の行は無く、金額・経路が未契約。③报",
+    "file": "R-inventory-designer.md"
+  },
+  {
+    "id": "REV-014",
+    "severity": "S3",
+    "reviewer": "INV",
+    "targets": "SYS/PRD",
+    "detail": "`06-production/00-overview.md:37`／`06-production/01-bom-routing-workcenter.md:87,727`／`06-production/90-db-design.md:450-451` / **工费率の所有権が未確定で、存在しない `fin_labor_rate` を参照する。** PRD は前提で「工费率（`prd_work_center`（PRD 所有）の费率 または `fin_labor_rate`）」と両論併記し、`prd_work_center` に `labor_rate_per_hour/overhead_rate",
+    "file": "R-inventory-designer.md"
+  },
+  {
+    "id": "REV-015",
+    "severity": "S3",
+    "reviewer": "INV",
+    "targets": "SYS/PRD",
+    "detail": "`06-production/06-quality-management.md:112,167`／`06-production/90-db-design.md:2072` / **検査状態コードの意味が PRD 内部で矛盾。** 06 §3.3 の検査単は「10 草稿／30 検査中／40 判定確定／90 取消」だが、同文書の遷移表は「20→30 判定確定」とし、90-db の CHECK は `inspection_status IN (10,20,30,90)` で 40 を許可しない。実装時に 30=判定確定 か 30=検査中 か、40 の有無が確定できない / `06-…:167`（10",
+    "file": "R-inventory-designer.md"
+  },
+  {
+    "id": "REV-016",
+    "severity": "S3",
+    "reviewer": "INV",
+    "targets": "SYS/PRD",
+    "detail": "`06-production/03-material-issue-reporting.md:76,275,295` / **倒冲（後方払出）が PRD 側で在庫不足判定と MII 生成を二重実装する。** PRD は報工確定時に「BOM 標準量×良品数で MII を自動生成（不足時は警告のみ、マイナス在庫禁止）」とし、PRC では「材料行ロック（`material_id` 昇順）」で処理する。しかし在庫不足の最終判定・残高更新は INV（E22 受信時）が行う。PRD 側の「マイナス在庫禁止」は INV の `MSG-INV-001` と二重判定になり、ロック対象も PRD の材料行で INV",
+    "file": "R-inventory-designer.md"
+  },
+  {
+    "id": "REV-017",
+    "severity": "S3",
+    "reviewer": "INV",
+    "targets": "SYS/PRD",
+    "detail": "`01-system/07-scheduled-job-print-monitor.md:103-105` / **SYS のジョブ監視画面サンプルが他域バッチ ID を誤記。** 画面例は `BAT-INV-002 库存月结` とするが、INV の定義は `BAT-INV-001 库存月结`／`BAT-INV-002 库存日次对账`。また Cron 表記が 5 桁（`*/10 * * * *`）と 6 桁（`0 30 2 1 * *`）が混在（Spring は 6 桁前提） / `01-system/07-…:105`（BAT-INV-002＝库存月结）／`:103-104`（5 桁/6 桁",
+    "file": "R-inventory-designer.md"
+  },
+  {
+    "id": "REV-018",
+    "severity": "S4",
+    "reviewer": "INV",
+    "targets": "SYS/PRD",
+    "detail": "`01-system/00-overview.md:337`／`01-system/02-user-role-permission.md:50` / **SYS 内部でデータ範囲の区分が 3 区分 vs 5 区分で不一致。** 00-overview の権限注記は「データ範囲（全社/部門/本人）は `sys_role_data_scope`」、02 は「全社/本部门及子部门/本部门/本人/自定义」の 5 区分。どちらが正か読者に不明 / `01-system/00-overview.md:337`（3 区分）／`02-…:50`（5 区分）／`90-db:384`（1〜5） / 00-over",
+    "file": "R-inventory-designer.md"
+  },
+  {
+    "id": "REV-mdm-001",
+    "severity": "S2",
+    "reviewer": "MDM",
+    "targets": "SAL/PUR",
+    "detail": "`03-sales/02-sales-order.md:732` / E06 `sales.order.approved` の明細項目が 09 契約の `qty` ではなく **`quantity`** で送出され、項目名が一致しない（09 は `lines[{materialId, qty, uom, deliveryDate, warehouseId}]`） / 09:80（契約）／02-sales-order.md:727-740（payload `\"quantity\": \"120.0000\"`） / E06 の明細を `qty` に改名（互換のため `quantity` 併記は 09 ",
+    "file": "R-mdm-designer.md"
+  },
+  {
+    "id": "REV-mdm-002",
+    "severity": "S2",
+    "reviewer": "MDM",
+    "targets": "SAL/PUR",
+    "detail": "`03-sales/02-sales-order.md:694,722` / 同一受注で E05 の `amount`＝**199,856.77（税込）**、E06 の `amount`＝**176,864.40（税抜）** と口径が異なる。09 は両イベントとも `amount` とだけ定義し「税込/税抜」を規定していない / 09:79-80／02-sales-order.md:694（E05 amount 199856.77）、722（E06 amount 176864.40）、724（totalAmount 199856.77）／94:196（与信コミット 199,856.77） / ",
+    "file": "R-mdm-designer.md"
+  },
+  {
+    "id": "REV-mdm-003",
+    "severity": "S2",
+    "reviewer": "MDM",
+    "targets": "SAL/PUR",
+    "detail": "`03-sales/06-credit-pricing.md:51,54,385,396,689` / 与信判定結果コード `credit_check_result` の意味が文書内で自己矛盾。BR-CR-06 は **40＝阻斷**、BR-CR-09/PRC/未決 #2 は **40＝超限承認済**。また更新値は 10/20/40 のみで 30（超限承認待ち）が欠落 / 06-credit-pricing.md:51（10 OK/20 警告/30 超限/40 阻斷）、54（承認済フラグ＝40）、385（更新 10/20/40）、396（最終承認済 credit_check_result=40",
+    "file": "R-mdm-designer.md"
+  },
+  {
+    "id": "REV-mdm-004",
+    "severity": "S2",
+    "reviewer": "MDM",
+    "targets": "SAL/PUR",
+    "detail": "`03-sales/06-credit-pricing.md:401,405` / MDM 销售取价 API の戻り項目が契約不一致。SAL は `unitPrice`・`isTaxIncluded`・`discountRate` を取得前提だが、MDM 91 §3.3 は `unitPriceNet`/`unitPriceGross`・`discount{discountRate,discountAmount}` で **`isTaxIncluded` 自体が存在しない**。また取价不能を **404** 前提とするが MDM は **422/20036** / 06-credit-pric",
+    "file": "R-mdm-designer.md"
+  },
+  {
+    "id": "REV-mdm-005",
+    "severity": "S2",
+    "reviewer": "MDM",
+    "targets": "SAL/PUR",
+    "detail": "`03-sales/06-credit-pricing.md:403`／`03-sales/02-sales-order.md:58` / 標準価格・標準原価を MDM から取得する前提だが、MDM 物料詳細 API のレスポンスに `standardPrice`/`standardCost` が含まれない（DB には列あり） / 06-credit-pricing.md:403（標準価 MDM `standard_price` 取得）、02-sales-order.md:58（標準価比 ±5% 承認）、07-tracking-reports.md:72（原価 61,600 使用）／02-md",
+    "file": "R-mdm-designer.md"
+  },
+  {
+    "id": "REV-mdm-006",
+    "severity": "S2",
+    "reviewer": "MDM",
+    "targets": "SAL/PUR",
+    "detail": "`00-common/09-cross-domain-flow.md:85`／`03-sales/04-sales-return.md:637-641` / E11 `sales.return.confirmed` の 09 契約は `lines[{materialId, qty, inventoryStatus}]` のみで**金額・税額・原価を持たない**が、購読処理は「赤伝売上・売掛（J22/J23）」である。SAL 実装は `unitPrice/taxRate/amount/taxAmount/costAmount` を追加送出しており、09 と不一致（実装が SAL 拡張に暗黙依存）",
+    "file": "R-mdm-designer.md"
+  },
+  {
+    "id": "REV-mdm-007",
+    "severity": "S2",
+    "reviewer": "MDM",
+    "targets": "SAL/PUR",
+    "detail": "`00-common/09-cross-domain-flow.md:90,109`／`04-purchase/91-api-design.md:601-612,615` / E16 `purchase.return.confirmed` は `lines[{materialId, qty, warehouseId}]`、E35 `purchase.receipt.cancelled` は `reversedLines[{materialId, batchNo, qty}]` のみで**金額・単価・税額がない**。一方 PUR は返品金額・税額を内部計算し（BR-15/CALC-02/03）、",
+    "file": "R-mdm-designer.md"
+  },
+  {
+    "id": "REV-mdm-008",
+    "severity": "S2",
+    "reviewer": "MDM",
+    "targets": "SAL/PUR",
+    "detail": "`00-common/09-cross-domain-flow.md:84`／`03-sales/03-delivery-picking.md:616` / E10 `sales.delivery.confirmed` の 09 契約に **`serialNos` がなく**、シリアル管理品（YE3 成品は `serial_managed=Y`）の出荷で INV が個体を特定できない。SAL は `serialNos[]` を追加送出しており契約外 / 09:84（lines に batchNo はあるが serialNos なし）／03-delivery-picking.md:609-623",
+    "file": "R-mdm-designer.md"
+  },
+  {
+    "id": "REV-mdm-009",
+    "severity": "S2",
+    "reviewer": "MDM",
+    "targets": "SAL/PUR",
+    "detail": "`00-common/09-cross-domain-flow.md:80`／`03-sales/06-credit-pricing.md:360,380-385` / 与信コミットの更新責任が二重。09 E06 は購読者 FIN の処理を「与信コミット」とし、SAL も PRC-SAL-006-02 で `sal_credit_occupation` にコミットを INSERT する。C-7 の使用額式は「FIN AR ＋ SAL 受注コミット − 前受金」であり、FIN 側でも注残コミットを持つと二重計上。さらに SAL コミット額は税込 `grand_total`（06:384）で E0",
+    "file": "R-mdm-designer.md"
+  },
+  {
+    "id": "REV-mdm-010",
+    "severity": "S2",
+    "reviewer": "MDM",
+    "targets": "SAL/PUR",
+    "detail": "`04-purchase/04-receipt-iqc.md:58,340`／`03-purchase-order.md:258` / 過入荷容差が**二重定義**。MDM は `mdm_material.over_receipt_tolerance_pct`（物料別）を持ち、PUR は `pur_tolerance_rule`＋PO 明細 `receiving_tolerance_rate` で判定し MDM を参照しない。09 §4.3 は「5% または 1 個」とのみ記載し、優先順位・正本を定めない / 02-mdm/01-material-master.md:158,403／02-md",
+    "file": "R-mdm-designer.md"
+  },
+  {
+    "id": "REV-mdm-011",
+    "severity": "S2",
+    "reviewer": "MDM",
+    "targets": "SAL/PUR",
+    "detail": "`03-sales/94-sample-data.md:137,145,147,149,158,186` / サンプル金額が**受注→出荷→請求で不整合**。(a) 受注明細 10 は折扣 2% 後 100,724.40（120×856.50×0.98）、受注合計 176,864.40 だが、出荷 1+2 合計は 178,724.40、請求は 102,780.00（=120×856.50、**折扣未反映**）。(b) 出荷 2 は 40×856.50＋60×1,269.00＝110,400.00 だが記載は 110,204.40（差 195.60） / 94:137（受注合計 176,864.",
+    "file": "R-mdm-designer.md"
+  },
+  {
+    "id": "REV-mdm-012",
+    "severity": "S2",
+    "reviewer": "MDM",
+    "targets": "SAL/PUR",
+    "detail": "`03-sales/00-overview.md:317`／`03-sales/05-invoice-receivable.md:73,341` / 帳齡の権威・算出方式が文書内で矛盾。00-overview の BAT-SAL-007 は「AR 投影から帳齢区分・DSO を算出」とするが、05-invoice の BR-ST-06 は「FIN ar-aging が正、SAL は独自口徑を持たない」、92-report の BAT-SAL-007 も「FIN 帳齡の取込」と記載 / 00-overview.md:317／05-invoice-receivable.md:73,341／92-re",
+    "file": "R-mdm-designer.md"
+  },
+  {
+    "id": "REV-mdm-013",
+    "severity": "S3",
+    "reviewer": "MDM",
+    "targets": "SAL/PUR",
+    "detail": "`04-purchase/91-api-design.md:645-648` / E13 `purchase.order.approved` のサンプル payload が明細 1 行のみ（28,000×5.65＝158,200）なのに `amount` は 434,400.00（PO 4 明細合計）で、明細合計と金額が一致しない / 91-api-design.md:645-648（lines 1 件、amount 434,400.00）／94-sample-data.md:117-130（4 明細、合計 434,400.00） / サンプルに全 4 明細を記載するか、`amount` を当",
+    "file": "R-mdm-designer.md"
+  },
+  {
+    "id": "REV-mdm-014",
+    "severity": "S3",
+    "reviewer": "MDM",
+    "targets": "SAL/PUR",
+    "detail": "`04-purchase/00-overview.md:513` / PUR 未決 #6 は「RFQ 中選価→MDM 価格更新の跨域インタフェース未定、P1 手工待办」とするが、MDM は既に `POST /api/mdm/supplier-quotations/{id}/adopt`（報価採用 API）を定義済みで契約が不整合（既存 API の利用が未決として放置） / 00-overview.md:513／02-mdm/91-api-design.md:140（adopt API #89） / 未決 #6 を「MDM adopt API を利用（中選価→MDM 購買価格）」に更新し、呼出条",
+    "file": "R-mdm-designer.md"
+  },
+  {
+    "id": "REV-mdm-015",
+    "severity": "S3",
+    "reviewer": "MDM",
+    "targets": "SAL/PUR",
+    "detail": "`04-purchase/07-tracking-performance.md:249-251`／`04-purchase/00-overview.md:469` / 跨模块の MDM マスタを**テーブル直接参照**する前提の記載（`mdm_purchase_price` を画面データソースに指定）。09 §2.1 は同期参照を「モジュール公開インタフェース（根包の Service）＋内部 REST」と定義し、直接 SELECT はモジュール境界違反。MDM 側には購買価格 API（#84〜86）が存在するが PUR は参照していない / 04-purchase/07-tracking-pe",
+    "file": "R-mdm-designer.md"
+  },
+  {
+    "id": "REV-mdm-016",
+    "severity": "S3",
+    "reviewer": "MDM",
+    "targets": "SAL/PUR",
+    "detail": "`00-common/09-cross-domain-flow.md:88`／`02-mdm/01-material-master.md:230` / E14 の購読処理は PRD の「IQC 起票」だが、payload に検査要否・検査段階（`inspection_stage`）が含まれない。PRD が IQC 起票要否を判定するには MDM 照会が必要だが、その連携が契約に明記されていない（免検品の扱いが実装者判断に） / 09:88／02-mdm/01-material-master.md:230（`inspection_stage` 00 免検〜40 全工程）／04-purchase/",
+    "file": "R-mdm-designer.md"
+  },
+  {
+    "id": "REV-mdm-017",
+    "severity": "S4",
+    "reviewer": "MDM",
+    "targets": "SAL/PUR",
+    "detail": "`03-sales/02-sales-order.md:704-742` / E05/E06 等の SAL/PUR 発行 payload は 09 契約に対する**追加項目**（`customerCode`/`currencyCode`/`taxAmount`/`totalAmount`/`materialCode`/`unitPrice`/`taxRate` 等）を多数含む。09 §2.3 の `eventVersion` 運用（項目追加は +0）に沿うが、09 の契約表に追記されていない / 02-sales-order.md:716-740／09:79-80／04-purchase/91",
+    "file": "R-mdm-designer.md"
+  },
+  {
+    "id": "REV-PRD-001",
+    "severity": "S1",
+    "reviewer": "PRD",
+    "targets": "SAL/FIN",
+    "detail": "`07-finance/06-auto-voucher-costing.md:86,91,228,255` / **完工単位成本 446.70 元/台が BOM・生産域・90-data と矛盾する。** 財務の YE3-100L1-4（200 PCE）の直接材料は 46,700.00（233.50/台）、完工成本 89,340.00、単位 446.70。一方、90-data の BOM 卷算は材料 659.95/台・標準原価 778.20/台、生産域の実績例は 93,377.55÷120＝778.146250。差額 331.50/台（約 42%）で、材料数量・賃率・配賦率のすべてが異なる / ",
+    "file": "R-production-designer.md"
+  },
+  {
+    "id": "REV-PRD-002",
+    "severity": "S1",
+    "reviewer": "PRD",
+    "targets": "SAL/FIN",
+    "detail": "`07-finance/06-auto-voucher-costing.md:141,144,151,152,155,158,159,160,164,165`（対照：`00-common/09-cross-domain-flow.md:84,85,88,90,96,97,98,99,100,110`） / **自動凭证テンプレートの金額式が 09 のイベント payload 項目に存在せず、実装不能。** 財務は「完全対応表」と称するが（`06:135`）、以下 9 テンプレートで参照フィールドが 09 に未定義：J16=`payload.costAmount`（E24 に無し）、J11=`s",
+    "file": "R-production-designer.md"
+  },
+  {
+    "id": "REV-PRD-003",
+    "severity": "S2",
+    "reviewer": "PRD",
+    "targets": "SAL/FIN",
+    "detail": "`00-common/09-cross-domain-flow.md:360`（契約矛盾の起点）／`07-finance/06:147`・`03-sales/00-overview.md:135,459` / **J07 の発生契機が 09 では「E12 发票発行」、SAL/FIN は「E10 出荷確定（出荷基準）」で実装。** 09 §7.2 J07 は 発生元=E12、しかし 09 §7.3 は出荷基準（E10 で売上・AR 計上）を採用し「発票発行時は AR に紐付けるだけ（金額変更しない）」（09:395）。SAL も FIN も E10 で J07 を生成する設計 / 09:360「",
+    "file": "R-production-designer.md"
+  },
+  {
+    "id": "REV-PRD-004",
+    "severity": "S2",
+    "reviewer": "PRD",
+    "targets": "SAL/FIN",
+    "detail": "`07-finance/06-auto-voucher-costing.md:267-272` / **品種法の計算で期初在制品 12,000 が完工原価に反映されていない。** 5.3 表は「期初在制品 12,000＋本期投入 89,340」を掲げながら「単位成本 446.70 = 89,340 ÷ 200」としており、期初 12,000 が未配賦。期末在制品 35,400 は別工単 WO2610200004 に帰属と注記するが、期初 12,000 の帰属先・按分が不明 / [06:267](../07-finance/06-auto-voucher-costing.md)「期初在制品 12",
+    "file": "R-production-designer.md"
+  },
+  {
+    "id": "REV-PRD-005",
+    "severity": "S2",
+    "reviewer": "PRD",
+    "targets": "SAL/FIN",
+    "detail": "`07-finance/06-auto-voucher-costing.md:70,255,284-287` / **分批法（YVF-160M-4）の製造費用配賦が分配基準と矛盾。** 5.2 表の工数は 800.0 h だが、5.4 の配賦は「700 h × 40.00 = 28,000」。BC-05 は分配標準を「直接人工工时」と定めており、800 h なら 32,000 となるべき（単位成本 3,713.33 → 3,846.67、完工成本 111,400 → 115,400） / [06:70](../07-finance/06-auto-voucher-costing.md)「分配標",
+    "file": "R-production-designer.md"
+  },
+  {
+    "id": "REV-PRD-006",
+    "severity": "S2",
+    "reviewer": "PRD",
+    "targets": "SAL/FIN",
+    "detail": "`00-common/09:85`、`03-sales/04-sales-return.md:52,56,63`、`07-finance/06:164-165` / **返品（E11）payload に金額・原価が無く、J22（赤伝売上）・J23（在庫戻し）の金額根拠が成立しない。** SAL は「赤伝金額＝返品数量×元出荷単価、税額再計算」「原価戻しは元出荷 cost_amount を E11 追加項目で INV へ渡す」と設計するが、09 E11 は `lines[{materialId, qty, inventoryStatus}]` のみで、追加項目の正式追補が無い / 09:85 E",
+    "file": "R-production-designer.md"
+  },
+  {
+    "id": "REV-PRD-007",
+    "severity": "S2",
+    "reviewer": "PRD",
+    "targets": "SAL/FIN",
+    "detail": "`07-finance/07-period-reporting.md:360,375` / **貸借対照表の「应交税费」に当月計上済の所得税 1,300,000 が含まれていない。** BS の 应交税费 2,251,200 は「增值税応納 2,010,000＋附加税 241,200」に一致するが、IS は所得税費用 1,300,000 を計上し、J27 は「月末计提」で 2221.11 に計上する設計。BS と IS が連動していない / [07:360](../07-finance/07-period-reporting.md)「应交税费 2,251,200.00」／[07:402](..",
+    "file": "R-production-designer.md"
+  },
+  {
+    "id": "REV-PRD-008",
+    "severity": "S2",
+    "reviewer": "PRD",
+    "targets": "SAL/FIN",
+    "detail": "`07-finance/07-period-reporting.md:342,345,383` / **BS/IS/CF は算術的には一致するが、経済規模が示例企業基線（demo-company）と桁違いに不整合。** BS の売掛金 56,141.40 に対し IS の月商は 61,000,000（DSO 0.028 日）、在庫 3,240,000 に対し月売上原価 48,800,000（年 180 回転）。demo-company は売掛回転 68 日・在庫回転 6 回/年を前提としており、3 桁近い乖離 / [07:342](../07-finance/07-period-reporti",
+    "file": "R-production-designer.md"
+  },
+  {
+    "id": "REV-PRD-009",
+    "severity": "S3",
+    "reviewer": "PRD",
+    "targets": "SAL/FIN",
+    "detail": "`07-finance/01-accounting-subjects.md:67,495`、`07-finance/06:143,147,151,152,158,164` / **科目マスタ CSV と財務の明細科目設計が不整合。** 財務は「90-data/accounting-subjects.csv（**87 行**）と突合済み」とするが実ファイルは **86 行**。CSV は `1122`・`1403`・`1405`・`6001`・`2221.01` を `is_leaf=Y`（末级）とする一方、テンプレートは `1122.01`・`1403.01`・`1405.01`・`6001.",
+    "file": "R-production-designer.md"
+  },
+  {
+    "id": "REV-PRD-010",
+    "severity": "S3",
+    "reviewer": "PRD",
+    "targets": "SAL/FIN",
+    "detail": "`07-finance/07-period-reporting.md:358` / **BS の「预收款项」に合同负债を混在させている。** 引用的根拠（財会〔2019〕6 号、`07:334`）は「预收款项」と「合同负债」を別掲する様式であり、CAS14（2017 改訂）五步法（`07-finance/00:62`）では契約負債の識別が必要。90-data 科目 CSV にも合同負債科目が無い / [07:358](../07-finance/07-period-reporting.md)「预收款项 / 残(貸) 2203（合同負債を含む）」／`07:334`「項目名は財会〔2019〕6 号",
+    "file": "R-production-designer.md"
+  },
+  {
+    "id": "REV-PRD-011",
+    "severity": "S3",
+    "reviewer": "PRD",
+    "targets": "SAL/FIN",
+    "detail": "`07-finance/05-cashier-tax.md:61,77` / **企业所得税の計上が「会計利潤×25%」のみで、税務調整（研究開発費加計扣除 100%）が未考慮。** 示例企業は研究開発費加計扣除 100%（実データ政策）を前提とするが、CALC-07 は 5,200,000×25%=1,300,000 で計算。R&D 費用 950,000 を加計すれば課税所得 4,250,000 → 税額約 1,062,500 となり 237,500 の差異 / [05-cashier-tax:61](../07-finance/05-cashier-tax.md)「企業所得税 … 25% ",
+    "file": "R-production-designer.md"
+  },
+  {
+    "id": "REV-PRD-012",
+    "severity": "S3",
+    "reviewer": "PRD",
+    "targets": "SAL/FIN",
+    "detail": "`03-sales/01-quotation.md:598` ほか sales 全ファイル / **销售折让（開票後の値引・返利・価保）の業務設計が存在しない。** sales 全域を検索しても「折让/返利」の処理が無く、赤伝発票（`invoiceKind=RED`）は返品用途のみ。「0 元需样品审批」（MSG-SAL-182）は見出せるが、開票後の価格訂正は返品として処理するしかない / 全 sales ファイル grep：`折让 / 返利` のヒット 0 件（唯一 `01:598` の 0 元样品审批と `04:63` の返品赤伝）／[04:63](../03-sales/04-sales",
+    "file": "R-production-designer.md"
+  },
+  {
+    "id": "REV-PRD-013",
+    "severity": "S3",
+    "reviewer": "PRD",
+    "targets": "SAL/FIN",
+    "detail": "`03-sales/03-delivery-picking.md:63`（対照：`00-common/09:84,121`） / **E10 の `serialNos[]` が 09 契約に無い契約外拡張。** SAL は E10 lines に `serialNos[]` を追加すると明記するが、09 §3 の E10 payload にも追補履歴（09:121）にも記載が無い。追補済みなのは tax 項目のみ / [SAL 03:63](../03-sales/03-delivery-picking.md)「序列號は追加項目 `serialNos[]` で設定」／09:84 E10 pay",
+    "file": "R-production-designer.md"
+  },
+  {
+    "id": "REV-PURDES-003",
+    "severity": "S2",
+    "reviewer": "PUR",
+    "targets": "MDM/WF",
+    "detail": "`02-mdm/00-overview.md:66`（関連 `90-data/approval-matrix.md:66`、`08-workflow/94-sample-data.md:95`、`08-common-business-rules.md:341`） / **銀行口座変更の SoD（財務总监承認の追加）が WF の承認経路に存在しない。** MDM は A16 の口座变更シナリオに「SoD：口座変更は財務总监承認を追加」と規定。しかし A16 の経路は「主管部門長→財務/採購/销售責任者」（`approval-matrix.md:66`）、WF 94 の MDM マッピングも `A",
+    "file": "R-purchase-designer.md"
+  },
+  {
+    "id": "REV-PURDES-006",
+    "severity": "S3",
+    "reviewer": "PUR",
+    "targets": "MDM/WF",
+    "detail": "`08-workflow/00-overview.md:289`（関連 `08-workflow/02-approval-runtime.md:58`、`09-cross-domain-flow.md:9.1`） / **未決 #6 が既に解決済みの内容のまま「未決」として残存。**「業務ステータス連動の責任分界：E31 で WF が業務ステータスを更新するか、業務域が更新するか」に対し、同表の暫定仕様欄で「09 §9.1 の通り**業務域が更新**」と確定記載。02-approval-runtime BR-14 も「業務域が更新、WF はイベント発行のみ」と確定（`:58`）。期限 2026",
+    "file": "R-purchase-designer.md"
+  },
+  {
+    "id": "REV-PURDES-007",
+    "severity": "S3",
+    "reviewer": "PUR",
+    "targets": "MDM/WF",
+    "detail": "`08-workflow/01-process-model.md:56` / **同一テーブル名同士を「相違」と比較する誤記が残存。**「テーブル名 `wf_approval_matrix`（approval-matrix.md §6）と `wf_approval_matrix`（本設計）の相違は 00-overview 未決 #1 で Lead 判断を仰ぐ」と記載。両者は同一名であり、未決 #1 は既に「`wf_approval_matrix` に統一・裁决済」で完了（`00-overview.md:283`） / 記載の自己矛盾＋解決済み課題への参照。00-overview の v1.2 ",
+    "file": "R-purchase-designer.md"
+  },
+  {
+    "id": "REV-PURDES-009",
+    "severity": "S3",
+    "reviewer": "PUR",
+    "targets": "MDM/WF",
+    "detail": "`02-mdm/94-sample-data.md:30-56` / **分類サンプルが 22/28 件で 6 件欠落。** 表は `material-category.csv` 準拠と銘打つが、`5003 緩衝材`・`5005 随附文件`・`6001 刀具`・`6003 労保用品`・`7001 委外半成品`・`9002 贈品` の 6 件がない（実行突合：22 codes vs CSV 28 codes） / `90-data/code-lists/material-category.csv` 28 行（1001-1005/2001-2004/3001-3003/4001-4005/5001",
+    "file": "R-purchase-designer.md"
+  },
+  {
+    "id": "REV-SAL-001",
+    "severity": "S2",
+    "reviewer": "SAL",
+    "targets": "INV/PRD",
+    "detail": "`06-production/03-material-issue-reporting.md:399-410`（対照 `00-common/09-cross-domain-flow.md:98`、`07-finance/06-auto-voucher-costing.md:158,417`） / **E24 `production.workorder.completed` の payload が 09 v1.1 の必須項目 `costAmount`（完工総原価）・`unitCost`（完成品単位原価）を送出しておらず、FIN の J16 自動仕訳テンプレートが参照する `payload.cost",
+    "file": "R-sales-designer.md"
+  },
+  {
+    "id": "REV-SAL-002",
+    "severity": "S2",
+    "reviewer": "SAL",
+    "targets": "INV/PRD",
+    "detail": "`06-production/06-quality-management.md:60,236,241-262`（対照 `05-inventory/00-overview.md:324`、`05-inventory/04-batch-serial-status.md:65`、`06-production/90-db-design.md:2037,2058,2072-2073`） / **E15 `quality.inspection.completed` の `result` と `lines` の意味が、PRD の DB・09 契約・INV の状態変換で三者不一致。** (a) DB は `r",
+    "file": "R-sales-designer.md"
+  },
+  {
+    "id": "REV-SAL-003",
+    "severity": "S2",
+    "reviewer": "SAL",
+    "targets": "INV/PRD",
+    "detail": "`05-inventory/00-overview.md:313-335`（購読イベント表）、`06-production/00-overview.md:226-234`（同）（対照 `00-common/09-cross-domain-flow.md:109`、`04-purchase/00-overview.md:126,159,170,396`） / **E35 `purchase.receipt.cancelled` の購読者として 09 が INV/PRD を指定しているが、INV・PRD の両方に E35 の購読・在庫逆処理・IQC タスク取消の設計が存在しない。** PUR 側は",
+    "file": "R-sales-designer.md"
+  },
+  {
+    "id": "REV-SAL-004",
+    "severity": "S2",
+    "reviewer": "SAL",
+    "targets": "INV/PRD",
+    "detail": "`05-inventory/05-costing.md:66,304,348`（対照 `05-inventory/90-db-design.md:267,1476-1477`、`05-inventory/05-costing.md:358-362`） / **原価層（`inv_cost_layer`）を FIFO で減算しながら、原価計算は移動平均であり、両者の金額を「一致させる」と定義しているため、金額保存則が両立しない。** 例：層1=100@5.00、層2=500@5.50（平均 5.4167）で 120 出庫すると、移動平均出庫額=650.00 に対し FIFO 層減額=100×5.0",
+    "file": "R-sales-designer.md"
+  },
+  {
+    "id": "REV-SAL-005",
+    "severity": "S2",
+    "reviewer": "SAL",
+    "targets": "INV/PRD",
+    "detail": "`06-production/05-mrp-planning.md:37,80,118,179-180`（対照 `05-inventory/00-overview.md:105,120-123`、`05-inventory/01-stock-query.md:79`） / **MRP の「利用可能在庫（OH）」算式が、在庫域が定める「可用量の P0 唯一算式」と異なる。** INV は「現存量 − 引当量 − 待検 − 凍結 − 不合格 − 報廃待処理」を唯一算式とし他文書での再定義を禁止しているが、MRP は「現有 − 待検 − 凍結 − 品質保留」で、**不合格（40）・報廃待処理（50）",
+    "file": "R-sales-designer.md"
+  },
+  {
+    "id": "REV-SAL-006",
+    "severity": "S2",
+    "reviewer": "SAL",
+    "targets": "INV/PRD",
+    "detail": "`06-production/00-overview.md:153,158`、`06-production/02-work-order.md:87-105`、`06-production/90-db-design.md:982,1027`（対照 `00-common/08-common-business-rules.md:124`） / **生産订单（WO）の状態機が 08 の共通状態定義と異なる。** 08 は WO を `10→25→30→35→40 / 90`（25=承認/計画確定、40=完了・結案）と定義するが、PRD は `20 承認待ち` を追加して `10→20→25→30→35",
+    "file": "R-sales-designer.md"
+  },
+  {
+    "id": "REV-SAL-007",
+    "severity": "S2",
+    "reviewer": "SAL",
+    "targets": "INV/PRD",
+    "detail": "`06-production/03-material-issue-reporting.md:470-479`、`06-production/04-outsourcing.md:277-278`（対照 `00-common/09-cross-domain-flow.md:96,98,110`、09 §3 事件一覧） / **生産伝票の取消（逆処理）が、09 に存在しないイベント（E22 取消・E23 取消・E24 取消・E25 逆・E26 逆・E36 取消）に依存している。** 09 §2.2 はイベントを「事実の通知」と定め、正の事実（E22/E23/E24/E25/E26/E36）のみ定義し",
+    "file": "R-sales-designer.md"
+  },
+  {
+    "id": "REV-SAL-008",
+    "severity": "S2",
+    "reviewer": "SAL",
+    "targets": "INV/PRD",
+    "detail": "`05-inventory/05-costing.md:292-294,536`、`05-inventory/02-inbound-outbound.md:514-527`（対照 `05-inventory/90-db-design.md:214`、`05-inventory/00-overview.md:181`） / **入庫時の平均単価更新は「全状態行の avg_unit_cost を同一値に更新」と定義するが、他状態行の `amount_on_hand` の再評価式が無く、出庫時は対象行の金額から「cost group 平均×出庫数量」を減算する。** 例：状態10 行が 100@5.",
+    "file": "R-sales-designer.md"
+  },
+  {
+    "id": "REV-SAL-009",
+    "severity": "S3",
+    "reviewer": "SAL",
+    "targets": "INV/PRD",
+    "detail": "`05-inventory/02-inbound-outbound.md:18,133-134,142-228`（対照 `00-common/09-cross-domain-flow.md:85,90`） / **RT_IN（销售退货入库）・PR_OUT（采购退货出库）の「発生源別業務ルール」節が存在しない。** §2.6 は PI/SI/MII/MIR/FGI/OSI/OSR/AOI/AOO/SC_OUT の 9 節のみで、冒頭 :18 は「RT_IN/PR_OUT を含む 19 種の発生源・処理・原価・仕訳を定義する」と宣言している。また原価は「元 SI/PI 明細の unit_cost」",
+    "file": "R-sales-designer.md"
+  },
+  {
+    "id": "REV-SAL-010",
+    "severity": "S3",
+    "reviewer": "SAL",
+    "targets": "INV/PRD",
+    "detail": "`05-inventory/05-costing.md:69,93,120,312` / **価格差異の按分分母が、算式定義と数値例・処理手順で異なる。** BR-CS-07/CALC-08 は「既出庫分 = 差異総額 × 既出庫数量 ÷ **対象入庫数量**」とするが、数値例は分母 600（対象入庫 500 ＋ 期初 100）で 15.00 を算出し、処理手順も「target_qty + 対象以前の残数量」としており、算式どおり 500 で計算すると 18.00 となる / 05-costing:69 BR-CS-07「配分比 = 既出庫数量 ÷ 対象入庫数量」／:93 CALC-08「既出",
+    "file": "R-sales-designer.md"
+  },
+  {
+    "id": "REV-SAL-011",
+    "severity": "S3",
+    "reviewer": "SAL",
+    "targets": "INV/PRD",
+    "detail": "`06-production/01-bom-routing-workcenter.md:257,299,304,706`、`06-production/05-mrp-planning.md:448`、`06-production/94-sample-data.md:96`、`90-data/bom-demo.md:177` / **YE3-100L1-4 120 PCE の 50W470 厳密展開量が文書間で不一致。** PRD 01 は 2,623.42 KGM（内訳 1,888.85＋734.57）とするが、PRD 05・PRD 94 は 2,623.55 KGM、90-data は 2,",
+    "file": "R-sales-designer.md"
+  },
+  {
+    "id": "REV-SAL-012",
+    "severity": "S3",
+    "reviewer": "SAL",
+    "targets": "INV/PRD",
+    "detail": "`06-production/02-work-order.md:383,399`、`06-production/90-db-design.md:1089,1092`（対照 `00-common/09-cross-domain-flow.md:95`） / **E21 の `requiredQty` の意味（純必要量 net か総必要量 gross か）が、DB・イベント・画面で揺れている。** DB の `prd_work_order_material.required_qty` は「純必要量（net）」、`total_required_qty` は「総必要量（gross）」だが、E21 は ",
+    "file": "R-sales-designer.md"
+  },
+  {
+    "id": "REV-SAL-013",
+    "severity": "S3",
+    "reviewer": "SAL",
+    "targets": "INV/PRD",
+    "detail": "`06-production/03-material-issue-reporting.md:84,309-321,333-346`、`05-inventory/02-inbound-outbound.md:62,174,178`、`05-inventory/05-costing.md:78`（対照 `00-common/09-cross-domain-flow.md:96,110`） / **E22/E36 の `unitCost` の権威（正）が未定義。** PRD は「参考単価」を E22/E36 に設定し、INV は「自域の移動平均（E18）が権威」とし、INV の MIR 原価は「元 ",
+    "file": "R-sales-designer.md"
+  },
+  {
+    "id": "REV-SAL-014",
+    "severity": "S3",
+    "reviewer": "SAL",
+    "targets": "INV/PRD",
+    "detail": "`06-production/00-overview.md:167`、`06-production/02-work-order.md:127`、`06-production/06-quality-management.md:85-93`、`06-production/90-db-design.md:2037,2072`（対照 `00-common/08-common-business-rules.md:119`） / **検査单の状態コードが 08・PRD 00・PRD 06/90 で三者不一致。** 08 は IQC を `10→30→40 / 95 / 90`、PRD 00 は検査单を `",
+    "file": "R-sales-designer.md"
+  },
+  {
+    "id": "REV-SAL-015",
+    "severity": "S3",
+    "reviewer": "SAL",
+    "targets": "INV/PRD",
+    "detail": "`05-inventory/02-inbound-outbound.md:152,191,202,313`（対照 `05-inventory/02-inbound-outbound.md:63`、`05-inventory/00-overview.md:100`、`02-mdm/01-material-master.md:230`） / **検査要否の参照フィールド名が、INV 内で `inspection_required` と `inspection_stage` に分裂し、MDM の実フィールド（`inspection_stage`）と一致しない。** 同じファイル内でも :63 は `",
+    "file": "R-sales-designer.md"
+  },
+  {
+    "id": "REV-SAL-016",
+    "severity": "S3",
+    "reviewer": "SAL",
+    "targets": "INV/PRD",
+    "detail": "`05-inventory/02-inbound-outbound.md:80-81,153`、`05-inventory/05-costing.md:63`（対照 `00-common/09-cross-domain-flow.md:88`） / **采购入库の運費・関税の入力/計上タイミングが矛盾。** 02 は E14 に運費・関税が含まれないため「暫定 0 で過账し、後日 `inv_cost_adjustment` で調整」とするが、同ファイルの CALC-01・画面例（運費按分 800.00、入庫金額 11,200.00）は受入時に運費を入力・按分する前提。E14 の payload",
+    "file": "R-sales-designer.md"
+  },
+  {
+    "id": "REV-SAL-017",
+    "severity": "S3",
+    "reviewer": "SAL",
+    "targets": "INV/PRD",
+    "detail": "`06-production/03-material-issue-reporting.md:397,412,419-425`（対照 `00-common/09-cross-domain-flow.md:367-369`） / **J16 の計上タイミングと J15（製造費用结转）の月結タイミングが不整合。** 完工入库時に J16 が「材料費＋人工費＋製造費用（暫定配賦）」を 5001 の貸方に計上するが、製造費用の 5001 への振替（J15）は月結時、人工費（J13）は報工時、製造費用の実際発生（J14）は費用計上時であり、完工が月結前だと 5001 が貸方超過（一時的な負残高）となり得る",
+    "file": "R-sales-designer.md"
+  },
+  {
+    "id": "REV-SAL-018",
+    "severity": "S4",
+    "reviewer": "SAL",
+    "targets": "INV/PRD",
+    "detail": "`05-inventory/02-inbound-outbound.md:138-140`、`05-inventory/04-batch-serial-status.md:96`（対照 `00-common/09-cross-domain-flow.md:341`、09 §7.1「19 種のみ・追加禁止」） / **09 の 19 取引種に含まれる `SC_IN`（报废转入）を、INV は「予約コード」として実際には使用せず、状態移動を `ST_OUT`＋`ST_IN` の対で処理するとしている。** 09 は SC_IN を独立取引として定義し、INV 00 の取引一覧にも掲載しているため、",
+    "file": "R-sales-designer.md"
+  },
+  {
+    "id": "REV-SAL-019",
+    "severity": "S4",
+    "reviewer": "SAL",
+    "targets": "INV/PRD",
+    "detail": "`05-inventory/00-overview.md:120-123`、`05-inventory/06-reservation-barcode-close.md:63`、`05-inventory/01-stock-query.md:690` / **可用量の算式表記が文書内で揺れている。** 00-overview は 6 項目（現存−引当−待検−凍結−不合格−報廃待処理）、06-reservation BR-RS-04 と 01-stock-query のテスト期待値は 5 項目（報廃待処理を省略）。計算結果自体は `status=10` 残高−引当で等価だが、「唯一算式」と宣言しな",
+    "file": "R-sales-designer.md"
+  },
+  {
+    "id": "REV-SW-001",
+    "severity": "S2",
+    "reviewer": "SW",
+    "targets": "00-common/INT",
+    "detail": "`00-common/09-cross-domain-flow.md:172`（関連 `:79`,`:141`） / P2P の「請購承認」の出力イベントに **E05 `sales.order.submitted`** を使用している。E05 は SAL の受注提出専用イベントであり、購買請購の提出イベントは 09 に存在しない。このまま実装すると購買承認が販売イベントを受信する誤結合になる / E05 定義 `:79`「`sales.order.submitted`／発行者 SAL／購読者 WF」；P2P 手順 `:172`「請購承認 … 出力/イベント `E05、PR（25）`」；シーケ",
+    "file": "R-system-workflow.md"
+  },
+  {
+    "id": "REV-SW-002",
+    "severity": "S2",
+    "reviewer": "SW",
+    "targets": "00-common/INT",
+    "detail": "`09-integration/90-db-design.md:321`,`:354` / `09-integration/05-sync-monitor.md:46-49,167,169,204-207` / `09-integration/02-tax-bank-interface.md:288` / INT 域内で**同一ステータスコードが表ごとに別意味**を持つ。`int_sync_job.status=40` は「完了」、`int_sync_task.status=40` は「再送待ち」、`int_tax_invoice.status=40` は「税局拒否（失敗）」。さらに 01 §",
+    "file": "R-system-workflow.md"
+  },
+  {
+    "id": "REV-SW-003",
+    "severity": "S2",
+    "reviewer": "SW",
+    "targets": "00-common/INT",
+    "detail": "`00-common/03-common-api-spec.md:186-187`,`:332`（関連 `09-integration/04-openapi-file-notify.md:57,339` / `09-integration/91-api-design.md:355`） / **`code=5001` が 2 つの意味で定義**されている。03 §6.2 は「503 メンテナンス＝5001」、§14 は「429 レート制限超過＝5001」。INT 実装も 429→5001 を採用しており、クライアントは HTTP と `code` の組合せで分岐できない / `03:187`「5",
+    "file": "R-system-workflow.md"
+  },
+  {
+    "id": "REV-SW-004",
+    "severity": "S2",
+    "reviewer": "SW",
+    "targets": "00-common/INT",
+    "detail": "`00-common/09-cross-domain-flow.md:252`（関連 `00-common/08-common-business-rules.md:270`） / 与信超過時の承認経路が矛盾。09 O2C は「警告 + 承認フロー（**財務総監**）」、08 §8.1 は「折扣 10% 超／信用超過 → **销售总监 → 财务总监 → 总经理**（順送）」。09 のみで実装すると承認レベルが 2 段不足 / `09:252`「警告 + 承認フロー（財務総監）。未承認は出荷不可」；`08:270`「销售总监 → 财务总监 → 总经理｜順送」 / 09 側を 08 §8.1 / `",
+    "file": "R-system-workflow.md"
+  },
+  {
+    "id": "REV-SW-005",
+    "severity": "S2",
+    "reviewer": "SW",
+    "targets": "00-common/INT",
+    "detail": "`00-common/08-common-business-rules.md:373`,`:377` / 保存期間の内部矛盾。`会計凭证・会计账簿=30 年`（79 号令）と同じ表で `发票及抵扣凭证=「現行実務 10 年」【要確認】`。発票は通常**原始凭证**として会計凭证に綴じられるため、同一書類に 10 年と 30 年が併存する。10 年の根拠条文も示されていない / `08:373`「会计凭证・会计账簿｜30 年｜《会计档案管理办法》（财政部 国家档案局令第 79 号）」；`08:377`「发票及抵扣凭证｜按税法规定保存（現行実務 10 年）【要確認】｜《发票管理办法》」 / ①「会",
+    "file": "R-system-workflow.md"
+  },
+  {
+    "id": "REV-SW-006",
+    "severity": "S2",
+    "reviewer": "SW",
+    "targets": "00-common/INT",
+    "detail": "`00-common/09-cross-domain-flow.md:443-449`（関連 `00-common/01-common-item-definitions.md:27-28` / `01-system/90-db-design.md` §3.34） / `sys_outbox_event` の **DDL が 2 文書で二重定義され、列が一致しない**。09 の DDL は `tenant_id`/`company_id` を持たず（01 §2.1 は全業務テーブル必須）、`event_version`・`source`・`aggregate_version` 列もない。01-s",
+    "file": "R-system-workflow.md"
+  },
+  {
+    "id": "REV-SW-007",
+    "severity": "S3",
+    "reviewer": "SW",
+    "targets": "00-common/INT",
+    "detail": "`09-integration/00-overview.md:170`,`:344`（関連 `:176-185`） / INT 概要が「**E01〜E35** は域内イベント」と記載。09 は現在 E01〜E43（v1.1 で 43 件、`09:537`）であり陳腐化。さらに `:170` の購読列挙（E17/E28/E29/E31/E32 を含む）と §3.4 の購読表 `:176-185`（E13/E28 を含むが E17/E29/E31/E32 なし）が不一致 / `09-integration/00-overview:170`「E01〜E35 は域内イベント… E10/E12/E13/",
+    "file": "R-system-workflow.md"
+  },
+  {
+    "id": "REV-SW-008",
+    "severity": "S3",
+    "reviewer": "SW",
+    "targets": "00-common/INT",
+    "detail": "`00-common/09-cross-domain-flow.md:87` / E13 `purchase.order.approved` の購読者が「**WF/INT**」。WF は承認プロセスの実行主体であり、発注承認イベントの購読者ではない（承認結果は E31/E32 で通知済み）。購読者定義が責任分界と矛盾 / `09:87`「E13 … 発行者 PUR｜購読者 WF/INT」；09 §9 の WF 連携は E31/E32（`09:389-418` 参照） / E13 購読者を INT（Phase 2 の PO 送信）に限定。WF が承認状態を必要とするなら E31/E32 を使用す",
+    "file": "R-system-workflow.md"
+  },
+  {
+    "id": "REV-SW-009",
+    "severity": "S3",
+    "reviewer": "SW",
+    "targets": "00-common/INT",
+    "detail": "`00-common/09-cross-domain-flow.md:108` / E34 `system.period.status.changed` の**発行者が「FIN/SYS」の二重所有**。会計期間と在庫期間のどちらを誰が更新するか不明で、責任一元化（09 §2.2 原則 1）に反する / `09:108`「E34 … 発行者 FIN/SYS」；`09:26-38` §2.2 連携原則「更新責任の一元化」 / 「会計期間＝FIN 発行」「在庫期間＝SYS（または INV）発行」に分割するか、発行者を FIN に固定し SYS は購読側とする",
+    "file": "R-system-workflow.md"
+  },
+  {
+    "id": "REV-SW-010",
+    "severity": "S3",
+    "reviewer": "SW",
+    "targets": "00-common/INT",
+    "detail": "`00-common/00-design-principles.md:188`（関連 `00-common/03-common-api-spec.md:276`） / 権限 action 語彙に **`cancel` がない**が、03 §11.1 と各域 API は `{module}:{resource}:cancel` を使用。権限コード生成規則と API 実装が不一致 / `00-design-principles:188`「action = view / create / update / delete / submit / approve / reject / withdraw /",
+    "file": "R-system-workflow.md"
+  },
+  {
+    "id": "REV-SW-011",
+    "severity": "S3",
+    "reviewer": "SW",
+    "targets": "00-common/INT",
+    "detail": "`00-common/04-common-db-spec.md:117-129`（関連 `00-common/01-common-item-definitions.md:24-36` / 同 `:88`） / `sys_sequence` の DDL が共通カラム（`company_id`/`created_by`/`updated_by`/`remark`）を欠く。04 §2 は全業務テーブルへの共通カラム必須、§3 は省略可能条件をログ/集計に限定しており、採番テーブルは該当しない。01-system/90 では付与済みで、同じテーブルの DDL が 2 種類存在 / `04:117-12",
+    "file": "R-system-workflow.md"
+  },
+  {
+    "id": "REV-SW-012",
+    "severity": "S3",
+    "reviewer": "SW",
+    "targets": "00-common/INT",
+    "detail": "`09-integration/01-integration-config.md:35,94` / `09-integration/00-overview.md:153,277` / `09-integration/05-sync-monitor.md:63` / `00-common/09-cross-domain-flow.md:467` / 再送回数・間隔の既定値が文書間で**層を区別せずに併記**され、同一 IF でも 3 回/5 回/10 回が混在。どの層（インタフェース直呼出・通知送信・同期タスク・Outbox）にどの値が適用されるか実装者が判断できない / `01-config:",
+    "file": "R-system-workflow.md"
+  },
+  {
+    "id": "REV-SW-013",
+    "severity": "S3",
+    "reviewer": "SW",
+    "targets": "00-common/INT",
+    "detail": "`09-integration/02-tax-bank-interface.md:34`（関連 `:93-140` 状態一覧） / 数电票の**票面項目の型・桁・必須区分が未確定**（「最新仕様に従う」）。一方で画面項目定義・入力チェック・テスト観点は存在し、検証可能な仕様になっていない（外部仕様依存自体は妥当だが、設計書として検証基準が未定義） / `02-tax:34`「項目の桁数・必須区分は電子発票服务平台の最新仕様に従う（本設計では固定しない）」；`02-tax:164-180` 画面項目定義、`:469-478` テスト観点 / 導入時に取得する外部仕様（項目名/型/桁/必須/コード",
+    "file": "R-system-workflow.md"
+  },
+  {
+    "id": "REV-SW-014",
+    "severity": "S3",
+    "reviewer": "SW",
+    "targets": "00-common/INT",
+    "detail": "`00-common/09-cross-domain-flow.md:55`（関連 `09-integration/00-overview.md:176-186`） / イベントの**冪等キー生成規則が統一されていない**。09 の例は `{eventType}:{aggregateId}:{aggregateVersion}`、INT 実装例は `E10:deliveryId` 等バージョンなしと `E13:orderId:aggregateVersion` 等ありが混在 / `09:55`「`idempotencyKey`: `sales.order.approved:1845678901",
+    "file": "R-system-workflow.md"
+  },
+  {
+    "id": "REV-SW-015",
+    "severity": "S3",
+    "reviewer": "SW",
+    "targets": "00-common/INT",
+    "detail": "`09-integration/00-overview.md:170` / `00-common/09-cross-domain-flow.md:18` ほか / **正文中文規約との不整合**。README §2 は「正文全部用中文」だが、00-common と 09-integration の本文に日本語文が多数残る（例：09 `:18`「業務域を跨る 3 つの主鎖…」、INT 要約の日本語見出し）。対日レビュー用の併記方針なら規約側に明記が必要 / `README.md` 冒頭「正文使用中文」；`09:18` ほか日本語正文 / ①本文を中文へ統一、または②「対日レビュー用に日本語併記を",
+    "file": "R-system-workflow.md"
+  },
+  {
+    "id": "REV-SW-016",
+    "severity": "S3",
+    "reviewer": "SW",
+    "targets": "00-common/INT",
+    "detail": "`00-common/03-common-api-spec.md:161-171`（関連 `:186-187`） / エラーコードの**予約範囲に欠落**がある。共通 4000-4999 / SYS 10000-19999 / MDM 20000-29999 / SAL 30000-39999 / FIN 60000-69999 / RPT 95000-99999 が定義される一方、**5000-9999 が未定義のまま 5000/5001 を使用**（5000=500 システムエラー、5001=503/429）。コード採番の正本が不完全 / `03:161-171` コード一覧；`:186-",
+    "file": "R-system-workflow.md"
+  },
+  {
+    "id": "REV-SW-017",
+    "severity": "S4",
+    "reviewer": "SW",
+    "targets": "00-common/INT",
+    "detail": "`00-common/03-common-api-spec.md:333-335`（関連 `09-integration/04-openapi-file-notify.md:56`） / 開放 API の **scope と API のマッピング表がない**。`report.read` 等 7 scope が定義されるが、どの API/HTTP メソッドがどの scope を要求するか未定義のため、最小権限の実装・受入テストができない / `03:333`「スコープ `mdm.read`、`sales.order.write` 等」；`:335`「`int_api_call_log` に記録」",
+    "file": "R-system-workflow.md"
+  }
+]

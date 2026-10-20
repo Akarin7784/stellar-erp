@@ -1,0 +1,12 @@
+incoterm_code,name_en,name_cn,transport_mode,delivery_point,risk_transfer_point,cost_bearer,insurance,export_clearance,import_clearance,status,remark
+EXW,Ex Works,工厂交货,すべて,売主施設,売主施設引渡時,買主負担（積込除く）,買主任意,買主,買主,A,【実データ】ICC Incoterms 2020
+FCA,Free Carrier,货交承运人,すべて,指定場所（運送人）,運送人引渡時,売主負担（引渡まで）,買主任意,売主,買主,A,【実データ】2020版で船積船荷証券の取扱を改訂
+FAS,Free Alongside Ship,船边交货,海上・内陸水路,本船船側,船側引渡時,売主負担（船側まで）,買主任意,売主,買主,A,【実データ】
+FOB,Free On Board,船上交货,海上・内陸水路,本船甲板,本船積込時,売主負担（積込まで）,買主任意,売主,買主,A,【実データ】
+CFR,Cost and Freight,成本加运费,海上・内陸水路,仕向港,本船積込時,売主負担（運賃含む）,買主任意,売主,買主,A,【実データ】
+CIF,Cost Insurance and Freight,成本加保险费加运费,海上・内陸水路,仕向港,本船積込時,売主負担（運賃・保険含む）,売主負担（既定 ICC(C)）,売主,買主,A,【実データ】CIFはICC(C)が既定
+CPT,Carriage Paid To,运费付至,すべて,指定仕向地,運送人引渡時,売主負担（運賃含む）,買主任意,売主,買主,A,【実データ】
+CIP,Carriage and Insurance Paid To,运费加保险费付至,すべて,指定仕向地,運送人引渡時,売主負担（運賃・保険含む）,売主負担（既定 ICC(A)）,売主,買主,A,【実データ】2020版でICC(A)相当が既定
+DAP,Delivered at Place,目的地交货,すべて,仕向地（荷卸前）,仕向地荷卸前,売主負担（荷卸前まで）,売主任意,売主,買主,A,【実データ】
+DPU,Delivered at Place Unloaded,卸货地交货,すべて,仕向地（荷卸後）,仕向地荷卸後,売主負担（荷卸後まで）,売主任意,売主,買主,A,【実データ】2020版でDATを改称
+DDP,Delivered Duty Paid,完税后交货,すべて,仕向地（関税込）,仕向地荷卸前,売主負担（関税含む）,売主任意,売主,売主,A,【実データ】買主義務最小
