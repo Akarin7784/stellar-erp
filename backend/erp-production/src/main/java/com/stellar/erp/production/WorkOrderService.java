@@ -59,6 +59,16 @@ public class WorkOrderService {
         if (!repo.factoryExists(company, cmd.factoryId())) {
             throw new BizException(ProductionErrorCode.NOT_FOUND, "工厂不存在");
         }
+        // FK は RLS 対象外のため、参照先が当前公司に属することをサービス層で確認する
+        if (cmd.warehouseId() == null) {
+            throw new BizException(1001, "MSG-COM-040", "请输入必填项「完工入库倉庫」。");
+        }
+        if (!repo.warehouseExists(company, cmd.warehouseId())) {
+            throw new BizException(ProductionErrorCode.NOT_FOUND, "仓库不存在");
+        }
+        if (cmd.departmentId() != null && !repo.departmentExists(company, cmd.departmentId())) {
+            throw new BizException(ProductionErrorCode.NOT_FOUND, "部门不存在");
+        }
         // CHK-PRD-002-01：品目計画の material_type が 20（制造品）/30（委外品）であること。計画行なしも拒否
         short type = repo.findPlanningMaterialType(company, material.id(), cmd.factoryId()).orElse((short) 0);
         if (type != 20 && type != 30) {
