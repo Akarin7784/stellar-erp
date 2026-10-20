@@ -9,16 +9,19 @@ import com.stellar.erp.production.internal.ProductionRepository;
 import com.stellar.erp.production.internal.ProductionRepository.WorkOrderForApproval;
 
 /**
- * 工单の承認提出（T-01 10→20、API 91 #28）と承認（T-02 20→25、API 未定義のためサービスのみ。WF E32 受信の受け口）。Flowable 連携前の単純な状態遷移（Lead 2026-10-21 決定）。
+ * 工单の承認提出（T-01 10→20、API 91 #28）と承認（T-02 20→25、{@code POST /{id}/approve}。将来の WF E32 受信と同じ
+ * {@link #approve}）。Flowable 連携前の単純な状態遷移（Lead 2026-10-21 決定）。
  *
  * <ul>
  *   <li>状態不正 → 409 / 4002 / MSG-COM-034（§6.3 第 1 項、CHK-PRD-002-11）。</li>
  *   <li>{@code version} 不一致 → 409 / 4003 / MSG-COM-033（91 §10「状態操作は version 必須」）。</li>
-  *   <li>承認：起案者（created_by）≠ 承認者（CHK-PRD-002-12、60005 / MSG-PRD-005）。</li>
+ *   <li>提出：材料明細 0 行可（CHK-PRD-002-09、AC-PRD-13）。</li>
+ *   <li>承認：工序明細 1 行以上（CHK-PRD-002-08、60021 / MSG-PRD-021）、材料明細は不要。</li>
+ *   <li>承認：起案者（created_by）≠ 承認者（CHK-PRD-002-12、60005 / MSG-PRD-005）。</li>
  * </ul>
  *
  * <p>未実装：WF 提交（businessType=PRODUCTION_WORK_ORDER）・E31/E32 受信、差戻し（20→10）・却下（20→95）、
- * 工序明細チェック、監査ログ、Idempotency-Key。</p>
+ * 監査ログ、Idempotency-Key。</p>
  */
 @Service
 public class WorkOrderApprovalService {

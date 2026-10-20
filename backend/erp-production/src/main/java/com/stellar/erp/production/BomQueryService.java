@@ -3,6 +3,7 @@ package com.stellar.erp.production;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
@@ -44,8 +45,8 @@ public class BomQueryService {
     }
 
     /** 有効 BOM の解決（呼出し側トランザクションに参加。工单登録の警告・下达時の展開でも同じ規則を使う）。 */
-    public java.util.Optional<EffectiveBom> find(long company, long materialId, long factoryId, LocalDate date) {
-        java.util.Optional<EffectiveBom> found = jdbc.sql("""
+    public Optional<EffectiveBom> find(long company, long materialId, long factoryId, LocalDate date) {
+        Optional<EffectiveBom> found = jdbc.sql("""
                         SELECT id, bom_no, material_id, material_code, factory_id, version_no, base_qty, base_uom_code,
                                valid_from, valid_to, is_default
                           FROM prd_bom
@@ -74,7 +75,7 @@ public class BomQueryService {
                         rs.getBigDecimal(7), rs.getBigDecimal(8), rs.getBigDecimal(9), rs.getObject(10, Integer.class),
                         rs.getBoolean(11), rs.getString(12)))
                 .list();
-        return java.util.Optional.of(new EffectiveBom(header.id(), header.bomNo(), header.materialId(), header.materialCode(),
+        return Optional.of(new EffectiveBom(header.id(), header.bomNo(), header.materialId(), header.materialCode(),
                 header.factoryId(), header.versionNo(), header.baseQty(), header.baseUomCode(), header.validFrom(),
                 header.validTo(), header.isDefault(), lines));
     }

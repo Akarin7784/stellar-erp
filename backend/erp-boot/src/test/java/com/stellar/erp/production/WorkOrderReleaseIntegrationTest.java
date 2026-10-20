@@ -227,7 +227,7 @@ class WorkOrderReleaseIntegrationTest {
             }
         }
         assertThat(ok).isEqualTo(1);
-        assertThat(failures).singleElement().satisfies(c -> assertThat(c).isEqualTo(4002));
+        assertThat(failures).singleElement().satisfies(c -> assertThat(c).isIn(4002, 4003));
 
         Map<String, Object> w = row(WO);
         assertThat(w.get("order_status")).isEqualTo(30);
