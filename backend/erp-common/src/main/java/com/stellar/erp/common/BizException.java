@@ -9,9 +9,17 @@ public class BizException extends RuntimeException {
 
     private final int code;
 
+    /** 消息编号（如 {@code MSG-PRD-040}），可空。 */
+    private final String msgId;
+
     public BizException(int code, String message) {
+        this(code, null, message);
+    }
+
+    public BizException(int code, String msgId, String message) {
         super(message);
         this.code = code;
+        this.msgId = msgId;
     }
 
     public BizException(String message) {
@@ -21,9 +29,14 @@ public class BizException extends RuntimeException {
     public BizException(int code, String message, Throwable cause) {
         super(message, cause);
         this.code = code;
+        this.msgId = null;
     }
 
     public int getCode() {
         return code;
+    }
+
+    public String getMsgId() {
+        return msgId;
     }
 }

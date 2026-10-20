@@ -24,6 +24,11 @@ class GlobalExceptionHandlerTest {
             throw new BizException(code, "msg-" + code);
         }
 
+        @GetMapping("/msg")
+        String msg() {
+            throw new BizException(60040, "MSG-PRD-040", "完工数量超过允许上限");
+        }
+
         @GetMapping("/boom")
         String boom() {
             throw new IllegalStateException("secret detail");
@@ -49,7 +54,16 @@ class GlobalExceptionHandlerTest {
         mvc.perform(get("/biz/" + code))
                 .andExpect(status().is(httpStatus))
                 .andExpect(jsonPath("$.code").value(code))
-                .andExpect(jsonPath("$.message").value("msg-" + code));
+                .andExpect(jsonPath("$.message").value("msg-" + code))
+                .andExpect(jsonPath("$.msgId").doesNotExist());
+    }
+
+    @Test
+    void msgIdIsReturnedWhenPresent() throws Exception {
+        mvc.perform(get("/msg"))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.code").value(60040))
+                .andExpect(jsonPath("$.msgId").value("MSG-PRD-040"));
     }
 
     @Test

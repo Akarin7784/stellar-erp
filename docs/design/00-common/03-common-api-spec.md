@@ -95,6 +95,7 @@
 | `code` | int | 0 = 成功。非 0 = 業務エラーコード（第 6 章） |
 | `message` | string | ユーザ表示用メッセージ（中国語）。技術詳細を含めない |
 | `data` | object/array/null | 成功時データ。エラー時は `null` または `fieldErrors` |
+| `msgId` | string/null | メッセージ ID（`MSG-{COM\|DOM}-{3桁}`、例 `MSG-PRD-040`）。業務エラーで対応 ID がある場合のみ設定、成功時・未定義時は `null`。フロントは `msgId` があれば表示し、なければ `code` を表示する |
 
 ### 5.2 成功例（詳細取得）
 

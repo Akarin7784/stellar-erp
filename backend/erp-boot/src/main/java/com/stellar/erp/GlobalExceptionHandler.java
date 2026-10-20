@@ -20,7 +20,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BizException.class)
     public ResponseEntity<Result<Void>> handleBiz(BizException ex) {
         return ResponseEntity.status(httpStatusOf(ex.getCode()))
-                .body(Result.fail(ex.getCode(), ex.getMessage()));
+                .body(Result.fail(ex.getCode(), ex.getMessage(), ex.getMsgId()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
