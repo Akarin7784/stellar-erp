@@ -87,7 +87,7 @@ stateDiagram-v2
 | SCR-SYS-010 | 组织部门管理 | EDIT | 左：部門ツリー、右：選択部門の詳細編集。並び替え・責任者設定 |
 | SCR-SYS-011 | 岗位管理 | LIST | 岗位一覧・編集ダイアログ。職級・管理職フラグ |
 | SCR-SYS-012 | 公司/工厂设置 | EDIT | タブ切替：公司情報、工厂一覧 |
-| SCR-SYS-013 | 租户设置 | LIST | 参照のみ（P2 で編集） |
+| SCR-SYS-013 | 租户设置 | LIST | 参照・編集（第一版。TODO：編集画面の設計が未作成） |
 
 ### 4.2 画面レイアウト（SCR-SYS-010 组织部门管理）
 
@@ -164,7 +164,7 @@ stateDiagram-v2
 | 内置ルート部門（D000） | 削除・移動 | 不可 |
 | 権限なし | 編集/追加/削除 | 非表示 |
 | 公司が 1 件のみ | 会社削除 | 非表示（最後の会社は削除不可） |
-| 租户設定 | 編集ボタン | P2 まで非表示 |
+| 租户設定 | 編集ボタン | 権限 `system:tenant:update` で表示（TODO：編集仕様未設計） |
 
 ## 5. 入力チェック仕様
 
@@ -261,7 +261,7 @@ stateDiagram-v2
 | 14 | GET | /api/system/factories | `system:company:view` | 工厂组织設合一覧（MDM の `mdm_factory` を参照） |
 | 15 | POST | /api/system/factories | `system:company:update` | 工厂组织設定登録（有効化・既定割当） |
 | 16 | PUT | /api/system/factories/{id} | `system:company:update` | 工厂组织設定更新 |
-| 17 | GET | /api/system/tenants | `system:tenant:view` | 租户一覧（P2） |
+| 17 | GET | /api/system/tenants | `system:tenant:view` | 租户一覧 |
 
 ### 7.1 リクエスト/レスポンス詳細
 

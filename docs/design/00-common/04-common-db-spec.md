@@ -385,7 +385,7 @@ V{yyyyMMdd}{DD}{NN}__{module}_{description}.sql     # バージョンは 12 桁
 
 ### 14.1 RLS とデータベースロール（第一版、2026-10-20 決定）
 
-詳細・実装は [10-rls-and-db-roles.md](10-rls-and-db-roles.md)（#43 で追加済み）。本節は決定事項の要約のみ記す。詳細は [10](10-rls-and-db-roles.md) を正とする。
+詳細・実装は [10-rls-and-db-roles.md](10-rls-and-db-roles.md)（#43 で追加済み）を正とする。本節は決定事項の要約のみ。
 
 | 項目 | 決定 |
 |---|---|
@@ -394,7 +394,7 @@ V{yyyyMMdd}{DD}{NN}__{module}_{description}.sql     # バージョンは 12 桁
 | テナント設定 | トランザクション内で `SET LOCAL app.tenant_id`（`set_config(..., true)`）。テナント文脈が無い場合はエラーとし、**tenant 0 へフォールバックしない** |
 | `tenant_id` 既定値 | `current_setting('app.tenant_id')::bigint` |
 | Flowable | 専用スキーマ `flowable`。表の owner はマイグレーションロール（Flyway で事前作成、`database-schema-update=false`）。`erp_app` には `USAGE` + 表の `SELECT/INSERT/UPDATE/DELETE` + シーケンスの `USAGE` を `ALTER DEFAULT PRIVILEGES` で付与（Refs #7） |
->>>>>>> de5dc74 (docs(common,system): 按评审调整：RLS/ON CONFLICT 改为引用，新增公司业务参数与完工超收规则)
+
 ## 15. バックアップ・リカバリ（設計前提）
 
 | 項目 | 内容 |

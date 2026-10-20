@@ -88,7 +88,7 @@ erDiagram
 |---|---|---|---|---|---|---|---|
 | 1 | sys_company | 公司 | マスタ | F-SYS-014 | 1〜5 件 | 無期限 | 3.1 |
 | 2 | sys_factory_setting | 工厂组织设置 | 設定 | 工厂の有効化・既定割当（主データは mdm_factory） | F-SYS-014 | 5 件 | 無期限 | 3.2 |
-| 3 | sys_tenant | 租户 | マスタ（予約） | F-SYS-017 | 1 件（P2） | 無期限 | 3.3 |
+| 3 | sys_tenant | 租户 | マスタ（予約） | F-SYS-017 | テナント数 | 無期限 | 3.3 |
 | 4 | sys_department | 部门 | マスタ | F-SYS-005 | 100 件 | 無期限 | 3.4 |
 | 5 | sys_position | 岗位 | マスタ | F-SYS-006 | 80 件 | 無期限 | 3.5 |
 | 6 | sys_user | 用户 | マスタ | F-SYS-002 | 900→1,150 | 無期限（退職後 5 年） | 3.6 |
@@ -212,7 +212,7 @@ COMMENT ON TABLE sys_factory_setting IS '工厂组织设置（工厂主数据は
 |---|---|
 | テーブル物理名 | sys_tenant |
 | 種別 | マスタ（M セット、`company_id` は持たない） |
-| 更新元機能 | F-SYS-017（P2） |
+| 更新元機能 | F-SYS-017 |
 | データ量見積 | `id=0` はシステムテナント。テナント数に応じて増加 |
 | 保存期間 | 無期限 |
 
@@ -236,7 +236,7 @@ COMMENT ON TABLE sys_tenant IS '租户（マルチテナント契約単位）';
 |---|---|---|---|---|
 | uk_sys_tenant_code | UNIQUE | (tenant_code) | WHERE deleted=FALSE | 租户コード一意 |
 
-**更新仕様**：P2 まで画面は参照のみ。初期データで `id=0`「系统默认租户」を投入する。
+**更新仕様**：画面での編集も第一版対象（TODO：編集仕様未設計）。初期データで `id=0`「系统默认租户」を投入する。
 
 ### 3.4 sys_department 部门
 
@@ -691,7 +691,7 @@ COMMENT ON TABLE sys_param IS '系统参数';
 
 | param_key | param_group | value_type | default_value | value_range | 説明 |
 |---|---|---|---|---|---|
-| `prd.completion_over_rate` | prd | 3 小数 | `0.05` | `0-1`（比率、`NUMERIC(5,4)` 相当） | 完工超収容差の会社既定（比率。`0.05` = 5%）。キー名はバックエンド PR #47 と一致 |
+| `prd.completion_over_rate` | prd | 3 小数 | `0.05` | `0.0000-1.0000`（比率、小数 4 桁、`NUMERIC(5,4)` 相当） | 完工超収容差の会社既定（比率。`0.05` = 5%）。キー名はバックエンド PR #47 と一致 |
 
 - `sys_param` はテナント単位（`tenant_id` + RLS）。既定値は**テナント作成時**に `sys_init_tenant(tenant_id)` を呼び出して投入する。既存の種テナントにはマイグレーションで明示的に行を投入する。関数・DDL は DBA の T1 マイグレーションで定義（本書は参照のみ）。
 - `sys_init_tenant` が投入する既定パラメータ：`prd.completion_over_rate = 0.05`（今後追加する既定パラメータもこの表に列挙する）。
@@ -1241,7 +1241,7 @@ CREATE TABLE sys_print_template (
     report_id           VARCHAR(32)   NOT NULL,           -- 帳票 ID（例 PRT-SAL-001）
     biz_type            VARCHAR(64)   NOT NULL,           -- 業務種別
     module_code         VARCHAR(32)   NOT NULL,           -- 模块名
-    engine_type         SMALLINT      NOT NULL DEFAULT 1, -- エンジン：1 HTML / 2 JasperReports（P2）
+    engine_type         SMALLINT      NOT NULL DEFAULT 1, -- エンジン：1 HTML / 2 JasperReports
     content             TEXT          NOT NULL,           -- テンプレート内容（HTML/JSON）
     page_size           VARCHAR(16)   NOT NULL DEFAULT 'A4', -- 用紙（A4/A5/LABEL）
     orientation         SMALLINT      NOT NULL DEFAULT 1, -- 1 縦 / 2 横

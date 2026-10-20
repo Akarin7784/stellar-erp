@@ -248,7 +248,7 @@ sequenceDiagram
 |---|---|---|---|---|---|
 | sys_company | 公司 | マスタ | 会計主体 | F-SYS-014 | 1〜5 件 |
 | sys_factory_setting | 工厂组织设置 | 設定 | 工厂の有効化・既定割当（主データは MDM の `mdm_factory`） | F-SYS-014 | 5 件 |
-| sys_tenant | 租户 | マスタ（予約） | マルチテナント契約単位 | F-SYS-017 | 1 件（P2） |
+| sys_tenant | 租户 | マスタ（予約） | マルチテナント契約単位 | F-SYS-017 | テナント数 |
 | sys_department | 部门 | マスタ | 組織ツリー | F-SYS-005 | 100 件 |
 | sys_position | 岗位 | マスタ | 職位 | F-SYS-006 | 80 件 |
 | sys_user | 用户 | マスタ | アカウント | F-SYS-002 | 900→1,150 |
@@ -318,7 +318,7 @@ sequenceDiagram
 | `system:department:view` / `create` / `update` / `delete` | F-SYS-005 | 全社 | 系统管理员、人事管理员 |
 | `system:position:view` / `create` / `update` / `delete` | F-SYS-006 | 全社 | 系统管理员、人事管理员 |
 | `system:company:view` / `update` | F-SYS-014 | 全社 | 系统管理员、财务总监（参照） |
-| `system:tenant:view` / `update` | F-SYS-017 | 全社 | 系统管理员（P2） |
+| `system:tenant:view` / `update` | F-SYS-017 | 全社 | 系统管理员 |
 | `system:dict:view` / `create` / `update` / `delete` | F-SYS-007 | 全社 | 系统管理员 |
 | `system:param:view` / `update` | F-SYS-008 | 全社 | 系统管理员、运维担当（view） |
 | `system:audit-log:view` / `export` | F-SYS-009 | 全社/部門/自己 | 内审员、系统管理员、总经理、财务总监 |
