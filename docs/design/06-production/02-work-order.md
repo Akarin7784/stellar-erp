@@ -42,7 +42,7 @@
 
 | # | 前提条件 | 成立しない場合の挙動 |
 |---|---|---|
-| 1 | 対象品目が `material_type ∈ {20 制造品, 30 委外品}`（委外は [04](04-outsourcing.md) へ） | エラー `MSG-PRD-001`「製造品ではありません」 |
+| 1 | 対象品目の生産計画マスタ `prd_material_planning.material_type`（品目×工厂）が `∈ {20 制造品, 30 委外品}`（委外は [04](04-outsourcing.md) へ）。MDM の `mdm_material.material_type`（10 成品〜80 服务）ではない（[90](90-db-design.md) `prd_material_planning`） | エラー `MSG-PRD-001`「製造品ではありません」（HTTP 422 / `60001`）。当該品目×工厂の計画行が存在しない場合も同じ |
 | 2 | 有効な BOM が存在する（製造品） | エラー `MSG-PRD-020`。BOM なしでは登録不可 |
 | 3 | 有効な工艺路线が存在する（または工序を手動登録） | 警告のうえ工序 0 件で登録可（後から追加） |
 | 4 | 工厂・倉庫が有効 | エラー `MSG-COM-049` |
@@ -326,7 +326,7 @@ stateDiagram-v2
 
 | No | チェック ID | 対象 | 種別 | 条件 | タイミング | メッセージ ID |
 |---|---|---|---|---|---|---|
-| 1 | CHK-PRD-002-01 | 品目 | 業務 | 製造品（`material_type ∈ {20,30}`）である | 保存時 | `MSG-PRD-001` |
+| 1 | CHK-PRD-002-01 | 品目 | 業務 | `prd_material_planning.material_type`（品目×工厂）`∈ {20 制造品, 30 委外品}`（`mdm_material.material_type` ではない）。計画行なしも NG | 保存時 | `MSG-PRD-001`（422 / `60001`） |
 | 2 | CHK-PRD-002-02 | 数量 | 範囲 | > 0、4 桁精度 | 入力時 | `MSG-COM-047` |
 | 3 | CHK-PRD-002-03 | 数量（変更） | 業務 | 変更後数量 ≧ 既入庫数量 | 保存時 | `MSG-PRD-003` |
 | 4 | CHK-PRD-002-04 | 計画日 | 相関 | 着手日 ≦ 完成日 | 保存時 | `MSG-COM-045` |
@@ -675,7 +675,6 @@ stateDiagram-v2
 | 版数 | 日付 | 変更内容 | 変更者 |
 |---|---|---|---|
 | v1.0 | 2026-10-20 | 初版：工单の登録/承認/下达/変更/拆分/合并/取消/結案、状態遷移 T-01〜T-10、サブステータス、画面 4 件の項目定義、処理 10、入力チェック 16、メッセージ 20、API 15、テスト観点 18 | production-designer |
-
-
 | v1.1 | 2026-10-20 | 红队修复第2轮（REV-001/002/003/004/012 等）：INV 単一採番への整合（MII/MIR/FGI/OSI/OSR は INV 所有、PRD は request_no＋stock_doc_id/stock_doc_no 参照）、E15 resultCode/batchNo/warehouseId、E24 stockStatus=10 待検→E15 合格で 20 可用、原価サンプル 120 PCE／材料 79,187.55（標準 79,194.00・価格差異 −6.45）／人工 6,450.00／費用 7,740.00／93,377.55（778.15）、工单結案を 40＋closed_at に統一（45 廃止）、INV API 参照・工费率所有権 | production-designer |
-| v1.3 | 2026-10-21 | `prd_work_order.standard_cost` を既定値なし・NULL 可に変更、下达時に `fin_standard_cost` 発行版をスナップショット、なしは NULL＋`MSG-FIN-117`・差異スキップ・画面「未設定」（PR #8 決定 2（蓝色大肥鱼 2026-10-21）） | 业务分析 |
+| v1.2 | 2026-10-21 | `prd_work_order.standard_cost` を既定値なし・NULL 可に変更、下达時に `fin_standard_cost` 発行版をスナップショット、なしは NULL＋`MSG-FIN-117`・差異スキップ・画面「未設定」（PR #8 決定 2（蓝色大肥鱼 2026-10-21））。※旧版では v1.3 と誤記（v1.2 欠番。git 履歴上 v1.2 の改訂は存在しないため改号） | 业务分析 |
+| v1.3 | 2026-10-21 | CHK-PRD-002-01／前提条件 1 を `prd_material_planning.material_type ∈ {20,30}`（品目×工厂）で判定と明記（`mdm_material.material_type` ではない）、計画行なしも `MSG-PRD-001`（422 / `60001`）（#18 決定 6（蓝色大肥鱼 2026-10-21）） | 业务分析 |
