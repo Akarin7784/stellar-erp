@@ -1847,7 +1847,7 @@ COMMENT ON TABLE fin_cash_plan IS '资金计划（実装順 P2）';
 
 - 業務一意索引（`uk_`）は DDL 本文・§3／§7 一覧とも `(tenant_id, company_id, 業務キー)` で始める。
 - `tenant_id` は `NOT NULL DEFAULT current_setting('app.tenant_id')::bigint`（字面量默认租户禁止）。`company_id` は `NOT NULL`・既定値なし。
-- **例外**：例外は [00-common/04](../00-common/04-common-db-spec.md) §6.1 第 4 条（`company_id` を持たないテナント共有表、`(tenant_id, …)` 先頭）のみ：`uk_sys_company_code`、`uk_sys_company_credit`、`uk_sys_menu_code`、`uk_sys_menu_permission`、`uk_sys_dict_type_code`、`uk_sys_outbox_event_id`、`uk_sys_idempotency_key`、`uk_mdm_exchange_rate`。親 ID・イベント ID 先頭の例外は廃止（蓝色大肥鱼 2026-10-21 決定、sys/V202610210708 と整合）。明細行番号（`uk_fin_*_line`）・子設定 `uk_fin_account_aux`・自己参照 `uk_fin_voucher_reversal`・イベント ID `uk_fin_auto_voucher_log_event` も `(tenant_id, company_id, …)` 先頭。
+- **例外**：例外は [00-common/04](../00-common/04-common-db-spec.md) §6.1 第 4 条（`company_id` を持たないテナント共有表、`(tenant_id, …)` 先頭）のみ：`uk_sys_company_code`、`uk_sys_company_credit`、`uk_sys_menu_code`、`uk_sys_menu_permission`、`uk_sys_dict_type_code`、`uk_sys_outbox_event_id`、`uk_sys_idempotency_key`、`uk_sys_user_username`（ログイン ID はテナント単位（蓝色大肥鱼 2026-10-21 決定））、`uk_mdm_exchange_rate`。親 ID・イベント ID 先頭の例外は廃止（蓝色大肥鱼 2026-10-21 決定、sys/V202610210708 と整合）。明細行番号（`uk_fin_*_line`）・子設定 `uk_fin_account_aux`・自己参照 `uk_fin_voucher_reversal`・イベント ID `uk_fin_auto_voucher_log_event` も `(tenant_id, company_id, …)` 先頭。
 - **G2-20**：非一意の照会索引（`idx_`）は `(company_id, …)` 先頭としてよい。`uk_` を `company_id` 先頭と書いてはならない。
 
 ---
@@ -1901,3 +1901,4 @@ COMMENT ON TABLE fin_cash_plan IS '资金计划（実装順 P2）';
 | v1.4 | 2026-10-21 | 発行の並行制御（`mdm_material` 行 `FOR NO KEY UPDATE`、ロック後に有効版取得）、`23P01`→MSG-FIN-134（422） | 业务分析 |
 | v1.5 | 2026-10-21 | `mdm_material.standard_cost` は当月有効版のみ反映、将来月開始版は期間開帳時に刷新（蓝色大肥鱼決定、#14） | 业务分析 |
 | v1.6 | 2026-10-21 | fin 明細・子設定・自己参照・イベント ID 14 件を 一意索引を `(tenant_id, company_id, …)` 先頭に統一（sys/V202610210707・0708 と整合）、「親 ID 先頭」例外一覧を削除。例外は 00-common/04 §6.1 第 4 条のテナント共有表のみ（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.7 | 2026-10-21 | 例外一覧に `uk_sys_user_username`（`(tenant_id, username)`、テナント単位）を追加（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

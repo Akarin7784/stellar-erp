@@ -1664,9 +1664,9 @@ COMMENT ON COLUMN inv_event_wait.waiting_for IS 'PI=入荷待ち、FGI=完工入
 - 業務一意索引は `(tenant_id, company_id, 業務キー)` で始める（Refs 43/49/54 と同一）。
 - `ON CONFLICT` は同じ列を含め、採番は `sys_sequence.step`（`EXCLUDED.step` 禁止）。
 - `company_id` は既定値なし・必須。`tenant_id` は `DEFAULT current_setting('app.tenant_id')::bigint`（禁止写死的默认租户）。
-- **例外**：例外は [00-common/04](../00-common/04-common-db-spec.md) §6.1 第 4 条（`company_id` を持たないテナント共有表、`(tenant_id, …)` 先頭）のみ：`uk_sys_company_code`、`uk_sys_company_credit`、`uk_sys_menu_code`、`uk_sys_menu_permission`、`uk_sys_dict_type_code`、`uk_sys_outbox_event_id`、`uk_sys_idempotency_key`、`uk_mdm_exchange_rate`。親 ID・イベント ID 先頭の例外は廃止（蓝色大肥鱼 2026-10-21 決定、sys/V202610210708 と整合）。明細・自己参照・イベント ID の一意索引（`uk_inv_*_line_no`、`uk_inv_stock_txn_reversal`、`uk_inv_stocktake_line_key`、`uk_inv_batch_genealogy_key`、`uk_inv_event_wait_event`）も `(tenant_id, company_id, …)` 先頭。
+- **例外**：例外は [00-common/04](../00-common/04-common-db-spec.md) §6.1 第 4 条（`company_id` を持たないテナント共有表、`(tenant_id, …)` 先頭）のみ：`uk_sys_company_code`、`uk_sys_company_credit`、`uk_sys_menu_code`、`uk_sys_menu_permission`、`uk_sys_dict_type_code`、`uk_sys_outbox_event_id`、`uk_sys_idempotency_key`、`uk_sys_user_username`（ログイン ID はテナント単位（蓝色大肥鱼 2026-10-21 決定））、`uk_mdm_exchange_rate`。親 ID・イベント ID 先頭の例外は廃止（蓝色大肥鱼 2026-10-21 決定、sys/V202610210708 と整合）。明細・自己参照・イベント ID の一意索引（`uk_inv_*_line_no`、`uk_inv_stock_txn_reversal`、`uk_inv_stocktake_line_key`、`uk_inv_batch_genealogy_key`、`uk_inv_event_wait_event`）も `(tenant_id, company_id, …)` 先頭。
 - `uk_inv_age_snapshot_key`・`uk_inv_scan_log_device_seq` は業務キーのため `(tenant_id, company_id, …)` 先頭に改めた。
-- **G2-20**：非一意の照会索引（`idx_`）は `(company_id, …)` 先頭としてよい。一意索引（`uk_`）を company_id 先頭と書いてはならない。
+- **G2-20**：非一意の btree 索引（`idx_`）も `tenant_id` 先頭（`company_id` を持つ表は次に `company_id`）とする（sys/V202610210707）。GIN 索引は対象外（蓝色大肥鱼 2026-10-21 決定）。一意索引（`uk_`）を company_id 先頭と書いてはならない。
 
 
 ## 11. 改訂履歴
@@ -1678,3 +1678,4 @@ COMMENT ON COLUMN inv_event_wait.waiting_for IS 'PI=入荷待ち、FGI=完工入
 | v1.1 | 2026-10-20 | 整合性修正：`inv_reservation_line` の CHECK（consumed + released ≤ reserved）を修正（E36/E37 によるテーブル変更なし） | inventory-designer |
 | v1.2 | 2026-10-20 | 红队第 2 轮修复：`inv_event_wait` 追加（テーブル 23 件・索引 24 件）、`inv_stock_txn.source_event_at` 追加、在庫状態コメントを 10=待検/20=可用へ更新、Flyway V202610210512 追加（旧表記 V2026102112） | inventory-designer |
 | v1.3 | 2026-10-21 | inv 明細・自己参照・イベント ID 15 件を 一意索引を `(tenant_id, company_id, …)` 先頭に統一（sys/V202610210707・0708 と整合）、「親 ID 先頭」例外一覧を削除。例外は 00-common/04 §6.1 第 4 条のテナント共有表のみ（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.4 | 2026-10-21 | 例外一覧に `uk_sys_user_username`（`(tenant_id, username)`、テナント単位）を追加（蓝色大肥鱼 2026-10-21 決定）。G2-20：非一意 btree `idx_` も `tenant_id` 先頭（次に `company_id`）、GIN 除外に修正 | 业务分析 |

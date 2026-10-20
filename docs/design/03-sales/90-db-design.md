@@ -1466,7 +1466,7 @@ CREATE INDEX idx_sal_forecast_line_material ON sal_sales_forecast_line (material
 - 業務一意索引は `(tenant_id, company_id, 業務キー)` で始める（#43/#49 と同一）。
 - `ON CONFLICT` は同じ列を含め、採番は `sys_sequence.step` で増分する（`EXCLUDED.step` 禁止）。
 - `company_id` は既定値なし・必須。`tenant_id` は `DEFAULT current_setting('app.tenant_id')::bigint`（`DEFAULT 0` 禁止）。
-- **例外**：例外は [00-common/04](../00-common/04-common-db-spec.md) §6.1 第 4 条（`company_id` を持たないテナント共有表、`(tenant_id, …)` 先頭）のみ：`uk_sys_company_code`、`uk_sys_company_credit`、`uk_sys_menu_code`、`uk_sys_menu_permission`、`uk_sys_dict_type_code`、`uk_sys_outbox_event_id`、`uk_sys_idempotency_key`、`uk_mdm_exchange_rate`。親 ID・イベント ID 先頭の例外は廃止（蓝色大肥鱼 2026-10-21 決定、sys/V202610210708 と整合）。明細・版表（`uk_sal_*_line_no`、`uk_sal_quotation_version_rev`、`uk_sal_sales_order_version_no`、`uk_sal_delivery_serial_line`）も `(tenant_id, company_id, 親 ID, …)` 先頭。
+- **例外**：例外は [00-common/04](../00-common/04-common-db-spec.md) §6.1 第 4 条（`company_id` を持たないテナント共有表、`(tenant_id, …)` 先頭）のみ：`uk_sys_company_code`、`uk_sys_company_credit`、`uk_sys_menu_code`、`uk_sys_menu_permission`、`uk_sys_dict_type_code`、`uk_sys_outbox_event_id`、`uk_sys_idempotency_key`、`uk_sys_user_username`（ログイン ID はテナント単位（蓝色大肥鱼 2026-10-21 決定））、`uk_mdm_exchange_rate`。親 ID・イベント ID 先頭の例外は廃止（蓝色大肥鱼 2026-10-21 決定、sys/V202610210708 と整合）。明細・版表（`uk_sal_*_line_no`、`uk_sal_quotation_version_rev`、`uk_sal_sales_order_version_no`、`uk_sal_delivery_serial_line`）も `(tenant_id, company_id, 親 ID, …)` 先頭。
 
 ## 10. 未決事項
 
@@ -1485,3 +1485,4 @@ CREATE INDEX idx_sal_forecast_line_material ON sal_sales_forecast_line (material
 | v1.0 | 2026-10-20 | 初版作成：29 テーブルの物理設計（DDL・索引・制約・容量・更新責任）、共通カラム方針、イベント連動、Flyway 計画 | sales-designer |
 | v1.1 | 2026-10-20 | 紅隊修復第 2 輪：`sal_credit_ledger_snapshot` を FIN 與信台帳の読取投影へ再定義（SAL 直接更新禁止）、與信判定コードを 10/20/30/40/90 に統一、与信使用額の権威を FIN へ一本化 | sales-designer |
 | v1.2 | 2026-10-21 | sal 明細・版表 15 件を 一意索引を `(tenant_id, company_id, …)` 先頭に統一（sys/V202610210707・0708 と整合）、「親 ID 先頭」例外一覧を削除。例外は 00-common/04 §6.1 第 4 条のテナント共有表のみ（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.3 | 2026-10-21 | 例外一覧に `uk_sys_user_username`（`(tenant_id, username)`、テナント単位）を追加（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

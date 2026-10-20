@@ -45,7 +45,7 @@
 | 明細（`*_line`、`*_item`、`*_action`、`*_labor`、`*_defect`） | `id`、`company_id`（親と同値を冗長保持。全索引の先頭列とするため省略不可、[04](../00-common/04-common-db-spec.md) 第 14 章）、親 ID、`line_no` 必須 |
 | 履歴・ログ（`prd_mrp_demand`、`prd_mrp_action`、`prd_work_order_change`、`prd_work_order_relation`、`prd_wo_lot`、`prd_capacity_load`） | `id`、`tenant_id`、`company_id`、`created_at`、`created_by` のみ。更新系カラム不要（追記専用、訂正は取消行＋再登録） |
 
-- **索引**（G2-20 対応）：**一意索引（`uk_`）は `(tenant_id, company_id, …)` 先頭**（例外は 00-common §6.1 第 4 条のみ。`uk_` を company_id 先頭としない）。非一意の照会・性能索引（`idx_`）は多公司フィルタのため `(company_id, …)` または `(tenant_id, company_id, …)` 先頭としてよい（[04](../00-common/04-common-db-spec.md) 第 6・7 章、G2-20）。マスタの業務キー一意索引は `WHERE deleted = FALSE` の部分一意索引とする。
+- **索引**（G2-20 対応）：**一意索引（`uk_`）は `(tenant_id, company_id, …)` 先頭**（例外は 00-common §6.1 第 4 条のみ。`uk_` を company_id 先頭としない）。非一意の btree 索引（`idx_`）も `tenant_id` 先頭（`company_id` を持つ表は次に `company_id`）とする（sys/V202610210707）。GIN 索引は対象外（[04](../00-common/04-common-db-spec.md) 第 6・7 章、G2-20）（蓝色大肥鱼 2026-10-21 決定）。マスタの業務キー一意索引は `WHERE deleted = FALSE` の部分一意索引とする。
 - **型・精度**：金額 `NUMERIC(18,2)`、単価 `NUMERIC(18,6)`、数量 `NUMERIC(18,4)`、比率 `NUMERIC(7,4)`、工数 `NUMERIC(12,2)`、単件標準工時 `NUMERIC(12,4)`（01 第 6 章の工数を単件基準で細分化したもの。合計工数は `NUMERIC(12,2)`）、日付 `DATE`、日時 `TIMESTAMPTZ`。`FLOAT`/`DOUBLE` は使用禁止。
 - **状態・区分**：`SMALLINT`＋`COMMENT ON COLUMN` で定義。名称は DB に保存しない（Java enum / message properties で解決）。
 - **採番**：業務番号は `sys_sequence`（[08](../00-common/08-common-business-rules.md) 2.1）。本域の採番キーは §6.1。
@@ -2605,7 +2605,7 @@ CREATE INDEX idx_prd_capacity_load_date ON prd_capacity_load (company_id, load_d
 - 業務一意索引は `(tenant_id, company_id, 業務キー)` で始める（#43/#49/#54 と同一）。
 - `ON CONFLICT` は同じ列を含め、採番は `sys_sequence.step` で増分（`EXCLUDED.step` 禁止）。
 - `company_id` は既定値なし・必須。`tenant_id` は `DEFAULT current_setting('app.tenant_id')::bigint`（禁止写死的默认租户。字面量 `0` を DEFAULT にしない）。
-- **例外**：例外は [00-common/04](../00-common/04-common-db-spec.md) §6.1 第 4 条（`company_id` を持たないテナント共有表、`(tenant_id, …)` 先頭）のみ：`uk_sys_company_code`、`uk_sys_company_credit`、`uk_sys_menu_code`、`uk_sys_menu_permission`、`uk_sys_dict_type_code`、`uk_sys_outbox_event_id`、`uk_sys_idempotency_key`、`uk_mdm_exchange_rate`。親 ID・イベント ID 先頭の例外は廃止（蓝色大肥鱼 2026-10-21 決定、sys/V202610210708 と整合）。明細表 16 件（旧「親 ID 先頭」例外。0708 で `tenant_id` を前置）も `(tenant_id, company_id, 親 ID, …)` 先頭。
+- **例外**：例外は [00-common/04](../00-common/04-common-db-spec.md) §6.1 第 4 条（`company_id` を持たないテナント共有表、`(tenant_id, …)` 先頭）のみ：`uk_sys_company_code`、`uk_sys_company_credit`、`uk_sys_menu_code`、`uk_sys_menu_permission`、`uk_sys_dict_type_code`、`uk_sys_outbox_event_id`、`uk_sys_idempotency_key`、`uk_sys_user_username`（ログイン ID はテナント単位（蓝色大肥鱼 2026-10-21 決定））、`uk_mdm_exchange_rate`。親 ID・イベント ID 先頭の例外は廃止（蓝色大肥鱼 2026-10-21 決定、sys/V202610210708 と整合）。明細表 16 件（旧「親 ID 先頭」例外。0708 で `tenant_id` を前置）も `(tenant_id, company_id, 親 ID, …)` 先頭。
 
 
 ## 9. 改訂履歴
@@ -2628,3 +2628,4 @@ CREATE INDEX idx_prd_capacity_load_date ON prd_capacity_load (company_id, load_d
 | v1.5 | 2026-10-21 | `ck_prd_opa_qty` を `ck_prd_opa_request_qty`（request_qty > 0、違反は 60103）と `ck_prd_opa_allowed_qty`（current_allowed_qty >= 0）に分割（migration prd/V202610210704） | 数据库与运维 |
 | v1.6 | 2026-10-21 | §4 索引一覧 #1・#2 の対象列を DDL と一致（`tenant_id, company_id` / `company_id` を追加） | 业务分析 |
 | v1.7 | 2026-10-21 | prd 明細 16 件を 一意索引を `(tenant_id, company_id, …)` 先頭に統一（sys/V202610210707・0708 と整合）、「親 ID 先頭」例外一覧を削除。例外は 00-common/04 §6.1 第 4 条のテナント共有表のみ（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.8 | 2026-10-21 | 例外一覧に `uk_sys_user_username`（`(tenant_id, username)`、テナント単位）を追加（蓝色大肥鱼 2026-10-21 決定）。G2-20：非一意 btree `idx_` も `tenant_id` 先頭（次に `company_id`）、GIN 除外に修正 | 业务分析 |

@@ -100,24 +100,24 @@ erDiagram
 | # | 物理名 | 論理名 | 種別 | 主キー以外の一意キー | 更新元機能 | 件数見積（5 年） |
 |---|---|---|---|---|---|---|
 | 1 | `pur_purchase_requisition` | 请购单 | 伝票ヘッダ | `(tenant_id, company_id, pr_no)` | F-PUR-001/002/003 | 17,000 |
-| 2 | `pur_purchase_requisition_line` | 请购单明细 | 伝票明細 | `(tenant_id, purchase_requisition_id, line_no)` | 同上 | 68,000 |
+| 2 | `pur_purchase_requisition_line` | 请购单明细 | 伝票明細 | `(tenant_id, company_id, purchase_requisition_id, line_no)` | 同上 | 68,000 |
 | 3 | `pur_rfq` | 询价单 | 伝票ヘッダ | `(tenant_id, company_id, rfq_no)` | F-PUR-004 | 3,300 |
-| 4 | `pur_rfq_line` | 询价单明细 | 伝票明細 | `(tenant_id, rfq_id, line_no)` | F-PUR-004 | 13,200 |
-| 5 | `pur_rfq_supplier` | 询价供应商 | 関連 | `(tenant_id, rfq_id, supplier_id)` | F-PUR-004/005 | 16,500 |
-| 6 | `pur_supplier_quotation` | 供应商报价 | 伝票ヘッダ | `(tenant_id, rfq_id, supplier_id)` | F-PUR-005 | 27,500 |
-| 7 | `pur_supplier_quotation_line` | 供应商报价明细 | 伝票明細 | `(tenant_id, quotation_id, rfq_line_id)` | F-PUR-005/006 | 110,000 |
+| 4 | `pur_rfq_line` | 询价单明细 | 伝票明細 | `(tenant_id, company_id, rfq_id, line_no)` | F-PUR-004 | 13,200 |
+| 5 | `pur_rfq_supplier` | 询价供应商 | 関連 | `(tenant_id, company_id, rfq_id, supplier_id)` | F-PUR-004/005 | 16,500 |
+| 6 | `pur_supplier_quotation` | 供应商报价 | 伝票ヘッダ | `(tenant_id, company_id, rfq_id, supplier_id)` | F-PUR-005 | 27,500 |
+| 7 | `pur_supplier_quotation_line` | 供应商报价明细 | 伝票明細 | `(tenant_id, company_id, quotation_id, rfq_line_id)` | F-PUR-005/006 | 110,000 |
 | 8 | `pur_purchase_order` | 采购订单 | 伝票ヘッダ | `(tenant_id, company_id, po_no)` | F-PUR-007～010 | 80,000 |
-| 9 | `pur_purchase_order_line` | 采购订单明细 | 伝票明細 | `(tenant_id, purchase_order_id, line_no)` | F-PUR-007～011 | 400,000 |
-| 10 | `pur_purchase_order_his` | 采购订单变更履历 | 履歴 | `(tenant_id, purchase_order_id, version_no)` | F-PUR-009 | 40,000 |
+| 9 | `pur_purchase_order_line` | 采购订单明细 | 伝票明細 | `(tenant_id, company_id, purchase_order_id, line_no)` | F-PUR-007～011 | 400,000 |
+| 10 | `pur_purchase_order_his` | 采购订单变更履历 | 履歴 | `(tenant_id, company_id, purchase_order_id, version_no)` | F-PUR-009 | 40,000 |
 | 11 | `pur_receipt` | 收货单 | 伝票ヘッダ | `(tenant_id, company_id, receipt_no)` | F-PUR-011/012 | 120,000 |
-| 12 | `pur_receipt_line` | 收货单明细 | 伝票明細 | `(tenant_id, receipt_id, line_no)` | F-PUR-011～014 | 600,000 |
+| 12 | `pur_receipt_line` | 收货单明细 | 伝票明細 | `(tenant_id, company_id, receipt_id, line_no)` | F-PUR-011～014 | 600,000 |
 | 13 | `pur_return` | 采购退货单 | 伝票ヘッダ | `(tenant_id, company_id, return_no)` | F-PUR-015/016 | 6,000 |
-| 14 | `pur_return_line` | 采购退货单明细 | 伝票明細 | `(tenant_id, return_id, line_no)` | F-PUR-015/016 | 13,000 |
+| 14 | `pur_return_line` | 采购退货单明细 | 伝票明細 | `(tenant_id, company_id, return_id, line_no)` | F-PUR-015/016 | 13,000 |
 | 15 | `pur_invoice` | 采购发票登记 | 伝票ヘッダ | `(tenant_id, company_id, invoice_no)`／`(tenant_id, company_id, supplier_id, COALESCE(invoice_code,''), invoice_number)` | F-PUR-017/018 | 60,000 |
-| 16 | `pur_invoice_line` | 采购发票明细 | 伝票明細 | `(tenant_id, invoice_id, line_no)` | F-PUR-017/018 | 360,000 |
-| 17 | `pur_invoice_match` | 三单匹配结果 | 履歴 | `(tenant_id, invoice_line_id, receipt_line_id)` | F-PUR-018 | 360,000 |
+| 16 | `pur_invoice_line` | 采购发票明细 | 伝票明細 | `(tenant_id, company_id, invoice_id, line_no)` | F-PUR-017/018 | 360,000 |
+| 17 | `pur_invoice_match` | 三单匹配结果 | 履歴 | `(tenant_id, company_id, invoice_line_id, receipt_line_id)` | F-PUR-018 | 360,000 |
 | 18 | `pur_statement` | 采购对账单 | 伝票ヘッダ | `(tenant_id, company_id, statement_no)`／`(tenant_id, company_id, supplier_id, period_code)` | F-PUR-019 | 14,000 |
-| 19 | `pur_statement_line` | 采购对账单明细 | 伝票明細 | `(tenant_id, statement_id, line_no)` | F-PUR-019 | 210,000 |
+| 19 | `pur_statement_line` | 采购对账单明细 | 伝票明細 | `(tenant_id, company_id, statement_id, line_no)` | F-PUR-019 | 210,000 |
 | 20 | `pur_tolerance_rule` | 容差规则 | 設定 | `(tenant_id, company_id, rule_type, scope_level, scope_id, valid_from)` | F-PUR-011/018 | 50（マスタ相当） |
 | 21 | `pur_delivery_followup` | 催货记录 | ログ（追記） | `(id)` のみ | F-PUR-023 | 30,000 |
 | 22 | `pur_supplier_performance` | 供应商绩效快照 | 集計 | `(tenant_id, company_id, period_code, supplier_id)` | F-PUR-026 | 48,000 |
@@ -254,6 +254,7 @@ CREATE TABLE pur_purchase_requisition (
 CREATE TABLE pur_purchase_requisition_line (
     id                      BIGINT       NOT NULL,
     tenant_id               BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
+    company_id              BIGINT       NOT NULL,
     purchase_requisition_id BIGINT       NOT NULL,
     line_no                 INT          NOT NULL,
     material_id             BIGINT       NOT NULL,
@@ -279,7 +280,7 @@ CREATE TABLE pur_purchase_requisition_line (
     updated_at              TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_by              BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_pur_purchase_requisition_line PRIMARY KEY (id),
-    CONSTRAINT uk_pur_purchase_requisition_line_no UNIQUE (tenant_id, purchase_requisition_id, line_no),
+    CONSTRAINT uk_pur_purchase_requisition_line_no UNIQUE (tenant_id, company_id, purchase_requisition_id, line_no),
     CONSTRAINT fk_pur_purchase_requisition_line_pr FOREIGN KEY (purchase_requisition_id)
         REFERENCES pur_purchase_requisition (id) ON DELETE RESTRICT,
     CONSTRAINT fk_pur_purchase_requisition_line_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
@@ -400,6 +401,7 @@ CREATE TABLE pur_rfq (
 CREATE TABLE pur_rfq_line (
     id                  BIGINT       NOT NULL,
     tenant_id           BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
+    company_id          BIGINT       NOT NULL,
     rfq_id              BIGINT       NOT NULL,
     line_no             INT          NOT NULL,
     purchase_requisition_line_id BIGINT,
@@ -422,7 +424,7 @@ CREATE TABLE pur_rfq_line (
     updated_at          TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_by          BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_pur_rfq_line PRIMARY KEY (id),
-    CONSTRAINT uk_pur_rfq_line_no UNIQUE (tenant_id, rfq_id, line_no),
+    CONSTRAINT uk_pur_rfq_line_no UNIQUE (tenant_id, company_id, rfq_id, line_no),
     CONSTRAINT fk_pur_rfq_line_rfq FOREIGN KEY (rfq_id) REFERENCES pur_rfq (id) ON DELETE RESTRICT,
     CONSTRAINT fk_pur_rfq_line_pr_line FOREIGN KEY (purchase_requisition_line_id) REFERENCES pur_purchase_requisition_line (id),
     CONSTRAINT fk_pur_rfq_line_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
@@ -464,6 +466,7 @@ CREATE TABLE pur_rfq_line (
 CREATE TABLE pur_rfq_supplier (
     id              BIGINT       NOT NULL,
     tenant_id       BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
+    company_id      BIGINT       NOT NULL,
     rfq_id          BIGINT       NOT NULL,
     supplier_id     BIGINT       NOT NULL,
     supplier_code   VARCHAR(20)  NOT NULL,
@@ -479,7 +482,7 @@ CREATE TABLE pur_rfq_supplier (
     updated_by      BIGINT       NOT NULL DEFAULT 0,
     version         INT          NOT NULL DEFAULT 0,
     CONSTRAINT pk_pur_rfq_supplier PRIMARY KEY (id),
-    CONSTRAINT uk_pur_rfq_supplier UNIQUE (tenant_id, rfq_id, supplier_id),
+    CONSTRAINT uk_pur_rfq_supplier UNIQUE (tenant_id, company_id, rfq_id, supplier_id),
     CONSTRAINT fk_pur_rfq_supplier_rfq FOREIGN KEY (rfq_id) REFERENCES pur_rfq (id) ON DELETE RESTRICT,
     CONSTRAINT fk_pur_rfq_supplier_supplier FOREIGN KEY (tenant_id, supplier_id) REFERENCES mdm_supplier (tenant_id, id),
     CONSTRAINT ck_pur_rfq_supplier_status CHECK (response_status IN (0,1,2,3,4))
@@ -515,6 +518,7 @@ CREATE TABLE pur_rfq_supplier (
 CREATE TABLE pur_supplier_quotation (
     id                  BIGINT       NOT NULL,
     tenant_id           BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
+    company_id          BIGINT       NOT NULL,
     rfq_id              BIGINT       NOT NULL,
     supplier_id         BIGINT       NOT NULL,
     quotation_no        VARCHAR(64),                  -- 供应商側の見積番号（外部）
@@ -536,7 +540,7 @@ CREATE TABLE pur_supplier_quotation (
     updated_at          TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_by          BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_pur_supplier_quotation PRIMARY KEY (id),
-    CONSTRAINT uk_pur_supplier_quotation UNIQUE (tenant_id, rfq_id, supplier_id),
+    CONSTRAINT uk_pur_supplier_quotation UNIQUE (tenant_id, company_id, rfq_id, supplier_id),
     CONSTRAINT fk_pur_supplier_quotation_rfq FOREIGN KEY (rfq_id) REFERENCES pur_rfq (id) ON DELETE RESTRICT,
     CONSTRAINT fk_pur_supplier_quotation_supplier FOREIGN KEY (tenant_id, supplier_id) REFERENCES mdm_supplier (tenant_id, id),
     CONSTRAINT ck_pur_supplier_quotation_valid CHECK (valid_to >= valid_from),
@@ -574,6 +578,7 @@ CREATE TABLE pur_supplier_quotation (
 CREATE TABLE pur_supplier_quotation_line (
     id                   BIGINT       NOT NULL,
     tenant_id            BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
+    company_id           BIGINT       NOT NULL,
     quotation_id         BIGINT       NOT NULL,
     rfq_line_id          BIGINT       NOT NULL,
     material_id          BIGINT       NOT NULL,
@@ -605,7 +610,7 @@ CREATE TABLE pur_supplier_quotation_line (
     updated_at           TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_by           BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_pur_supplier_quotation_line PRIMARY KEY (id),
-    CONSTRAINT uk_pur_supplier_quotation_line UNIQUE (tenant_id, quotation_id, rfq_line_id),
+    CONSTRAINT uk_pur_supplier_quotation_line UNIQUE (tenant_id, company_id, quotation_id, rfq_line_id),
     CONSTRAINT fk_pur_supplier_quotation_line_q FOREIGN KEY (quotation_id) REFERENCES pur_supplier_quotation (id) ON DELETE RESTRICT,
     CONSTRAINT fk_pur_supplier_quotation_line_rfq_line FOREIGN KEY (rfq_line_id) REFERENCES pur_rfq_line (id),
     CONSTRAINT fk_pur_supplier_quotation_line_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
@@ -762,6 +767,7 @@ CREATE TABLE pur_purchase_order (
 CREATE TABLE pur_purchase_order_line (
     id                       BIGINT       NOT NULL,
     tenant_id                BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
+    company_id               BIGINT       NOT NULL,
     purchase_order_id        BIGINT       NOT NULL,
     line_no                  INT          NOT NULL,
     purchase_requisition_line_id BIGINT,
@@ -803,7 +809,7 @@ CREATE TABLE pur_purchase_order_line (
     updated_at               TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_by               BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_pur_purchase_order_line PRIMARY KEY (id),
-    CONSTRAINT uk_pur_purchase_order_line_no UNIQUE (tenant_id, purchase_order_id, line_no),
+    CONSTRAINT uk_pur_purchase_order_line_no UNIQUE (tenant_id, company_id, purchase_order_id, line_no),
     CONSTRAINT fk_pur_purchase_order_line_po FOREIGN KEY (purchase_order_id) REFERENCES pur_purchase_order (id) ON DELETE RESTRICT,
     CONSTRAINT fk_pur_purchase_order_line_pr_line FOREIGN KEY (purchase_requisition_line_id) REFERENCES pur_purchase_requisition_line (id),
     CONSTRAINT fk_pur_purchase_order_line_quote_line FOREIGN KEY (rfq_quotation_line_id) REFERENCES pur_supplier_quotation_line (id),
@@ -851,6 +857,7 @@ CREATE TABLE pur_purchase_order_line (
 CREATE TABLE pur_purchase_order_his (
     id               BIGINT       NOT NULL,
     tenant_id        BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
+    company_id       BIGINT       NOT NULL,
     purchase_order_id BIGINT      NOT NULL,
     version_no       INT          NOT NULL,
     change_type      SMALLINT     NOT NULL,          -- 1数量/2単価/3交期/4取消行/5行追加/9その他
@@ -865,7 +872,7 @@ CREATE TABLE pur_purchase_order_his (
     changed_at       TIMESTAMPTZ  NOT NULL DEFAULT now(),
     changed_by       BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_pur_purchase_order_his PRIMARY KEY (id),
-    CONSTRAINT uk_pur_purchase_order_his UNIQUE (tenant_id, purchase_order_id, version_no),
+    CONSTRAINT uk_pur_purchase_order_his UNIQUE (tenant_id, company_id, purchase_order_id, version_no),
     CONSTRAINT fk_pur_purchase_order_his_po FOREIGN KEY (purchase_order_id) REFERENCES pur_purchase_order (id) ON DELETE RESTRICT,
     CONSTRAINT ck_pur_purchase_order_his_type CHECK (change_type IN (1,2,3,4,5,9))
 );
@@ -968,6 +975,7 @@ CREATE TABLE pur_receipt (
 CREATE TABLE pur_receipt_line (
     id                    BIGINT       NOT NULL,
     tenant_id             BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
+    company_id            BIGINT       NOT NULL,
     receipt_id            BIGINT       NOT NULL,
     line_no               INT          NOT NULL,
     purchase_order_line_id BIGINT      NOT NULL,
@@ -1014,7 +1022,7 @@ CREATE TABLE pur_receipt_line (
     updated_at            TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_by            BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_pur_receipt_line PRIMARY KEY (id),
-    CONSTRAINT uk_pur_receipt_line_no UNIQUE (tenant_id, receipt_id, line_no),
+    CONSTRAINT uk_pur_receipt_line_no UNIQUE (tenant_id, company_id, receipt_id, line_no),
     CONSTRAINT fk_pur_receipt_line_receipt FOREIGN KEY (receipt_id) REFERENCES pur_receipt (id) ON DELETE RESTRICT,
     CONSTRAINT fk_pur_receipt_line_po_line FOREIGN KEY (purchase_order_line_id) REFERENCES pur_purchase_order_line (id),
     CONSTRAINT fk_pur_receipt_line_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
@@ -1138,6 +1146,7 @@ CREATE TABLE pur_return (
 CREATE TABLE pur_return_line (
     id                    BIGINT       NOT NULL,
     tenant_id             BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
+    company_id            BIGINT       NOT NULL,
     return_id             BIGINT       NOT NULL,
     line_no               INT          NOT NULL,
     receipt_id            BIGINT,
@@ -1167,7 +1176,7 @@ CREATE TABLE pur_return_line (
     updated_at            TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_by            BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_pur_return_line PRIMARY KEY (id),
-    CONSTRAINT uk_pur_return_line_no UNIQUE (tenant_id, return_id, line_no),
+    CONSTRAINT uk_pur_return_line_no UNIQUE (tenant_id, company_id, return_id, line_no),
     CONSTRAINT fk_pur_return_line_return FOREIGN KEY (return_id) REFERENCES pur_return (id) ON DELETE RESTRICT,
     CONSTRAINT fk_pur_return_line_receipt_line FOREIGN KEY (receipt_line_id) REFERENCES pur_receipt_line (id),
     CONSTRAINT fk_pur_return_line_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
@@ -1290,6 +1299,7 @@ CREATE UNIQUE INDEX uk_pur_invoice_number ON pur_invoice
 CREATE TABLE pur_invoice_line (
     id                     BIGINT       NOT NULL,
     tenant_id              BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
+    company_id             BIGINT       NOT NULL,
     invoice_id             BIGINT       NOT NULL,
     line_no                INT          NOT NULL,
     purchase_order_id      BIGINT,
@@ -1316,7 +1326,7 @@ CREATE TABLE pur_invoice_line (
     updated_at             TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_by             BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_pur_invoice_line PRIMARY KEY (id),
-    CONSTRAINT uk_pur_invoice_line_no UNIQUE (tenant_id, invoice_id, line_no),
+    CONSTRAINT uk_pur_invoice_line_no UNIQUE (tenant_id, company_id, invoice_id, line_no),
     CONSTRAINT fk_pur_invoice_line_invoice FOREIGN KEY (invoice_id) REFERENCES pur_invoice (id) ON DELETE RESTRICT,
     CONSTRAINT fk_pur_invoice_line_po_line FOREIGN KEY (purchase_order_line_id) REFERENCES pur_purchase_order_line (id),
     CONSTRAINT fk_pur_invoice_line_receipt_line FOREIGN KEY (receipt_line_id) REFERENCES pur_receipt_line (id),
@@ -1358,6 +1368,7 @@ CREATE TABLE pur_invoice_line (
 CREATE TABLE pur_invoice_match (
     id                    BIGINT       NOT NULL,
     tenant_id             BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
+    company_id            BIGINT       NOT NULL,
     invoice_id            BIGINT       NOT NULL,
     invoice_line_id       BIGINT       NOT NULL,
     purchase_order_id     BIGINT       NOT NULL,
@@ -1394,7 +1405,7 @@ CREATE TABLE pur_invoice_match (
     updated_at            TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_by            BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_pur_invoice_match PRIMARY KEY (id),
-    CONSTRAINT uk_pur_invoice_match UNIQUE (tenant_id, invoice_line_id, receipt_line_id),
+    CONSTRAINT uk_pur_invoice_match UNIQUE (tenant_id, company_id, invoice_line_id, receipt_line_id),
     CONSTRAINT fk_pur_invoice_match_invoice FOREIGN KEY (invoice_id) REFERENCES pur_invoice (id) ON DELETE RESTRICT,
     CONSTRAINT fk_pur_invoice_match_invoice_line FOREIGN KEY (invoice_line_id) REFERENCES pur_invoice_line (id),
     CONSTRAINT fk_pur_invoice_match_po_line FOREIGN KEY (purchase_order_line_id) REFERENCES pur_purchase_order_line (id),
@@ -1506,6 +1517,7 @@ CREATE TABLE pur_statement (
 CREATE TABLE pur_statement_line (
     id                BIGINT       NOT NULL,
     tenant_id         BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
+    company_id        BIGINT       NOT NULL,
     statement_id      BIGINT       NOT NULL,
     line_no           INT          NOT NULL,
     source_type       VARCHAR(32)  NOT NULL,        -- RECEIPT/PURCHASE_ORDER/RETURN/INVOICE/PAYMENT
@@ -1523,7 +1535,7 @@ CREATE TABLE pur_statement_line (
     created_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),
     created_by        BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_pur_statement_line PRIMARY KEY (id),
-    CONSTRAINT uk_pur_statement_line_no UNIQUE (tenant_id, statement_id, line_no),
+    CONSTRAINT uk_pur_statement_line_no UNIQUE (tenant_id, company_id, statement_id, line_no),
     CONSTRAINT fk_pur_statement_line_statement FOREIGN KEY (statement_id) REFERENCES pur_statement (id) ON DELETE RESTRICT,
     CONSTRAINT fk_pur_statement_line_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
     CONSTRAINT ck_pur_statement_line_amount CHECK (debit_amount >= 0 AND credit_amount >= 0)
@@ -1628,6 +1640,7 @@ CREATE UNIQUE INDEX uk_pur_tolerance_rule ON pur_tolerance_rule
 CREATE TABLE pur_delivery_followup (
     id                  BIGINT       NOT NULL,
     tenant_id           BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
+    company_id          BIGINT       NOT NULL,
     purchase_order_id   BIGINT       NOT NULL,
     purchase_order_line_id BIGINT    NOT NULL,
     followup_date       DATE         NOT NULL,
@@ -1753,9 +1766,9 @@ CREATE TABLE pur_supplier_performance (
 ### 6.1 一意索引の先頭列ルールと例外（2026-10-21、05-inventory と同一方針）
 
 - 業務一意索引（`uk_`）は DDL 本文・本一覧とも `(tenant_id, company_id, 業務キー)` で始める。
-- `tenant_id` は `NOT NULL DEFAULT current_setting('app.tenant_id')::bigint`（字面量默认租户禁止）。`company_id` は NOT NULL・既定値なし（ヘッダ・設定・集計テーブル）。
-- **例外なし**：「親 ID 先頭」の例外は全域で廃止（蓝色大肥鱼 2026-10-21 決定、sys/V202610210708 と整合）。例外は [00-common/04](../00-common/04-common-db-spec.md) §6.1 第 4 条（`company_id` を持たないテナント共有表、`(tenant_id, …)` 先頭）のみ：`uk_sys_company_code`、`uk_sys_company_credit`、`uk_sys_menu_code`、`uk_sys_menu_permission`、`uk_sys_dict_type_code`、`uk_sys_outbox_event_id`、`uk_sys_idempotency_key`、`uk_mdm_exchange_rate`。親 ID・イベント ID 先頭の例外は廃止。※ 本域の明細・関連・履歴テーブル（`pur_*_line` 等 13 表）は DDL に `company_id` 列がなく、一意制約は `(tenant_id, 親 ID, …)` 先頭（例：`UNIQUE (tenant_id, purchase_requisition_id, line_no)`）。`company_id` 列追加の要否は未決（§未決事項参照）。
-- **G2-20**：非一意の照会索引（`idx_`）は `(company_id, …)` 先頭としてよい。`uk_` を company_id 先頭と書いてはならない。
+- `tenant_id` は `NOT NULL DEFAULT current_setting('app.tenant_id')::bigint`（字面量默认租户禁止）。`company_id` は NOT NULL・既定値なし（全テーブル。明細・関連・履歴を含む）。
+- **例外なし**：「親 ID 先頭」の例外は全域で廃止（蓝色大肥鱼 2026-10-21 決定、sys/V202610210708 と整合）。例外は [00-common/04](../00-common/04-common-db-spec.md) §6.1 第 4 条（`company_id` を持たないテナント共有表、`(tenant_id, …)` 先頭）のみ：`uk_sys_company_code`、`uk_sys_company_credit`、`uk_sys_menu_code`、`uk_sys_menu_permission`、`uk_sys_dict_type_code`、`uk_sys_outbox_event_id`、`uk_sys_idempotency_key`、`uk_sys_user_username`（ログイン ID はテナント単位（蓝色大肥鱼 2026-10-21 決定））、`uk_mdm_exchange_rate`。親 ID・イベント ID 先頭の例外は廃止。明細・関連・履歴テーブル 13 表にも `company_id BIGINT NOT NULL` を持たせ、一意制約は `(tenant_id, company_id, 親 ID, …)` 先頭（例：`UNIQUE (tenant_id, company_id, purchase_requisition_id, line_no)`）（蓝色大肥鱼 2026-10-21 決定）。
+- **G2-20**：非一意の btree 索引（`idx_`）も `tenant_id` 先頭（`company_id` を持つ表は次に `company_id`）とする（sys/V202610210707）。GIN 索引は対象外。`uk_` を company_id 先頭と書いてはならない（蓝色大肥鱼 2026-10-21 決定）。
 
 ---
 
@@ -1773,7 +1786,7 @@ CREATE TABLE pur_supplier_performance (
 | 8 | 親子の参照整合（CASCADE 禁止） | FK `ON DELETE RESTRICT` | 明細 |
 | 9 | マスタ参照整合 | 複合 FK `(tenant_id, x_id) REFERENCES mdm_*/sys_* (tenant_id, id)`（sys/V202610210707 と同一規約。単列 FK 禁止、跨租户参照は 23503） | 各テーブル |
 | 10 | 二重計上防止 | E17 の `(source_type, source_id)` 一意（`sys_outbox_event` と FIN 側） | イベント |
-| 11 | 二重マッチ防止 | UNIQUE (`tenant_id`, `invoice_line_id`, `receipt_line_id`) | `pur_invoice_match` |
+| 11 | 二重マッチ防止 | UNIQUE (`tenant_id`, `company_id`, `invoice_line_id`, `receipt_line_id`) | `pur_invoice_match` |
 | 12 | 期間締切 | アプリ検証（`fin_period.status`） | 全登録系 |
 | 13 | 批次管理物料の批次号必須 | アプリ検証（PO 明細 `is_batch_managed` を継承。他テーブル参照のため DB CHECK 不可） | `pur_receipt_line`・`pur_return_line` |
 | 14 | 超収上限（累計） | アプリ検証（`pur_tolerance_rule`、[04](04-receipt-iqc.md) CALC-02） | `pur_receipt_line` |
@@ -1850,3 +1863,4 @@ CREATE TABLE pur_supplier_performance (
 | v1.2 | 2026-10-21 | 第一版全量化：`company_id` 既定値 1 を削除、業務一意索引を `(tenant_id, company_id, …)` 先頭に統一（DDL・一覧）、§6.1 例外一覧追加、段階表記を削除 | 业务分析 |
 | v1.3 | 2026-10-21 | 明細・関連・履歴 12 一意制約を `(tenant_id, …)` 先頭に変更し §6.1 例外を廃止；PO ヘッダに `change_approved_at` 追加；ER 図列名を DDL に統一；`uk_pur_tolerance_rule` を `scope_id` NULLS NOT DISTINCT に変更；`prd_planned_order`→`prd_mrp_plan_order` | 业务分析 |
 | v1.4 | 2026-10-21 | sys/mdm への単列 FK 33 件を複合 FK `(tenant_id, x_id) → (tenant_id, id)` に変更（0707 規約）、§6.1 例外記述を更新、§7 #9 を複合 FK に（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.5 | 2026-10-21 | 明細・関連・履歴 13 表に `company_id BIGINT NOT NULL` を追加、一意制約を `(tenant_id, company_id, …)` 先頭に変更（§4 一覧・§7 #11 含む）、§6.1 注記削除・例外一覧に `uk_sys_user_username`（`(tenant_id, username)`、テナント単位）を追加（蓝色大肥鱼 2026-10-21 決定）。G2-20：非一意 btree `idx_` も `tenant_id` 先頭（次に `company_id`）、GIN 除外に修正 | 业务分析 |
