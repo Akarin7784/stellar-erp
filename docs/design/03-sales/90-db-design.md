@@ -1424,15 +1424,15 @@ CREATE INDEX idx_sal_forecast_line_material ON sal_sales_forecast_line (material
 
 | ファイル | 內容 |
 |---|---|
-| `V{yyyyMMdd}01__sales_create_sal_inquiry.sql` | `sal_inquiry` / `sal_inquiry_line` |
-| `V{yyyyMMdd}02__sales_create_sal_quotation.sql` | `sal_quotation` / `sal_quotation_line` / `sal_quotation_version` |
-| `V{yyyyMMdd}03__sales_create_sal_sales_order.sql` | `sal_sales_order` / `_line` / `_version` / `_line_version` |
-| `V{yyyyMMdd}04__sales_create_sal_delivery.sql` | `sal_delivery_note` / `_line` / `sal_pick_detail` / `sal_delivery_serial` |
-| `V{yyyyMMdd}05__sales_create_sal_return.sql` | `sal_sales_return` / `_line` / `sal_return_inspection` |
-| `V{yyyyMMdd}06__sales_create_sal_invoice.sql` | `sal_invoice_application` / `_line` / `sal_invoice` / `_line` / `sal_invoice_relation` |
-| `V{yyyyMMdd}07__sales_create_sal_statement.sql` | `sal_statement` / `_line` |
-| `V{yyyyMMdd}08__sales_create_sal_credit.sql` | `sal_credit_ledger_snapshot` / `sal_credit_check_log` / `sal_receivable_snapshot` |
-| `V{yyyyMMdd}09__sales_create_sal_price_forecast.sql` | `sal_special_price` / `sal_sales_forecast` / `_line` |
+| `sal/V{yyyyMMdd}0301__sal_create_sal_inquiry.sql` | `sal_inquiry` / `sal_inquiry_line` |
+| `sal/V{yyyyMMdd}0302__sal_create_sal_quotation.sql` | `sal_quotation` / `sal_quotation_line` / `sal_quotation_version` |
+| `sal/V{yyyyMMdd}0303__sal_create_sal_sales_order.sql` | `sal_sales_order` / `_line` / `_version` / `_line_version` |
+| `sal/V{yyyyMMdd}0304__sal_create_sal_delivery.sql` | `sal_delivery_note` / `_line` / `sal_pick_detail` / `sal_delivery_serial` |
+| `sal/V{yyyyMMdd}0305__sal_create_sal_return.sql` | `sal_sales_return` / `_line` / `sal_return_inspection` |
+| `sal/V{yyyyMMdd}0306__sal_create_sal_invoice.sql` | `sal_invoice_application` / `_line` / `sal_invoice` / `_line` / `sal_invoice_relation` |
+| `sal/V{yyyyMMdd}0307__sal_create_sal_statement.sql` | `sal_statement` / `_line` |
+| `sal/V{yyyyMMdd}0308__sal_create_sal_credit.sql` | `sal_credit_ledger_snapshot` / `sal_credit_check_log` / `sal_receivable_snapshot` |
+| `sal/V{yyyyMMdd}0309__sal_create_sal_price_forecast.sql` | `sal_special_price` / `sal_sales_forecast` / `_line` |
 
 - FK は親テーブル作成後に ALTER TABLE で追加してもよい（循環を避ける）。
 - 初期データ（コード・採番キー）は `R__seed_sales_sequence.sql` で冪等投入する。

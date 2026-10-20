@@ -11,6 +11,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  migrations:
+    name: Migration filenames
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check Flyway migration names and versions
+        run: bash .github/scripts/check-migrations.sh
+
   backend:
     name: Backend (JDK 21)
     runs-on: ubuntu-latest

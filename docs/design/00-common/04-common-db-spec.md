@@ -217,34 +217,60 @@ CREATE INDEX gin_mdm_material_name
 
 ```
 backend/erp-*/src/main/resources/db/migration/
-├── common/     # 共通（sys_/mdm_ など複数モジュール横断）
-├── system/     # sys_
-├── mdm/        # mdm_
-├── sales/      # sal_
-├── purchase/   # pur_
-├── inventory/  # inv_
-├── production/ # prd_
-├── finance/    # fin_
-├── workflow/   # wf_（Flowable 標準テーブルは schema `flowable` に Flyway で事前作成、下記参照）
-└── integration/# int_
+├── common/  # 00 共通（複数ドメイン横断の拡張・関数など）
+├── sys/     # 01 sys_
+├── mdm/     # 02 mdm_
+├── sal/     # 03 sal_
+├── pur/     # 04 pur_
+├── inv/     # 05 inv_
+├── prd/     # 06 prd_
+├── fin/     # 07 fin_
+├── wf/      # 08 wf_（Flowable 標準テーブルは schema `flowable` に Flyway で事前作成、下記参照）
+├── int/     # 09 int_
+└── rpt/     # 10 rpt_
 ```
 
+- サブディレクトリ名・ファイル名の `{module}` は**テーブル接頭辞**（`sys`/`mdm`/`sal`/`pur`/`inv`/`prd`/`fin`/`wf`/`int`/`rpt`、横断は `common`）に統一する。`sales`/`production`/`inventory` 等の長い名称は使わない。
 - `spring.flyway.locations: classpath:db/migration` でサブディレクトリを再帰スキャン（Flyway の既定動作）。
-- 初期構成（現行 `V1__baseline.sql`）からの移行時は、既存 V1 を維持しつつ採番を新規則へ統合する手順を実装タスクに含める。
 
-### 10.2 ファイル命名
+### 10.2 ファイル命名とバージョン範囲
 
 ```
-V{yyyyMMdd}{NN}__{module}_{description}.sql
-例: V2026102001__sys_create_sys_user.sql
-    V2026102002__mdm_create_mdm_material.sql
-    V2026102101__inv_add_stock_balance_index.sql
+V{yyyyMMdd}{DD}{NN}__{module}_{description}.sql     # バージョンは 12 桁
+  yyyyMMdd : 作成日
+  DD       : ドメインコード（下表、docs/design のディレクトリ番号と同じ）
+  NN       : 同一日・同一ドメイン内の連番 01〜99
+例: V202610200101__sys_create_sys_user.sql
+    V202610200201__mdm_create_mdm_material.sql
+    V202610210501__inv_create_stock_balance.sql
 ```
 
-- バージョンは**全体で一意**（同一日付内の NN は 01〜99）。
-- 一度適用したスクリプトは編集しない（新規スクリプトで差分適用）。
+| DD | module | 対象 |
+|---|---|---|
+| 00 | `common` | 横断（拡張・共通関数・`sys_sequence` 等の基盤） |
+| 01 | `sys` | 01-system |
+| 02 | `mdm` | 02-mdm |
+| 03 | `sal` | 03-sales |
+| 04 | `pur` | 04-purchase |
+| 05 | `inv` | 05-inventory |
+| 06 | `prd` | 06-production |
+| 07 | `fin` | 07-finance |
+| 08 | `wf` | 08-workflow |
+| 09 | `int` | 09-integration |
+| 10 | `rpt` | 10-analytics |
+
+- ドメインごとに 1 日 99 本の専用範囲を持つため、**ドメイン間でバージョンが衝突しない**。同一ドメイン内の衝突は PR レビューと CI チェック（`.github/scripts/check-migrations.sh`）で検出する。
+- `DD` と `{module}` は上表の組合せと一致させる（例：`05` なら `inv_`）。
+- バージョンは全体で一意。一度適用したスクリプトは編集しない（新規スクリプトで差分適用）。
 - 破壊的変更（列削除・型変更）は 2 段階（新列追加 → 移行 → 旧列削除）で行う。
 - シードデータ（コード表・初期マスタ）は `V` スクリプト（初期投入）または `R__seed_{module}_{desc}.sql`（冪等な再投入）で管理。**本設計書の 90-data CSV を正**とする。
+
+#### 10.2.1 既存 `V1__baseline.sql` の扱い
+
+- `backend/erp-boot/src/main/resources/db/migration/V1__baseline.sql`（`sys_user`）は**改名・編集しない**。既に適用済みの環境で `flyway_schema_history` のチェックサム・バージョンが一致しなくなるため。
+- Flyway はバージョンを数値比較するため、`1` は全ての 12 桁バージョンより先に実行され、順序上の問題はない。
+- `V1__baseline.sql` は CI チェックの唯一の例外（許可リスト）とし、以降 `V2__`〜 等の短い連番は**新規作成禁止**。
+- `sys_user` への今後の変更は `sys/V{yyyyMMdd}01{NN}__sys_*.sql` として追加する。
 
 ### 10.3 ロールバック
 

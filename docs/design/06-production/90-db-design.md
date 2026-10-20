@@ -147,7 +147,7 @@ erDiagram
 
 ## 3. テーブル定義
 
-> 各テーブルの DDL は Flyway `V{yyyyMMdd}{NN}__production_create_{table}.sql` に対応する（[04](../00-common/04-common-db-spec.md) 10.2）。`--` の行内コメントは実装時に `COMMENT ON COLUMN` へ展開する。`COMMENT ON TABLE` も必須（本設計書の「論理名」をそのまま使用）。
+> 各テーブルの DDL は Flyway `prd/V{yyyyMMdd}06{NN}__prd_create_{table}.sql` に対応する（[04](../00-common/04-common-db-spec.md) 10.2、ドメインコード `06`）。`--` の行内コメントは実装時に `COMMENT ON COLUMN` へ展開する。`COMMENT ON TABLE` も必須（本設計書の「論理名」をそのまま使用）。
 
 ### 3.1 prd_bom（BOM 头）
 

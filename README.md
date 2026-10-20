@@ -86,7 +86,7 @@ pnpm dev
 ## 开发约定
 
 - **模块边界**：按 Spring Modulith 约定，模块**根包**下的类型对外暴露，子包（含 `internal`）为内部实现、禁止跨模块引用；CI 中由 `ApplicationModules.verify()` 强制校验
-- **数据库迁移**：Flyway 脚本放在各模块 `src/main/resources/db/migration/`，命名 `V{版本}__{描述}.sql`
+- **数据库迁移**：以 [04 共通 DB 规范 §10](docs/design/00-common/04-common-db-spec.md) 为准：`db/migration/{module}/V{yyyyMMdd}{DD}{NN}__{module}_{描述}.sql`，`{module}` 为表前缀（sys/mdm/sal/pur/inv/prd/fin/wf/int/rpt），`DD` 为域代码（防止跨域撞号）；现有 `V1__baseline.sql` 保持不变。CI 由 `.github/scripts/check-migrations.sh` 校验文件名与版本唯一
 - **接口规范**：统一返回 `Result<T>`，业务异常抛 `BizException`，由全局异常处理器转换
 - **提交规范**：Conventional Commits（`feat:` / `fix:` / `docs:` / `chore:` / `refactor:` / `test:`）
 
