@@ -6,7 +6,7 @@
 -- 业务错误由 g2_18_raise 抛出：SQLSTATE P0001，MESSAGE = 错误码。
 -- 「--!include <classpath 路径>」由 PgTapSuiteTest / scripts/local-ci.sh 展开成文件内容。
 BEGIN;
-SELECT plan(66);
+SELECT plan(67);
 
 --!include db/draft/g2_18_completion.sql
 
@@ -65,6 +65,7 @@ FROM (VALUES
     (991202, 101, 1, 991012, 991001, 30, 40,  0,   42),
     (991301, 101, 1, 991013, 991001, 30, 60,  0,   63),
     (991302, 101, 1, 991013, 991001, 30, 40,  0,   42),
+    (991105, 101, 1, 991015, 991001, 30, 10,  0,   10),   -- L5（allowed_qty 未快照）上的工单
     (991501, 101, 1, NULL,   991001, 35, 10,  0,   NULL), -- MTS，allowed 未快照 → 用工单快照 rate 0.05
     (991901, 202, 1, 991901, 991001, 35, 100, 0,   105)
 ) v(id, tenant_id, company_id, sales_order_line_id, material_id, order_status, order_qty, completed_qty, allowed_qty)
@@ -126,6 +127,7 @@ SELECT is(g2_18_calc_allowed_qty(7.333, 0.05, 991006), 7.69::numeric, 'F3 KGM 7.
 
 -- ---------------------------------------------------------------- S 确认快照 / allowed_qty NULL
 SELECT throws_ok($$SELECT g2_18_raise_allowed_qty(991015, NULL, 10, 'X', 9, 990002)$$, 'P0001', '5000', 'S1 受注行 allowed_qty 未快照时审批 → 5000');
+SELECT throws_ok($$SELECT g2_18_report_completion(991105, 1, 9)$$, 'P0001', '5000', 'S1b 受注行 allowed_qty 未快照时报完工 → 5000');
 SELECT is(g2_18_snapshot_on_line_confirm(991015, NULL, 9), 105::numeric, 'S2 确认快照 allowed_qty = floor(100×1.05) = 105');
 SELECT is((SELECT ARRAY[completion_over_rate, allowed_qty] FROM sal_sales_order_line WHERE id = 991015), ARRAY[0.05, 105]::numeric[], 'S3 快照写入 rate 0.05 / allowed 105');
 

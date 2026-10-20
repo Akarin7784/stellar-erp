@@ -70,6 +70,10 @@ public class WorkOrderReleaseService {
         if (peek.salesOrderLineId() != null) {
             line = salesOrderLines.lockForUpdate(company, peek.salesOrderLineId())
                     .orElseThrow(() -> new BizException(ProductionErrorCode.NOT_FOUND, "受注行不存在"));
+            if (line.allowedQty() == null) {
+                // 受注确认时未快照 allowed_qty：不把 NULL 拷到工单，按设定不备返回 5000（与 G2-18 一致）
+                throw new BizException(ProductionErrorCode.CONFIG_MISSING, "受注行 allowed_qty 尚未快照");
+            }
         }
         WorkOrderForRelease wo = repo.lockWorkOrderForRelease(company, workOrderId)
                 .orElseThrow(WorkOrderReleaseService::notFound);

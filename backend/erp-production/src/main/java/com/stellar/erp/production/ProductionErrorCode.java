@@ -39,6 +39,10 @@ public final class ProductionErrorCode {
     public static final int WO_MATERIAL_MISMATCH = 60056;
     public static final String MSG_WO_MATERIAL_MISMATCH = "MSG-PRD-056";
 
+    /** 完工上限超过（91 §9 / AC-PRD-07：超产路径用尽或 MTS）。DB 兜底 {@code ck_sal_sol_completed_qty}（23514）也映射为此码。 */
+    public static final int COMPLETION_LIMIT_EXCEEDED = 60040;
+    public static final String MSG_COMPLETION_LIMIT_EXCEEDED = "MSG-PRD-040";
+
     /** 超产申请数量不正（{@code request_qty} ≤ 0 或 NULL）。 */
     public static final int OPA_INVALID_REQUEST_QTY = 60103;
     public static final String MSG_OPA_INVALID_REQUEST_QTY = "MSG-PRD-103";

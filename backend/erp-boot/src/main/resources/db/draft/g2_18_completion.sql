@@ -279,6 +279,10 @@ BEGIN
         IF v_line_status = 90 THEN      -- 90 取消
             PERFORM g2_18_raise(4002, 'sales_order_line cancelled');
         END IF;
+        -- 受注确认时未快照 allowed_qty：设定不备，不与 NULL 比较（否则 (3) 的上限检查被静默跳过）
+        IF v_line_allowed IS NULL THEN
+            PERFORM g2_18_raise(5000, 'sales_order_line allowed_qty not snapshotted: ' || v_line_id);
+        END IF;
     END IF;
 
     -- (2) 锁工单
