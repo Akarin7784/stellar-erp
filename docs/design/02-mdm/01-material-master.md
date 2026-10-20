@@ -155,7 +155,7 @@ stateDiagram-v2
 | P06 | `default_supplier_id` | 既定供應商 | BIGINT | NULL | — | NULL | 有効供應商 | マスタ | MRP 計画発注 | 参考値。発注時に変更可 |
 | P07 | `supplier_material_no` | 供應商品番 | VARCHAR(64) | NULL | — | NULL | ≤ 64 字 | 入力 | PUR 発注書・対照 | — |
 | P08 | `purchase_tax_code` | 購買税码 | VARCHAR(32) | NULL | △ | 分類既定 | 有効税码・`tax_type=11` 進項 | マスタ | PUR/FIN 進項税 | 例 VAT13-IN（基礎税率コード VAT13） |
-| P09 | `over_receipt_tolerance_pct` | 過入荷容差 | NUMERIC(5,4) | NULL | — | NULL | 0〜1（比率） | 入力 | PUR 受入 | 比率で保存（0.05=5%。列名は PUR 参照のため据え置き）。NULL＝次段を継承、0＝明示 0%。品目>分類>仕入先>会社既定の優先順（05 §2.4 BR-SET-11） |
+| P09 | `over_receipt_tolerance_rate` | 過入荷容差 | NUMERIC(5,4) | NULL | — | NULL | 0〜1（比率） | 入力 | PUR 受入 | 比率で保存（0.05=5%。列名は PUR 参照のため据え置き）。NULL＝次段を継承、0＝明示 0%。品目>分類>仕入先>会社既定の優先順（05 §2.4 BR-SET-11） |
 | P10 | `buyer_id` | 購買担当 | BIGINT | NULL | — | NULL | 有効ユーザ | マスタ | PUR 割当 | — |
 | P11 | `is_purchase_stopped` | 購買停止 | BOOLEAN | NN | — | FALSE | — | 入力 | PUR 新規発注可否 | TRUE で警告・ブロック |
 
@@ -402,7 +402,7 @@ stateDiagram-v2
 | 25 | 采购 | `default_supplier_id` | 既定供應商 | 選択ダイアログ | — | 空 | 有効供應商 | 同上 | 計画購買の参考 |
 | 26 | 采购 | `supplier_material_no` | 供應商品番 | テキスト | — | 空 | ≤ 64 字 | 同上 | 発注書・照合に使用 |
 | 27 | 采购 | `purchase_tax_code` | 購買税码 | 選択 | △ | 分類既定 | 有効税码（進項） | 同上 | 13% 等 |
-| 28 | 采购 | `over_receipt_tolerance_pct` | 過入荷容差 | 数値（%） | — | 空 | 0〜100、小数 2 桁（画面は % で入出力、保存は比率 `NUMERIC(5,4)`、フロントで換算） | 同上 | 5.00 % = 0.05。空＝次段を継承、0＝明示 0% |
+| 28 | 采购 | `over_receipt_tolerance_rate` | 過入荷容差 | 数値（%） | — | 空 | 0〜100、小数 2 桁（画面は % で入出力、保存は比率 `NUMERIC(5,4)`、フロントで換算） | 同上 | 5.00 % = 0.05。空＝次段を継承、0＝明示 0% |
 | 29 | 采购 | `buyer_id` | 購買担当 | 選択 | — | 空 | 有効ユーザ | 同上 | 業務割当 |
 | 30 | 采购 | `is_purchase_stopped` | 購買停止 | チェック | — | false | — | 同上 | true で新規発注不可 |
 | 31 | 销售 | `sales_uom_code` | 販売単位 | 選択 | △ | 基本単位 | 有効単位・換算率必須 | `mdm:material:update` | 販売停止時は非表示 |

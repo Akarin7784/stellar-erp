@@ -173,7 +173,7 @@ CREATE TABLE mdm_material_category (
     category_level  SMALLINT     NOT NULL,             -- 层级（1起）
     material_type   SMALLINT     NULL,                 -- 默认物料类型
     default_uom_code VARCHAR(16) NULL,                 -- 默认基本单位
-    over_receipt_tolerance_pct NUMERIC(5,4) NULL,      -- 過入荷容差（比率 0.05=5%。分類既定。品目>分類>仕入先>会社の優先順、05 §2.4）
+    over_receipt_tolerance_rate NUMERIC(5,4) NULL,      -- 過入荷容差（比率 0.05=5%。分類既定。品目>分類>仕入先>会社の優先順、05 §2.4）
     completion_over_rate NUMERIC(5,4) NULL,            -- 完工超収容差（比率 0.05=5%。受注行>物料>分類>会社の優先順）
     attribute_template JSONB     NULL,                 -- 分类属性模板（扩展字段定义）
     is_leaf         BOOLEAN      NOT NULL DEFAULT FALSE, -- 是否末级
@@ -238,7 +238,7 @@ CREATE TABLE mdm_material (
     default_supplier_id   BIGINT       NULL,           -- 默认供应商
     supplier_material_no  VARCHAR(64)  NULL,           -- 供应商物料号
     purchase_tax_code     VARCHAR(32)  NULL,           -- 采购税码
-    over_receipt_tolerance_pct NUMERIC(5,4) NULL,      -- 過入荷容差（比率 0.05=5%）
+    over_receipt_tolerance_rate NUMERIC(5,4) NULL,      -- 過入荷容差（比率 0.05=5%）
     buyer_id              BIGINT       NULL,           -- 采购担当
     is_purchase_stopped   BOOLEAN      NOT NULL DEFAULT FALSE, -- 采购停止
     -- 销售视图
@@ -337,7 +337,7 @@ CREATE INDEX gin_mdm_material_ext ON mdm_material USING gin (ext_data jsonb_path
 - **容差は比率**（`NUMERIC(5,4)`、`0.05` = 5%）。全ての容差・率列は NULL 可・既定値なし。**NULL = チェーンの次段を継承、0 = 明示的に 0%**。
   - 完工超収：受注行 > 物料（`completion_over_rate`）> 物料分類（`mdm_material_category.completion_over_rate`）> 会社既定（`sys_param` の `prd.completion_over_rate`、既定 `0.05`（`sys_param` はテナント単位・RLS 対象。テナント作成時に `sys_init_tenant(tenant_id)` が投入、既存の種テナントはマイグレーションで明示投入。未設定時はエラー 5000）、[01-system 90 §3.15](../01-system/90-db-design.md)）。
   - 出荷超過：受注行 > 物料（`ship_over_rate`）> 会社既定 0。
-  - 購買受入（`over_receipt_tolerance_pct`）は別系統で従来どおり 物料 > 分類 > 仕入先 > 会社（05 §2.4）。この列も比率 `NUMERIC(5,4)`（0.05=5%）に統一。列名は 04-purchase（`90-db-design.md`、`04-receipt-iqc.md`）が参照しているため `_pct` のまま据え置く（TODO：購買ドメインの PR で `_rate` への改名と参照側の比率化を行う）。
+  - 購買受入（`over_receipt_tolerance_rate`）は別系統で従来どおり 物料 > 分類 > 仕入先 > 会社（05 §2.4）。この列も比率 `NUMERIC(5,4)`（0.05=5%）に統一。列名は 04-purchase（`90-db-design.md`、`04-receipt-iqc.md`）が参照しているため `_pct` のまま据え置く（TODO：購買ドメインの PR で `_rate` への改名と参照側の比率化を行う）。
 - **数量は基本単位**。`allowed_qty = floor(ordered_qty × (1 + rate))`（基本単位の精度 `mdm_uom.decimal_places` で切捨て）。受注行確定時にスナップショットし、承認済み受注変更・超産承認の時のみ再計算（詳細は販売・生産ドメイン）。
 - **検査フラグ**：`mdm_material` に `inspection_required` 列は**作らない**。入庫明細の `inspection_flag` は `inspection_stage` から導出し、明細にスナップショットとして書き込む（導出規則は 05-inventory 文書で確定）。
 - **標準原価**：唯一の正は `fin_standard_cost`（版管理・有効期間付き、DDL は 07-finance で定義。TODO：07-finance 側の DDL が未作成）。`mdm_material.standard_cost` は**スナップショット列**で、原価卷算結果の発行関数 `fin_publish_standard_cost` のみが書き込む（下記の保護方式）。工单下达時は `prd_work_order.standard_cost` にスナップショットする（Refs #32、#8）。
@@ -697,7 +697,7 @@ CREATE TABLE mdm_supplier (
     contact_phone VARCHAR(32) NULL,                    -- 代表电话
     buyer_id BIGINT NOT NULL,                          -- 采购担当
     default_lead_time_days INT NULL,                   -- 标准采购提前期
-    over_receipt_tolerance_pct NUMERIC(5,4) NULL,      -- 過入荷容差（比率 0.05=5%。仕入先既定。品目>分類>仕入先>会社の優先順、05 §2.4）
+    over_receipt_tolerance_rate NUMERIC(5,4) NULL,      -- 過入荷容差（比率 0.05=5%。仕入先既定。品目>分類>仕入先>会社の優先順、05 §2.4）
     currency_code VARCHAR(3) NOT NULL DEFAULT 'CNY',   -- 交易币种
     admission_status SMALLINT NOT NULL DEFAULT 10,     -- 10潜在/20审查中/30合格/40不合格/50暂停/60淘汰
     admitted_at TIMESTAMPTZ NULL, admitted_by BIGINT NULL,
@@ -1531,7 +1531,7 @@ CREATE UNIQUE INDEX uk_mdm_data_scope_policy ON mdm_data_scope_policy (tenant_id
 
 | 版数 | 日付 | 変更内容 | 変更者 |
 |---|---|---|---|
-| v1.0 | 2026-10-20 | 初版：53 テーブル定義（DDL・索引・制約・容量・更新タイミング）、共通列セット A/B/C、ER 図。同日追記：Lead 裁定により工厂主数据を MDM 所有（F-MDM-025）へ変更、単位換算グループを uom.csv の 11 群へ整合、`mdm_material.cost_method`（1品種法/2分批法、既定1）と CHECK 制約を追加。第 2 次追記（红队第 2 轮）：`mdm_supplier_material` に `moq`/`purchase_lead_time_days`、`mdm_material_category`/`mdm_supplier` に `over_receipt_tolerance_pct` を追加、`mdm_bank` の行別コード・銀行類別の区別を明記、`invoice_type` に 50 紅字発票を追加、税码件数を CSV 正とし、初期データ件数を 54 件に修正 | mdm-designer |
+| v1.0 | 2026-10-20 | 初版：53 テーブル定義（DDL・索引・制約・容量・更新タイミング）、共通列セット A/B/C、ER 図。同日追記：Lead 裁定により工厂主数据を MDM 所有（F-MDM-025）へ変更、単位換算グループを uom.csv の 11 群へ整合、`mdm_material.cost_method`（1品種法/2分批法、既定1）と CHECK 制約を追加。第 2 次追記（红队第 2 轮）：`mdm_supplier_material` に `moq`/`purchase_lead_time_days`、`mdm_material_category`/`mdm_supplier` に `over_receipt_tolerance_rate` を追加、`mdm_bank` の行別コード・銀行類別の区別を明記、`invoice_type` に 50 紅字発票を追加、税码件数を CSV 正とし、初期データ件数を 54 件に修正 | mdm-designer |
 | v1.1 | 2026-10-20 | 第一版全量範囲（分期表記削除）。T1 確定：容差を比率 `NUMERIC(5,4)` で追加（完工・出荷）、`valuation_method` NOT NULL + CHECK、`standard_cost` は `fin_standard_cost` 参照、`inspection_required` 列を作らない、T1 表の索引先頭を `company_id` に | 业务分析 |
 
 
