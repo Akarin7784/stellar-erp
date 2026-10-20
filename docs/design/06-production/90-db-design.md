@@ -1050,7 +1050,7 @@ CREATE INDEX idx_prd_work_order_source ON prd_work_order (tenant_id, company_id,
 3. **容差チェーン**（`completion_over_rate` / `over_receipt_rate` は **NUMERIC(5,4) 比率**。NULL＝次段継承、0＝明示 0%）：受注行 → 物料 → 物料分類 → 会社 `sys_param` key `prd.completion_over_rate`（既定 0.05、`sys_init_tenant` シード）。会社パラメータ欠落やテナント未設定は **5000**（設定不備）。
 4. **`allowed_qty`**：`floor(base_qty × (1 + rate))` を `mdm_uom.decimal_places` で切捨て。MTO は受注確定時に受注行へスナップショットし、工单はそれを参照／コピー。再計算は承認済受注変更または超産承認後のみ。
 5. **ロック**：跨表は先に受注行 `FOR UPDATE`、次に工单。同一表は id 昇順（[04 §11.1](../00-common/04-common-db-spec.md)）。適用：完工、冲销、返工入庫、受注変更、超産承認。過帳は行ロックのみ（楽観 `version` は画面編集）。
-6. **超産承認**：専用表 `prd_overproduction_approval` ＋ Flowable。承認後に受注行および関連工单の `allowed_qty` を再計算。
+6. **超産承認**：専用表 `prd_overproduction_approval` ＋ Flowable。工单級は当該工单のみ、受注行級は受注行＋配下全工单の `allowed_qty` を再計算。受注行層上限には工单級承認済超産量を加算（§3.19.1）。共通カラムは伝票類（`deleted` なし、取消は 90）。
 
 ### 3.19.1 prd_overproduction_approval（超産承認）
 
@@ -1094,7 +1094,7 @@ CREATE INDEX idx_prd_opa_wo
     WHERE work_order_id IS NOT NULL;
 ```
 
-**更新**：申請保存→`approval_status=20` で Flowable 起動。承認（30）時に受注行・関連工单の `allowed_qty = approved_allowed_qty` を更新（ロック順：受注行→工单）。却下（40）／取消（90）では `allowed_qty` を変更しない（再入庫は `MSG-PRD-101`）。
+**更新**：申請保存→`approval_status=20` で Flowable 起動。承認（30）時の更新範囲：①工单級（`work_order_id` 有値）は当該工单の `allowed_qty` のみ `approved_allowed_qty` に更新し、受注行は変更しない。②受注行級（`work_order_id` IS NULL）は受注行および配下全工单の `allowed_qty` を更新。受注行層の完工検証上限＝受注行 `allowed_qty` ＋配下工单級承認済（30）超産量（`approved_allowed_qty − current_allowed_qty` の合計）（ロック順：受注行→工单）。却下（40）／取消（90）では `allowed_qty` を変更しない（再入庫は `MSG-PRD-101`）。
 
 
 **更新仕様**
