@@ -333,7 +333,7 @@ CREATE INDEX gin_mdm_material_ext ON mdm_material USING gin (ext_data jsonb_path
 **T1 確定事項（2026-10-20 決定、G2-18 前提）**：
 
 - **容差は比率**（`NUMERIC(5,4)`、`0.05` = 5%）。
-  - 完工超収：受注行 > 物料（`completion_over_rate`）> 物料分類（`mdm_material_category.completion_over_rate`）> 会社既定（`sys_param` の `production.completion.over_rate`、既定 `0.05`、[01-system 90 §3.15](../01-system/90-db-design.md)）。
+  - 完工超収：受注行 > 物料（`completion_over_rate`）> 物料分類（`mdm_material_category.completion_over_rate`）> 会社既定（`sys_param` の `prd.completion_over_rate`、既定 `0.05`（`sys_param` はテナント単位・RLS 対象。テナント作成時に `sys_init_tenant(tenant_id)` が投入、既存の種テナントはマイグレーションで明示投入。未設定時はエラー 5000）、[01-system 90 §3.15](../01-system/90-db-design.md)）。
   - 出荷超過：受注行 > 物料（`ship_over_rate`）> 会社既定 0。
   - 購買受入（`over_receipt_tolerance_pct`）は別系統で従来どおり 物料 > 分類 > 仕入先 > 会社（05 §2.4）。TODO：この列は % 表記（`NUMERIC(7,4)`、5.0000=5%）のままで比率表記と単位が異なる。統一は購買ドメインの PR で決める。
 - **数量は基本単位**。`allowed_qty = floor(ordered_qty × (1 + rate))`（基本単位の精度 `mdm_uom.decimal_places` で切捨て）。受注行確定時にスナップショットし、承認済み受注変更・超産承認の時のみ再計算（詳細は販売・生産ドメイン）。

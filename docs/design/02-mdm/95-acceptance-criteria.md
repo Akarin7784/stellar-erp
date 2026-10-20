@@ -46,7 +46,7 @@
 ## AC1-8 容差は比率、優先順位（G2-18 前提、Refs #29）
 
 - W：`completion_over_rate = -0.01` で INSERT。T：CHECK 違反。
-- G：受注行・物料が未設定、分類 0.03、会社 `production.completion.over_rate=0.05`。W：受注行確定。T：採用率 0.03。分類も未設定なら 0.05。
+- G：受注行・物料が未設定、分類 0.03、会社 `prd.completion_over_rate=0.05`。W：受注行確定。T：採用率 0.03。分類も未設定なら 0.05。
 - G：基本単位の小数 0 桁、`ordered_qty=30`、率 0.05。W：確定。T：`allowed_qty = floor(31.5) = 31`。
 - 購買受入の容差（物料 > 分類 > 仕入先 > 会社）は別系統で、完工の計算に使わない。
 
