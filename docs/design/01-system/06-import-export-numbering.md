@@ -211,7 +211,7 @@ stateDiagram-v2
 1. 呼出元（伝票登録サービス）から `ruleCode` を指定して SYS の公開 Service（`NumberingService.next(ruleCode)`）を呼ぶ（[跨域流程](../00-common/09-cross-domain-flow.md) 2.1 同期コマンド）。
 2. `sys_number_rule` から有効ルールを取得する（`status=1`、`effective_from <= today`、最新 `effective_from`）。
 3. `reset_cycle` に応じて `sequence_date` を計算する（日次=当日、月次=当月 1 日、年次=当年 1 月 1 日、無=1970-01-01）。
-4. `INSERT INTO sys_sequence ... ON CONFLICT (company_id, sequence_key, sequence_date) DO UPDATE SET current_value = sys_sequence.current_value + sys_sequence.step RETURNING current_value` を実行する（呼出元トランザクション内）。
+4. `INSERT INTO sys_sequence ... ON CONFLICT (tenant_id, company_id, sequence_key, sequence_date) DO UPDATE SET current_value = sys_sequence.current_value + sys_sequence.step RETURNING current_value` を実行する（呼出元トランザクション内）。
 5. 採番値を `prefix + date.format(date_format) + zeroPad(current_value, seq_length)` で生成する。`current_value` が `seq_length` 桁を超える場合は `MSG-SYS-058`（桁溢れ）でエラー。
 6. 番号を返す。呼出元がロールバックした場合、連番は消費される（欠番許容）。
 7. ルールの `example_value` を更新する（初回のみ）。

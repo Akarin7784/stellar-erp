@@ -443,4 +443,4 @@ V{yyyyMMdd}{DD}{NN}__{module}_{description}.sql     # バージョンは 12 桁
 - アプリ側は `flowable.database-schema-update=false`（起動時は版本チェックのみ、DDL を発行しない）。よって应用账号 `erp_app` は schema `flowable` に対し `USAGE` と DML（`SELECT/INSERT/UPDATE/DELETE`、序列 `USAGE/SELECT`）のみを持ち、`CREATE` 権限は持たない。owner による `ALTER DEFAULT PRIVILEGES IN SCHEMA flowable` で今後の表・序列にも同じ権限を付与する。
 - 表の解決は接続ごとの `search_path = public, flowable`（`spring.datasource.hikari.connection-init-sql`）で行う。`flowable.database-schema` は設定しない（Flowable が接続に `setSchema()` を発行し、プール接続の `search_path` が `flowable` のみになるため）。
 - Flowable のバージョンアップ時は、新しい jar の `org/flowable/**/db/upgrade/*.postgres.upgradestep.*.sql` を新規 Flyway 迁移として追加する（`database-schema-update=true` に戻さない）。
-- RLS は業務 schema（`public`）の業務表のみ対象。Flowable 表は `tenant_id` を持たず RLS 対象外。>>>>>>> de5dc74 (docs(common,system): 按评审调整：RLS/ON CONFLICT 改为引用，新增公司业务参数与完工超收规则)
+- RLS は業務 schema（`public`）の業務表のみ対象。Flowable 表は `tenant_id` を持たず RLS 対象外。

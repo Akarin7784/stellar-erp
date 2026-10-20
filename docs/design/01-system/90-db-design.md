@@ -32,7 +32,7 @@
 
 | セット | 適用対象 | カラム |
 |---|---|---|
-| **M**（マスタ） | マスタ・設定テーブル | `id BIGINT PK` / `tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint` / `company_id BIGINT NOT NULL DEFAULT 1` / `version INT NOT NULL DEFAULT 0` / `deleted BOOLEAN NOT NULL DEFAULT FALSE` / `remark VARCHAR(500)` / `ext_data JSONB` / `created_at TIMESTAMPTZ NOT NULL DEFAULT now()` / `created_by BIGINT NOT NULL DEFAULT 0` / `updated_at TIMESTAMPTZ NOT NULL DEFAULT now()` / `updated_by BIGINT NOT NULL DEFAULT 0` |
+| **M**（マスタ） | マスタ・設定テーブル | `id BIGINT PK` / `tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint` / `company_id BIGINT NOT NULL` / `version INT NOT NULL DEFAULT 0` / `deleted BOOLEAN NOT NULL DEFAULT FALSE` / `remark VARCHAR(500)` / `ext_data JSONB` / `created_at TIMESTAMPTZ NOT NULL DEFAULT now()` / `created_by BIGINT NOT NULL DEFAULT 0` / `updated_at TIMESTAMPTZ NOT NULL DEFAULT now()` / `updated_by BIGINT NOT NULL DEFAULT 0` |
 | **T**（取引・設定） | 関連・設定・ジョブテーブル | M から `deleted` / `ext_data` を除いたもの（`remark` は任意） |
 | **L**（追記ログ） | ログ・履歴テーブル | `id BIGINT PK` / `tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint` / `created_at TIMESTAMPTZ NOT NULL DEFAULT now()` / `created_by BIGINT NOT NULL DEFAULT 0`（必要な場合のみ `company_id` を追加） |
 
@@ -754,7 +754,7 @@ COMMENT ON TABLE sys_number_rule IS '编号规则（採番ルール）';
 | データ量見積 | 60 ルール × 365 日 ≈ 2.2 万/年（日次） |
 | 保存期間 | 3 年（その後削除可。欠番許容のため参照不要） |
 
-**概要**：採番の現在値をルール×期間単位で保持する。`UPDATE ... RETURNING` で原子的に取得（行ロック）。欠番は許容、重複は絶対不可。**（注：04 §5 の DDL への `company_id` 反映は PR #43 マージ後に別途行う）DDL は 04-common §5 を正**とし、監査列（`created_by`/`updated_by`）を含めて一致させる（REV-026 対応）。
+**概要**：採番の現在値をルール×期間単位で保持する。`UPDATE ... RETURNING` で原子的に取得（行ロック）。欠番は許容、重複は絶対不可。**DDL は 04-common §5 を正**とし、監査列（`created_by`/`updated_by`）を含めて一致させる（REV-026 対応）。
 
 ```sql
 CREATE TABLE sys_sequence (
@@ -771,16 +771,16 @@ CREATE TABLE sys_sequence (
     updated_at     TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_by     BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_sys_sequence PRIMARY KEY (id),
-    CONSTRAINT uk_sys_sequence_key_date UNIQUE (company_id, sequence_key, sequence_date)
+    CONSTRAINT uk_sys_sequence_key_date UNIQUE (tenant_id, company_id, sequence_key, sequence_date)
 );
 COMMENT ON TABLE sys_sequence IS '採番連番（ルール×期間。DDL 正本は 04-common §5）';
 ```
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_sys_sequence_key_date | UNIQUE | (company_id, sequence_key, sequence_date) | — | 会社×採番キー×期間一意。本表は論理削除列を持たないため `WHERE deleted=FALSE` を付けない（部分一意索引規則の例外として登記） |
+| uk_sys_sequence_key_date | UNIQUE | (tenant_id, company_id, sequence_key, sequence_date) | — | 租户×会社×採番キー×期間一意。本表は論理削除列を持たないため `WHERE deleted=FALSE` を付けない（部分一意索引規則の例外として登記） |
 
-**更新仕様**：`INSERT ... ON CONFLICT (company_id, sequence_key, sequence_date) DO UPDATE SET current_value = sys_sequence.current_value + EXCLUDED.step RETURNING current_value` を単一 SQL で実行。行ロック競合の待ち時間は 3 秒（超過時 `MSG-SYS-052`）。採番失敗時は業務トランザクション全体をロールバックし、番号を消費しない（共通业务规则 2.1）。
+**更新仕様**：`INSERT ... ON CONFLICT (tenant_id, company_id, sequence_key, sequence_date) DO UPDATE SET current_value = sys_sequence.current_value + sys_sequence.step RETURNING current_value` を単一 SQL で実行。行ロック競合の待ち時間は 3 秒（超過時 `MSG-SYS-052`）。採番失敗時は業務トランザクション全体をロールバックし、番号を消費しない（共通业务规则 2.1）。
 
 ### 3.18 sys_audit_log 操作审计日志
 

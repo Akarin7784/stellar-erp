@@ -447,7 +447,7 @@ sequenceDiagram
 CREATE TABLE sys_outbox_event (
     id             BIGINT       NOT NULL,
     tenant_id      BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
-    company_id     BIGINT       NOT NULL DEFAULT 1,
+    company_id     BIGINT       NOT NULL,
     event_id       UUID         NOT NULL,
     event_type     VARCHAR(100) NOT NULL,
     event_version  INT          NOT NULL DEFAULT 1,
