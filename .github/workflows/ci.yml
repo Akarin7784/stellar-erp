@@ -28,7 +28,9 @@ jobs:
           cache: maven
 
       - name: Verify (compile + test)
-        run: ./mvnw -B -ntp verify
+        run: |
+          chmod +x mvnw
+          ./mvnw -B -ntp verify
 
   frontend:
     name: Frontend (Node 24)
