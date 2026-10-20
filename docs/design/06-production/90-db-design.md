@@ -1083,7 +1083,8 @@ CREATE TABLE prd_overproduction_approval (
     reject_reason       VARCHAR(500),                            -- 却下理由
     CONSTRAINT pk_prd_overproduction_approval PRIMARY KEY (id),
     CONSTRAINT ck_prd_opa_status CHECK (approval_status IN (10,20,30,40,90)),
-    CONSTRAINT ck_prd_opa_qty CHECK (request_qty > 0 AND current_allowed_qty >= 0)
+    CONSTRAINT ck_prd_opa_request_qty CHECK (request_qty > 0),          -- 違反は 60103 にマッピング（制約名で判別）
+    CONSTRAINT ck_prd_opa_allowed_qty CHECK (current_allowed_qty >= 0)
 );
 
 CREATE UNIQUE INDEX uk_prd_overproduction_approval_no
@@ -2624,3 +2625,4 @@ CREATE INDEX idx_prd_capacity_load_date ON prd_capacity_load (company_id, load_d
 | v1.2 | 2026-10-20 | 同名索引の重複定義 6 件を削除（`prd_material_issue`、`prd_completion_receipt`、`prd_outsourcing_issue`、`prd_outsourcing_receipt`。定義は完全一致のため後方側を削除） | db-ops |
 | v1.3 | 2026-10-21 | `prd_work_order.standard_cost` を既定値なし・NULL 可に変更、下达時に `fin_standard_cost` 発行版をスナップショット、なしは NULL＋`MSG-FIN-117`・差異スキップ・画面「未設定」（PR #8 決定 2（蓝色大肥鱼 2026-10-21）） | 业务分析 |
 | v1.4 | 2026-10-21 | PR #13 指摘対応：`prd_work_order.over_receipt_rate` の DEFAULT 0.05 削除（登録時にチェーン解決値をスナップショット、工单上は NULL 継承しない）、`prd_mrp_action.current_date`→`current_due_date`（予約語）、v1.1 削除済み列を参照する uk 4 件削除（`*_req` で一意）、§3.18 コードブロックの閉じ fence 追加 | 业务分析 |
+| v1.5 | 2026-10-21 | `ck_prd_opa_qty` を `ck_prd_opa_request_qty`（request_qty > 0、違反は 60103）と `ck_prd_opa_allowed_qty`（current_allowed_qty >= 0）に分割（migration prd/V202610210704） | 数据库与运维 |
