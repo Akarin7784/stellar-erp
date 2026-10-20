@@ -98,20 +98,7 @@ class RlsCoverageTest {
             "uk_prd_completion_receipt_line_rcpt_line",
             "uk_prd_outsourcing_order_line_order_line",
             "uk_prd_outsourcing_issue_line_issue_line",
-            "uk_prd_outsourcing_receipt_line_rcpt_line",
-            // 03-sales 90-db-design.md §9「一意索引の先頭列ルールと例外」（親 ID 先頭の明細・版表）
-            "uk_sal_inquiry_line_no",
-            "uk_sal_quotation_line_no",
-            "uk_sal_quotation_version_rev",
-            "uk_sal_sales_order_line_no",
-            "uk_sal_sales_order_version_no",
-            "uk_sal_dn_line_no",
-            "uk_sal_delivery_serial_line",
-            "uk_sal_return_line_no",
-            "uk_sal_iva_line_no",
-            "uk_sal_invoice_line_no",
-            "uk_sal_statement_line_no",
-            "uk_sal_forecast_line_no"
+            "uk_prd_outsourcing_receipt_line_rcpt_line"
     );
 
     /** 业务 schema 中所有非主键唯一索引的第一列必须是 tenant_id（唯一约束检查不经过 RLS）。 */

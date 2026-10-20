@@ -28,7 +28,7 @@ import com.stellar.erp.support.PostgresContainerConfig;
 
 /**
  * G2-18 并发用例。pgTAP 单会话无法模拟并发，这里用多条 erp_app 连接（NOBYPASSRLS）+ CountDownLatch 同时起跑。
- * 被测对象：db/draft/g2_18_completion.sql；prd_ 用正式表（PR #13），T2 受注表未迁移，用 pgtap-support/g2_18_stub_tables.sql 的桩表。
+ * 被测对象：db/draft/g2_18_completion.sql；prd_ 用正式表（PR #13），受注表用 sal/V202610210705 的正式表。
  * 并发需要已提交的数据，所以 owner 在每个用例前提交建表与数据，用例后用 g2_18_teardown.sql 清掉。
  * 不变量：0 <= completed_qty <= allowed_qty；受注行与工单合计对账差异为 0；不出现死锁（40P01）。
  */
@@ -46,7 +46,6 @@ class G218ConcurrencyTest {
     void setUp() throws Exception {
         owner = OwnerJdbc.of(pg);
         owner.execute(PgTapSuiteTest.read("pgtap-support/g2_18_teardown.sql"));   // 防止上次残留
-        owner.execute(PgTapSuiteTest.read("pgtap-support/g2_18_stub_tables.sql"));
         owner.execute(PgTapSuiteTest.read("db/draft/g2_18_completion.sql"));
         owner.execute("""
             INSERT INTO mdm_material_category (id, tenant_id, company_id, category_code, category_name, category_path, category_level, is_leaf)
@@ -58,9 +57,15 @@ class G218ConcurrencyTest {
             INSERT INTO sys_param (id, tenant_id, company_id, param_key, param_name, param_group, param_value, value_type)
               VALUES (992001, 101, 1, 'prd.completion_over_rate', 'rate', 'PRD', '0.05', 3);
             INSERT INTO mdm_factory (id, tenant_id, company_id, factory_code, factory_name) VALUES (992001, 101, 1, '9C1', 'g218 conc');
-            INSERT INTO sal_sales_order (id, tenant_id, company_id, order_no) VALUES (992001, 101, 1, 'SO-CONC');
-            INSERT INTO sal_sales_order_line (id, tenant_id, sales_order_id, line_no, material_id, base_qty, completion_over_rate, allowed_qty, completed_qty)
-              VALUES (992011, 101, 992001, 1, 992001, 100, 0.05, 105, 100);
+            INSERT INTO mdm_customer (id, tenant_id, company_id, customer_code, customer_name, customer_type, tax_no, owner_user_id, payment_term_code, settlement_method_code)
+              VALUES (992001, 101, 1, 'C992001', 'g218 conc', 10, '91320000000000000X', 1, 'NET30', 'TT');
+            INSERT INTO sal_sales_order (id, tenant_id, company_id, sales_order_no, order_date, customer_id, customer_code, customer_name,
+                                         delivery_address, sales_department_id, owner_user_id, payment_term_code, delivery_date, warehouse_id, order_status)
+              VALUES (992001, 101, 1, 'SO-CONC', DATE '2026-10-01', 992001, 'C992001', 'g218 conc', 'addr', 1, 1, 'NET30', DATE '2026-10-31', 1, 30);
+            INSERT INTO sal_sales_order_line (id, tenant_id, company_id, sales_order_id, line_no, material_id, material_code, material_name, ordered_qty,
+                                              uom_code, base_uom_code, base_qty, unit_price, tax_code, tax_rate, delivery_date, warehouse_id,
+                                              completion_over_rate, allowed_qty, completed_qty)
+              VALUES (992011, 101, 1, 992001, 1, 992001, '99C2180001', 'conc', 100, 'PCE', 'PCE', 100, 1, 'VAT13-OUT', 13, DATE '2026-10-31', 1, 0.05, 105, 100);
             """);
         StringBuilder wo = new StringBuilder();
         for (int i = 1; i <= THREADS; i++) {

@@ -1,8 +1,8 @@
 -- 03-sales 全量建表（docs/design/03-sales/90-db-design.md §3，29 表）
 -- 由设计书 DDL 机械转换：仅展开「共通カラム（§1.3）」并追加 RLS，不新增设计书之外的业务列。
 -- 规则：tenant_id DEFAULT current_setting('app.tenant_id')::bigint（禁 DEFAULT 0）；company_id NOT NULL 无 DEFAULT；
---       明细表（種別=傳票明細/明細）按 §1.3 省略 company_id（由父表持有）；
---       uk_ 以 (tenant_id, company_id, …) 打头，例外（父 ID 打头的明细/版表）见设计书 §9 末尾 / RlsCoverageTest；
+--       明细表也冗余持有 company_id NOT NULL 无 DEFAULT（与 prd 一致；设计书 §1.3「明细省略」已由蓝色大肥鱼改定）；
+--       全部业务 uk 以 (tenant_id, company_id, …) 打头（设计书 §9 的 12 个父 ID 打头例外已取消）；
 --       ENABLE + FORCE RLS；erp_app 的 DML 权限由 V202610200101 的 ALTER DEFAULT PRIVILEGES 自动授予（设计书无列级授权）。
 -- 设计书 §8 的 9 个文件（0301〜0309）按 #12 规则（当天全局 4 位序号）合并为本迁移。
 -- 跨域引用（inv_/fin_/prd_ 等）设计书只在注释中给出，未声明 FK，本迁移不追加。
@@ -52,6 +52,7 @@ CREATE INDEX idx_sal_inquiry_date ON sal_inquiry (inquiry_date DESC);
 CREATE TABLE sal_inquiry_line (
     id                  BIGINT        NOT NULL,
     tenant_id           BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
+    company_id          BIGINT        NOT NULL,
     created_at          TIMESTAMPTZ   NOT NULL DEFAULT now(),
     created_by          BIGINT        NOT NULL DEFAULT 0,
     updated_at          TIMESTAMPTZ   NOT NULL DEFAULT now(),
@@ -80,7 +81,7 @@ ALTER TABLE sal_inquiry_line FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON sal_inquiry_line
     USING (tenant_id = current_setting('app.tenant_id')::bigint)
     WITH CHECK (tenant_id = current_setting('app.tenant_id')::bigint);
-CREATE UNIQUE INDEX uk_sal_inquiry_line_no ON sal_inquiry_line (inquiry_id, line_no);
+CREATE UNIQUE INDEX uk_sal_inquiry_line_no ON sal_inquiry_line (tenant_id, company_id, inquiry_id, line_no);
 CREATE INDEX idx_sal_inquiry_line_material ON sal_inquiry_line (material_id);
 
 -- sal_quotation（傳票ヘッダ）
@@ -144,6 +145,7 @@ CREATE INDEX idx_sal_quotation_inquiry ON sal_quotation (inquiry_id);
 CREATE TABLE sal_quotation_line (
     id                  BIGINT        NOT NULL,
     tenant_id           BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
+    company_id          BIGINT        NOT NULL,
     created_at          TIMESTAMPTZ   NOT NULL DEFAULT now(),
     created_by          BIGINT        NOT NULL DEFAULT 0,
     updated_at          TIMESTAMPTZ   NOT NULL DEFAULT now(),
@@ -185,7 +187,7 @@ ALTER TABLE sal_quotation_line FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON sal_quotation_line
     USING (tenant_id = current_setting('app.tenant_id')::bigint)
     WITH CHECK (tenant_id = current_setting('app.tenant_id')::bigint);
-CREATE UNIQUE INDEX uk_sal_quotation_line_no ON sal_quotation_line (quotation_id, line_no);
+CREATE UNIQUE INDEX uk_sal_quotation_line_no ON sal_quotation_line (tenant_id, company_id, quotation_id, line_no);
 CREATE INDEX idx_sal_quotation_line_material ON sal_quotation_line (material_id);
 
 -- sal_quotation_version（履歴）
@@ -220,7 +222,7 @@ ALTER TABLE sal_quotation_version FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON sal_quotation_version
     USING (tenant_id = current_setting('app.tenant_id')::bigint)
     WITH CHECK (tenant_id = current_setting('app.tenant_id')::bigint);
-CREATE UNIQUE INDEX uk_sal_quotation_version_rev ON sal_quotation_version (quotation_id, revision_no);
+CREATE UNIQUE INDEX uk_sal_quotation_version_rev ON sal_quotation_version (tenant_id, company_id, quotation_id, revision_no);
 
 -- sal_sales_order（傳票ヘッダ）
 CREATE TABLE sal_sales_order (
@@ -314,6 +316,7 @@ CREATE UNIQUE INDEX uk_sal_sales_order_source ON sal_sales_order (tenant_id, sou
 CREATE TABLE sal_sales_order_line (
     id                  BIGINT        NOT NULL,
     tenant_id           BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
+    company_id          BIGINT        NOT NULL,
     created_at          TIMESTAMPTZ   NOT NULL DEFAULT now(),
     created_by          BIGINT        NOT NULL DEFAULT 0,
     updated_at          TIMESTAMPTZ   NOT NULL DEFAULT now(),
@@ -353,7 +356,7 @@ CREATE TABLE sal_sales_order_line (
     shipped_base_qty    NUMERIC(18,4) NOT NULL DEFAULT 0,      -- 出荷済数量（基本単位。= shipped_qty × conversion_rate の累計）
     cancelled_qty       NUMERIC(18,4) NOT NULL DEFAULT 0,      -- 取消数量
     completed_qty       NUMERIC(18,4) NOT NULL DEFAULT 0,      -- 完工累計（基本単位。G2-18、生産過帳が更新）
-    allowed_qty         NUMERIC(18,4) NOT NULL DEFAULT 0,      -- 許容完工上限（基本単位。確定時にスナップショット）
+    allowed_qty         NUMERIC(18,4),                         -- 許容完工上限（基本単位。確定時にスナップショット。NULL=未快照，G2-18 审批时报 5000）
     completion_over_rate NUMERIC(5,4),                         -- 完工超収容差スナップショット（比率。NULL=チェーン継承結果を確定時に展開）
     shortage_qty        NUMERIC(18,4) NOT NULL DEFAULT 0,      -- 引当不足数量
     return_qty          NUMERIC(18,4) NOT NULL DEFAULT 0,      -- 返品済数量（E11）
@@ -369,14 +372,15 @@ CREATE TABLE sal_sales_order_line (
     CONSTRAINT fk_sal_sales_order_line_o FOREIGN KEY (sales_order_id) REFERENCES sal_sales_order (id),
     CONSTRAINT fk_sal_sales_order_line_m FOREIGN KEY (material_id) REFERENCES mdm_material (id),
     CONSTRAINT ck_sal_sales_order_line_qty CHECK (ordered_qty > 0 AND reserved_qty >= 0 AND shipped_qty >= 0 AND shipped_base_qty >= 0 AND cancelled_qty >= 0 AND completed_qty >= 0 AND allowed_qty >= 0),
-    CONSTRAINT ck_sal_sales_order_line_price CHECK (unit_price >= 0)
+    CONSTRAINT ck_sal_sales_order_line_price CHECK (unit_price >= 0),
+    CONSTRAINT ck_sal_sol_completed_qty CHECK (completed_qty >= 0 AND completed_qty <= allowed_qty)  -- G2-18 完工上限（2026-10-21 决定，设计书未载）
 );
 ALTER TABLE sal_sales_order_line ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sal_sales_order_line FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON sal_sales_order_line
     USING (tenant_id = current_setting('app.tenant_id')::bigint)
     WITH CHECK (tenant_id = current_setting('app.tenant_id')::bigint);
-CREATE UNIQUE INDEX uk_sal_sales_order_line_no ON sal_sales_order_line (sales_order_id, line_no);
+CREATE UNIQUE INDEX uk_sal_sales_order_line_no ON sal_sales_order_line (tenant_id, company_id, sales_order_id, line_no);
 CREATE INDEX idx_sal_sales_order_line_status ON sal_sales_order_line (line_status, delivery_date);
 CREATE INDEX idx_sal_sales_order_line_material ON sal_sales_order_line (material_id, delivery_date);
 CREATE INDEX idx_sal_sales_order_line_open ON sal_sales_order_line (sales_order_id) WHERE line_status IN (10,30,35);
@@ -417,7 +421,7 @@ ALTER TABLE sal_sales_order_version FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON sal_sales_order_version
     USING (tenant_id = current_setting('app.tenant_id')::bigint)
     WITH CHECK (tenant_id = current_setting('app.tenant_id')::bigint);
-CREATE UNIQUE INDEX uk_sal_sales_order_version_no ON sal_sales_order_version (sales_order_id, version_no);
+CREATE UNIQUE INDEX uk_sal_sales_order_version_no ON sal_sales_order_version (tenant_id, company_id, sales_order_id, version_no);
 CREATE INDEX idx_sal_sales_order_version_status ON sal_sales_order_version (change_status, requested_at DESC);
 
 -- sal_sales_order_line_version（履歴）
@@ -513,6 +517,7 @@ CREATE INDEX idx_sal_delivery_note_customer ON sal_delivery_note (customer_id, d
 CREATE TABLE sal_delivery_note_line (
     id                  BIGINT        NOT NULL,
     tenant_id           BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
+    company_id          BIGINT        NOT NULL,
     created_at          TIMESTAMPTZ   NOT NULL DEFAULT now(),
     created_by          BIGINT        NOT NULL DEFAULT 0,
     updated_at          TIMESTAMPTZ   NOT NULL DEFAULT now(),
@@ -557,7 +562,7 @@ ALTER TABLE sal_delivery_note_line FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON sal_delivery_note_line
     USING (tenant_id = current_setting('app.tenant_id')::bigint)
     WITH CHECK (tenant_id = current_setting('app.tenant_id')::bigint);
-CREATE UNIQUE INDEX uk_sal_dn_line_no ON sal_delivery_note_line (delivery_note_id, line_no);
+CREATE UNIQUE INDEX uk_sal_dn_line_no ON sal_delivery_note_line (tenant_id, company_id, delivery_note_id, line_no);
 CREATE INDEX idx_sal_dn_line_order_line ON sal_delivery_note_line (sales_order_line_id);
 CREATE INDEX idx_sal_dn_line_material ON sal_delivery_note_line (material_id);
 
@@ -565,6 +570,7 @@ CREATE INDEX idx_sal_dn_line_material ON sal_delivery_note_line (material_id);
 CREATE TABLE sal_pick_detail (
     id                  BIGINT        NOT NULL,
     tenant_id           BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
+    company_id          BIGINT        NOT NULL,
     created_at          TIMESTAMPTZ   NOT NULL DEFAULT now(),
     created_by          BIGINT        NOT NULL DEFAULT 0,
     updated_at          TIMESTAMPTZ   NOT NULL DEFAULT now(),
@@ -603,6 +609,7 @@ CREATE INDEX idx_sal_pick_detail_batch ON sal_pick_detail (material_id, batch_no
 CREATE TABLE sal_delivery_serial (
     id                  BIGINT        NOT NULL,
     tenant_id           BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
+    company_id          BIGINT        NOT NULL,
     created_at          TIMESTAMPTZ   NOT NULL DEFAULT now(),
     created_by          BIGINT        NOT NULL DEFAULT 0,
     updated_at          TIMESTAMPTZ   NOT NULL DEFAULT now(),
@@ -628,7 +635,7 @@ ALTER TABLE sal_delivery_serial FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON sal_delivery_serial
     USING (tenant_id = current_setting('app.tenant_id')::bigint)
     WITH CHECK (tenant_id = current_setting('app.tenant_id')::bigint);
-CREATE UNIQUE INDEX uk_sal_delivery_serial_line ON sal_delivery_serial (delivery_note_line_id, serial_no);
+CREATE UNIQUE INDEX uk_sal_delivery_serial_line ON sal_delivery_serial (tenant_id, company_id, delivery_note_line_id, serial_no);
 CREATE INDEX idx_sal_delivery_serial_no ON sal_delivery_serial (material_id, serial_no);
 
 -- sal_sales_return（傳票ヘッダ）
@@ -693,6 +700,7 @@ CREATE INDEX idx_sal_sales_return_delivery ON sal_sales_return (original_deliver
 CREATE TABLE sal_sales_return_line (
     id                  BIGINT        NOT NULL,
     tenant_id           BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
+    company_id          BIGINT        NOT NULL,
     created_at          TIMESTAMPTZ   NOT NULL DEFAULT now(),
     created_by          BIGINT        NOT NULL DEFAULT 0,
     updated_at          TIMESTAMPTZ   NOT NULL DEFAULT now(),
@@ -738,13 +746,14 @@ ALTER TABLE sal_sales_return_line FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON sal_sales_return_line
     USING (tenant_id = current_setting('app.tenant_id')::bigint)
     WITH CHECK (tenant_id = current_setting('app.tenant_id')::bigint);
-CREATE UNIQUE INDEX uk_sal_return_line_no ON sal_sales_return_line (return_id, line_no);
+CREATE UNIQUE INDEX uk_sal_return_line_no ON sal_sales_return_line (tenant_id, company_id, return_id, line_no);
 CREATE INDEX idx_sal_return_line_dn_line ON sal_sales_return_line (original_delivery_line_id);
 
 -- sal_return_inspection（明細）
 CREATE TABLE sal_return_inspection (
     id                  BIGINT        NOT NULL,
     tenant_id           BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
+    company_id          BIGINT        NOT NULL,
     created_at          TIMESTAMPTZ   NOT NULL DEFAULT now(),
     created_by          BIGINT        NOT NULL DEFAULT 0,
     updated_at          TIMESTAMPTZ   NOT NULL DEFAULT now(),
@@ -831,6 +840,7 @@ CREATE INDEX idx_sal_iva_status ON sal_invoice_application (application_status, 
 CREATE TABLE sal_invoice_application_line (
     id                  BIGINT        NOT NULL,
     tenant_id           BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
+    company_id          BIGINT        NOT NULL,
     created_at          TIMESTAMPTZ   NOT NULL DEFAULT now(),
     created_by          BIGINT        NOT NULL DEFAULT 0,
     updated_at          TIMESTAMPTZ   NOT NULL DEFAULT now(),
@@ -866,7 +876,7 @@ ALTER TABLE sal_invoice_application_line FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON sal_invoice_application_line
     USING (tenant_id = current_setting('app.tenant_id')::bigint)
     WITH CHECK (tenant_id = current_setting('app.tenant_id')::bigint);
-CREATE UNIQUE INDEX uk_sal_iva_line_no ON sal_invoice_application_line (application_id, line_no);
+CREATE UNIQUE INDEX uk_sal_iva_line_no ON sal_invoice_application_line (tenant_id, company_id, application_id, line_no);
 CREATE INDEX idx_sal_iva_line_dn ON sal_invoice_application_line (delivery_id);
 
 -- sal_invoice（傳票ヘッダ）
@@ -926,6 +936,7 @@ CREATE INDEX idx_sal_invoice_original ON sal_invoice (original_invoice_id);
 CREATE TABLE sal_invoice_line (
     id                  BIGINT        NOT NULL,
     tenant_id           BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
+    company_id          BIGINT        NOT NULL,
     created_at          TIMESTAMPTZ   NOT NULL DEFAULT now(),
     created_by          BIGINT        NOT NULL DEFAULT 0,
     updated_at          TIMESTAMPTZ   NOT NULL DEFAULT now(),
@@ -959,7 +970,7 @@ ALTER TABLE sal_invoice_line FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON sal_invoice_line
     USING (tenant_id = current_setting('app.tenant_id')::bigint)
     WITH CHECK (tenant_id = current_setting('app.tenant_id')::bigint);
-CREATE UNIQUE INDEX uk_sal_invoice_line_no ON sal_invoice_line (invoice_id, line_no);
+CREATE UNIQUE INDEX uk_sal_invoice_line_no ON sal_invoice_line (tenant_id, company_id, invoice_id, line_no);
 CREATE INDEX idx_sal_invoice_line_material ON sal_invoice_line (material_id);
 
 -- sal_invoice_relation（関連）
@@ -1039,6 +1050,7 @@ CREATE INDEX idx_sal_statement_status ON sal_statement (statement_status, period
 CREATE TABLE sal_statement_line (
     id                  BIGINT        NOT NULL,
     tenant_id           BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
+    company_id          BIGINT        NOT NULL,
     created_at          TIMESTAMPTZ   NOT NULL DEFAULT now(),
     created_by          BIGINT        NOT NULL DEFAULT 0,
     updated_at          TIMESTAMPTZ   NOT NULL DEFAULT now(),
@@ -1067,7 +1079,7 @@ ALTER TABLE sal_statement_line FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON sal_statement_line
     USING (tenant_id = current_setting('app.tenant_id')::bigint)
     WITH CHECK (tenant_id = current_setting('app.tenant_id')::bigint);
-CREATE UNIQUE INDEX uk_sal_statement_line_no ON sal_statement_line (statement_id, line_no);
+CREATE UNIQUE INDEX uk_sal_statement_line_no ON sal_statement_line (tenant_id, company_id, statement_id, line_no);
 CREATE INDEX idx_sal_statement_line_date ON sal_statement_line (statement_id, transaction_date);
 
 -- sal_credit_ledger_snapshot（**投影（読取専用）**。権威は FIN）
@@ -1289,6 +1301,7 @@ CREATE INDEX idx_sal_forecast_period ON sal_sales_forecast (period_code, departm
 CREATE TABLE sal_sales_forecast_line (
     id                  BIGINT        NOT NULL,
     tenant_id           BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
+    company_id          BIGINT        NOT NULL,
     created_at          TIMESTAMPTZ   NOT NULL DEFAULT now(),
     created_by          BIGINT        NOT NULL DEFAULT 0,
     updated_at          TIMESTAMPTZ   NOT NULL DEFAULT now(),
@@ -1317,5 +1330,5 @@ ALTER TABLE sal_sales_forecast_line FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON sal_sales_forecast_line
     USING (tenant_id = current_setting('app.tenant_id')::bigint)
     WITH CHECK (tenant_id = current_setting('app.tenant_id')::bigint);
-CREATE UNIQUE INDEX uk_sal_forecast_line_no ON sal_sales_forecast_line (forecast_id, line_no);
+CREATE UNIQUE INDEX uk_sal_forecast_line_no ON sal_sales_forecast_line (tenant_id, company_id, forecast_id, line_no);
 CREATE INDEX idx_sal_forecast_line_material ON sal_sales_forecast_line (material_id);
