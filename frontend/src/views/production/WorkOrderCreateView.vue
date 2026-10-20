@@ -161,10 +161,7 @@
         </el-col>
         <el-col :span="8">
           <el-form-item label="倒冲">
-            <el-checkbox
-              :model-value="!!form.isBackflush"
-              @update:model-value="(v) => (form.isBackflush = !!v)"
-            />
+            <el-checkbox v-model="isBackflush" />
           </el-form-item>
         </el-col>
         <el-col :span="24">
@@ -262,6 +259,14 @@ const statusLabel = computed(() => {
 })
 // 只读：创建时由后端快照，画面不可编辑
 const overReceiptRateText = computed(() => formatRatePercent(created.value?.overReceiptRate))
+
+// isBackflush 类型含 null，el-checkbox 不接受 null
+const isBackflush = computed({
+  get: () => !!form.isBackflush,
+  set: (v: boolean) => {
+    form.isBackflush = v
+  },
+})
 
 const factories = ref<FactoryOption[]>([])
 const warehouses = ref<WarehouseOption[]>([])
