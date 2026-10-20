@@ -63,7 +63,9 @@
 
 - W：[90](90-db-design.md) §6.12 を確認。T：`fin_standard_cost` が物料×版本×適用期間で定義され、要素は材料／人工／製造費用／委外の 4 区分、単価列は `NUMERIC(18,6)`、数量・工時は `NUMERIC(18,4)`（[01 第 6 章](../00-common/01-common-item-definitions.md)）。`total_unit_cost` = 4 要素合計（CHECK）。
 - G：YE3-100L1-4 の発行済み版。T：`total_unit_cost=778.20`（材料 659.95 + 人工 53.75 + 製造費用 64.50 + 委外 0）、標準原価 = 778.20 × 120 = 93,384.00（[06](06-auto-voucher-costing.md) CALC-A7、[bom-demo §6](../90-data/bom-demo.md)）。
-- W：`fin_publish_standard_cost` を実行。T：`mdm_material.standard_cost` が発行版の値になる。`erp_app` による直接 UPDATE は権限エラー（[02-mdm 95](../02-mdm/95-acceptance-criteria.md)）。
+- W：当月開始（`period_from` ≤ 当月）の版で `fin_publish_standard_cost` を実行。T：`mdm_material.standard_cost` が発行版の値になる。
+- G：当月 2026-10 OPEN、有効版 A（778.20）。W：版 B（`period_from=2026-11`、800.00）を発行。T：`mdm_material.standard_cost` は 778.20 のまま。W：2026-11 を開帳（BAT-FIN-001）。T：`mdm_material.standard_cost`=800.00。
+- T：`erp_app` による `mdm_material.standard_cost` の直接 UPDATE は権限エラー（[02-mdm 95](../02-mdm/95-acceptance-criteria.md)）。
 
 ## AC-FIN-09a 标准成本なし → 差異分析スキップ
 
@@ -128,3 +130,4 @@
 | v1.0 | 2026-10-21 | 初版：AC-FIN-01〜12、09a、未決 4 件（決定済） | 业务分析 |
 | v1.1 | 2026-10-21 | AC-FIN-09b（登録・発行権限）、AC-FIN-09c（自動打切り・EXCLUDE・MSG-FIN-134）追加 | 业务分析 |
 | v1.2 | 2026-10-21 | AC-FIN-09c に同時発行 2 件（初回発行・既存版あり）追加 | 业务分析 |
+| v1.3 | 2026-10-21 | AC-FIN-09 に将来月版の開帳時反映を追加 | 业务分析 |
