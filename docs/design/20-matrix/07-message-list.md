@@ -8,7 +8,7 @@
 | 作成日 | 2026-10-20 |
 | 作成者 | Lead（生成工具 gen_matrix.py） |
 | 状態 | ドラフト（自动生成・最終レビュー前） |
-| 備考 | 全 832 件。メッセージID/種別/本文/発生条件/対処/域/提取元 |
+| 備考 | 全 833 件。メッセージID/種別/本文/発生条件/対処/域/提取元 |
 
 > 本文件由 `20-matrix/tools/gen_matrix.py` 从各域设计书中自动提取生成。修改设计书后重新运行即可更新。
 
@@ -99,6 +99,7 @@
 | MSG-FIN-114 |  |  |  |  | FIN | 07-finance/06-auto-voucher-costing.md |
 | MSG-FIN-115 |  |  |  |  | FIN | 07-finance/06-auto-voucher-costing.md |
 | MSG-FIN-116 | E | 在库月结（E20）未完成，不能执行成本计算。 | 前提未成立 | 在庫月結を先に実行 | FIN | 07-finance/06-auto-voucher-costing.md |
+| MSG-FIN-117 |  |  |  |  | FIN | 07-finance/91-api-design.md |
 | MSG-FIN-120 | 状態 |  |  |  | FIN | 07-finance/07-period-reporting.md |
 | MSG-FIN-121 | I | 会计期间 {0} 已开账。 | 開帳成功 | — | FIN | 07-finance/07-period-reporting.md |
 | MSG-FIN-122 | 業務 |  |  |  | FIN | 07-finance/07-period-reporting.md |
