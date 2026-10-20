@@ -158,6 +158,15 @@ CREATE UNIQUE INDEX uk_mdm_material_company_code
     ON mdm_material (company_id, material_code) WHERE deleted = FALSE;
 ```
 
+- **部分一意インデックスに対する `ON CONFLICT`**：衝突対象（arbiter）として推論させるには、インデックスと**同じ列と同じ `WHERE` 述語**を `ON CONFLICT` に書く必要がある。述語を省くと一致するインデックスがなく `there is no unique or exclusion constraint matching the ON CONFLICT specification` で失敗する。部分インデックスは `ON CONFLICT ON CONSTRAINT` では指定できない（制約ではないため）。
+
+```sql
+INSERT INTO mdm_material (id, company_id, material_code, ...)
+VALUES (...)
+ON CONFLICT (company_id, material_code) WHERE deleted = FALSE
+DO UPDATE SET material_name = EXCLUDED.material_name;
+```
+
 ## 7. インデックス方針
 
 | 方針 | 内容 |

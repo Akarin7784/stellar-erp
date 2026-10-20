@@ -1295,8 +1295,6 @@ CREATE INDEX idx_prd_material_issue_wo ON prd_material_issue (company_id, work_o
 CREATE INDEX idx_prd_material_issue_date ON prd_material_issue (company_id, issue_date, issue_status);
 
 CREATE UNIQUE INDEX uk_prd_material_issue_no ON prd_material_issue (company_id, issue_no);
-CREATE INDEX idx_prd_material_issue_wo ON prd_material_issue (company_id, work_order_id, issue_type, issue_status);
-CREATE INDEX idx_prd_material_issue_date ON prd_material_issue (company_id, issue_date, issue_status);
 ```
 
 ### 3.25 prd_material_issue_line（领退料明细）
@@ -1531,8 +1529,6 @@ CREATE INDEX idx_prd_completion_receipt_wo ON prd_completion_receipt (company_id
 CREATE INDEX idx_prd_completion_receipt_date ON prd_completion_receipt (company_id, receipt_date, receipt_status);
 
 CREATE UNIQUE INDEX uk_prd_completion_receipt_no ON prd_completion_receipt (company_id, receipt_no);
-CREATE INDEX idx_prd_completion_receipt_wo ON prd_completion_receipt (company_id, work_order_id, receipt_status);
-CREATE INDEX idx_prd_completion_receipt_date ON prd_completion_receipt (company_id, receipt_date, receipt_status);
 ```
 
 ### 3.30 prd_completion_receipt_line（完工入库明细）
@@ -1720,7 +1716,6 @@ CREATE INDEX idx_prd_outsourcing_issue_doc ON prd_outsourcing_issue (company_id,
 CREATE INDEX idx_prd_outsourcing_issue_order ON prd_outsourcing_issue (company_id, outsourcing_order_id, issue_status);
 
 CREATE UNIQUE INDEX uk_prd_outsourcing_issue_no ON prd_outsourcing_issue (company_id, issue_no);
-CREATE INDEX idx_prd_outsourcing_issue_order ON prd_outsourcing_issue (company_id, outsourcing_order_id, issue_status);
 ```
 
 ### 3.34 prd_outsourcing_issue_line（委外发料明细）
@@ -1809,7 +1804,6 @@ CREATE INDEX idx_prd_outsourcing_receipt_doc ON prd_outsourcing_receipt (company
 CREATE INDEX idx_prd_outsourcing_receipt_order ON prd_outsourcing_receipt (company_id, outsourcing_order_id, receipt_status);
 
 CREATE UNIQUE INDEX uk_prd_outsourcing_receipt_no ON prd_outsourcing_receipt (company_id, receipt_no);
-CREATE INDEX idx_prd_outsourcing_receipt_order ON prd_outsourcing_receipt (company_id, outsourcing_order_id, receipt_status);
 ```
 
 ### 3.36 prd_outsourcing_receipt_line（委外收货明细）
@@ -2564,3 +2558,4 @@ CREATE INDEX idx_prd_capacity_load_date ON prd_capacity_load (company_id, load_d
 
 
 | v1.1 | 2026-10-20 | 红队修复第2轮（REV-001/002/003/004/012 等）：INV 単一採番への整合（MII/MIR/FGI/OSI/OSR は INV 所有、PRD は request_no＋stock_doc_id/stock_doc_no 参照）、E15 resultCode/batchNo/warehouseId、E24 stockStatus=10 待検→E15 合格で 20 可用、原価サンプル 120 PCE／材料 79,187.55（標準 79,194.00・価格差異 −6.45）／人工 6,450.00／費用 7,740.00／93,377.55（778.15）、工单結案を 40＋closed_at に統一（45 廃止）、INV API 参照・工费率所有権 | production-designer |
+| v1.2 | 2026-10-20 | 同名索引の重複定義 6 件を削除（`prd_material_issue`、`prd_completion_receipt`、`prd_outsourcing_issue`、`prd_outsourcing_receipt`。定義は完全一致のため後方側を削除） | db-ops |
