@@ -2,12 +2,14 @@ package com.stellar.erp;
 
 import com.stellar.erp.common.BizException;
 import com.stellar.erp.common.Result;
+import com.stellar.erp.production.ProductionDbErrors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -58,6 +60,15 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 : "请求错误";
         return ResponseEntity.status(statusCode).headers(headers)
                 .body(Result.fail(codeOf(statusCode.value()), message));
+    }
+
+    /**
+     * DB 约束兜底：已知业务约束翻译为业务码（如 {@code ck_sal_sol_completed_qty} → 60040 / 422），
+     * 其余仍按未处理异常返回 5000，不泄露约束细节。
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<Result<Void>> handleDataIntegrity(DataIntegrityViolationException ex) {
+        return ProductionDbErrors.translate(ex).map(this::handleBiz).orElseGet(() -> handleUnknown(ex));
     }
 
     @ExceptionHandler(Exception.class)
