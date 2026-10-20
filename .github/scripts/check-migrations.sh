@@ -33,7 +33,7 @@ while IFS= read -r -d '' f; do
     seen_r[$desc]=$f
     continue
   else
-    echo "ERROR: $f 文件名不符合 V{yyyyMMdd}{DD}{NN}__{module}_{desc}.sql"; fail=1; continue
+    echo "ERROR: $f 文件名不符合 V{yyyyMMdd}{NNNN}__{module}_{desc}.sql"; fail=1; continue
   fi
   if [[ -n "${seen[$ver]:-}" ]]; then echo "ERROR: 版本 $ver 重复：$f 与 ${seen[$ver]}"; fail=1; fi
   seen[$ver]=$f

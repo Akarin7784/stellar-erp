@@ -30,7 +30,7 @@
 
 ## #11 迁移文件命名规则（Refs #11）
 
-- 命名規則は PR #40（`V{yyyyMMdd}{DD}{NN}__{module}_{desc}.sql` と `check-migrations.sh`）で確定予定。本 PR では変更しない。
+- 命名規則は PR #40（`V{yyyyMMdd}{NNNN}__{module}_{desc}.sql` と `check-migrations.sh`）で確定予定。本 PR では変更しない。
 - W：CI で Flyway を実行。T：全新規スクリプト名が規則に一致、版数は全体で一意、既存スクリプトの改変は Flyway validate で失敗。
 
 ## #22 并发控制的分工（共通部分、Refs #22）
