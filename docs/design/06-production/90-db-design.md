@@ -45,7 +45,7 @@
 | 明細（`*_line`、`*_item`、`*_action`、`*_labor`、`*_defect`） | `id`、`company_id`（親と同値を冗長保持。全索引の先頭列とするため省略不可、[04](../00-common/04-common-db-spec.md) 第 14 章）、親 ID、`line_no` 必須 |
 | 履歴・ログ（`prd_mrp_demand`、`prd_mrp_action`、`prd_work_order_change`、`prd_work_order_relation`、`prd_wo_lot`、`prd_capacity_load`） | `id`、`tenant_id`、`company_id`、`created_at`、`created_by` のみ。更新系カラム不要（追記専用、訂正は取消行＋再登録） |
 
-- **索引**（G2-20 対応）：全 `uk_`/`idx_` 索引は `company_id` を先頭列とする（[04](../00-common/04-common-db-spec.md) 第 6・7 章、多公司対応）。マスタの業務キー一意索引は `WHERE deleted = FALSE` の部分一意索引とする。
+- **索引**（G2-20 対応）：**一意索引（`uk_`）は `(tenant_id, company_id, …)` 先頭**（文書末尾の例外を除く。`uk_` を company_id 先頭としない）。非一意の照会・性能索引（`idx_`）は多公司フィルタのため `(company_id, …)` または `(tenant_id, company_id, …)` 先頭としてよい（[04](../00-common/04-common-db-spec.md) 第 6・7 章、G2-20）。マスタの業務キー一意索引は `WHERE deleted = FALSE` の部分一意索引とする。
 - **型・精度**：金額 `NUMERIC(18,2)`、単価 `NUMERIC(18,6)`、数量 `NUMERIC(18,4)`、比率 `NUMERIC(7,4)`、工数 `NUMERIC(12,2)`、単件標準工時 `NUMERIC(12,4)`（01 第 6 章の工数を単件基準で細分化したもの。合計工数は `NUMERIC(12,2)`）、日付 `DATE`、日時 `TIMESTAMPTZ`。`FLOAT`/`DOUBLE` は使用禁止。
 - **状態・区分**：`SMALLINT`＋`COMMENT ON COLUMN` で定義。名称は DB に保存しない（Java enum / message properties で解決）。
 - **採番**：業務番号は `sys_sequence`（[08](../00-common/08-common-business-rules.md) 2.1）。本域の採番キーは §6.1。
@@ -1050,7 +1050,51 @@ CREATE INDEX idx_prd_work_order_source ON prd_work_order (tenant_id, company_id,
 3. **容差チェーン**（`completion_over_rate` / `over_receipt_rate` は **NUMERIC(5,4) 比率**。NULL＝次段継承、0＝明示 0%）：受注行 → 物料 → 物料分類 → 会社 `sys_param` key `prd.completion_over_rate`（既定 0.05、`sys_init_tenant` シード）。会社パラメータ欠落やテナント未設定は **5000**（設定不備）。
 4. **`allowed_qty`**：`floor(base_qty × (1 + rate))` を `mdm_uom.decimal_places` で切捨て。MTO は受注確定時に受注行へスナップショットし、工单はそれを参照／コピー。再計算は承認済受注変更または超産承認後のみ。
 5. **ロック**：跨表は先に受注行 `FOR UPDATE`、次に工单。同一表は id 昇順（[04 §11.1](../00-common/04-common-db-spec.md)）。適用：完工、冲销、返工入庫、受注変更、超産承認。過帳は行ロックのみ（楽観 `version` は画面編集）。
-6. **超産承認**：専用承認表（申請数量・承認後 allowed_qty・承認者・日時等）＋ Flowable。DDL は本域で後続追加（TODO）。承認後に受注行および関連工单の `allowed_qty` を再計算。
+6. **超産承認**：専用表 `prd_overproduction_approval` ＋ Flowable。承認後に受注行および関連工单の `allowed_qty` を再計算。
+
+### 3.19.1 prd_overproduction_approval（超産承認）
+
+| 項目 | 内容 |
+|---|---|
+| テーブル物理名 | `prd_overproduction_approval` |
+| 論理名 | 超産承認（完工許容の一時的引き上げ） |
+| 種別 | 伝票（承認ヘッダ） |
+| 更新元機能 | F-PRD-008（申請）／Flowable（承認・却下） |
+| 備考 | 画面マッピング用スタブ。WF 定義は Flowable。承認完了時のみ `allowed_qty` 再計算 |
+
+```sql
+CREATE TABLE prd_overproduction_approval (
+    -- 共通カラム（§1.2）
+    approval_no         VARCHAR(32)   NOT NULL,                  -- 超産承認番号 OPA{YYMMDD}{4桁}
+    sales_order_id      BIGINT        NOT NULL,                  -- 受注 ID → sal_sales_order.id
+    sales_order_line_id BIGINT        NOT NULL,                  -- 受注明細 ID → sal_sales_order_line.id
+    work_order_id       BIGINT,                                  -- 対象工单（任意。NULL＝受注行全体）
+    material_id         BIGINT        NOT NULL,                  -- 品目（受注行と一致必須）
+    request_qty         NUMERIC(18,4) NOT NULL,                  -- 申請後の許容完工数量（基本単位）= 承認後 allowed_qty 候補
+    current_allowed_qty NUMERIC(18,4) NOT NULL,                  -- 申請時点の allowed_qty（基本単位）
+    approved_allowed_qty NUMERIC(18,4),                          -- 承認後 allowed_qty（承認時に設定）
+    approval_status     SMALLINT      NOT NULL DEFAULT 10,       -- 10:草稿 20:承認待ち 30:承認済 40:却下 90:取消
+    process_instance_id VARCHAR(64),                             -- Flowable process instance id
+    requested_by        BIGINT        NOT NULL,                  -- 申請者 → sys_user.id
+    requested_at        TIMESTAMPTZ   NOT NULL,                  -- 申請日時
+    approved_by         BIGINT,                                  -- 承認者
+    approved_at         TIMESTAMPTZ,                             -- 承認／却下日時
+    reject_reason       VARCHAR(500),                            -- 却下理由
+    CONSTRAINT pk_prd_overproduction_approval PRIMARY KEY (id),
+    CONSTRAINT ck_prd_opa_status CHECK (approval_status IN (10,20,30,40,90)),
+    CONSTRAINT ck_prd_opa_qty CHECK (request_qty > 0 AND current_allowed_qty >= 0)
+);
+
+CREATE UNIQUE INDEX uk_prd_overproduction_approval_no
+    ON prd_overproduction_approval (tenant_id, company_id, approval_no);
+CREATE INDEX idx_prd_opa_so_line
+    ON prd_overproduction_approval (tenant_id, company_id, sales_order_line_id, approval_status);
+CREATE INDEX idx_prd_opa_wo
+    ON prd_overproduction_approval (tenant_id, company_id, work_order_id)
+    WHERE work_order_id IS NOT NULL;
+```
+
+**更新**：申請保存→`approval_status=20` で Flowable 起動。承認（30）時に受注行・関連工单の `allowed_qty = approved_allowed_qty` を更新（ロック順：受注行→工单）。却下（40）／取消（90）では `allowed_qty` を変更しない（再入庫は `MSG-PRD-101`）。
 
 
 **更新仕様**
@@ -2424,7 +2468,7 @@ CREATE INDEX idx_prd_capacity_load_date ON prd_capacity_load (company_id, load_d
 | BC-PRD-03 | 工单の材料必要量 = BOM 必要量 × 注文数量 ÷ BOM 基準数量（4 桁四捨五入） | 展開処理（[02](02-work-order.md) 5.2） | — |
 | BC-PRD-04 | 工单の引当数量 ≤ 総必要量、領料数量 ≤ 総必要量 × (1+超領容许率) | 引当/領料時にロックして検証 | `MSG-PRD-030` |
 | BC-PRD-05 | 良品 + 不良 + 报废 ≤ 投入数量（工序別累計） | 報工確定時に検証（CHECK は符号のみ） | `MSG-PRD-032` |
-| BC-PRD-06 | 完工入库累計 ≤ 注文数量 × (1+超入庫容许率) | 入庫確定時に検証 | `MSG-PRD-040` |
+| BC-PRD-06 | 完工入库累計（基本単位）≤ `allowed_qty`（MTO：受注行スナップショット／超産承認後値。MTS：order_qty 基準で算出した allowed_qty） | 入庫確定時に検証。MTO 未承認超産は `MSG-PRD-100`/`60100` 優先、ハード超過は `MSG-PRD-040`/`60040` | `MSG-PRD-040` / `MSG-PRD-100` |
 | BC-PRD-07 | 工单结案は「全数入库・全数報工・検査完了・原価確定」が前提 | 結案処理（[02](02-work-order.md) 6.7） | `MSG-PRD-075` |
 | BC-PRD-08 | 検査標準の適用優先順位（品目+工程+顾客 > 品目+工程 > 品目+顾客 > 品目 > 共通） | 起票時に単一標準を解決 | `MSG-PRD-061` |
 | BC-PRD-09 | 不合格数量 = 各 NCR 処置数量の合計（返工+特采+报废+返品+分选） | NCR 完了時に検証 | `MSG-PRD-065` |
