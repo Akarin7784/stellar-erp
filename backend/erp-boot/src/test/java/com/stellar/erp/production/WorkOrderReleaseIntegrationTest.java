@@ -64,10 +64,21 @@ class WorkOrderReleaseIntegrationTest {
             INSERT INTO mdm_material_category (id, tenant_id, company_id, category_code, category_name, category_path, category_level, is_leaf)
               VALUES (994001, 304, 41, 'D1', 'D', '/D1/', 1, TRUE);
             INSERT INTO mdm_material (id, tenant_id, company_id, material_code, material_name, material_type, category_id, spec, base_uom_code, valuation_method, status)
-              VALUES (994011, 304, 41, '9940000011', 'D 成品', 10, 994001, 's', 'PCE', 20, 1);
+              VALUES (994011, 304, 41, '9940000011', 'D 成品', 10, 994001, 's', 'PCE', 20, 1),
+                     (994012, 304, 41, '9940000012', 'D 部品', 30, 994001, 's', 'PCE', 20, 1);
             INSERT INTO mdm_factory (id, tenant_id, company_id, factory_code, factory_name) VALUES (994021, 304, 41, 'F41', '工厂41');
             """);
         insertWorkOrder(WO, 25, false);
+        owner.update("""
+            INSERT INTO prd_bom (id, tenant_id, company_id, bom_no, material_id, material_code, material_name, factory_id,
+                version_no, base_uom_code, valid_from, is_default, bom_status)
+            VALUES (994301, 304, 41, 'BOM-D', 994011, '9940000011', 'D 成品', 994021, 1, 'PCE', DATE '2026-01-01', TRUE, 30)
+            """);
+        owner.update("""
+            INSERT INTO prd_bom_line (id, tenant_id, company_id, bom_id, line_no, component_material_id, component_code,
+                component_name, uom_code, component_qty, loss_rate, required_qty)
+            VALUES (994311, 304, 41, 994301, 10, 994012, '9940000012', 'D 部品', 'PCE', 3, 0.005, 3.0151)
+            """);
     }
 
     void insertWorkOrder(long id, int status, boolean hold) {
@@ -99,7 +110,10 @@ class WorkOrderReleaseIntegrationTest {
 
     void cleanup() {
         owner.execute("""
+            DELETE FROM prd_work_order_material WHERE tenant_id = 304;
             DELETE FROM prd_work_order WHERE tenant_id = 304;
+            DELETE FROM prd_bom_line WHERE tenant_id = 304;
+            DELETE FROM prd_bom WHERE tenant_id = 304;
             DELETE FROM fin_standard_cost WHERE tenant_id = 304;
             DELETE FROM mdm_factory WHERE tenant_id = 304;
             DELETE FROM mdm_material WHERE tenant_id = 304;
@@ -218,6 +232,7 @@ class WorkOrderReleaseIntegrationTest {
         Map<String, Object> w = row(WO);
         assertThat(w.get("order_status")).isEqualTo(30);
         assertThat(((Number) w.get("version")).intValue()).isEqualTo(before + 1);
+        assertThat(lineCount(WO)).isEqualTo(1);   // 後続は行ロック後に状態 30 を見て 4002。BOM 展開は 1 回だけ
     }
 
     @Test
@@ -242,5 +257,58 @@ class WorkOrderReleaseIntegrationTest {
                 .andExpect(jsonPath("$.code").value(60104))
                 .andExpect(jsonPath("$.msgId").value("MSG-PRD-104"));
         assertThat(row(WO).get("order_status")).isEqualTo(25);
+    }
+
+    @Test
+    void noEffectiveBomIs60020AndStateUnchanged() {
+        // 計画開始日 2026-11-01 時点で有効な BOM がない（承認前・期間外のみ）
+        owner.update("UPDATE prd_bom SET bom_status = 10 WHERE id = 994301");
+        owner.update("""
+            INSERT INTO prd_bom (id, tenant_id, company_id, bom_no, material_id, material_code, material_name, factory_id,
+                version_no, base_uom_code, valid_from, is_default, bom_status)
+            VALUES (994302, 304, 41, 'BOM-D2', 994011, '9940000011', 'D 成品', 994021, 2, 'PCE', DATE '2026-12-01', FALSE, 30)
+            """);
+        assertThatThrownBy(() -> asUser(() -> releases.release(WO, new WorkOrderReleaseCommand(0))))
+                .isInstanceOfSatisfying(BizException.class, e -> {
+                    assertThat(e.getCode()).isEqualTo(60020);
+                    assertThat(e.getMsgId()).isEqualTo("MSG-PRD-020");
+                });
+        Map<String, Object> w = row(WO);
+        assertThat(w.get("order_status")).isEqualTo(25);
+        assertThat(w.get("version")).isEqualTo(0);
+        assertThat(w.get("released_at")).isNull();
+        assertThat(lineCount(WO)).isZero();
+    }
+
+    long lineCount(long wo) {
+        return owner.queryForObject("SELECT count(*) FROM prd_work_order_material WHERE work_order_id = ?", Long.class, wo);
+    }
+
+    @Test
+    void zeroLinesExpandsEffectiveBomInSameTransaction() {
+        asUser(() -> releases.release(WO, new WorkOrderReleaseCommand(0)));
+        Map<String, Object> m = owner.queryForMap("SELECT * FROM prd_work_order_material WHERE work_order_id = ?", WO);
+        // order_qty 10 × 3 ÷ base 1 = 30.0000、÷ (1 − 0.005) = 30.1508（切上）
+        assertThat((BigDecimal) m.get("required_qty")).isEqualByComparingTo("30.0000");
+        assertThat((BigDecimal) m.get("total_required_qty")).isEqualByComparingTo("30.1508");
+        assertThat((BigDecimal) m.get("remaining_qty")).isEqualByComparingTo("30.1508");
+        assertThat(m.get("bom_line_id")).isEqualTo(994311L);
+        assertThat(m.get("material_id")).isEqualTo(994012L);
+        assertThat(row(WO).get("order_status")).isEqualTo(30);
+    }
+
+    @Test
+    void existingLinesAreNotOverwrittenEvenWithoutBom() {
+        owner.update("UPDATE prd_bom SET bom_status = 10 WHERE id = 994301");   // 有効 BOM なし
+        owner.update("""
+            INSERT INTO prd_work_order_material (id, tenant_id, company_id, work_order_id, line_no, material_id,
+                material_code, material_name, uom_code, required_qty, total_required_qty, remaining_qty)
+            VALUES (994401, 304, 41, ?, 10, 994012, '9940000012', 'D 部品', 'PCE', 7, 7, 7)
+            """, WO);
+        asUser(() -> releases.release(WO, new WorkOrderReleaseCommand(0)));
+        assertThat(lineCount(WO)).isEqualTo(1);
+        assertThat(owner.queryForObject("SELECT total_required_qty FROM prd_work_order_material WHERE id = 994401",
+                BigDecimal.class)).isEqualByComparingTo("7");
+        assertThat(row(WO).get("order_status")).isEqualTo(30);
     }
 }

@@ -101,6 +101,7 @@ class SalesOrderLineLookupIntegrationTest {
     void cleanup() {
         owner.execute("""
             DELETE FROM prd_overproduction_approval WHERE tenant_id IN (305, 306);
+            DELETE FROM prd_work_order_material WHERE tenant_id IN (305, 306);
             DELETE FROM prd_work_order WHERE tenant_id IN (305, 306);
             DELETE FROM sys_sequence WHERE tenant_id IN (305, 306);
             DELETE FROM sal_sales_order_line WHERE tenant_id IN (305, 306);
@@ -172,6 +173,12 @@ class SalesOrderLineLookupIntegrationTest {
 
     @Test
     void mtoReleaseSnapshotsAllowedQtyFromRealLine() {
+        // 材料明細ありの工单（0 行だと下达時に BOM 展開が必要になるため、本テストの関心外）
+        owner.update("""
+            INSERT INTO prd_work_order_material (id, tenant_id, company_id, work_order_id, line_no, material_id,
+                material_code, material_name, uom_code, required_qty, total_required_qty)
+            VALUES (995201, 305, 51, ?, 10, 995011, '9950000011', 'L 成品', 'PCE', 1, 1)
+            """, WO);
         WorkOrderReleased r = asUser(() -> releases.release(WO, new WorkOrderReleaseCommand(0)));
         assertThat(r.orderStatus()).isEqualTo((short) 30);
         Map<String, Object> w = wo(WO);

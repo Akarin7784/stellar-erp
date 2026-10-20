@@ -3,6 +3,7 @@ package com.stellar.erp.production;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
@@ -24,7 +25,7 @@ public class BomQueryService {
                                LocalDate validTo, boolean isDefault, List<Line> lines) {
     }
 
-    public record Line(int lineNo, long componentMaterialId, String componentCode, String componentName,
+    public record Line(long id, int lineNo, long componentMaterialId, String componentCode, String componentName,
                        String uomCode, BigDecimal componentQty, BigDecimal lossRate, BigDecimal requiredQty,
                        Integer operationSeq, boolean isKeyPart, String substituteGroup) {
     }
@@ -38,7 +39,14 @@ public class BomQueryService {
     @Transactional(readOnly = true)
     public EffectiveBom effective(long materialId, long factoryId, LocalDate date) {
         long company = LoginContext.require().companyId();
-        EffectiveBom header = jdbc.sql("""
+        return find(company, materialId, factoryId, date)
+                .orElseThrow(() -> new BizException(ProductionErrorCode.BOM_NOT_FOUND, ProductionErrorCode.MSG_BOM_NOT_FOUND,
+                        "有効な BOM がありません。BOM を登録・承認してください。"));
+    }
+
+    /** 有効 BOM の解決（呼出し側トランザクションに参加。工单登録の警告・下达時の展開でも同じ規則を使う）。 */
+    public Optional<EffectiveBom> find(long company, long materialId, long factoryId, LocalDate date) {
+        Optional<EffectiveBom> found = jdbc.sql("""
                         SELECT id, bom_no, material_id, material_code, factory_id, version_no, base_qty, base_uom_code,
                                valid_from, valid_to, is_default
                           FROM prd_bom
@@ -52,21 +60,23 @@ public class BomQueryService {
                 .query((rs, i) -> new EffectiveBom(rs.getLong(1), rs.getString(2), rs.getLong(3), rs.getString(4),
                         rs.getLong(5), rs.getShort(6), rs.getBigDecimal(7), rs.getString(8),
                         rs.getObject(9, LocalDate.class), rs.getObject(10, LocalDate.class), rs.getBoolean(11), null))
-                .optional()
-                .orElseThrow(() -> new BizException(ProductionErrorCode.BOM_NOT_FOUND, ProductionErrorCode.MSG_BOM_NOT_FOUND,
-                        "有効な BOM がありません。BOM を登録・承認してください。"));
+                .optional();
+        if (found.isEmpty()) {
+            return found;
+        }
+        EffectiveBom header = found.get();
         List<Line> lines = jdbc.sql("""
-                        SELECT line_no, component_material_id, component_code, component_name, uom_code, component_qty,
+                        SELECT id, line_no, component_material_id, component_code, component_name, uom_code, component_qty,
                                loss_rate, required_qty, operation_seq, is_key_part, substitute_group
                           FROM prd_bom_line WHERE company_id = :c AND bom_id = :b AND deleted = FALSE ORDER BY line_no
                         """)
                 .param("c", company).param("b", header.id())
-                .query((rs, i) -> new Line(rs.getInt(1), rs.getLong(2), rs.getString(3), rs.getString(4), rs.getString(5),
-                        rs.getBigDecimal(6), rs.getBigDecimal(7), rs.getBigDecimal(8), rs.getObject(9, Integer.class),
-                        rs.getBoolean(10), rs.getString(11)))
+                .query((rs, i) -> new Line(rs.getLong(1), rs.getInt(2), rs.getLong(3), rs.getString(4), rs.getString(5), rs.getString(6),
+                        rs.getBigDecimal(7), rs.getBigDecimal(8), rs.getBigDecimal(9), rs.getObject(10, Integer.class),
+                        rs.getBoolean(11), rs.getString(12)))
                 .list();
-        return new EffectiveBom(header.id(), header.bomNo(), header.materialId(), header.materialCode(),
+        return Optional.of(new EffectiveBom(header.id(), header.bomNo(), header.materialId(), header.materialCode(),
                 header.factoryId(), header.versionNo(), header.baseQty(), header.baseUomCode(), header.validFrom(),
-                header.validTo(), header.isDefault(), lines);
+                header.validTo(), header.isDefault(), lines));
     }
 }

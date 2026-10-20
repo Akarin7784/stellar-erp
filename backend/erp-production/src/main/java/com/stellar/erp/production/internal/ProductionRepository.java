@@ -173,8 +173,34 @@ public class ProductionRepository {
 
     /** 下达用：工单行（FOR UPDATE 后读取）。 */
     public record WorkOrderForRelease(long id, String workOrderNo, long materialId, Long salesOrderLineId,
-                                      short orderStatus, boolean hold, int version) {
+                                      short orderStatus, boolean hold, int version, long factoryId,
+                                      LocalDate plannedStartDate, BigDecimal orderQty) {
     }
+
+    /** BOM 展開で作る材料行（CALC-WO-01/02 計算済み）。 */
+    public record MaterialLineInsert(long id, long companyId, long userId, long workOrderId, int lineNo, long bomLineId,
+                                     Integer operationSeq, long materialId, String materialCode, String materialName,
+                                     String uomCode, BigDecimal requiredQty, BigDecimal lossRate, BigDecimal lossQty,
+                                     BigDecimal totalRequiredQty, boolean keyPart, String substituteGroup) {
+    }
+
+    public void insertMaterialLine(MaterialLineInsert m) {
+        jdbc.sql("""
+                        INSERT INTO prd_work_order_material (id, company_id, created_by, updated_by, work_order_id, line_no,
+                            bom_line_id, operation_seq, material_id, material_code, material_name, uom_code, required_qty,
+                            loss_rate, loss_qty, total_required_qty, remaining_qty, is_key_part, substitute_group)
+                        VALUES (:id, :company, :user, :user, :wo, :lineNo, :bomLine, :opSeq, :material, :code, :name, :uom,
+                            :req, :lossRate, :lossQty, :total, :total, :key, :sub)
+                        """)
+                .param("id", m.id()).param("company", m.companyId()).param("user", m.userId())
+                .param("wo", m.workOrderId()).param("lineNo", m.lineNo()).param("bomLine", m.bomLineId())
+                .param("opSeq", m.operationSeq()).param("material", m.materialId()).param("code", m.materialCode())
+                .param("name", m.materialName()).param("uom", m.uomCode()).param("req", m.requiredQty())
+                .param("lossRate", m.lossRate()).param("lossQty", m.lossQty()).param("total", m.totalRequiredQty())
+                .param("key", m.keyPart()).param("sub", m.substituteGroup())
+                .update();
+    }
+
 
     /** 不加锁读取工单的受注行 ID（用于决定是否需要先锁受注行）。 */
     public Optional<WorkOrderForRelease> findWorkOrderForRelease(long companyId, long workOrderId) {
@@ -189,13 +215,16 @@ public class ProductionRepository {
 
     private Optional<WorkOrderForRelease> selectForRelease(long companyId, long workOrderId, String lock) {
         return jdbc.sql("""
-                        SELECT id, work_order_no, material_id, sales_order_line_id, order_status, is_hold, version
+                        SELECT id, work_order_no, material_id, sales_order_line_id, order_status, is_hold, version,
+                               factory_id, planned_start_date, order_qty
                           FROM prd_work_order WHERE id = :id AND company_id = :company
                         """ + lock)
                 .param("id", workOrderId).param("company", companyId)
                 .query((rs, i) -> new WorkOrderForRelease(rs.getLong("id"), rs.getString("work_order_no"),
                         rs.getLong("material_id"), (Long) rs.getObject("sales_order_line_id", Long.class),
-                        rs.getShort("order_status"), rs.getBoolean("is_hold"), rs.getInt("version")))
+                        rs.getShort("order_status"), rs.getBoolean("is_hold"), rs.getInt("version"),
+                        rs.getLong("factory_id"), rs.getObject("planned_start_date", LocalDate.class),
+                        rs.getBigDecimal("order_qty")))
                 .optional();
     }
 
@@ -250,6 +279,11 @@ public class ProductionRepository {
                 .query((rs, i) -> new WorkOrderForApproval(rs.getLong("id"), rs.getShort("order_status"),
                         rs.getInt("version"), rs.getLong("created_by")))
                 .optional();
+    }
+
+    public long countWorkOrderOperations(long companyId, long workOrderId) {
+        return jdbc.sql("SELECT count(*) FROM prd_work_order_operation WHERE company_id = :company AND work_order_id = :id")
+                .param("company", companyId).param("id", workOrderId).query(Long.class).single();
     }
 
     public long countWorkOrderMaterials(long companyId, long workOrderId) {
