@@ -136,6 +136,17 @@ class WorkOrderReleaseServiceTest {
     }
 
     @Test
+    void mtoLineWithoutAllowedQtySnapshotIs5000() {
+        stubWo(wo(LINE, (short) 25, false, 0));
+        when(lines.lockForUpdate(CO, LINE)).thenReturn(Optional.of(
+                new SalesOrderLine(LINE, 1L, "SO1", MAT, null, null)));
+        assertThatThrownBy(() -> service.release(WO, new WorkOrderReleaseCommand(0)))
+                .isInstanceOfSatisfying(BizException.class, e -> assertThat(e.getCode()).isEqualTo(5000));
+        verify(repo, never()).lockWorkOrderForRelease(anyLong(), anyLong());
+        verify(repo, never()).markReleased(anyLong(), anyLong(), anyInt(), anyLong(), any(), any(), anyBoolean());
+    }
+
+    @Test
     void mtoMaterialMismatchIs60056() {
         stubWo(wo(LINE, (short) 25, false, 0));
         when(lines.lockForUpdate(CO, LINE)).thenReturn(Optional.of(
