@@ -115,7 +115,7 @@ BEGIN
         RETURN p_line_rate;
     END IF;
     -- (2) 物料  (3) 物料分类：均为 rate，不做 /100 换算
-    -- TODO(待T2/T3定稿) 物料/分类上「完工超入库容许率」列名未定（现有 over_receipt_tolerance_pct 为采购超收 %，
+    -- TODO(待T2/T3定稿) 物料/分类上「完工超入库容许率」列名未定（现有 over_receipt_tolerance_rate 为采购超收容许率，
     --                   是否复用、改名或新增 NUMERIC(5,4) 列由 MDM 定），下面的列名 completion_over_rate 为占位
     SELECT COALESCE(m.completion_over_rate, c.completion_over_rate)
       INTO v_rate

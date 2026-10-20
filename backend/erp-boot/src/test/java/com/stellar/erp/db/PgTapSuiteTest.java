@@ -37,7 +37,7 @@ class PgTapSuiteTest {
     @ValueSource(strings = {"rls_sys_user.sql", "g2_18_order_completion.sql", "inventory_inspection_check.sql", "cost_publish_standard_cost.sql", "mdm_over_receipt_tolerance_rate.sql"})
     void pgTapFilePasses(String file) throws Exception {
         OwnerJdbc.of(pg).execute("CREATE EXTENSION IF NOT EXISTS pgtap");
-        List<String> tap = run(read("pgtap/" + file));
+        List<String> tap = run(expandIncludes(read("pgtap/" + file)));
         System.out.println("TAP[" + file + "]\n" + String.join("\n", tap));
         assertThat(tap).as("pgTAP 无输出").isNotEmpty();
         Stream<String> failures = tap.stream().filter(l -> l.startsWith("not ok") && !l.contains("# TODO"));
@@ -69,7 +69,20 @@ class PgTapSuiteTest {
         return out;
     }
 
-    private static String read(String path) throws IOException {
+    /** 展开「--!include <classpath 路径>」行为对应资源内容（scripts/local-ci.sh 同一规则）。 */
+    static String expandIncludes(String sql) throws IOException {
+        StringBuilder sb = new StringBuilder();
+        for (String line : sql.split("\n", -1)) {
+            if (line.startsWith("--!include")) {
+                sb.append(read(line.substring("--!include".length()).trim())).append('\n');
+            } else {
+                sb.append(line).append('\n');
+            }
+        }
+        return sb.toString();
+    }
+
+    static String read(String path) throws IOException {
         try (InputStream in = PgTapSuiteTest.class.getClassLoader().getResourceAsStream(path)) {
             if (in == null) {
                 throw new IOException("找不到 " + path);
