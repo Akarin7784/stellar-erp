@@ -97,8 +97,8 @@
 规则：
 
 1. 库存状态是**余额行的一部分**，状态间转换不改变「现存总量」，只改变可用量（`ST_OUT` + `ST_IN` 成对事务，见 2.4）。
-2. 采购入库（`PI`）默认进入 `10` 待检（`inspection_flag=true`）；`inspection_stage = 0（免检）`→`inspection_flag=false` 的物料可直接进入 `20`（参数控制 `inv_receipt_default_status`）。
-3. 生产完工入库（`FGI`）は [09 §8](../00-common/09-cross-domain-flow.md) に従い**必ず `10` 待检で計上**し、E15（FQC 合格）で `20` 可用へ変換する（E24 の `stockStatus` が `20` の場合は免检品のみ許可）。不合格は `40`。
+2. 采购/委外入库（`PI`/`OSR`）：`inspection_stage ∈ {10,40}` → `inspection_flag=true` → `10` 待检（IQC）；否则直入 `20`（参数 `inv_receipt_default_status`）。详见 [02 §2.6.1a](02-inbound-outbound.md)。
+3. 生产完工入库（`FGI`）：`inspection_stage ∈ {30,40}` → true → `10` 待检（FQC），E15 合格后 `20`；否则直入 `20`。E24 在 `inspection_flag=true` 时若 `stockStatus≠10` 则 `MSG-INV-065`。不合格转 `40`。[09 §8](../00-common/09-cross-domain-flow.md)、[02 §2.6.1a](02-inbound-outbound.md)。
 4. 销售退货入库（`RT_IN`）：可用品进入 `20`，不良品进入 `40`（不得进入可用）。
 5. 冻结/解冻、不合格→可用必须走 `F-INV-014` 状态转换并记录理由、审批（解除冻结需 `inventory:status:change` 权限 + 审计日志）。
 

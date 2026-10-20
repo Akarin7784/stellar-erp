@@ -4,7 +4,7 @@
 |---|---|
 | 文書名 | 库存域 验收标准 |
 | 版数 | v1.0 |
-| 作成日 | 2026-10-20 |
+| 作成日 | 2026-10-21 |
 | 作成者 | 业务分析 |
 | 状態 | ドラフト（ローカル準備・未 push） |
 | 関連文書 | [90-db-design.md](90-db-design.md) / [02-inbound-outbound.md](02-inbound-outbound.md) / [00-overview.md](00-overview.md) / [02-mdm 90](../02-mdm/90-db-design.md) |
@@ -26,10 +26,13 @@
 
 - W：業務一意索引（親 ID 先頭の例外を除く）を確認。T：`(tenant_id, company_id, …)` で始まる。例外一覧が文書末尾に明記。G2-20：`idx_` のみ company_id 先頭可、`uk_` は不可。
 
-## AC-INV-04 inspection_flag 導出とスナップショット
+## AC-INV-04 inspection_flag 導出とスナップショット（入庫点收窄）
 
-- W：`mdm_material` 列一覧。T：`inspection_required` 列は存在しない。
-- G：`inspection_stage=10`（IQC）。W：PI 過账。T：明細 `inspection_flag=true`（NOT NULL）、`stock_status=10`。
+- W：`mdm_material` 列一覧。T：`inspection_required` 列は存在しない。`inspection_stage` ∈ {0,10,20,30,40}。
+- G：`inspection_stage=10`（IQC）。W：PI／OSR 過账。T：明細 `inspection_flag=true`、`stock_status=10`。
+- G：`inspection_stage=40`（全工程）。W：PI 過账。T：`inspection_flag=true`、`stock_status=10`。W：FGI 過账。T：同様 true→10。
+- G：`inspection_stage=20`（純 IPQC）。W：PI または FGI 過账。T：`inspection_flag=false`、`stock_status=20`（入庫待検に乗らない）。
+- G：`inspection_stage=30`（FQC）。W：PI 過账。T：false→20。W：FGI 過账。T：true→10。
 - G：`inspection_stage=0`（免检）。W：PI 過账。T：`inspection_flag=false`、`stock_status=20`。
 - G：入庫済行の `inspection_flag=true`。W：その後マスタの `inspection_stage` を 0 に変更。T：当該明細の `inspection_flag` は true のまま（スナップショット不変）。
 
@@ -37,11 +40,13 @@
 
 - W：SCR-INV-004 `inspectionFlag` 備考および §2.6.1 / §2.6.1a。T：**ON（true）→ `stock_status=10` 待检**；**OFF（false）→ `20` 可用**。旧「ON で状態 20」表記なし。
 
-## AC-INV-06 入庫検査種別と合格後 10→20
+## AC-INV-06 入庫検査種別・来源・合格後 10→20
 
+- W：`inspection_type` 码表。T：`10` IQC / `20` IPQC / `30` FQC / `40` OQC。入庫起票は PI／OSR→10、FGI→30 のみ。
+- W：過账 `source_type`。T：PI=`PURCHASE_RECEIPT`、OSR=`OUTSOURCING_ORDER`、FGI=`PRODUCTION_COMPLETION`；状態変換=`INSPECTION`。INV に「入庫検査单」伝票種別なし。
 - G：PI／OSR で `inspection_flag=true`。W：IQC 合格（E15 resultCode 20）または特採（30）。T：`ST_OUT(10)`+`ST_IN(20)` で残高が待检→可用。
 - G：FGI で `inspection_flag=true`。W：FQC 合格（E15）。T：同様に `10→20`。
-- G：FGI 検査必須、E24 `stockStatus=20`。W：過账。T：`MSG-INV-065` で拒否。
+- G：FGI で `inspection_flag=true`、E24 `stockStatus=20`。W：過账。T：`MSG-INV-065` で拒否。
 
 ## AC-INV-07 冗余 txn_type とトリガー／CHECK
 

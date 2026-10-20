@@ -160,7 +160,7 @@ updated_by  BIGINT       NOT NULL DEFAULT 0
 
 - 索引：`idx_{table}_{cols}`（B-Tree）、`uk_{table}_{cols}`（一意）、`ck_{table}_{意味}`（CHECK）。部分索引 `WHERE` を活用する。
 - 一意制約：伝票は `(company_id, {伝票番号})`、残高は次元の全列、明細は親 + 行番号・次元。
-- **入庫検査**：明細 `inspection_flag BOOLEAN NOT NULL` は `mdm_material.inspection_stage<>0` から導出してスナップショット。**true→stock_status=10、false→直入 20**。合格（E15）後は 10→20（ST_OUT+ST_IN）。CHECK `ck_inv_stock_txn_line_insp_inbound`。
+- **入庫検査**：明細 `inspection_flag BOOLEAN NOT NULL` は入庫点で收窄スナップショット（`PI`/`OSR`：`inspection_stage∈{10,40}`；`FGI`：`∈{30,40}`；他は false）。**true→stock_status=10、false→直入 20**。合格（E15）後は 10→20（ST_OUT+ST_IN）。CHECK `ck_inv_stock_txn_line_insp_inbound`。詳しくは [02 §2.6.1a](02-inbound-outbound.md)。
 - **冗余 txn_type**：明細に表頭と同一の `txn_type NOT NULL` を持ち、書込時トリガーで表頭一致を検証（[04](../00-common/04-common-db-spec.md) 8.1）。`direction` は `txn_type` から一意決定しアプリ＋CHECK で二重制約。
 - CHECK：状態値（`stock_status`/`txn_status` 等）、`txn_type`、符号（数量 > 0、残高 ≥ 0）、方向（`direction IN (1,-1)`）に付与する。
 - コメント：全テーブル・全列に `COMMENT ON` を付与する（本文件では代表例を記載し、実装時に全列へ展開する）。
@@ -375,7 +375,7 @@ COMMENT ON COLUMN inv_stock_txn.accounting_period IS 'txn_date から導出し�
 | 6 | `txn_date` | 事務日 | DATE | NOT NULL | — | — | — | 遡及禁止・期間 OPEN |
 | 7 | `factory_id` | 工場 ID | BIGINT | NOT NULL | — | `mdm_factory.id`（論理参照） | — | 倉庫の工場 |
 | 8 | `warehouse_id` | 倉庫 ID | BIGINT | NOT NULL | — | `mdm_warehouse.id` | — | 1 事務 1 倉庫 |
-| 9 | `source_type` | 来源種別 | VARCHAR(32) | NOT NULL | — | — | — | `PURCHASE_RECEIPT`/`SALES_DELIVERY`/`WORK_ORDER`/`OUTSOURCING_ORDER`/`TRANSFER`/`STOCKTAKE`/`SALES_RETURN`/`PURCHASE_RETURN`/`INSPECTION`/`MANUAL` |
+| 9 | `source_type` | 来源種別 | VARCHAR(32) | NOT NULL | — | — | — | 入庫過账：`PURCHASE_RECEIPT`/`OUTSOURCING_ORDER`/`PRODUCTION_COMPLETION`；状態変換：`INSPECTION`；他：`SALES_DELIVERY`/`WORK_ORDER`/`TRANSFER`/`STOCKTAKE`/`SALES_RETURN`/`PURCHASE_RETURN`/`MANUAL` |
 | 10 | `source_id` | 来源 ID | BIGINT | NULL | — | — | NULL | 来源伝票の ID |
 | 11 | `source_no` | 来源番号 | VARCHAR(32) | NULL | — | — | NULL | 来源伝票の番号 |
 | 12 | `partner_type` | 相手種別 | SMALLINT | NOT NULL | — | — | 0 | 0 なし/1 仕入先/2 顧客/3 部門/4 その他 |
@@ -454,7 +454,7 @@ CREATE TABLE inv_stock_txn_line (
     batch_id        BIGINT        NOT NULL DEFAULT 0,
     batch_no        VARCHAR(64)   NOT NULL DEFAULT '',
     stock_status    SMALLINT      NOT NULL,
-    inspection_flag BOOLEAN       NOT NULL,                -- inbound: snapshot from inspection_stage<>0; outbound may be false
+    inspection_flag BOOLEAN       NOT NULL,                -- inbound: PI/OSR stage in {10,40}; FGI in {30,40}; else false
     txn_type        VARCHAR(16)   NOT NULL,                -- redundant with header; trigger enforces match (04 sec 8.1)
     location_id     BIGINT        NOT NULL DEFAULT 0,
     unit_cost       NUMERIC(18,6),
@@ -516,7 +516,7 @@ COMMENT ON COLUMN inv_stock_txn_line.after_avg_cost IS '過账後の移動平均
 | 12 | `direction` | 方向 | SMALLINT | NOT NULL | +1/-1（CHECK）。`txn_type` から決定 |
 | 13-14 | `batch_id/batch_no` | 批次 | BIGINT/VARCHAR | NOT NULL | 非批次は 0/'' |
 | 15 | `stock_status` | 在庫状態 | SMALLINT | NOT NULL | 変動対象の状態。入庫かつ inspection_flag=true なら 10 |
-| 15a | `inspection_flag` | 検査要否 | BOOLEAN | NOT NULL | スナップショット。inspection_stage<>0→true。ON→10 / OFF→20 |
+| 15a | `inspection_flag` | 検査要否 | BOOLEAN | NOT NULL | スナップショット。PI/OSR:`stage∈{10,40}`；FGI:`∈{30,40}`。ON→10 / OFF→20 |
 | 15b | `txn_type` | 事務種別（冗余） | VARCHAR(16) | NOT NULL | 表頭と一致（トリガー検証） |
 | 16 | `location_id` | 庫位 | BIGINT | NOT NULL | 0=未管理 |
 | 17 | `unit_cost` | 単価 | NUMERIC(18,6) | NULL | 入庫原価単価/出庫平均単価。草稿時 NULL |
