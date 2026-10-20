@@ -12,6 +12,9 @@ dist-ssr/
 *.local
 .eslintcache
 
+# 前端自动生成的类型声明（unplugin-auto-import / unplugin-vue-components）
+frontend/src/types/
+
 # IDE
 .idea/
 .vscode/
