@@ -69,7 +69,7 @@
       "reports": 16,
       "batches": 11,
       "interfaces": 4,
-      "messages": 57,
+      "messages": 101,
       "apis": 112
     },
     "FIN": {
@@ -81,7 +81,7 @@
       "reports": 39,
       "batches": 20,
       "interfaces": 6,
-      "messages": 103,
+      "messages": 136,
       "apis": 179
     },
     "WF": {
@@ -14903,201 +14903,201 @@
     },
     {
       "id": "MSG-PRD-010",
-      "type": "必須",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "BOM に循環参照があります。親子関係を確認してください。",
+      "condition": "自己参照・間接循環",
+      "action": "BOM 修正",
       "domain": "PRD",
-      "source": "06-production/01-bom-routing-workcenter.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-013",
-      "type": "範囲",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "损耗率は 0 以上 0.95 未満で入力してください。",
+      "condition": "範囲外",
+      "action": "修正",
       "domain": "PRD",
-      "source": "06-production/01-bom-routing-workcenter.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-011",
-      "type": "相関",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "同一品目・同一期間に有効な BOM が既に存在します。有効期間を確認してください。",
+      "condition": "期間重複",
+      "action": "期間修正",
       "domain": "PRD",
-      "source": "06-production/01-bom-routing-workcenter.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-022",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "BOM の単位と物料の基本単位が一致しません。",
+      "condition": "単位不整合",
+      "action": "BOM 修正",
       "domain": "PRD",
-      "source": "06-production/01-bom-routing-workcenter.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-038",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "指定した物料は当該 BOM の替代料ではありません。",
+      "condition": "替代不許可",
+      "action": "替代料確認",
       "domain": "PRD",
-      "source": "06-production/01-bom-routing-workcenter.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-014",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "工作中心が工場と一致しないか、無効です。",
+      "condition": "工作中心不整合",
+      "action": "再選択",
       "domain": "PRD",
-      "source": "06-production/01-bom-routing-workcenter.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-015",
-      "type": "一意",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "工序 SEQ が重複しています。",
+      "condition": "SEQ 重複",
+      "action": "修正",
       "domain": "PRD",
-      "source": "06-production/01-bom-routing-workcenter.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-001",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "指定した品目は製造品ではありません。製造品または委外品を選択してください。",
+      "condition": "品目区分不一致",
+      "action": "品目を変更",
       "domain": "PRD",
-      "source": "06-production/02-work-order.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-003",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "変更後の数量が既入庫数量を下回っています。",
+      "condition": "数量減が入庫実績未満",
+      "action": "数量を確認",
       "domain": "PRD",
-      "source": "06-production/02-work-order.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-004",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "W",
+      "body": "計画着手日が過去日です。このまま登録しますか？",
+      "condition": "過去日指定",
+      "action": "確認",
       "domain": "PRD",
-      "source": "06-production/02-work-order.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-002",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "承認前の受注からは工单を作成できません。",
+      "condition": "受注状態 < 25",
+      "action": "受注承認後に再実行",
       "domain": "PRD",
-      "source": "06-production/02-work-order.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-020",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "有効な BOM がありません。BOM を登録・承認してください。",
+      "condition": "BOM なし",
+      "action": "BOM 登録",
       "domain": "PRD",
-      "source": "06-production/02-work-order.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-021",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "有効な工艺路线がありません。工艺路线を登録してください。",
+      "condition": "工艺なし",
+      "action": "工艺登録",
       "domain": "PRD",
-      "source": "06-production/02-work-order.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-005",
-      "type": "権限",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "起案者と承認者が同一のため承認できません。",
+      "condition": "自己承認",
+      "action": "別の承認者へ",
       "domain": "PRD",
-      "source": "06-production/02-work-order.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-048",
-      "type": "相関",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "拆分明細の数量合計が元工单数量と一致しません。",
+      "condition": "拆分合計不一致",
+      "action": "数量修正",
       "domain": "PRD",
-      "source": "06-production/02-work-order.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-049",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "合并条件（品目・工場・BOM/工艺・納期）が一致しない工单は合并できません。",
+      "condition": "合并条件不一致",
+      "action": "対象見直し",
       "domain": "PRD",
-      "source": "06-production/02-work-order.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-045",
-      "type": "",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "W",
+      "body": "一部材料の引当が不足しています。不足分は補充手配が必要です。",
+      "condition": "引当不足",
+      "action": "補充請購",
       "domain": "PRD",
-      "source": "06-production/02-work-order.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-044",
-      "type": "",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "下达に失敗しました。時間をおいて再実行してください。",
+      "condition": "E21 発行失敗",
+      "action": "再実行",
       "domain": "PRD",
-      "source": "06-production/02-work-order.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-075",
-      "type": "",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "結案条件を満たしていません。{0}",
+      "condition": "結案条件未達",
+      "action": "条件を解消",
       "domain": "PRD",
-      "source": "06-production/02-work-order.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-051",
-      "type": "",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "子工单の作成に失敗しました。処理をロールバックしました。",
+      "condition": "多阶作成失敗",
+      "action": "再実行",
       "domain": "PRD",
-      "source": "06-production/02-work-order.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-040",
       "type": "E",
       "body": "完工数量が許容上限（allowed_qty）を超えています。",
-      "condition": "ハード超過",
+      "condition": "completed_qty 累計 > allowed_qty（MTS、または超産承認後も超過）",
       "action": "数量修正",
       "domain": "PRD",
-      "source": "06-production/02-work-order.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-046",
       "type": "E",
       "body": "実績のある工单は取消できません。先に領料・報工・入庫を取消してください。",
-      "condition": "実績あり",
+      "condition": "実績あり取消",
       "action": "実績取消",
       "domain": "PRD",
-      "source": "06-production/02-work-order.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-047",
@@ -15106,97 +15106,97 @@
       "condition": "保留中",
       "action": "保留解除",
       "domain": "PRD",
-      "source": "06-production/02-work-order.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-030",
-      "type": "範囲",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "工单の材料明細にない物料、または領料数量が上限を超えています。",
+      "condition": "材料不一致/超領",
+      "action": "材料・数量確認（超領は承認）",
       "domain": "PRD",
-      "source": "06-production/03-material-issue-reporting.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-034",
-      "type": "範囲",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "退料数量が領料数量を超えています。",
+      "condition": "過剰退料",
+      "action": "数量修正",
       "domain": "PRD",
-      "source": "06-production/03-material-issue-reporting.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-032",
-      "type": "相関",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "投入数量と良品・不良・报废の合計が一致しません。",
+      "condition": "数量不整合",
+      "action": "数量修正",
       "domain": "PRD",
-      "source": "06-production/03-material-issue-reporting.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-039",
-      "type": "相関",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "不良明細の数量合計が不良数量と一致しません。",
+      "condition": "明細不一致",
+      "action": "明細修正",
       "domain": "PRD",
-      "source": "06-production/03-material-issue-reporting.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-041",
-      "type": "範囲",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "工数の合計が作業者別工数の合計と一致しません。",
+      "condition": "工数不一致",
+      "action": "工数修正",
       "domain": "PRD",
-      "source": "06-production/03-material-issue-reporting.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-042",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "报废を登録するには NCR を起票してください。",
+      "condition": "报废時 NCR なし",
+      "action": "NCR 起票",
       "domain": "PRD",
-      "source": "06-production/03-material-issue-reporting.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-060",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "検査未合格の工序は次工程へ進めません。",
+      "condition": "IPQC 未合格",
+      "action": "検査完了・特采承認",
       "domain": "PRD",
-      "source": "06-production/03-material-issue-reporting.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-100",
-      "type": "範囲",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "超産承認が必要です。許容完工数量を超える入庫は承認後のみ可能です。",
+      "condition": "超産未承認",
+      "action": "超産承認申請",
       "domain": "PRD",
-      "source": "06-production/03-material-issue-reporting.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-062",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "完成品検査（FQC）が合格していないため入庫できません。",
+      "condition": "FQC 未合格",
+      "action": "検査完了/特采",
       "domain": "PRD",
-      "source": "06-production/03-material-issue-reporting.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-031",
       "type": "E",
       "body": "領料の確定に失敗しました。在庫の引当状況を確認してください。",
-      "condition": "E22 発行/INV 連携失敗",
+      "condition": "E22/INV 連携失敗",
       "action": "再実行",
       "domain": "PRD",
-      "source": "06-production/03-material-issue-reporting.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-033",
@@ -15205,7 +15205,7 @@
       "condition": "取消不可",
       "action": "赤伝処理",
       "domain": "PRD",
-      "source": "06-production/03-material-issue-reporting.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-035",
@@ -15214,16 +15214,16 @@
       "condition": "倒冲不足",
       "action": "手動領料",
       "domain": "PRD",
-      "source": "06-production/03-material-issue-reporting.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-036",
       "type": "E",
       "body": "確定後 24 時間を超えた報工は取消できません。赤伝で処理してください。",
-      "condition": "期限超過",
+      "condition": "取消期限超過",
       "action": "赤伝",
       "domain": "PRD",
-      "source": "06-production/03-material-issue-reporting.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-037",
@@ -15232,61 +15232,61 @@
       "condition": "批次なし",
       "action": "再選択",
       "domain": "PRD",
-      "source": "06-production/03-material-issue-reporting.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-080",
-      "type": "範囲",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "受入数量が委外注文の残数量を超えています。",
+      "condition": "超過受入",
+      "action": "数量確認",
       "domain": "PRD",
-      "source": "06-production/04-outsourcing.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-081",
-      "type": "範囲",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "W",
+      "body": "加工単価が 0 です。購買価格を確認してください。",
+      "condition": "単価未設定",
+      "action": "単価登録",
       "domain": "PRD",
-      "source": "06-production/04-outsourcing.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-083",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "来料検査（IQC）が合格していないため入庫できません。",
+      "condition": "IQC 未合格",
+      "action": "検査完了/特采",
       "domain": "PRD",
-      "source": "06-production/04-outsourcing.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-084",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "加工費結算の対象受入が不正です。受入確定・未結算を確認してください。",
+      "condition": "結算対象不正/連携失敗",
+      "action": "対象確認・再実行",
       "domain": "PRD",
-      "source": "06-production/04-outsourcing.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-085",
-      "type": "相関",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "扣款額が加工費を超えているか、扣款理由が未入力です。",
+      "condition": "扣款不正",
+      "action": "修正",
       "domain": "PRD",
-      "source": "06-production/04-outsourcing.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-082",
       "type": "E",
       "body": "実績のある委外訂单は取消できません。先に発料・受入を取消してください。",
-      "condition": "実績あり",
+      "condition": "実績あり取消",
       "action": "実績取消",
       "domain": "PRD",
-      "source": "06-production/04-outsourcing.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-086",
@@ -15295,97 +15295,97 @@
       "condition": "在庫不足",
       "action": "補充手配",
       "domain": "PRD",
-      "source": "06-production/04-outsourcing.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-025",
-      "type": "範囲",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "実行日は過去 30 日以内の日付を指定してください。",
+      "condition": "実行日範囲外",
+      "action": "日付修正",
       "domain": "PRD",
-      "source": "06-production/05-mrp-planning.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-029",
-      "type": "排他",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "他の MRP が実行中です。完了後に再実行してください。",
+      "condition": "二重実行",
+      "action": "完了待ち",
       "domain": "PRD",
-      "source": "06-production/05-mrp-planning.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-026",
-      "type": "相関",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "発注数量が最小起订量・発注倍数を満たしていません。",
+      "condition": "ロット規則違反",
+      "action": "数量修正",
       "domain": "PRD",
-      "source": "06-production/05-mrp-planning.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-027",
-      "type": "状態",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "この計画订单は既に転送済み、または取消済みです。",
+      "condition": "二重転送",
+      "action": "最新状態確認",
       "domain": "PRD",
-      "source": "06-production/05-mrp-planning.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-061",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "W",
+      "body": "適用可能な検査標準がありません。手動で検査項目を入力してください。",
+      "condition": "標準未設定",
+      "action": "標準登録",
       "domain": "PRD",
-      "source": "06-production/06-quality-management.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-067",
-      "type": "範囲",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "実測値と判定が整合していません。再確認してください。",
+      "condition": "判定不整合",
+      "action": "値・判定修正",
       "domain": "PRD",
-      "source": "06-production/06-quality-management.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-065",
-      "type": "相関",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "処置数量の合計が不合格数量と一致しません。",
+      "condition": "処置数量不一致",
+      "action": "数量修正",
       "domain": "PRD",
-      "source": "06-production/06-quality-management.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-064",
-      "type": "権限",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "この判定には質量主管の承認が必要です。",
+      "condition": "特采・报废の無承認",
+      "action": "承認申請",
       "domain": "PRD",
-      "source": "06-production/06-quality-management.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-069",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "返品が起票されていません。購買の返品処理を先に実行してください。",
+      "condition": "返品未起票",
+      "action": "PUR で返品起票",
       "domain": "PRD",
-      "source": "06-production/06-quality-management.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-063",
-      "type": "相関",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "指定した検査標準は有効期間外または未承認です。",
+      "condition": "標準期間外",
+      "action": "標準確認",
       "domain": "PRD",
-      "source": "06-production/06-quality-management.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-066",
@@ -15394,7 +15394,7 @@
       "condition": "権限なし取消",
       "action": "管理者へ依頼",
       "domain": "PRD",
-      "source": "06-production/06-quality-management.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-068",
@@ -15403,7 +15403,7 @@
       "condition": "処置未完了",
       "action": "処置完了",
       "domain": "PRD",
-      "source": "06-production/06-quality-management.md"
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-PRD-070",
@@ -15412,250 +15412,646 @@
       "condition": "追溯 0 件",
       "action": "キー確認",
       "domain": "PRD",
-      "source": "06-production/06-quality-management.md"
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-006",
+      "type": "E",
+      "body": "使用中のため削除できません。使用停止を検討してください。",
+      "condition": "マスタ参照中",
+      "action": "使用停止",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-007",
+      "type": "E",
+      "body": "工单で参照済みの BOM 明細は削除できません。BOM を廃止してください。",
+      "condition": "参照済み明細削除",
+      "action": "版数更新で廃止",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-008",
+      "type": "E",
+      "body": "BOM の変更には承認が必要です。承認申請してください。",
+      "condition": "未承認の変更確定",
+      "action": "承認申請",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-009",
+      "type": "I",
+      "body": "保存しました。",
+      "condition": "登録・更新成功",
+      "action": "—",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-012",
+      "type": "E",
+      "body": "承認済以降の BOM は直接編集できません。新版本を登録してください。",
+      "condition": "承認済編集",
+      "action": "新版本登録",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-016",
+      "type": "W",
+      "body": "BOM の有効期間が切れています。新版を登録してください。",
+      "condition": "有効期間外参照",
+      "action": "新版登録",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-017",
+      "type": "E",
+      "body": "基準数量は 0 より大きい値を入力してください。",
+      "condition": "基準数量 ≤ 0",
+      "action": "修正",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-018",
+      "type": "E",
+      "body": "子品目の単位が基本単位と換算できません。",
+      "condition": "単位換算不可",
+      "action": "単位修正",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-019",
+      "type": "W",
+      "body": "標準原価が未設定です。成本卷算を実行してください。",
+      "condition": "標準単価なし",
+      "action": "卷算実行",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-023",
+      "type": "E",
+      "body": "MRP の対象品目がありません。計画パラメータを確認してください。",
+      "condition": "対象 0 件",
+      "action": "パラメータ確認",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-024",
+      "type": "W",
+      "body": "在庫データに不整合があります。在庫を確認してください。",
+      "condition": "マイナス在庫等",
+      "action": "在庫確認",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-028",
+      "type": "E",
+      "body": "計画订单の転送に失敗しました。再実行してください。",
+      "condition": "転送失敗",
+      "action": "再実行",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-043",
+      "type": "E",
+      "body": "同一工单・工程・日付・シフトの報工が既に存在します。重複登録できません。",
+      "condition": "重複報工",
+      "action": "既存報工を確認",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-050",
+      "type": "W",
+      "body": "工作中心の能力を超過しています。日程調整を検討してください。",
+      "condition": "負荷率 > 1.0",
+      "action": "日程調整・外注",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-052",
+      "type": "W",
+      "body": "計画订单の必要日が過去のため即時発注として扱います。",
+      "condition": "着手日 < 実行日",
+      "action": "即時発注",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-053",
+      "type": "E",
+      "body": "MPS の期間が重複しています。",
+      "condition": "MPS 重複",
+      "action": "期間修正",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-054",
+      "type": "E",
+      "body": "受注数量が予測数量を超えています。需要の二重計上を確認してください。",
+      "condition": "予測消費設定の不整合",
+      "action": "設定確認",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-055",
+      "type": "W",
+      "body": "選択した工单の一部は状態が異なるため処理できません。",
+      "condition": "一括処理の状態混在",
+      "action": "対象確認",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-056",
+      "type": "E",
+      "body": "工单品目与销售订单行品目不一致。",
+      "condition": "工单 material_id ≠ 受注行 material_id（G2-18）",
+      "action": "品目を受注行に合わせる",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-071",
+      "type": "E",
+      "body": "検査の判定が未完了のため入庫できません。",
+      "condition": "検査未判定",
+      "action": "判定完了",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-072",
+      "type": "W",
+      "body": "検査単の起票時に標準が見つからず、手動項目で作成しました。",
+      "condition": "起票時の標準なし",
+      "action": "標準登録",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-073",
+      "type": "E",
+      "body": "同一項目の判定が未入力です。",
+      "condition": "項目未判定",
+      "action": "判定入力",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-074",
+      "type": "E",
+      "body": "NCR の承認が完了していないため処置を実行できません。",
+      "condition": "NCR 未承認",
+      "action": "承認待ち",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-076",
+      "type": "E",
+      "body": "未領材料・未退料が残っているため結案できません。",
+      "condition": "未領/未退料あり",
+      "action": "退料・調整",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-077",
+      "type": "E",
+      "body": "原価が確定していないため結案できません。月結後に再実行してください。",
+      "condition": "原価未確定",
+      "action": "月結後再実行",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-078",
+      "type": "E",
+      "body": "工单に未完了の変更申請があります。",
+      "condition": "変更申請中",
+      "action": "変更完了待ち",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-079",
+      "type": "W",
+      "body": "工单の計画完成日を超過しています。",
+      "condition": "遅延",
+      "action": "納期再回答",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-087",
+      "type": "E",
+      "body": "委外先の支給材料残と一致しません。数量を確認してください。",
+      "condition": "委外先在庫差異",
+      "action": "原因調査",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-088",
+      "type": "W",
+      "body": "委外訂单の納期を超過しています。",
+      "condition": "委外遅延",
+      "action": "督促・納期変更",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-089",
+      "type": "E",
+      "body": "発料数量が支給材料の標準量を超えています。",
+      "condition": "過剰発料",
+      "action": "数量確認",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-090",
+      "type": "E",
+      "body": "設備の状態が不正です。状態を確認してください。",
+      "condition": "設備状態不整合",
+      "action": "状態修正",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-091",
+      "type": "E",
+      "body": "帳票の出力に失敗しました。条件を確認して再実行してください。",
+      "condition": "帳票生成失敗",
+      "action": "再実行",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-092",
+      "type": "E",
+      "body": "集計対象データがありません。",
+      "condition": "集計 0 件",
+      "action": "条件変更",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-093",
+      "type": "E",
+      "body": "選択した条件ではデータ量が多すぎます。条件を絞ってください。",
+      "condition": "件数超過",
+      "action": "条件追加",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-094",
+      "type": "E",
+      "body": "パラメータ値が範囲外です。",
+      "condition": "設定値不正",
+      "action": "修正",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-095",
+      "type": "E",
+      "body": "既に処理中です。完了後に再実行してください。",
+      "condition": "二重起動",
+      "action": "完了待ち",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-096",
+      "type": "W",
+      "body": "一部のデータは権限がないため表示されません。",
+      "condition": "項目権限",
+      "action": "管理者へ依頼",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-097",
+      "type": "E",
+      "body": "過去日の報工は登録できません（当日以前 7 日以内のみ）。",
+      "condition": "報工日範囲外",
+      "action": "日付修正",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-098",
+      "type": "E",
+      "body": "工序の順序が前工程の完了と整合していません。",
+      "condition": "前工程未完了",
+      "action": "前工程完了",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-099",
+      "type": "E",
+      "body": "システムエラーが発生しました。管理者に連絡してください（エラー番号：{0}）。",
+      "condition": "500 エラー",
+      "action": "trace_id を連絡",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-101",
+      "type": "E",
+      "body": "超産承認が却下または取消のため入庫できません。",
+      "condition": "超産承認無効",
+      "action": "再申請または数量修正",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-102",
+      "type": "E",
+      "body": "冲销数量が已完工数量を超えています。",
+      "condition": "冲销 qty > completed_qty",
+      "action": "数量修正",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-103",
+      "type": "E",
+      "body": "超産申請数量が不正です。申請超産数量は 0 より大きい値を指定してください。",
+      "condition": "request_qty ≤ 0 または NULL（60103）",
+      "action": "申請超産数量を修正して再申請",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-104",
+      "type": "E",
+      "body": "下达日不能早于今天。",
+      "condition": "releaseDate が Asia/Shanghai 当日より前（60104）",
+      "action": "下达日を当日以降に修正",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
     },
     {
       "id": "MSG-FIN-004",
-      "type": "",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "科目代码「{0}」已存在。",
+      "condition": "コード重複",
+      "action": "別コードを採番（F-FIN-001）",
       "domain": "FIN",
-      "source": "07-finance/01-accounting-subjects.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-007",
-      "type": "",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "科目层级不正确：父科目必须为非末级科目且层级不超过 4 级。",
+      "condition": "階層不正",
+      "action": "親科目修正（F-FIN-001）",
       "domain": "FIN",
-      "source": "07-finance/01-accounting-subjects.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-005",
-      "type": "",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "科目「{0}」已有余额或未记账凭证，不能停用或改变余额方向。",
+      "condition": "使用中科目変更",
+      "action": "先に処理/振替（F-FIN-001）",
       "domain": "FIN",
-      "source": "07-finance/01-accounting-subjects.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-003",
-      "type": "",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "期初余额借贷不平衡（借方 {0} / 贷方 {1}，差额 {2}）。",
+      "condition": "期初试算不平衡",
+      "action": "差额修正後に確定（F-FIN-002）",
       "domain": "FIN",
-      "source": "07-finance/01-accounting-subjects.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-008",
-      "type": "",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "W",
+      "body": "统制科目「{0}」余额与子台账不一致（账面 {1} / 子台账 {2}），请确认。",
+      "condition": "統制科目照合差",
+      "action": "原因確認・調整（F-FIN-002/035）",
       "domain": "FIN",
-      "source": "07-finance/01-accounting-subjects.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-001",
       "type": "E",
-      "body": "借方合计与贷方合计不一致，无法保存。",
+      "body": "借方合计与贷方合计不一致（差额 {0}），无法保存。",
       "condition": "借贷不平衡",
-      "action": "差额行を確認し修正",
+      "action": "差額行を修正（F-FIN-003/005/006）",
       "domain": "FIN",
-      "source": "07-finance/01-accounting-subjects.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-002",
       "type": "E",
-      "body": "科目代码格式不正确（应为 4 位一级科目，明细以点号分隔）。",
-      "condition": "代码形式错误",
-      "action": "例 6602.12 で再入力",
+      "body": "科目代码格式不正确（应为 4 位一级科目，明细以点号分隔，如 6602.12）。",
+      "condition": "コード形式不正",
+      "action": "形式修正（F-FIN-001）",
       "domain": "FIN",
-      "source": "07-finance/01-accounting-subjects.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-006",
       "type": "E",
       "body": "科目「{0}」已被使用，不能删除。请使用「停用」。",
       "condition": "削除時使用中",
-      "action": "停用に切替",
+      "action": "停用に切替（F-FIN-001）",
       "domain": "FIN",
-      "source": "07-finance/01-accounting-subjects.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-009",
       "type": "E",
       "body": "该科目未绑定辅助核算维度「{0}」，不能录入该维度。",
       "condition": "未綁定维度入力",
-      "action": "科目設定を確認",
+      "action": "科目設定確認（F-FIN-003）",
       "domain": "FIN",
-      "source": "07-finance/01-accounting-subjects.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-034",
-      "type": "相関",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "凭证字与科目/日期不一致（收/付/转规则或期间不一致）。",
+      "condition": "凭证字制約/期間不一致",
+      "action": "凭证字または科目修正（F-FIN-003）",
       "domain": "FIN",
-      "source": "07-finance/02-voucher-ledger.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-018",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "凭证至少需要 2 行分录。",
+      "condition": "行数不足",
+      "action": "行追加（F-FIN-003）",
       "domain": "FIN",
-      "source": "07-finance/02-voucher-ledger.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-017",
-      "type": "成功",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "同一行不能同时录入借方和贷方金额，且金额不能为 0。",
+      "condition": "行金額不正",
+      "action": "借/贷いずれか入力（F-FIN-003）",
       "domain": "FIN",
-      "source": "07-finance/02-voucher-ledger.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-016",
-      "type": "必須",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "摘要不能为空，且不能仅包含符号。",
+      "condition": "摘要不正",
+      "action": "摘要入力（F-FIN-003）",
       "domain": "FIN",
-      "source": "07-finance/02-voucher-ledger.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-014",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "科目「{0}」不是末级科目或已停用，不能使用。",
+      "condition": "科目不正",
+      "action": "末级有効科目選択（F-FIN-003）",
       "domain": "FIN",
-      "source": "07-finance/02-voucher-ledger.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-025",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "凭证日期超出允许范围（所属期间 {0}）。",
+      "condition": "日付範囲外",
+      "action": "日付修正（F-FIN-003）",
       "domain": "FIN",
-      "source": "07-finance/02-voucher-ledger.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-027",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "现金/银行存款科目必须选择现金流量项目。",
+      "condition": "CF 項目なし",
+      "action": "CF 項目選択（F-FIN-003）",
       "domain": "FIN",
-      "source": "07-finance/02-voucher-ledger.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-026",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "数量核算科目必须录入数量与单价，且数量×单价应等于金额。",
+      "condition": "数量核算不正",
+      "action": "数量・単価修正（F-FIN-003）",
       "domain": "FIN",
-      "source": "07-finance/02-voucher-ledger.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-011",
-      "type": "権限",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "制单人与审核人不能为同一人（职务分离要求）。",
+      "condition": "SoD 違反（审核）",
+      "action": "別の审核者を指定（F-FIN-005）",
       "domain": "FIN",
-      "source": "07-finance/02-voucher-ledger.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-020",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "反记账只能在当前开放期间执行。",
+      "condition": "期間条件不成立",
+      "action": "期間状態確認（F-FIN-007）",
       "domain": "FIN",
-      "source": "07-finance/02-voucher-ledger.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-019",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "红字冲销只能针对已记账且未冲销的凭证。",
+      "condition": "冲销条件不成立",
+      "action": "原凭证確認（F-FIN-008）",
       "domain": "FIN",
-      "source": "07-finance/02-voucher-ledger.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-013",
-      "type": "",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "当前凭证状态不允许该操作。",
+      "condition": "状態不整合",
+      "action": "状態確認（共通 MSG-COM-034 優先可）",
       "domain": "FIN",
-      "source": "07-finance/02-voucher-ledger.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-021",
-      "type": "",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "反记账必须填写理由（1～500 字）。",
+      "condition": "理由なし",
+      "action": "理由入力（F-FIN-007）",
       "domain": "FIN",
-      "source": "07-finance/02-voucher-ledger.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-029",
-      "type": "",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "凭证字号已超过 9999 号，请调整期间或联系管理员。",
+      "condition": "採番枯渇",
+      "action": "管理者連絡（F-FIN-003）",
       "domain": "FIN",
-      "source": "07-finance/02-voucher-ledger.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-015",
       "type": "E",
       "body": "科目「{0}」不存在或已停用。",
       "condition": "科目不存在",
-      "action": "科目を選択し直す",
+      "action": "科目再選択（F-FIN-003）",
       "domain": "FIN",
-      "source": "07-finance/02-voucher-ledger.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-012",
       "type": "E",
       "body": "记账人与制单人/审核人不能为同一人（参数：记账分离=有效）。",
-      "condition": "SoD 違反（记账）",
-      "action": "別の记账人を指定 / 参数確認",
+      "condition": "SoD 違反（記帳）",
+      "action": "別の記帳者を指定（F-FIN-006）",
       "domain": "FIN",
-      "source": "07-finance/02-voucher-ledger.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-032",
       "type": "E",
       "body": "该凭证尚未记账，不能冲销。",
       "condition": "冲销条件不成立",
-      "action": "记账後に冲销",
+      "action": "記帳後に冲销（F-FIN-008）",
       "domain": "FIN",
-      "source": "07-finance/02-voucher-ledger.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-033",
       "type": "E",
       "body": "该凭证已被冲销，不能重复冲销。",
       "condition": "重複冲销",
-      "action": "既存冲销凭证を確認",
+      "action": "既存冲销凭证確認（F-FIN-008）",
       "domain": "FIN",
-      "source": "07-finance/02-voucher-ledger.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-037",
@@ -15664,124 +16060,124 @@
       "condition": "审核成功",
       "action": "—",
       "domain": "FIN",
-      "source": "07-finance/02-voucher-ledger.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-038",
       "type": "I",
       "body": "凭证已记账。",
-      "condition": "记账成功",
+      "condition": "記帳成功",
       "action": "—",
       "domain": "FIN",
-      "source": "07-finance/02-voucher-ledger.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-042",
-      "type": "一意",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "发票号码「{0}」已登记，不能重复登记。",
+      "condition": "发票重複",
+      "action": "既存发票照会（F-FIN-013/026）",
       "domain": "FIN",
-      "source": "07-finance/03-ap-payment.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-045",
-      "type": "相関",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "发票金额校验失败：税抜额 {0} + 税额 {1} ≠ 价税合计 {2}。",
+      "condition": "金額不整合",
+      "action": "票面確認（F-FIN-013）",
       "domain": "FIN",
-      "source": "07-finance/03-ap-payment.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-043",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "三单差异超过容差（差异 {0} / 容差 {1}），必须填写差异理由并审批。",
+      "condition": "容差超",
+      "action": "理由入力・承認（F-FIN-013）",
       "domain": "FIN",
-      "source": "07-finance/03-ap-payment.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-044",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "发票数量超过收货数量（收货 {0} / 发票 {1}），超额部分不能确认应付。",
+      "condition": "数量差異",
+      "action": "数量修正/保留（F-FIN-013）",
       "domain": "FIN",
-      "source": "07-finance/03-ap-payment.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-046",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "所选税码不是进项税码（tax_type=11），不能用于采购发票。",
+      "condition": "税码不正",
+      "action": "進項税码選択（F-FIN-013/026）",
       "domain": "FIN",
-      "source": "07-finance/03-ap-payment.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-054",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "申请金额超过可付上限（可付 {0} / 申请 {1}）。",
+      "condition": "申請超過",
+      "action": "金額修正（F-FIN-015）",
       "domain": "FIN",
-      "source": "07-finance/03-ap-payment.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-055",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "付款金额超过申请剩余可付金额（可付 {0} / 付款 {1}）。",
+      "condition": "付款超過",
+      "action": "金額修正（F-FIN-016）",
       "domain": "FIN",
-      "source": "07-finance/03-ap-payment.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-056",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "核销金额超过未核销余额（余额 {0} / 核销 {1}）。",
+      "condition": "核销超過",
+      "action": "金額修正（F-FIN-017）",
       "domain": "FIN",
-      "source": "07-finance/03-ap-payment.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-057",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "反核销只能在开放期间执行，且需付款/应付未结账。",
+      "condition": "条件不成立",
+      "action": "期間確認（F-FIN-017）",
       "domain": "FIN",
-      "source": "07-finance/03-ap-payment.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-058",
-      "type": "",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "银行付款指令发送失败：{0}。请稍后重试或联系银行。",
+      "condition": "銀企連携失敗",
+      "action": "再実行/銀行確認（F-FIN-016）",
       "domain": "FIN",
-      "source": "07-finance/03-ap-payment.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-040",
       "type": "E",
       "body": "该应付单已存在有效凭证，不能重复确认。",
       "condition": "二重確認",
-      "action": "既存凭证を確認",
+      "action": "既存凭证確認（F-FIN-012）",
       "domain": "FIN",
-      "source": "07-finance/03-ap-payment.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-041",
       "type": "E",
       "body": "暂估应付单尚未冲回，不能直接结转。",
       "condition": "冲回漏れ",
-      "action": "冲回後に処理",
+      "action": "冲回後に処理（F-FIN-014）",
       "domain": "FIN",
-      "source": "07-finance/03-ap-payment.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-050",
@@ -15790,16 +16186,16 @@
       "condition": "確認成功",
       "action": "—",
       "domain": "FIN",
-      "source": "07-finance/03-ap-payment.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-051",
       "type": "E",
       "body": "该应付单已有核销记录，不能直接作废。请先反核销。",
       "condition": "作废条件不成立",
-      "action": "反核销後に作废",
+      "action": "反核销後に作废（F-FIN-012）",
       "domain": "FIN",
-      "source": "07-finance/03-ap-payment.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-052",
@@ -15808,115 +16204,115 @@
       "condition": "核销成功",
       "action": "—",
       "domain": "FIN",
-      "source": "07-finance/03-ap-payment.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-053",
       "type": "E",
       "body": "反核销失败：该期间已结账或付款已作废。",
       "condition": "反核销条件不成立",
-      "action": "期間・付款状態を確認",
+      "action": "期間・状態確認（F-FIN-017）",
       "domain": "FIN",
-      "source": "07-finance/03-ap-payment.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-059",
       "type": "W",
       "body": "付款后银行账户预计余额为负（余额 {0}），请确认。",
       "condition": "残高不足",
-      "action": "口座・金額確認",
+      "action": "口座・金額確認（F-FIN-016）",
       "domain": "FIN",
-      "source": "07-finance/03-ap-payment.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-062",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "出荷事件的金额与明细合计不一致，已转入待处理。",
+      "condition": "E10 不整合",
+      "action": "出荷データ修正（F-FIN-019）",
       "domain": "FIN",
-      "source": "07-finance/04-ar-receipt.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-063",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "税率不正确（应为 0～100 的有效税率）。",
+      "condition": "税率不正",
+      "action": "税码確認（F-FIN-019）",
       "domain": "FIN",
-      "source": "07-finance/04-ar-receipt.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-064",
-      "type": "一意",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "银行流水号「{0}」已存在，不能重复登记。",
+      "condition": "流水重複",
+      "action": "既存收款照会（F-FIN-020）",
       "domain": "FIN",
-      "source": "07-finance/04-ar-receipt.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-065",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "核销金额超过应收未收余额（可核销 {0} / 本次 {1}）。",
+      "condition": "核销超過",
+      "action": "金額修正（F-FIN-021）",
       "domain": "FIN",
-      "source": "07-finance/04-ar-receipt.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-066",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "核销合计超过收款未核销金额（可核销 {0} / 本次 {1}）。",
+      "condition": "核销超過",
+      "action": "金額修正（F-FIN-021）",
       "domain": "FIN",
-      "source": "07-finance/04-ar-receipt.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-067",
-      "type": "期間",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "反核销失败：期间已结账或收款已作废。",
+      "condition": "条件不成立",
+      "action": "期間・状態確認（F-FIN-021）",
       "domain": "FIN",
-      "source": "07-finance/04-ar-receipt.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-068",
-      "type": "",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "开票金额超过应收金额（应收 {0} / 累计开票 {1} / 本次 {2}）。",
+      "condition": "開票超過",
+      "action": "SAL 確認（F-FIN-019）",
       "domain": "FIN",
-      "source": "07-finance/04-ar-receipt.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-069",
-      "type": "",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "该收款单已有核销记录，不能直接作废，请先反核销。",
+      "condition": "作废条件不成立",
+      "action": "反核销後作废（F-FIN-020）",
       "domain": "FIN",
-      "source": "07-finance/04-ar-receipt.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-060",
       "type": "E",
       "body": "该应收单已存在有效凭证，不能重复确认。",
       "condition": "二重確認",
-      "action": "既存凭证を確認",
+      "action": "既存凭证確認（F-FIN-019）",
       "domain": "FIN",
-      "source": "07-finance/04-ar-receipt.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-061",
       "type": "E",
       "body": "应收金额与出荷明細合计不一致（出荷 {0} / 明细 {1}）。",
       "condition": "E10 不整合",
-      "action": "SAL へ確認、保留",
+      "action": "SAL 確認・保留（F-FIN-019）",
       "domain": "FIN",
-      "source": "07-finance/04-ar-receipt.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-070",
@@ -15925,106 +16321,106 @@
       "condition": "確認成功",
       "action": "—",
       "domain": "FIN",
-      "source": "07-finance/04-ar-receipt.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-071",
       "type": "W",
       "body": "该客户应收余额已超过信用额度（额度 {0} / 使用 {1}），请销售确认。",
       "condition": "与信超過",
-      "action": "SAL へ連絡",
+      "action": "SAL 連絡（F-FIN-022）",
       "domain": "FIN",
-      "source": "07-finance/04-ar-receipt.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-080",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "现金日记账金额无效（借贷方向与金额不一致）。",
+      "condition": "金額不整合",
+      "action": "修正（F-FIN-023）",
       "domain": "FIN",
-      "source": "07-finance/05-cashier-tax.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-081",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "现金盘点差异必须填写原因（差异 {0}）。",
+      "condition": "盤点差理由なし",
+      "action": "原因入力（F-FIN-023）",
       "domain": "FIN",
-      "source": "07-finance/05-cashier-tax.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-082",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "该银行账户的 {0} 期间对账单已导入，不能重复导入。",
+      "condition": "重複取込",
+      "action": "既存批次確認（F-FIN-024）",
       "domain": "FIN",
-      "source": "07-finance/05-cashier-tax.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-084",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "余额调节表不平衡（调节后企业 {0} / 调节后银行 {1}，差额 {2}）。",
+      "condition": "調節表不一致",
+      "action": "未達事項確認（F-FIN-024）",
       "domain": "FIN",
-      "source": "07-finance/05-cashier-tax.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-086",
-      "type": "状態",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "该期间的申报辅助表已确认，不能重新生成；如需修正请先取消确认。",
+      "condition": "確認済再生成",
+      "action": "取消確認（F-FIN-027）",
       "domain": "FIN",
-      "source": "07-finance/05-cashier-tax.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-087",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "W",
+      "body": "当期应纳税额小于 0（留抵），附加税费计税依据按 0 计算。",
+      "condition": "留抵",
+      "action": "情報表示（F-FIN-028）",
       "domain": "FIN",
-      "source": "07-finance/05-cashier-tax.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-088",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "W",
+      "body": "当期利润总额小于 0（亏损），所得税计提金额按 0 处理。",
+      "condition": "亏损",
+      "action": "情報表示（F-FIN-028）",
       "domain": "FIN",
-      "source": "07-finance/05-cashier-tax.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-085",
-      "type": "",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "W",
+      "body": "申报辅助表与总账应交税费发生额存在差异 {0}，请确认。",
+      "condition": "照合差",
+      "action": "差異理由記録（F-FIN-027）",
       "domain": "FIN",
-      "source": "07-finance/05-cashier-tax.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-089",
-      "type": "",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "该期间同一税种已计提，不能重复计提。",
+      "condition": "計提重複",
+      "action": "既存計提赤伝訂正（F-FIN-028）",
       "domain": "FIN",
-      "source": "07-finance/05-cashier-tax.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-083",
-      "type": "",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "银行账户未设置或已停用，请联系管理员。",
+      "condition": "口座不備",
+      "action": "口座設定（F-FIN-024）",
       "domain": "FIN",
-      "source": "07-finance/05-cashier-tax.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-090",
@@ -16033,7 +16429,7 @@
       "condition": "対账完了",
       "action": "—",
       "domain": "FIN",
-      "source": "07-finance/05-cashier-tax.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-091",
@@ -16042,79 +16438,79 @@
       "condition": "生成完了",
       "action": "—",
       "domain": "FIN",
-      "source": "07-finance/05-cashier-tax.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-104",
-      "type": "",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "未找到适用于事件「{0}」的自动凭证模板，请检查模板配置。",
+      "condition": "テンプレート無",
+      "action": "テンプレート登録（F-FIN-029）",
       "domain": "FIN",
-      "source": "07-finance/06-auto-voucher-costing.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-102",
-      "type": "",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "自动凭证生成失败：借贷不平衡或金额计算异常（事件 {0}）。",
+      "condition": "計算失敗",
+      "action": "テンプレート/payload 確認（F-FIN-030）",
       "domain": "FIN",
-      "source": "07-finance/06-auto-voucher-costing.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-106",
-      "type": "",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "税种「{0}」没有对应的科目映射，请检查科目表。",
+      "condition": "税種マップ無",
+      "action": "科目マッピング（F-FIN-029）",
       "domain": "FIN",
-      "source": "07-finance/06-auto-voucher-costing.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-112",
-      "type": "",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "W",
+      "body": "以下成本对象存在异常（负库存/无报工/无BOM）：{0}，未参与计算。",
+      "condition": "異常対象",
+      "action": "マスタ・実績修正後に再実行（F-FIN-031）",
       "domain": "FIN",
-      "source": "07-finance/06-auto-voucher-costing.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-113",
-      "type": "",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "生产成本科目余额与在制品合计不一致（科目 {0} / WIP {1}），不能确认成本。",
+      "condition": "照合差",
+      "action": "原因調査（F-FIN-033）",
       "domain": "FIN",
-      "source": "07-finance/06-auto-voucher-costing.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-114",
-      "type": "",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "制造费用科目期末仍有余额 {0}，分配未完成。",
+      "condition": "分配漏れ",
+      "action": "分配再実行（F-FIN-032）",
       "domain": "FIN",
-      "source": "07-finance/06-auto-voucher-costing.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-115",
-      "type": "",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "该期间成本已确认，如需重算请先由财务总监取消确认。",
+      "condition": "再計算",
+      "action": "取消→再計算（F-FIN-031）",
       "domain": "FIN",
-      "source": "07-finance/06-auto-voucher-costing.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-100",
       "type": "E",
       "body": "自动凭证模板代码「{0}」已存在。",
       "condition": "重複",
-      "action": "別コード",
+      "action": "別コード（F-FIN-029）",
       "domain": "FIN",
-      "source": "07-finance/06-auto-voucher-costing.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-101",
@@ -16123,34 +16519,34 @@
       "condition": "生成成功",
       "action": "—",
       "domain": "FIN",
-      "source": "07-finance/06-auto-voucher-costing.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-103",
       "type": "E",
       "body": "自动凭证处理连续失败 10 次，已转入死信队列。",
       "condition": "DEAD_LETTER",
-      "action": "ログ確認、手動再処理",
+      "action": "ログ確認・手動再処理（F-FIN-030）",
       "domain": "FIN",
-      "source": "07-finance/06-auto-voucher-costing.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-105",
       "type": "E",
       "body": "模板「{0}」的借贷合计不一致（借 {1} / 贷 {2}）。",
       "condition": "テンプレート検証",
-      "action": "行を修正",
+      "action": "行修正（F-FIN-029）",
       "domain": "FIN",
-      "source": "07-finance/06-auto-voucher-costing.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-108",
       "type": "E",
       "body": "事件「{0}」的目标期间已结账，已暂停处理。",
       "condition": "期間 CLOSED",
-      "action": "期間確認、翌期処理",
+      "action": "期間確認・翌期処理（F-FIN-030）",
       "domain": "FIN",
-      "source": "07-finance/06-auto-voucher-costing.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-110",
@@ -16159,7 +16555,7 @@
       "condition": "分配成功",
       "action": "—",
       "domain": "FIN",
-      "source": "07-finance/06-auto-voucher-costing.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-111",
@@ -16168,79 +16564,79 @@
       "condition": "計算成功",
       "action": "—",
       "domain": "FIN",
-      "source": "07-finance/06-auto-voucher-costing.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-116",
       "type": "E",
       "body": "在库月结（E20）未完成，不能执行成本计算。",
       "condition": "前提未成立",
-      "action": "在庫月結を先に実行",
+      "action": "在庫月結を先に実行（F-FIN-031）",
       "domain": "FIN",
-      "source": "07-finance/06-auto-voucher-costing.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-120",
-      "type": "状態",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "该期间存在未记账凭证（{0} 张），不能结账。",
+      "condition": "未記帳あり",
+      "action": "审核・記帳完了（F-FIN-035）",
       "domain": "FIN",
-      "source": "07-finance/07-period-reporting.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-122",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "月结检查未通过（{0} 项 NG），不能结账；如需强制结账请由财务总监批准。",
+      "condition": "チェック NG",
+      "action": "NG 解消（F-FIN-035）",
       "domain": "FIN",
-      "source": "07-finance/07-period-reporting.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-126",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "损益结转后损益类科目仍有余额（{0}），请检查结转范围。",
+      "condition": "転記検証",
+      "action": "科目範囲確認（F-FIN-036）",
       "domain": "FIN",
-      "source": "07-finance/07-period-reporting.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-125",
-      "type": "状態",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "年结失败：12 月未结账或年结检查未通过（{0}）。",
+      "condition": "年結条件不成立",
+      "action": "12 月月結・検査（F-FIN-037）",
       "domain": "FIN",
-      "source": "07-finance/07-period-reporting.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-128",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "资产负债表不平衡（资产 {0} / 负债和所有者权益 {1}，差额 {2}），请检查科目余额。",
+      "condition": "BS 不一致",
+      "action": "原因調査（F-FIN-038）",
       "domain": "FIN",
-      "source": "07-finance/07-period-reporting.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-129",
-      "type": "状態",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "该期间尚未结账，法定报表只能预览，不能正式输出。",
+      "condition": "未 CLOSED",
+      "action": "月結完了（F-FIN-038）",
       "domain": "FIN",
-      "source": "07-finance/07-period-reporting.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-130",
-      "type": "業務",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "科目余额表借贷合计不一致（借 {0} / 贷 {1}），请检查余额数据。",
+      "condition": "試算不平衡",
+      "action": "原因調査（F-FIN-039）",
       "domain": "FIN",
-      "source": "07-finance/07-period-reporting.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-121",
@@ -16249,7 +16645,7 @@
       "condition": "開帳成功",
       "action": "—",
       "domain": "FIN",
-      "source": "07-finance/07-period-reporting.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-123",
@@ -16258,43 +16654,43 @@
       "condition": "月結成功",
       "action": "—",
       "domain": "FIN",
-      "source": "07-finance/07-period-reporting.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-124",
-      "type": "E",
+      "type": "W",
       "body": "期间 {0} 已重新开启，所有后续报表需重新生成。",
       "condition": "再開",
-      "action": "理由記録・再計算",
+      "action": "理由記録・再計算（F-FIN-035）",
       "domain": "FIN",
-      "source": "07-finance/07-period-reporting.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-127",
       "type": "E",
       "body": "该期间已执行损益结转，不能重复执行。",
       "condition": "二重転記",
-      "action": "期間再開後に再実行",
+      "action": "期間再開後に再実行（F-FIN-036）",
       "domain": "FIN",
-      "source": "07-finance/07-period-reporting.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-131",
-      "type": "E",
+      "type": "W",
       "body": "该期间已重新开启，报表快照已失效，请重新生成。",
       "condition": "再開後の快照",
-      "action": "再生成",
+      "action": "再生成（F-FIN-038）",
       "domain": "FIN",
-      "source": "07-finance/07-period-reporting.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-132",
       "type": "W",
       "body": "现金流量表与现金科目余额变动不一致（差异 {0}），请检查现金流量项目标记。",
       "condition": "CF 不一致",
-      "action": "CF 項目を確認",
+      "action": "CF 項目確認（F-FIN-038）",
       "domain": "FIN",
-      "source": "07-finance/07-period-reporting.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-133",
@@ -16303,43 +16699,340 @@
       "condition": "年結成功",
       "action": "—",
       "domain": "FIN",
-      "source": "07-finance/07-period-reporting.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-117",
-      "type": "",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "W",
+      "body": "未设定标准成本，本期不进行成本差异分析。",
+      "condition": "標準原価なし",
+      "action": "標準原価設定（第一版）",
       "domain": "FIN",
-      "source": "07-finance/91-api-design.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-134",
-      "type": "",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "标准成本发布失败：适用开始期间 {0} 不晚于当前有效版本的开始期间 {1}，或该期间成本已结账。",
+      "condition": "発行期間不正",
+      "action": "開始期間を有効版より後かつ未結帳期間に変更（F-FIN-047）",
       "domain": "FIN",
-      "source": "07-finance/91-api-design.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-135",
-      "type": "",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "标准成本版本「{0}」不是草稿状态，不能编辑或发布。",
+      "condition": "状態不正（発行関数を経ずに直接変更する場合も含む）",
+      "action": "新版本を登録（F-FIN-047）",
       "domain": "FIN",
-      "source": "07-finance/91-api-design.md"
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-FIN-136",
-      "type": "",
-      "body": "",
-      "condition": "",
-      "action": "",
+      "type": "E",
+      "body": "物料「{0}」的标准成本版本「{1}」已存在。",
+      "condition": "版本重複",
+      "action": "別版本コード（F-FIN-047）",
       "domain": "FIN",
-      "source": "07-finance/91-api-design.md"
+      "source": "07-finance/93-messages.md"
+    },
+    {
+      "id": "MSG-FIN-010",
+      "type": "E",
+      "body": "该科目余额方向与期初录入方向相反，请确认。",
+      "condition": "残高方向不一致",
+      "action": "方向修正（F-FIN-002）",
+      "domain": "FIN",
+      "source": "07-finance/93-messages.md"
+    },
+    {
+      "id": "MSG-FIN-022",
+      "type": "E",
+      "body": "该分录已被后续业务引用，不能修改。",
+      "condition": "被引用",
+      "action": "赤伝訂正（F-FIN-003）",
+      "domain": "FIN",
+      "source": "07-finance/93-messages.md"
+    },
+    {
+      "id": "MSG-FIN-023",
+      "type": "E",
+      "body": "凭证模板无效或已停用。",
+      "condition": "テンプレート無効",
+      "action": "テンプレート確認（F-FIN-004）",
+      "domain": "FIN",
+      "source": "07-finance/93-messages.md"
+    },
+    {
+      "id": "MSG-FIN-024",
+      "type": "E",
+      "body": "辅助核算档案「{0}」已停用或不存在。",
+      "condition": "補助档案不正",
+      "action": "有効な档案選択（F-FIN-003）",
+      "domain": "FIN",
+      "source": "07-finance/93-messages.md"
+    },
+    {
+      "id": "MSG-FIN-028",
+      "type": "E",
+      "body": "附件张数不能超过 {0} 张，或附件大小超过限制。",
+      "condition": "添付上限超過",
+      "action": "添付削減（F-FIN-009）",
+      "domain": "FIN",
+      "source": "07-finance/93-messages.md"
+    },
+    {
+      "id": "MSG-FIN-030",
+      "type": "E",
+      "body": "所属会计期间未开放，不能录入凭证。",
+      "condition": "期間 FUTURE",
+      "action": "期間開帳待ち（F-FIN-003）",
+      "domain": "FIN",
+      "source": "07-finance/93-messages.md"
+    },
+    {
+      "id": "MSG-FIN-031",
+      "type": "E",
+      "body": "试算平衡校验失败（借方 {0} / 贷方 {1}，差额 {2}）。",
+      "condition": "試算不平衡",
+      "action": "原因調査（F-FIN-011）",
+      "domain": "FIN",
+      "source": "07-finance/93-messages.md"
+    },
+    {
+      "id": "MSG-FIN-035",
+      "type": "E",
+      "body": "已审核的凭证不能直接修改，请先取消审核。",
+      "condition": "状態不整合",
+      "action": "取消审核（F-FIN-005）",
+      "domain": "FIN",
+      "source": "07-finance/93-messages.md"
+    },
+    {
+      "id": "MSG-FIN-036",
+      "type": "E",
+      "body": "已记账的凭证不能修改或删除，请使用红字冲销。",
+      "condition": "状態不整合",
+      "action": "赤伝（F-FIN-008）",
+      "domain": "FIN",
+      "source": "07-finance/93-messages.md"
+    },
+    {
+      "id": "MSG-FIN-039",
+      "type": "E",
+      "body": "该凭证已作废，不能进行操作。",
+      "condition": "作废済",
+      "action": "状態確認（F-FIN-003）",
+      "domain": "FIN",
+      "source": "07-finance/93-messages.md"
+    },
+    {
+      "id": "MSG-FIN-047",
+      "type": "E",
+      "body": "该发票已认证，不能修改关键字段。",
+      "condition": "認証済変更",
+      "action": "赤伝・再登録（F-FIN-026）",
+      "domain": "FIN",
+      "source": "07-finance/93-messages.md"
+    },
+    {
+      "id": "MSG-FIN-048",
+      "type": "E",
+      "body": "供应商付款条件未設定，无法计算到期日。",
+      "condition": "付款条件なし",
+      "action": "MDM 設定（F-FIN-012）",
+      "domain": "FIN",
+      "source": "07-finance/93-messages.md"
+    },
+    {
+      "id": "MSG-FIN-049",
+      "type": "E",
+      "body": "当前付款申请状态不允许该操作。",
+      "condition": "状態不整合",
+      "action": "状態確認（F-FIN-015）",
+      "domain": "FIN",
+      "source": "07-finance/93-messages.md"
+    },
+    {
+      "id": "MSG-FIN-072",
+      "type": "E",
+      "body": "预收账款与应收单的客户不一致，不能核销。",
+      "condition": "取引先不一致",
+      "action": "取引先確認（F-FIN-021）",
+      "domain": "FIN",
+      "source": "07-finance/93-messages.md"
+    },
+    {
+      "id": "MSG-FIN-073",
+      "type": "E",
+      "body": "收款方式与银行账户不匹配（银行转账必须选择账户）。",
+      "condition": "口座不備",
+      "action": "口座選択（F-FIN-020）",
+      "domain": "FIN",
+      "source": "07-finance/93-messages.md"
+    },
+    {
+      "id": "MSG-FIN-074",
+      "type": "W",
+      "body": "客户对账单存在未核对差异 {0}，请与客户确认。",
+      "condition": "対账差異",
+      "action": "差異調査（F-FIN-021）",
+      "domain": "FIN",
+      "source": "07-finance/93-messages.md"
+    },
+    {
+      "id": "MSG-FIN-075",
+      "type": "E",
+      "body": "该客户坏账准备已计提，不能重复计提。",
+      "condition": "P2 二重計提",
+      "action": "既存計提確認（F-FIN-022）",
+      "domain": "FIN",
+      "source": "07-finance/93-messages.md"
+    },
+    {
+      "id": "MSG-FIN-076",
+      "type": "E",
+      "body": "应收票据管理尚未启用，请使用银行收款。",
+      "condition": "未実装機能",
+      "action": "実装順 P2 対応（F-FIN-020）",
+      "domain": "FIN",
+      "source": "07-finance/93-messages.md"
+    },
+    {
+      "id": "MSG-FIN-077",
+      "type": "E",
+      "body": "该客户信用状态为冻结，不能登记新的应收。",
+      "condition": "与信凍結",
+      "action": "SAL/財務確認（F-FIN-019）",
+      "domain": "FIN",
+      "source": "07-finance/93-messages.md"
+    },
+    {
+      "id": "MSG-FIN-078",
+      "type": "E",
+      "body": "收款日期不能早于应收单的业务日期。",
+      "condition": "日付不整合",
+      "action": "日付修正（F-FIN-020）",
+      "domain": "FIN",
+      "source": "07-finance/93-messages.md"
+    },
+    {
+      "id": "MSG-FIN-079",
+      "type": "E",
+      "body": "核销对象已结清，不能再次核销。",
+      "condition": "結清済",
+      "action": "対象再選択（F-FIN-021）",
+      "domain": "FIN",
+      "source": "07-finance/93-messages.md"
+    },
+    {
+      "id": "MSG-FIN-092",
+      "type": "E",
+      "body": "对账单列映射不完整，缺少必需列：{0}。",
+      "condition": "列マッピング不足",
+      "action": "マッピング修正（F-FIN-024）",
+      "domain": "FIN",
+      "source": "07-finance/93-messages.md"
+    },
+    {
+      "id": "MSG-FIN-093",
+      "type": "E",
+      "body": "对账单文件解析失败，请使用银行提供的标准格式。",
+      "condition": "ファイル不正",
+      "action": "ファイル確認（F-FIN-024）",
+      "domain": "FIN",
+      "source": "07-finance/93-messages.md"
+    },
+    {
+      "id": "MSG-FIN-094",
+      "type": "W",
+      "body": "银行账户余额不足（余额 {0} / 付款 {1}），请确认资金。",
+      "condition": "残高不足",
+      "action": "入金/口座変更（F-FIN-016）",
+      "domain": "FIN",
+      "source": "07-finance/93-messages.md"
+    },
+    {
+      "id": "MSG-FIN-095",
+      "type": "E",
+      "body": "进项发票勾选状态更新失败：{0}。",
+      "condition": "認証 IF 失敗",
+      "action": "再実行（F-FIN-026）",
+      "domain": "FIN",
+      "source": "07-finance/93-messages.md"
+    },
+    {
+      "id": "MSG-FIN-096",
+      "type": "W",
+      "body": "附加税计税依据为 0，本期不计提附加税费。",
+      "condition": "応納税額 0",
+      "action": "情報表示（F-FIN-028）",
+      "domain": "FIN",
+      "source": "07-finance/93-messages.md"
+    },
+    {
+      "id": "MSG-FIN-097",
+      "type": "I",
+      "body": "资金日报正在生成，请稍后刷新。",
+      "condition": "非同期処理中",
+      "action": "再表示（F-FIN-025）",
+      "domain": "FIN",
+      "source": "07-finance/93-messages.md"
+    },
+    {
+      "id": "MSG-FIN-098",
+      "type": "E",
+      "body": "该账户期间尚未导入对账单，不能进行对账。",
+      "condition": "対账单なし",
+      "action": "取込（F-FIN-024）",
+      "domain": "FIN",
+      "source": "07-finance/93-messages.md"
+    },
+    {
+      "id": "MSG-FIN-099",
+      "type": "E",
+      "body": "余额调节表尚未复核，不能结账。",
+      "condition": "未復核",
+      "action": "復核依頼（F-FIN-024）",
+      "domain": "FIN",
+      "source": "07-finance/93-messages.md"
+    },
+    {
+      "id": "MSG-FIN-107",
+      "type": "E",
+      "body": "金额表达式计算异常（模板 {0}，行 {1}）：{2}。",
+      "condition": "DSL 評価失敗",
+      "action": "式修正（F-FIN-029）",
+      "domain": "FIN",
+      "source": "07-finance/93-messages.md"
+    },
+    {
+      "id": "MSG-FIN-109",
+      "type": "I",
+      "body": "该事件已处理，已跳过（幂等）。",
+      "condition": "重複イベント",
+      "action": "—",
+      "domain": "FIN",
+      "source": "07-finance/93-messages.md"
+    },
+    {
+      "id": "MSG-FIN-118",
+      "type": "E",
+      "body": "成本计算结果为空，请检查成本对象与归集数据。",
+      "condition": "結果 0 件",
+      "action": "対象確認（F-FIN-031）",
+      "domain": "FIN",
+      "source": "07-finance/93-messages.md"
+    },
+    {
+      "id": "MSG-FIN-119",
+      "type": "E",
+      "body": "制造费用分配基准合计为 0，无法计算分配率。",
+      "condition": "基準 0",
+      "action": "基準データ確認（F-FIN-032）",
+      "domain": "FIN",
+      "source": "07-finance/93-messages.md"
     },
     {
       "id": "MSG-WF-001",
