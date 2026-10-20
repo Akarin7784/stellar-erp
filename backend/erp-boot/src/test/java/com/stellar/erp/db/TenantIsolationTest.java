@@ -64,7 +64,7 @@ class TenantIsolationTest {
     void tenantCannotMoveOwnRowToOtherTenant() {
         assertThatThrownBy(() -> asTenant(A, () -> jdbc.update("UPDATE sys_user SET tenant_id = ? WHERE username = 'alice'", B)))
                 .isInstanceOf(DataAccessException.class)
-                .hasMessageContaining("row-level security");
+                .rootCause().hasMessageContaining("row-level security");
     }
 
     @Test
@@ -72,7 +72,7 @@ class TenantIsolationTest {
         assertThatThrownBy(() -> asTenant(A, () -> jdbc.update(
                 "INSERT INTO sys_user (id, tenant_id, username, password) VALUES (9003, ?, 'mallory', 'x')", B)))
                 .isInstanceOf(DataAccessException.class)
-                .hasMessageContaining("row-level security");
+                .rootCause().hasMessageContaining("row-level security");
     }
 
     @Test
