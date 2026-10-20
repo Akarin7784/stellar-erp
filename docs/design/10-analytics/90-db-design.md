@@ -655,6 +655,7 @@ CREATE INDEX idx_rpt_etl_job_date ON rpt_etl_job (biz_date DESC, job_type);
 CREATE TABLE rpt_etl_error (
     id              BIGINT       NOT NULL,
     tenant_id       BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
+    company_id              BIGINT       NOT NULL,                 -- 公司 ID（親と同値を冗長保持。2026-10-21 決定）
     job_id          BIGINT       NOT NULL,
     row_no          BIGINT,
     column_name     VARCHAR(100),
@@ -789,3 +790,4 @@ CREATE INDEX idx_rpt_query_log_screen ON rpt_query_log (screen_code, created_at 
 | 版数 | 日付 | 変更内容 | 変更者 |
 |---|---|---|---|
 | v1.0 | 2026-10-20 | 初版：22 テーブルの DDL・索引・制約・容量・更新タイミング | analytics-designer |
+| v1.1 | 2026-10-21 | 明細 `rpt_etl_error` に `company_id` を付与（明細も親と同値を冗長保持） | 业务分析 |

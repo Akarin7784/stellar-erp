@@ -85,7 +85,7 @@
 |---|---|
 | 追記専用ログ（`*_log`、`*_txn` の監査系） | `updated_at`、`updated_by`、`version`、`deleted` |
 | 集計・スナップショット | `version`（不要）、`deleted`（不要） |
-| 明細テーブル | `company_id`（親で保持）、`remark` 以外は付与 |
+| 明細テーブル | `remark` 以外は付与。`company_id` は省略不可（親と同値を冗長保持。2026-10-21 決定、06 と同じ書き方に全域統一） |
 | 基盤テーブル（`sys_sequence`／`sys_outbox_event`／`sys_audit_log` 等） | `deleted`、`version` 等を用途に応じて省略可（**正本は各テーブル定義書**。採番・Outbox は論理削除しない） |
 
 ## 4. データ型マッピング
@@ -430,6 +430,7 @@ V{yyyyMMdd}{NNNN}__{module}_{description}.sql     # バージョンは 12 桁
 | v1.0 | 2026-10-20 | 初版：命名、型、制約、索引、パーティション、Flyway、排他、履歴、容量、多租戸、レビュー観点 | Lead |
 | v1.1 | 2026-10-20 | 第一版全量範囲（分期表記削除）、§8.1 パーティション表 FK 不可、§11.1 ロック順序（RLS・DB ロールは [10](10-rls-and-db-roles.md)、`ON CONFLICT` は #50） | 业务分析 |
 | v1.2 | 2026-10-21 | §6.2 跨域外键规则を新設（跨域は `*_id` のみ・FK なし・サービス層で同一 TX 検証、sys/mdm は例外、将来 FK は NOT VALID→VALIDATE・複合 `(tenant_id, x_id)`）、§6 外部キー行に 6.2 参照を追記 | 业务分析 |
+| v1.3 | 2026-10-21 | §3 明細テーブルの `company_id` 省略を廃止（親と同値を冗長保持） | 业务分析 |
 
 ## Flowable 引擎表の schema 分離（issue #7）
 

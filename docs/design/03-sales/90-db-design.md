@@ -77,13 +77,13 @@ erDiagram
 
 ### 1.3 共通カラム
 
-全テーブル（明細は `company_id` を除く）に以下の共通カラムを付与する。定義は [01 共通項目定義 §2](../00-common/01-common-item-definitions.md) を正とする。
+全テーブル（明細を含む）に以下の共通カラムを付与する。定義は [01 共通項目定義 §2](../00-common/01-common-item-definitions.md) を正とする。
 
 ```sql
 -- 全テーブル共通（各テーブル DDL に展開する。以下は雛形）
 id          BIGINT       NOT NULL,                          -- 主キー（雪花 ID）
 tenant_id   BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,                -- 租户 ID（RLS。DEFAULT 0 禁止）
-company_id  BIGINT       NOT NULL,                          -- 公司 ID（既定値なし。明細は親で保持）
+company_id  BIGINT       NOT NULL,                          -- 公司 ID（既定値なし。明細も親と同値を冗長保持）
 created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),            -- 作成日時
 created_by  BIGINT       NOT NULL DEFAULT 0,                -- 作成者
 updated_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),            -- 更新日時
@@ -95,7 +95,7 @@ CONSTRAINT pk_{table} PRIMARY KEY (id)
 ```
 
 - `updated_at`/`updated_by` はアプリ層で自動充填する（DB トリガ禁止）。
-- 明細テーブルは `company_id` を省略し、親ヘッダで保持する。
+- 明細テーブルも `company_id` を持ち、親ヘッダと同値を冗長保持する（2026-10-21 決定、06-production と同じ書き方に全域統一）。RLS・会社フィルタで親 JOIN を不要にし、複合外键 `(tenant_id, company_id, …)` を張りやすくするため。
 - `sal_credit_check_log`・`sal_receivable_snapshot`・`sal_delivery_serial` など追記・投影系は `version`/`remark`/`ext_data` を省略可。
 
 ## 2. テーブル一覧
@@ -188,6 +188,7 @@ CREATE TABLE sal_inquiry (
 
 ```sql
 CREATE TABLE sal_inquiry_line (
+    company_id          BIGINT       NOT NULL,                 -- 公司 ID（親ヘッダと同値を冗長保持。2026-10-21 決定）
     inquiry_id          BIGINT       NOT NULL,                 -- 親（sal_inquiry.id）
     line_no             INT          NOT NULL,                 -- 行番号（10刻み）
     material_id         BIGINT       NOT NULL,                 -- 物料ID（mdm_material.id）
@@ -208,7 +209,7 @@ CREATE TABLE sal_inquiry_line (
 
 | 索引 | 種別 | 対象列 | 目的 |
 |---|---|---|---|
-| `uk_sal_inquiry_line_no` | UNIQUE | (`inquiry_id`, `line_no`) | 行番號一意 |
+| `uk_sal_inquiry_line_no` | UNIQUE | (`tenant_id`, `company_id`, `inquiry_id`, `line_no`) | 行番號一意 |
 | `idx_sal_inquiry_line_material` | B-Tree | (`material_id`) | 物料別照会 |
 
 ### 3.3 `sal_quotation`（报价单）
@@ -279,6 +280,7 @@ CREATE TABLE sal_quotation (
 
 ```sql
 CREATE TABLE sal_quotation_line (
+    company_id          BIGINT       NOT NULL,                 -- 公司 ID（親ヘッダと同値を冗長保持。2026-10-21 決定）
     quotation_id        BIGINT       NOT NULL,                 -- 親
     line_no             INT          NOT NULL,                 -- 行番号
     material_id         BIGINT       NOT NULL,                 -- 物料ID
@@ -312,7 +314,7 @@ CREATE TABLE sal_quotation_line (
 
 | 索引 | 種別 | 対象列 | 目的 |
 |---|---|---|---|
-| `uk_sal_quotation_line_no` | UNIQUE | (`quotation_id`, `line_no`) | 行番號一意 |
+| `uk_sal_quotation_line_no` | UNIQUE | (`tenant_id`, `company_id`, `quotation_id`, `line_no`) | 行番號一意 |
 | `idx_sal_quotation_line_material` | B-Tree | (`material_id`) | 物料別 |
 
 ### 3.5 `sal_quotation_version`（报价单版本）
@@ -327,6 +329,7 @@ CREATE TABLE sal_quotation_line (
 
 ```sql
 CREATE TABLE sal_quotation_version (
+    company_id          BIGINT       NOT NULL,                 -- 公司 ID（親ヘッダと同値を冗長保持。2026-10-21 決定）
     quotation_id        BIGINT       NOT NULL,                 -- 親
     revision_no         INT          NOT NULL,                 -- 版数
     version_status      SMALLINT     NOT NULL DEFAULT 10,      -- 版状態（10作成中/30発行済/90無効）
@@ -342,7 +345,7 @@ CREATE TABLE sal_quotation_version (
     CONSTRAINT pk_sal_quotation_version PRIMARY KEY (id),
     CONSTRAINT fk_sal_quotation_version_q FOREIGN KEY (quotation_id) REFERENCES sal_quotation (id)
 );
-CREATE UNIQUE INDEX uk_sal_quotation_version_rev ON sal_quotation_version (quotation_id, revision_no);
+CREATE UNIQUE INDEX uk_sal_quotation_version_rev ON sal_quotation_version (tenant_id, company_id, quotation_id, revision_no);
 ```
 
 ### 3.6 `sal_sales_order`（销售订单）
@@ -444,6 +447,7 @@ CREATE TABLE sal_sales_order (
 
 ```sql
 CREATE TABLE sal_sales_order_line (
+    company_id          BIGINT       NOT NULL,                 -- 公司 ID（親ヘッダと同値を冗長保持。2026-10-21 決定）
     sales_order_id      BIGINT       NOT NULL,                 -- 親（sal_sales_order.id）
     line_no             INT          NOT NULL,                 -- 行番号（10刻み・安定キー）
     material_id         BIGINT       NOT NULL,                 -- 物料ID
@@ -492,13 +496,14 @@ CREATE TABLE sal_sales_order_line (
     CONSTRAINT fk_sal_sales_order_line_o FOREIGN KEY (sales_order_id) REFERENCES sal_sales_order (id),
     CONSTRAINT fk_sal_sales_order_line_m FOREIGN KEY (material_id) REFERENCES mdm_material (id),
     CONSTRAINT ck_sal_sales_order_line_qty CHECK (ordered_qty > 0 AND reserved_qty >= 0 AND shipped_qty >= 0 AND shipped_base_qty >= 0 AND cancelled_qty >= 0 AND completed_qty >= 0 AND allowed_qty >= 0),
-    CONSTRAINT ck_sal_sales_order_line_price CHECK (unit_price >= 0)
+    CONSTRAINT ck_sal_sales_order_line_price CHECK (unit_price >= 0),
+    CONSTRAINT ck_sal_sol_completed_qty CHECK (completed_qty >= 0 AND completed_qty <= allowed_qty)  -- G2-18 累計完工上限（30-review/R3-对抗性评审-第2轮-异常路径.md:89）。違反時 SQLSTATE 23514 は本制約名で 60040 に変換（5000 にしない）
 );
 ```
 
 | 索引 | 種別 | 対象列 | 目的 |
 |---|---|---|---|
-| `uk_sal_sales_order_line_no` | UNIQUE | (`sales_order_id`, `line_no`) | 行番號一意（安定キー） |
+| `uk_sal_sales_order_line_no` | UNIQUE | (`tenant_id`, `company_id`, `sales_order_id`, `line_no`) | 行番號一意（安定キー） |
 | `idx_sal_sales_order_line_status` | B-Tree | (`line_status`, `delivery_date`) | 追蹤・遅延検出 |
 | `idx_sal_sales_order_line_material` | B-Tree | (`material_id`, `delivery_date`) | 物料別引當整理 |
 | `idx_sal_sales_order_line_open` | B-Tree | (`sales_order_id`) WHERE `line_status IN (10,30,35)` | 未完了明細 |
@@ -510,6 +515,7 @@ CREATE TABLE sal_sales_order_line (
 - `allowed_qty` / `completed_qty` は基本単位。`allowed_qty = floor(ordered_qty × conversion_rate × (1 + rate))`（`mdm_uom.decimal_places` で切捨て）。容差チェーンは受注行 > 物料 > 物料分類 > 会社（`sys_param.prd.completion_over_rate`）。確定時にスナップショットし、承認済の受注変更または超産承認時のみ再計算。
 - 跨表ロック順序：受注行 → 工单（同一表は id 昇順）。過帳は行ロックのみ（[04 §11.1](../00-common/04-common-db-spec.md)）。
 - 工单の物料は受注行の物料と一致しなければならない（生産ドメインで検証）。
+- **完工上限 CHECK（2026-10-21 決定）**：`ck_sal_sol_completed_qty CHECK (completed_qty >= 0 AND completed_qty <= allowed_qty)` を受注明細に付与する（G2-18 承認済設計、[30-review/R3-对抗性评审-第2轮-异常路径.md:89](../30-review/R3-对抗性评审-第2轮-异常路径.md)）。サービス層が先に 60040／60100 で拒否し、本制約は DB 層の最終防衛線。SQLSTATE 23514 を受けた場合、制約名 `ck_sal_sol_completed_qty` で判定して 60040 に変換する（OPA と同じ方式。5000 に落とさない）。
 
 
 ### 3.8 `sal_sales_order_version`（销售订单版本）
@@ -524,6 +530,7 @@ CREATE TABLE sal_sales_order_line (
 
 ```sql
 CREATE TABLE sal_sales_order_version (
+    company_id          BIGINT       NOT NULL,                 -- 公司 ID（親ヘッダと同値を冗長保持。2026-10-21 決定）
     sales_order_id      BIGINT       NOT NULL,                 -- 親受注
     version_no          INT          NOT NULL,                 -- 業務版数（2 以降）
     change_status       SMALLINT     NOT NULL DEFAULT 10,      -- 変更状態
@@ -543,7 +550,7 @@ CREATE TABLE sal_sales_order_version (
     CONSTRAINT pk_sal_sales_order_version PRIMARY KEY (id),
     CONSTRAINT fk_sal_sales_order_version_o FOREIGN KEY (sales_order_id) REFERENCES sal_sales_order (id)
 );
-CREATE UNIQUE INDEX uk_sal_sales_order_version_no ON sal_sales_order_version (sales_order_id, version_no);
+CREATE UNIQUE INDEX uk_sal_sales_order_version_no ON sal_sales_order_version (tenant_id, company_id, sales_order_id, version_no);
 CREATE INDEX idx_sal_sales_order_version_status ON sal_sales_order_version (change_status, requested_at DESC);
 ```
 
@@ -558,6 +565,7 @@ CREATE INDEX idx_sal_sales_order_version_status ON sal_sales_order_version (chan
 
 ```sql
 CREATE TABLE sal_sales_order_line_version (
+    company_id          BIGINT       NOT NULL,                 -- 公司 ID（親ヘッダと同値を冗長保持。2026-10-21 決定）
     sales_order_id      BIGINT       NOT NULL,                 -- 親受注
     version_no          INT          NOT NULL,                 -- 業務版数
     line_no             INT          NOT NULL,                 -- 行番号
@@ -642,6 +650,7 @@ CREATE TABLE sal_delivery_note (
 
 ```sql
 CREATE TABLE sal_delivery_note_line (
+    company_id          BIGINT       NOT NULL,                 -- 公司 ID（親ヘッダと同値を冗長保持。2026-10-21 決定）
     delivery_note_id    BIGINT       NOT NULL,                 -- 親
     line_no             INT          NOT NULL,                 -- 行番号
     sales_order_line_id BIGINT       NOT NULL,                 -- 受注明細ID
@@ -678,7 +687,7 @@ CREATE TABLE sal_delivery_note_line (
 
 | 索引 | 種別 | 対象列 | 目的 |
 |---|---|---|---|
-| `uk_sal_dn_line_no` | UNIQUE | (`delivery_note_id`, `line_no`) | 行番號一意 |
+| `uk_sal_dn_line_no` | UNIQUE | (`tenant_id`, `company_id`, `delivery_note_id`, `line_no`) | 行番號一意 |
 | `idx_sal_dn_line_order_line` | B-Tree | (`sales_order_line_id`) | 受注明細別の出荷集計 |
 | `idx_sal_dn_line_material` | B-Tree | (`material_id`) | 物料別 |
 
@@ -694,6 +703,7 @@ CREATE TABLE sal_delivery_note_line (
 
 ```sql
 CREATE TABLE sal_pick_detail (
+    company_id          BIGINT       NOT NULL,                 -- 公司 ID（親ヘッダと同値を冗長保持。2026-10-21 決定）
     delivery_note_id    BIGINT       NOT NULL,                 -- 親 DN
     delivery_note_line_id BIGINT     NOT NULL,                 -- 親 DN 明細
     pick_seq            INT          NOT NULL,                 -- ピッキング連番
@@ -729,6 +739,7 @@ CREATE INDEX idx_sal_pick_detail_batch ON sal_pick_detail (material_id, batch_no
 
 ```sql
 CREATE TABLE sal_delivery_serial (
+    company_id          BIGINT       NOT NULL,                 -- 公司 ID（親ヘッダと同値を冗長保持。2026-10-21 決定）
     delivery_note_id    BIGINT       NOT NULL,                 -- 親 DN
     delivery_note_line_id BIGINT     NOT NULL,                 -- 親 DN 明細
     material_id         BIGINT       NOT NULL,                 -- 物料ID
@@ -742,7 +753,7 @@ CREATE TABLE sal_delivery_serial (
     CONSTRAINT fk_sal_delivery_serial_dn FOREIGN KEY (delivery_note_id) REFERENCES sal_delivery_note (id),
     CONSTRAINT fk_sal_delivery_serial_line FOREIGN KEY (delivery_note_line_id) REFERENCES sal_delivery_note_line (id)
 );
-CREATE UNIQUE INDEX uk_sal_delivery_serial_line ON sal_delivery_serial (delivery_note_line_id, serial_no);
+CREATE UNIQUE INDEX uk_sal_delivery_serial_line ON sal_delivery_serial (tenant_id, company_id, delivery_note_line_id, serial_no);
 CREATE INDEX idx_sal_delivery_serial_no ON sal_delivery_serial (material_id, serial_no);
 ```
 
@@ -811,6 +822,7 @@ CREATE INDEX idx_sal_sales_return_delivery ON sal_sales_return (original_deliver
 
 ```sql
 CREATE TABLE sal_sales_return_line (
+    company_id          BIGINT       NOT NULL,                 -- 公司 ID（親ヘッダと同値を冗長保持。2026-10-21 決定）
     return_id           BIGINT       NOT NULL,                 -- 親返品
     line_no             INT          NOT NULL,                 -- 行番号
     original_delivery_line_id BIGINT NOT NULL,                 -- 元出荷明細ID
@@ -844,7 +856,7 @@ CREATE TABLE sal_sales_return_line (
     CONSTRAINT fk_sal_return_line_dn_line FOREIGN KEY (original_delivery_line_id) REFERENCES sal_delivery_note_line (id),
     CONSTRAINT ck_sal_return_line_qty CHECK (return_qty > 0 AND return_qty <= returnable_qty)
 );
-CREATE UNIQUE INDEX uk_sal_return_line_no ON sal_sales_return_line (return_id, line_no);
+CREATE UNIQUE INDEX uk_sal_return_line_no ON sal_sales_return_line (tenant_id, company_id, return_id, line_no);
 CREATE INDEX idx_sal_return_line_dn_line ON sal_sales_return_line (original_delivery_line_id);
 ```
 
@@ -860,6 +872,7 @@ CREATE INDEX idx_sal_return_line_dn_line ON sal_sales_return_line (original_deli
 
 ```sql
 CREATE TABLE sal_return_inspection (
+    company_id          BIGINT       NOT NULL,                 -- 公司 ID（親ヘッダと同値を冗長保持。2026-10-21 決定）
     return_id           BIGINT       NOT NULL,                 -- 親返品
     return_line_id      BIGINT       NOT NULL,                 -- 返品明細
     inspection_seq      INT          NOT NULL,                 -- 検品連番
@@ -938,6 +951,7 @@ CREATE INDEX idx_sal_iva_status ON sal_invoice_application (application_status, 
 
 ```sql
 CREATE TABLE sal_invoice_application_line (
+    company_id          BIGINT       NOT NULL,                 -- 公司 ID（親ヘッダと同値を冗長保持。2026-10-21 決定）
     application_id      BIGINT       NOT NULL,                 -- 親申請
     line_no             INT          NOT NULL,                 -- 行番号
     delivery_id         BIGINT       NOT NULL,                 -- 出荷ID（sal_delivery_note.id）
@@ -961,7 +975,7 @@ CREATE TABLE sal_invoice_application_line (
     CONSTRAINT fk_sal_iva_line_app FOREIGN KEY (application_id) REFERENCES sal_invoice_application (id),
     CONSTRAINT fk_sal_iva_line_dn FOREIGN KEY (delivery_id) REFERENCES sal_delivery_note (id)
 );
-CREATE UNIQUE INDEX uk_sal_iva_line_no ON sal_invoice_application_line (application_id, line_no);
+CREATE UNIQUE INDEX uk_sal_iva_line_no ON sal_invoice_application_line (tenant_id, company_id, application_id, line_no);
 CREATE INDEX idx_sal_iva_line_dn ON sal_invoice_application_line (delivery_id);
 ```
 
@@ -1025,6 +1039,7 @@ CREATE INDEX idx_sal_invoice_original ON sal_invoice (original_invoice_id);
 
 ```sql
 CREATE TABLE sal_invoice_line (
+    company_id          BIGINT       NOT NULL,                 -- 公司 ID（親ヘッダと同値を冗長保持。2026-10-21 決定）
     invoice_id          BIGINT       NOT NULL,                 -- 親発票
     line_no             INT          NOT NULL,                 -- 行番号
     delivery_id         BIGINT,                                -- 出荷ID
@@ -1046,7 +1061,7 @@ CREATE TABLE sal_invoice_line (
     CONSTRAINT fk_sal_invoice_line_inv FOREIGN KEY (invoice_id) REFERENCES sal_invoice (id),
     CONSTRAINT ck_sal_invoice_line_qty CHECK (qty > 0)
 );
-CREATE UNIQUE INDEX uk_sal_invoice_line_no ON sal_invoice_line (invoice_id, line_no);
+CREATE UNIQUE INDEX uk_sal_invoice_line_no ON sal_invoice_line (tenant_id, company_id, invoice_id, line_no);
 CREATE INDEX idx_sal_invoice_line_material ON sal_invoice_line (material_id);
 ```
 
@@ -1062,6 +1077,7 @@ CREATE INDEX idx_sal_invoice_line_material ON sal_invoice_line (material_id);
 
 ```sql
 CREATE TABLE sal_invoice_relation (
+    company_id          BIGINT       NOT NULL,                 -- 公司 ID（親ヘッダと同値を冗長保持。2026-10-21 決定）
     invoice_id          BIGINT       NOT NULL,                 -- 発票ID
     relate_type         VARCHAR(30)  NOT NULL,                 -- 関連種別（ORIGINAL_INVOICE/DELIVERY/ORDER/RECEIVABLE/RETURN）
     relate_id           BIGINT       NOT NULL,                 -- 関連ID
@@ -1126,6 +1142,7 @@ CREATE INDEX idx_sal_statement_status ON sal_statement (statement_status, period
 
 ```sql
 CREATE TABLE sal_statement_line (
+    company_id          BIGINT       NOT NULL,                 -- 公司 ID（親ヘッダと同値を冗長保持。2026-10-21 決定）
     statement_id        BIGINT       NOT NULL,                 -- 親対账单
     line_no             INT          NOT NULL,                 -- 行番号
     transaction_type    SMALLINT     NOT NULL,                 -- 区分（10前期繰越/20売上/30赤伝/40入金/50前受金/90その他）
@@ -1142,7 +1159,7 @@ CREATE TABLE sal_statement_line (
     CONSTRAINT pk_sal_statement_line PRIMARY KEY (id),
     CONSTRAINT fk_sal_statement_line_s FOREIGN KEY (statement_id) REFERENCES sal_statement (id)
 );
-CREATE UNIQUE INDEX uk_sal_statement_line_no ON sal_statement_line (statement_id, line_no);
+CREATE UNIQUE INDEX uk_sal_statement_line_no ON sal_statement_line (tenant_id, company_id, statement_id, line_no);
 CREATE INDEX idx_sal_statement_line_date ON sal_statement_line (statement_id, transaction_date);
 ```
 
@@ -1352,6 +1369,7 @@ CREATE INDEX idx_sal_forecast_period ON sal_sales_forecast (period_code, departm
 
 ```sql
 CREATE TABLE sal_sales_forecast_line (
+    company_id          BIGINT       NOT NULL,                 -- 公司 ID（親ヘッダと同値を冗長保持。2026-10-21 決定）
     forecast_id         BIGINT       NOT NULL,                 -- 親予測
     line_no             INT          NOT NULL,                 -- 行番号
     material_id         BIGINT       NOT NULL,                 -- 物料ID
@@ -1368,7 +1386,7 @@ CREATE TABLE sal_sales_forecast_line (
     CONSTRAINT fk_sal_forecast_line_f FOREIGN KEY (forecast_id) REFERENCES sal_sales_forecast (id),
     CONSTRAINT ck_sal_forecast_line_qty CHECK (forecast_qty >= 0)
 );
-CREATE UNIQUE INDEX uk_sal_forecast_line_no ON sal_sales_forecast_line (forecast_id, line_no);
+CREATE UNIQUE INDEX uk_sal_forecast_line_no ON sal_sales_forecast_line (tenant_id, company_id, forecast_id, line_no);
 CREATE INDEX idx_sal_forecast_line_material ON sal_sales_forecast_line (material_id);
 ```
 
@@ -1391,7 +1409,7 @@ CREATE INDEX idx_sal_forecast_line_material ON sal_sales_forecast_line (material
 | # | 制約 | 実現方法 | エラーメッセージ |
 |---|---|---|---|
 | 1 | 傳票番號の一意 | UNIQUE (`company_id`, `*_no`) | MSG-COM-050 |
-| 2 | 明細行番號の一意 | UNIQUE (`*_id`, `line_no`) | MSG-COM-050 |
+| 2 | 明細行番號の一意 | UNIQUE (`tenant_id`, `company_id`, `*_id`, `line_no`) | MSG-COM-050 |
 | 3 | 與信コミットの二重防止 | UNIQUE (`source_type`, `source_id`, `release_seq`) | MSG-COM-050 |
 | 4 | 受注転換の二重作成防止 | UNIQUE (`source_type`, `source_id`) WHERE `source_id` IS NOT NULL | MSG-COM-050 |
 | 5 | 特價の重複 | UNIQUE (`company_id`, `customer_id`, `material_id`, `valid_from`) WHERE `status=25` | MSG-SAL-093 |
@@ -1452,7 +1470,7 @@ CREATE INDEX idx_sal_forecast_line_material ON sal_sales_forecast_line (material
 
 ## 9. レビュー観点（本域）
 
-- [x] 共通カラム（§1.3）を全テーブルに付与（明細は `company_id` 省略）
+- [x] 共通カラム（§1.3）を全テーブルに付与（明細も `company_id` を保持）
 - [x] 金額 `NUMERIC(18,2)`・單價 `NUMERIC(18,6)`・數量 `NUMERIC(18,4)`・率 `NUMERIC(7,4)` に統一
 - [x] 傳票番號・業務キーの一意制約を定義
 - [x] 状態列に `CHECK` 制約を設定
@@ -1461,12 +1479,12 @@ CREATE INDEX idx_sal_forecast_line_material ON sal_sales_forecast_line (material
 - [x] 容量・保存期間・性能目標を記載
 - [x] 更新責任（本域のみ `sal_*` 更新、他域は参照/イベント投影）
 
-### 一意索引の先頭列ルールと例外（2026-10-20 決定）
+### 一意索引の先頭列ルール（2026-10-20 決定、2026-10-21 例外廃止）
 
 - 業務一意索引は `(tenant_id, company_id, 業務キー)` で始める（#43/#49 と同一）。
 - `ON CONFLICT` は同じ列を含め、採番は `sys_sequence.step` で増分する（`EXCLUDED.step` 禁止）。
 - `company_id` は既定値なし・必須。`tenant_id` は `DEFAULT current_setting('app.tenant_id')::bigint`（`DEFAULT 0` 禁止）。
-- **例外（親 ID 先頭の明細・版表）**：`uk_sal_inquiry_line_no`、`uk_sal_quotation_line_no`、`uk_sal_quotation_version_rev`、`uk_sal_sales_order_line_no`、`uk_sal_sales_order_version_no`、`uk_sal_dn_line_no`、`uk_sal_delivery_serial_line`、`uk_sal_return_line_no`、`uk_sal_iva_line_no`、`uk_sal_invoice_line_no`、`uk_sal_statement_line_no`、`uk_sal_forecast_line_no`。
+- 例外は登録しない（2026-10-21 決定）。明細・版表の一意索引 12 本（`uk_sal_inquiry_line_no` ほか）も `(tenant_id, company_id, 親 ID, …)` 先頭とする。
 
 ## 10. 未決事項
 
@@ -1484,6 +1502,7 @@ CREATE INDEX idx_sal_forecast_line_material ON sal_sales_forecast_line (material
 |---|---|---|---|
 | v1.0 | 2026-10-20 | 初版作成：29 テーブルの物理設計（DDL・索引・制約・容量・更新責任）、共通カラム方針、イベント連動、Flyway 計画 | sales-designer |
 | v1.1 | 2026-10-20 | 紅隊修復第 2 輪：`sal_credit_ledger_snapshot` を FIN 與信台帳の読取投影へ再定義（SAL 直接更新禁止）、與信判定コードを 10/20/30/40/90 に統一、与信使用額の権威を FIN へ一本化 | sales-designer |
+| v1.2 | 2026-10-21 | 蓝色大肥鱼 決定反映：①明細表 16 本に `company_id` を付与（§1.3 改訂）②受注明細に `ck_sal_sol_completed_qty`（G2-18、23514→60040）③親 ID 先頭の一意索引例外 12 本を `(tenant_id, company_id, …)` 先頭へ変更し例外登録を削除 | 業務分析 |
 
 
 

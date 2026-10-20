@@ -465,6 +465,7 @@ CREATE INDEX idx_int_tax_invoice_source ON int_tax_invoice (source_type, source_
 CREATE TABLE int_tax_invoice_line (
     id                      BIGINT       NOT NULL,
     tenant_id               BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
+    company_id              BIGINT       NOT NULL,                 -- 公司 ID（親と同値を冗長保持。2026-10-21 決定）
     invoice_id              BIGINT       NOT NULL,
     line_no                 INT          NOT NULL,
     material_id             BIGINT,
@@ -713,6 +714,7 @@ CREATE INDEX idx_int_file_transfer_layout ON int_file_transfer (layout_id, biz_d
 CREATE TABLE int_file_transfer_error (
     id              BIGINT       NOT NULL,
     tenant_id       BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
+    company_id              BIGINT       NOT NULL,                 -- 公司 ID（親と同値を冗長保持。2026-10-21 決定）
     transfer_id     BIGINT       NOT NULL,
     row_no          INT          NOT NULL,
     column_name     VARCHAR(100),
@@ -911,3 +913,4 @@ CREATE INDEX idx_int_sync_reconcile_status ON int_sync_reconcile (status, reconc
 | 版数 | 日付 | 変更内容 | 変更者 |
 |---|---|---|---|
 | v1.0 | 2026-10-20 | 初版：21 テーブルの DDL・索引・制約・容量・更新タイミング | integration-designer |
+| v1.1 | 2026-10-21 | 明細 `int_tax_invoice_line`・`int_file_transfer_error` に `company_id` を付与（明細も親と同値を冗長保持） | 业务分析 |

@@ -38,7 +38,7 @@ SYS 域 90 章 1.2 と同一の 3 セット（M/T/L）を適用する（[共通�
 |---|---|
 | M（マスタ） | wf_process_definition_ext、wf_business_type、wf_process_mapping、wf_approval_matrix、wf_approval_matrix_line、wf_timeout_rule、wf_form_field_permission、wf_delegation |
 | T（取引・設定） | wf_business_process、wf_task、wf_cc、wf_variable |
-| L（追記ログ） | wf_task_operation、wf_timeout_record、wf_process_stat（統計は更新ありのため `updated_at` のみ追加） |
+| L（追記ログ） | wf_task_operation（+company_id）、wf_timeout_record（+company_id）、wf_process_stat（統計は更新ありのため `updated_at` のみ追加） |
 
 ### 1.3 テーブル関連（ER 図）
 
@@ -544,7 +544,7 @@ COMMENT ON TABLE wf_timeout_rule IS '超时规则（リマインダ・エスカ�
 
 ```sql
 CREATE TABLE wf_timeout_record (
-    -- [共通カラム L]
+    -- [共通カラム L + company_id]（明細も親と同値を冗長保持。2026-10-21 決定）
     process_instance_id VARCHAR(64)   NOT NULL,           -- プロセスインスタンス ID
     task_id             VARCHAR(64)   NOT NULL,           -- タスク ID
     business_type       VARCHAR(64),                      -- 業務類型
@@ -700,3 +700,4 @@ COMMENT ON TABLE wf_variable IS '流程変数（業務変数スナップショ�
 | 版数 | 日付 | 変更内容 | 変更者 |
 |---|---|---|---|
 | v1.0 | 2026-10-20 | 初版：設計方針、ER 図、15 テーブル定義（DDL・索引・制約・更新仕様）、容量、更新タイミング | system-workflow |
+| v1.1 | 2026-10-21 | 明細 `wf_timeout_record` に `company_id` を付与（L セット + company_id） | 业务分析 |
