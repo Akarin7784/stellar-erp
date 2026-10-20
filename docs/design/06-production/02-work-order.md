@@ -227,7 +227,7 @@ stateDiagram-v2
 | 21 | progress_rate | 進捗率 | ヘッダ | 数値 | NUMERIC(7,4) | — | 0 | — | — | `progress_rate` | 参照のみ | バー表示 |
 | 22 | order_status | 状態 | ヘッダ | バッジ | SMALLINT | — | 10 | — | — | `order_status` | 参照のみ | 色付きバッジ |
 | 23 | over_receipt_rate | 完工超収容差 | ヘッダ | 数値 | NUMERIC(5,4) | — | チェーン解決値 | — | 受注行→物料→分類→会社 `sys_param` `prd.completion_over_rate`（登録時に解決） | `over_receipt_rate` | 参照のみ | % 表示・小数 2 桁（比率 NUMERIC(5,4) で保存）。前端は送信しない（[90-db-design.md](90-db-design.md) `prd_work_order.over_receipt_rate`） |
-| 23 | remark | 備考 | ヘッダ | テキスト | VARCHAR(500) | — | 空 | 500 桁 | — | `remark` | 編集可 | — |
+| 24 | remark | 備考 | ヘッダ | テキスト | VARCHAR(500) | — | 空 | 500 桁 | — | `remark` | 編集可 | — |
 
 **材料明細（タブ）項目定義**
 
