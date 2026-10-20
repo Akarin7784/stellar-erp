@@ -2,6 +2,7 @@ package com.stellar.erp.production;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -50,9 +51,9 @@ class WorkOrderApprovalServiceTest {
     void submitFromDraft() {
         stub(10, 2, CREATOR);
         when(repo.countWorkOrderMaterials(CO, WO)).thenReturn(1L);
-        when(repo.markSubmitted(CO, WO, USER)).thenReturn(1);
+        when(repo.markSubmitted(CO, WO, 2, USER)).thenReturn(1);
         service.submit(WO, new WorkOrderStateCommand(2, null));
-        verify(repo).markSubmitted(CO, WO, USER);
+        verify(repo).markSubmitted(CO, WO, 2, USER);
     }
 
     @Test
@@ -64,7 +65,7 @@ class WorkOrderApprovalServiceTest {
                     assertThat(e.getCode()).isEqualTo(1001);
                     assertThat(e.getMsgId()).isEqualTo("MSG-COM-040");
                 });
-        verify(repo, never()).markSubmitted(anyLong(), anyLong(), anyLong());
+        verify(repo, never()).markSubmitted(anyLong(), anyLong(), anyInt(), anyLong());
     }
 
     @Test
@@ -84,9 +85,9 @@ class WorkOrderApprovalServiceTest {
     @Test
     void approveFromPending() {
         stub(20, 1, CREATOR);
-        when(repo.markApproved(CO, WO, USER)).thenReturn(1);
+        when(repo.markApproved(CO, WO, 1, USER)).thenReturn(1);
         service.approve(WO, new WorkOrderStateCommand(1, null));
-        verify(repo).markApproved(CO, WO, USER);
+        verify(repo).markApproved(CO, WO, 1, USER);
     }
 
     @Test
@@ -97,7 +98,7 @@ class WorkOrderApprovalServiceTest {
                     assertThat(e.getCode()).isEqualTo(60005);
                     assertThat(e.getMsgId()).isEqualTo("MSG-PRD-005");
                 });
-        verify(repo, never()).markApproved(anyLong(), anyLong(), anyLong());
+        verify(repo, never()).markApproved(anyLong(), anyLong(), anyInt(), anyLong());
     }
 
     @Test
@@ -112,5 +113,13 @@ class WorkOrderApprovalServiceTest {
         when(repo.lockWorkOrderForApproval(CO, WO)).thenReturn(Optional.empty());
         assertThatThrownBy(() -> service.approve(WO, new WorkOrderStateCommand(0, null)))
                 .satisfies(e -> assertThat(code(e)).isEqualTo(4001));
+    }
+
+    @Test
+    void zeroRowsUpdatedIs4003() {
+        stub(20, 1, CREATOR);
+        when(repo.markApproved(CO, WO, 1, USER)).thenReturn(0);
+        assertThatThrownBy(() -> service.approve(WO, new WorkOrderStateCommand(1, null)))
+                .satisfies(e -> assertThat(code(e)).isEqualTo(4003));
     }
 }

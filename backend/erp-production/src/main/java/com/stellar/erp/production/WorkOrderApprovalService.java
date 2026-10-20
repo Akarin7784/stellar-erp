@@ -42,8 +42,8 @@ public class WorkOrderApprovalService {
         if (repo.countWorkOrderMaterials(company, wo.id()) == 0) {
             throw new BizException(1001, "MSG-COM-040", "请输入必填项「材料明細」。");
         }
-        if (repo.markSubmitted(company, wo.id(), login.userId()) != 1) {
-            throw stateConflict();
+        if (repo.markSubmitted(company, wo.id(), wo.version(), login.userId()) != 1) {
+            throw versionConflict();
         }
         return query.get(workOrderId);
     }
@@ -57,8 +57,8 @@ public class WorkOrderApprovalService {
             throw new BizException(ProductionErrorCode.WO_SELF_APPROVAL, ProductionErrorCode.MSG_WO_SELF_APPROVAL,
                     "起案者と承認者が同一のため承認できません。");
         }
-        if (repo.markApproved(company, wo.id(), login.userId()) != 1) {
-            throw stateConflict();
+        if (repo.markApproved(company, wo.id(), wo.version(), login.userId()) != 1) {
+            throw versionConflict();
         }
         return query.get(workOrderId);
     }
@@ -70,10 +70,15 @@ public class WorkOrderApprovalService {
             throw stateConflict();
         }
         if (cmd == null || cmd.version() == null || cmd.version() != wo.version()) {
-            throw new BizException(ProductionErrorCode.VERSION_CONFLICT, ProductionErrorCode.MSG_VERSION_CONFLICT,
-                    "数据已被其他用户更新，请重新获取最新信息后再操作。");
+            throw versionConflict();
         }
         return wo;
+    }
+
+    /** 楽観ロック：UPDATE … AND version = :version が 0 行 → 4003。 */
+    private static BizException versionConflict() {
+        return new BizException(ProductionErrorCode.VERSION_CONFLICT, ProductionErrorCode.MSG_VERSION_CONFLICT,
+                "数据已被其他用户更新，请重新获取最新信息后再操作。");
     }
 
     private static BizException stateConflict() {

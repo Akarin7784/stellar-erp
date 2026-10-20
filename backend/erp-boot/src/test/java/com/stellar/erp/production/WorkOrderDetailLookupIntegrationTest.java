@@ -9,6 +9,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 import org.junit.jupiter.api.AfterEach;
@@ -191,14 +200,14 @@ class WorkOrderDetailLookupIntegrationTest {
                 component_name, uom_code, component_qty, required_qty)
             VALUES (995111, 305, 51, 995101, 10, 995012, '9950000012', 'E 部品', 'PCE', 2, 2)
             """);
-        BomQueryService.EffectiveBom b = as(CREATOR, CO, () -> boms.effective(MAT, null, LocalDate.of(2026, 11, 1)));
+        BomQueryService.EffectiveBom b = as(CREATOR, CO, () -> boms.effective(MAT, FACTORY, LocalDate.of(2026, 11, 1)));
         assertThat(b.id()).isEqualTo(995101);
         assertThat(b.lines()).singleElement().satisfies(l -> assertThat(l.componentMaterialId()).isEqualTo(COMP));
 
         bom(995105, CO2, MAT_CO2, 1, true, 30, "2026-01-01", null);
-        assertThatThrownBy(() -> as(CREATOR, CO, () -> boms.effective(MAT_CO2, null, LocalDate.of(2026, 11, 1))))
+        assertThatThrownBy(() -> as(CREATOR, CO, () -> boms.effective(MAT_CO2, FACTORY_CO2, LocalDate.of(2026, 11, 1))))
                 .isInstanceOfSatisfying(BizException.class, e -> assertThat(e.getCode()).isEqualTo(60020));
-        assertThatThrownBy(() -> as(CREATOR, CO, () -> boms.effective(MAT, null, LocalDate.of(2025, 1, 1))))
+        assertThatThrownBy(() -> as(CREATOR, CO, () -> boms.effective(MAT, FACTORY, LocalDate.of(2025, 1, 1))))
                 .isInstanceOfSatisfying(BizException.class, e -> assertThat(e.getMsgId()).isEqualTo("MSG-PRD-020"));
     }
 
@@ -226,12 +235,17 @@ class WorkOrderDetailLookupIntegrationTest {
         mvc.perform(get("/api/mdm/materials").param("pageSize", "1"))
                 .andExpect(jsonPath("$.data.total").value(2))
                 .andExpect(jsonPath("$.data.pages").value(2));
-        mvc.perform(get("/api/production/boms/effective").param("materialId", String.valueOf(MAT)).param("date", "2026-11-01"))
+        mvc.perform(get("/api/production/boms/effective").param("materialId", String.valueOf(MAT)).param("date", "2026-11-01")
+                        .param("factoryId", String.valueOf(FACTORY)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.id").value(995101));
-        mvc.perform(get("/api/production/boms/effective").param("materialId", String.valueOf(MAT_CO2)).param("date", "2026-11-01"))
+        mvc.perform(get("/api/production/boms/effective").param("materialId", String.valueOf(MAT_CO2)).param("date", "2026-11-01")
+                        .param("factoryId", String.valueOf(FACTORY_CO2)))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.code").value(60020));
+        mvc.perform(get("/api/production/boms/effective").param("materialId", String.valueOf(MAT)).param("date", "2026-11-01"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(1001));
     }
 
     @Test
@@ -259,5 +273,54 @@ class WorkOrderDetailLookupIntegrationTest {
                 .andExpect(jsonPath("$.data.orderStatus").value(25))
                 .andExpect(jsonPath("$.data.approvedBy").value(APPROVER))
                 .andExpect(jsonPath("$.data.version").value(2));
+    }
+
+    /** 2 スレッド同時実行：1 件のみ成功、他方は 4002/4003、version は +1 のみ（#25 と同じ方式）。 */
+    void raceOnce(long id, long user, Supplier<WorkOrderDetail> op, int expectStatus) throws Exception {
+        int before = owner.queryForObject("SELECT version FROM prd_work_order WHERE id = ?", Integer.class, id);
+        CyclicBarrier barrier = new CyclicBarrier(2);
+        Callable<WorkOrderDetail> task = () -> {
+            barrier.await(10, TimeUnit.SECONDS);
+            return as(user, CO, op);
+        };
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        List<Future<WorkOrderDetail>> futures;
+        try {
+            futures = List.of(pool.submit(task), pool.submit(task));
+            pool.shutdown();
+            assertThat(pool.awaitTermination(30, TimeUnit.SECONDS)).isTrue();
+        } finally {
+            pool.shutdownNow();
+        }
+        int ok = 0;
+        List<Integer> failures = new ArrayList<>();
+        for (Future<WorkOrderDetail> f : futures) {
+            try {
+                f.get();
+                ok++;
+            } catch (ExecutionException e) {
+                assertThat(e.getCause()).isInstanceOf(BizException.class);
+                failures.add(((BizException) e.getCause()).getCode());
+            }
+        }
+        assertThat(ok).isEqualTo(1);
+        assertThat(failures).singleElement().satisfies(c -> assertThat(c).isIn(4002, 4003));
+        assertThat(owner.queryForObject("SELECT order_status FROM prd_work_order WHERE id = ?", Integer.class, id))
+                .isEqualTo(expectStatus);
+        assertThat(owner.queryForObject("SELECT version FROM prd_work_order WHERE id = ?", Integer.class, id))
+                .isEqualTo(before + 1);
+    }
+
+    @Test
+    void concurrentSubmitOnlyOneWins() throws Exception {
+        long id = createDraft(true);
+        raceOnce(id, CREATOR, () -> approvals.submit(id, new WorkOrderStateCommand(0, null)), 20);
+    }
+
+    @Test
+    void concurrentApproveOnlyOneWins() throws Exception {
+        long id = createDraft(true);
+        as(CREATOR, CO, () -> approvals.submit(id, new WorkOrderStateCommand(0, null)));
+        raceOnce(id, APPROVER, () -> approvals.approve(id, new WorkOrderStateCommand(1, null)), 25);
     }
 }

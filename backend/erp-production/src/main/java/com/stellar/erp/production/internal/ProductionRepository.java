@@ -258,25 +258,25 @@ public class ProductionRepository {
     }
 
     /** 10→20（T-01）。 */
-    public int markSubmitted(long companyId, long workOrderId, long userId) {
+    public int markSubmitted(long companyId, long workOrderId, int version, long userId) {
         return jdbc.sql("""
                         UPDATE prd_work_order
                            SET order_status = 20, submitted_at = now(),
                                version = version + 1, updated_by = :user, updated_at = now()
-                         WHERE id = :id AND company_id = :company AND order_status = 10
+                         WHERE id = :id AND company_id = :company AND order_status = 10 AND version = :version
                         """)
-                .param("user", userId).param("id", workOrderId).param("company", companyId).update();
+                .param("version", version).param("user", userId).param("id", workOrderId).param("company", companyId).update();
     }
 
     /** 20→25（T-02）。 */
-    public int markApproved(long companyId, long workOrderId, long userId) {
+    public int markApproved(long companyId, long workOrderId, int version, long userId) {
         return jdbc.sql("""
                         UPDATE prd_work_order
                            SET order_status = 25, approved_by = :user, approved_at = now(),
                                version = version + 1, updated_by = :user, updated_at = now()
-                         WHERE id = :id AND company_id = :company AND order_status = 20
+                         WHERE id = :id AND company_id = :company AND order_status = 20 AND version = :version
                         """)
-                .param("user", userId).param("id", workOrderId).param("company", companyId).update();
+                .param("version", version).param("user", userId).param("id", workOrderId).param("company", companyId).update();
     }
 
     /** 工单（超产申请校验用）。 */

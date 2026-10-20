@@ -22,11 +22,11 @@ public class BomController {
         this.service = service;
     }
 
-    /** {@code ?materialId&date}（02 §4.5）。{@code factoryId} は任意（BOM は工厂別のため追加、設計書未記載）。 */
+    /** {@code ?materialId&date}（02 §4.5）。{@code factoryId} 必須（BOM は工厂別、Lead 2026-10-21 決定）。欠落は 400 / 1001。 */
     @GetMapping("/effective")
     public Result<BomQueryService.EffectiveBom> effective(@RequestParam long materialId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-            @RequestParam(required = false) Long factoryId) {
+            @RequestParam long factoryId) {
         return Result.ok(service.effective(materialId, factoryId, date));
     }
 }

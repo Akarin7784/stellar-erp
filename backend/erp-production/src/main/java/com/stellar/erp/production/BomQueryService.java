@@ -36,7 +36,7 @@ public class BomQueryService {
     }
 
     @Transactional(readOnly = true)
-    public EffectiveBom effective(long materialId, Long factoryId, LocalDate date) {
+    public EffectiveBom effective(long materialId, long factoryId, LocalDate date) {
         long company = LoginContext.require().companyId();
         EffectiveBom header = jdbc.sql("""
                         SELECT id, bom_no, material_id, material_code, factory_id, version_no, base_qty, base_uom_code,
@@ -44,8 +44,8 @@ public class BomQueryService {
                           FROM prd_bom
                          WHERE company_id = :c AND material_id = :m AND deleted = FALSE AND bom_status = 30
                            AND valid_from <= :d AND (valid_to IS NULL OR valid_to >= :d)
-                           AND (CAST(:f AS BIGINT) IS NULL OR factory_id = :f)
-                         ORDER BY is_default DESC, version_no DESC
+                           AND factory_id = :f
+                         ORDER BY is_default DESC, version_no DESC, id DESC
                          LIMIT 1
                         """)
                 .param("c", company).param("m", materialId).param("d", date).param("f", factoryId)
