@@ -60,7 +60,8 @@ class GlobalExceptionHandlerTest {
             "4001, 404",
             "1001, 400",
             "3001, 403",
-            "400, 400"     // 旧写法：BizException(String) 默认码
+            "5000, 500",
+            "400, 400"     // 旧写法：直接用 HTTP 数字作业务码
     })
     void bizExceptionMapsToSpecStatusAndKeepsCode(int code, int httpStatus) throws Exception {
         mvc.perform(get("/biz/" + code))
@@ -82,22 +83,27 @@ class GlobalExceptionHandlerTest {
     void malformedBodyIs400NotServerError() throws Exception {
         mvc.perform(post("/echo").contentType(MediaType.APPLICATION_JSON).content("{not json"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value(400));
+                .andExpect(jsonPath("$.code").value(1001));
     }
 
     @Test
     void wrongMethodIs405() throws Exception {
         mvc.perform(post("/boom"))
                 .andExpect(status().isMethodNotAllowed())
-                .andExpect(jsonPath("$.code").value(405));
+                .andExpect(jsonPath("$.code").value(1001));
     }
 
     @Test
     void unknownExceptionIs500WithoutLeakingDetail() throws Exception {
         mvc.perform(get("/boom"))
                 .andExpect(status().isInternalServerError())
-                .andExpect(jsonPath("$.code").value(500))
+                .andExpect(jsonPath("$.code").value(5000))
                 .andExpect(jsonPath("$.message").value("服务器内部错误"));
+    }
+
+    @Test
+    void defaultBizExceptionCodeIs1001() {
+        assertThat(new BizException("x").getCode()).isEqualTo(1001);
     }
 
     @Test

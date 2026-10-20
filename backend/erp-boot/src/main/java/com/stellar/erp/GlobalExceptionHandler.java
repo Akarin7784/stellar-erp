@@ -38,12 +38,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 .findFirst()
                 .map(error -> error.getField() + " " + error.getDefaultMessage())
                 .orElse("参数校验失败");
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).headers(headers).body(Result.fail(400, message));
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).headers(headers).body(Result.fail(1001, message));
     }
 
     /**
      * Spring MVC 自身的异常（405 方法不支持、400 请求体无法解析、404 路径不存在等）
-     * 保留框架给出的 HTTP 状态，响应体统一为 {@link Result}，业务码取 HTTP 状态值。
+     * 保留框架给出的 HTTP 状态，响应体统一为 {@link Result}，业务码按 {@link #codeOf(int)} 归入规格号段。
      */
     @Override
     protected ResponseEntity<Object> handleExceptionInternal(Exception ex, Object body, HttpHeaders headers,
@@ -57,14 +57,26 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 ? HttpStatus.valueOf(statusCode.value()).getReasonPhrase()
                 : "请求错误";
         return ResponseEntity.status(statusCode).headers(headers)
-                .body(Result.fail(statusCode.value(), message));
+                .body(Result.fail(codeOf(statusCode.value()), message));
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Result<Void>> handleUnknown(Exception ex) {
         log.error("未处理异常", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Result.fail(500, "服务器内部错误"));
+                .body(Result.fail(5000, "服务器内部错误"));
+    }
+
+    /** 框架层 HTTP 状态到规格业务码（API 规格 §6.1）。 */
+    static int codeOf(int httpStatus) {
+        return switch (httpStatus) {
+            case 401 -> 2001;
+            case 403 -> 3001;
+            case 404 -> 4001;
+            case 503 -> 5001;
+            case 429 -> 5002;
+            default -> httpStatus >= 500 ? 5000 : 1001;
+        };
     }
 
     /**

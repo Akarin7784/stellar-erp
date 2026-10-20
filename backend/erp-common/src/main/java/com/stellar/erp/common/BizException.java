@@ -3,7 +3,8 @@ package com.stellar.erp.common;
 /**
  * 业务异常：由全局异常处理器统一转换为 {@link Result} 响应。
  *
- * <p>约定错误码分段：4xx 客户端问题、5xx 服务端问题、1xxx 业务规则、2xxx 外部依赖。</p>
+ * <p>错误码号段见 {@code docs/design/00-common/03-common-api-spec.md} §6.1：1xxx 输入校验、2xxx 认证、
+ * 3xxx 权限、4xxx 通用业务状态、5000 系统错误、10000 以上为各域业务码。</p>
  */
 public class BizException extends RuntimeException {
 
@@ -23,7 +24,7 @@ public class BizException extends RuntimeException {
     }
 
     public BizException(String message) {
-        this(400, message);
+        this(1001, message);
     }
 
     public BizException(int code, String message, Throwable cause) {
