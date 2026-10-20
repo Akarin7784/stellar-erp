@@ -1,6 +1,6 @@
 -- pgTAP：G2-18 受注行累计完工上限（单会话规则）。并发场景见 Java db.G218ConcurrencyTest。
 -- 被测对象：db/draft/g2_18_completion.sql（PR #4 定稿 32b4493），在本事务内加载，结尾 ROLLBACK。
--- prd_work_order / prd_overproduction_approval 用 prd/V202610210702 的正式表；T2 受注表还没迁移，用 pgtap-support/g2_18_stub_tables.sql 的桩表；
+-- prd_work_order / prd_overproduction_approval 用 prd/V202610210702 的正式表；受注表用 sal/V202610210705 的正式表（桩表已删）；
 -- 物料/分类的 completion_over_rate、mdm_uom、sys_param、sys_audit_log 用的是 main 上的正式表。
 -- 断言全部在 SET ROLE erp_app（NOBYPASSRLS）下进行，app.tenant_id / app.company_id 用 set_config(...,true)。
 -- 业务错误由 g2_18_raise 抛出：SQLSTATE P0001，MESSAGE = 错误码。
@@ -8,7 +8,6 @@
 BEGIN;
 SELECT plan(66);
 
---!include pgtap-support/g2_18_stub_tables.sql
 --!include db/draft/g2_18_completion.sql
 
 -- ---------------------------------------------------------------- 准备数据（owner，显式 tenant_id）
@@ -28,18 +27,28 @@ INSERT INTO mdm_material (id, tenant_id, company_id, material_code, material_nam
 INSERT INTO sys_param (id, tenant_id, company_id, param_key, param_name, param_group, param_value, value_type) VALUES
     (991001, 101, 1, 'prd.completion_over_rate', '完工超入库容许率', 'PRD', '0.05', 3);
 
-INSERT INTO sal_sales_order (id, tenant_id, company_id, order_no) VALUES
-    (991001, 101, 1, 'SO-G218-1'),
-    (991901, 202, 1, 'SO-G218-T202');
-INSERT INTO sal_sales_order_line (id, tenant_id, sales_order_id, line_no, material_id, base_qty, shipped_base_qty, completion_over_rate, allowed_qty, completed_qty) VALUES
+INSERT INTO mdm_customer (id, tenant_id, company_id, customer_code, customer_name, customer_type, tax_no, owner_user_id, payment_term_code, settlement_method_code) VALUES
+    (991001, 101, 1, 'C991001', 'g218 客户', 10, '91320000000000000X', 1, 'NET30', 'TT'),
+    (991901, 202, 1, 'C991901', 'g218 客户 T202', 10, '91320000000000000X', 1, 'NET30', 'TT');
+-- 正式表 NOT NULL 列补齐（快照列给测试值）
+INSERT INTO sal_sales_order (id, tenant_id, company_id, sales_order_no, order_date, customer_id, customer_code, customer_name,
+                             delivery_address, sales_department_id, owner_user_id, payment_term_code, delivery_date, warehouse_id, order_status) VALUES
+    (991001, 101, 1, 'SO-G218-1',    DATE '2026-10-01', 991001, 'C991001', 'g218 客户', 'addr', 1, 1, 'NET30', DATE '2026-10-31', 1, 30),
+    (991901, 202, 1, 'SO-G218-T202', DATE '2026-10-01', 991901, 'C991901', 'g218 客户 T202', 'addr', 1, 1, 'NET30', DATE '2026-10-31', 1, 30);
+INSERT INTO sal_sales_order_line (id, tenant_id, sales_order_id, line_no, material_id, base_qty, shipped_base_qty, completion_over_rate, allowed_qty, completed_qty,
+                                  company_id, material_code, material_name, ordered_qty, uom_code, base_uom_code, unit_price, tax_code, tax_rate, delivery_date, warehouse_id)
+SELECT v.*, 1, m.material_code, m.material_name, v.base_qty, m.base_uom_code, m.base_uom_code, 1, 'VAT13-OUT', 13, DATE '2026-10-31', 1
+FROM (VALUES
     (991011, 101, 991001, 1, 991001, 100, 0,  0.05, 105, 100),  -- L1 报完工
     (991012, 101, 991001, 2, 991001, 100, 0,  0,    100, 0),    -- L2 工单级审批
     (991013, 101, 991001, 3, 991001, 100, 0,  0,    100, 0),    -- L3 整行审批
     (991014, 101, 991001, 4, 991001, 100, 0,  0.05, 115, 115),  -- L4 改量（已批 +10）
-    (991015, 101, 991001, 5, 991001, 100, 0,  NULL, NULL, 0),   -- L5 allowed_qty 未快照
+    (991015, 101, 991001, 5, 991001, 100, 0,  NULL::numeric, NULL::numeric, 0),   -- L5 allowed_qty 未快照
     (991016, 101, 991001, 6, 991001, 100, 50, 0.05, 105, 0),    -- L6 已发货 50
     (991017, 101, 991001, 7, 991001, 100, 0,  0,    100, 0),    -- L7 60103
-    (991901, 202, 991901, 1, 991001, 100, 0,  0.05, 105, 0);    -- 租户 202
+    (991901, 202, 991901, 1, 991001, 100, 0,  0.05, 105, 0)    -- 租户 202
+) v(id, tenant_id, sales_order_id, line_no, material_id, base_qty, shipped_base_qty, completion_over_rate, allowed_qty, completed_qty)
+JOIN mdm_material m ON m.id = v.material_id;
 INSERT INTO mdm_factory (id, tenant_id, company_id, factory_code, factory_name) VALUES
     (991001, 101, 1, '9G1', 'g218 工厂'),
     (991901, 202, 1, '9G1', 'g218 工厂 T202');
