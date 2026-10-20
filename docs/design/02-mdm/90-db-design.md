@@ -1431,14 +1431,14 @@ CREATE UNIQUE INDEX uk_mdm_data_scope_policy ON mdm_data_scope_policy (company_i
 | # | 索引名 | テーブル | 種別 | 対象列 | 目的 |
 |---|---|---|---|---|---|
 | 1 | `uk_mdm_material_company_code` | mdm_material | UNIQUE | (company_id, material_code) WHERE deleted=FALSE | 物料編碼一意 |
-| 2 | `idx_mdm_material_category` | mdm_material | B-Tree | (category_id) | 分類別一覧 |
-| 3 | `idx_mdm_material_type_status` | mdm_material | B-Tree | (material_type, status) | 類型・状態検索 |
+| 2 | `idx_mdm_material_category` | mdm_material | B-Tree | (company_id, category_id) | 分類別一覧 |
+| 3 | `idx_mdm_material_type_status` | mdm_material | B-Tree | (company_id, material_type, status) | 類型・状態検索 |
 | 4 | `gin_mdm_material_name` | mdm_material | GIN | (material_name gin_trgm_ops) | 名称曖昧検索 |
 | 5 | `gin_mdm_material_spec` | mdm_material | GIN | (spec gin_trgm_ops) | 規格検索 |
 | 6 | `gin_mdm_material_ext` | mdm_material | GIN | (ext_data jsonb_path_ops) | 拡張項目検索 |
 | 7 | `uk_mdm_customer_tax_no` | mdm_customer | UNIQUE | (company_id, tax_no) WHERE deleted=FALSE | 税号一意 |
 | 8 | `uk_mdm_supplier_tax_no` | mdm_supplier | UNIQUE | (company_id, tax_no) WHERE deleted=FALSE | 税号一意 |
-| 9 | `idx_mdm_customer_owner` | mdm_customer | B-Tree | (owner_user_id, status) | 担当者別 |
+| 9 | `idx_mdm_customer_owner` | mdm_customer | B-Tree | (company_id, owner_user_id, status) | 担当者別 |
 | 10 | `idx_mdm_warehouse_bin_warehouse` | mdm_warehouse_bin | B-Tree | (warehouse_id, zone_id, is_active) | 庫位検索 |
 | 11 | `uk_mdm_exchange_rate` | mdm_exchange_rate | UNIQUE | (pair, rate_type, effective_date) WHERE deleted=FALSE | レート一意 |
 | 12 | `uk_mdm_price_line_no` | mdm_price_list_line | UNIQUE | (price_list_id, line_no) WHERE deleted=FALSE | 明細行一意 |
