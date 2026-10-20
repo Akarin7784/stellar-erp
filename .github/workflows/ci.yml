@@ -19,6 +19,14 @@ jobs:
       - name: Check Flyway migration names and versions
         run: bash .github/scripts/check-migrations.sh
 
+  doc-lint:
+    name: Docs lint (tenant_id DEFAULT 0)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check tenant_id DEFAULT 0 in cleaned paths
+        run: bash scripts/check-tenant-default.sh
+
   backend:
     name: Backend (JDK 21)
     runs-on: ubuntu-latest

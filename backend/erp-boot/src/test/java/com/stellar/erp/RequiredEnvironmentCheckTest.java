@@ -17,7 +17,31 @@ class RequiredEnvironmentCheckTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("DB_URL")
                 .hasMessageContaining("DB_USER")
-                .hasMessageContaining("DB_PASSWORD");
+                .hasMessageContaining("DB_PASSWORD")
+                .hasMessageContaining("DB_APP_USER")
+                .hasMessageContaining("DB_APP_PASSWORD");
+    }
+
+    @Test
+    void prodWithoutAppCredentialsFails() {
+        MockEnvironment env = new MockEnvironment()
+                .withProperty("DB_URL", "jdbc:postgresql://db:5432/x")
+                .withProperty("DB_USER", "u")
+                .withProperty("DB_PASSWORD", "p");
+        env.setActiveProfiles("prod");
+        assertThatThrownBy(() -> RequiredEnvironmentCheck.verify(env))
+                .hasMessageContaining("DB_APP_USER")
+                .hasMessageContaining("DB_APP_PASSWORD")
+                .hasMessageNotContaining("DB_URL");
+    }
+
+    @Test
+    void appPasswordWithSingleQuoteFailsInAnyProfile() {
+        MockEnvironment env = new MockEnvironment()
+                .withProperty(RequiredEnvironmentCheck.APP_PASSWORD_PLACEHOLDER, "ab'c");
+        env.setActiveProfiles("dev");
+        assertThatThrownBy(() -> RequiredEnvironmentCheck.verify(env))
+                .hasMessageContaining("单引号");
     }
 
     @Test
@@ -36,7 +60,9 @@ class RequiredEnvironmentCheckTest {
         MockEnvironment env = new MockEnvironment()
                 .withProperty("DB_URL", "jdbc:postgresql://db:5432/x")
                 .withProperty("DB_USER", "u")
-                .withProperty("DB_PASSWORD", "p");
+                .withProperty("DB_PASSWORD", "p")
+                .withProperty("DB_APP_USER", "erp_app")
+                .withProperty("DB_APP_PASSWORD", "ap");
         env.setActiveProfiles("prod");
         assertThatCode(() -> RequiredEnvironmentCheck.verify(env)).doesNotThrowAnyException();
     }

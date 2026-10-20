@@ -1,7 +1,14 @@
-# 生产配置：DB_URL / DB_USER / DB_PASSWORD 必须由环境变量提供，无默认值。
+# 生产配置：DB_URL / DB_USER / DB_PASSWORD / DB_APP_USER / DB_APP_PASSWORD 必须由环境变量提供，无默认值。
 # 缺失时由 RequiredEnvironmentCheck 在启动早期直接失败（fail fast）。
 spring:
   datasource:
     url: ${DB_URL}
-    username: ${DB_USER}
+    # 应用账号（非 owner，受 RLS 约束）
+    username: ${DB_APP_USER}
+    password: ${DB_APP_PASSWORD}
+  flyway:
+    # 迁移账号（owner）
+    user: ${DB_USER}
     password: ${DB_PASSWORD}
+    placeholders:
+      erp_app_password: ${DB_APP_PASSWORD}

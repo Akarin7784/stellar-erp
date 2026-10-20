@@ -2,5 +2,12 @@
 spring:
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/stellar_erp}
-    username: ${DB_USER:erp}
+    # 应用账号（非 owner，受 RLS 约束）
+    username: ${DB_APP_USER:erp_app}
+    password: ${DB_APP_PASSWORD:erp_app_dev_password}
+  flyway:
+    # 迁移账号（owner）
+    user: ${DB_USER:erp}
     password: ${DB_PASSWORD:erp_dev_password}
+    placeholders:
+      erp_app_password: ${DB_APP_PASSWORD:erp_app_dev_password}
