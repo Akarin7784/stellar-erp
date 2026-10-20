@@ -446,7 +446,7 @@ END $$;
 CREATE OR REPLACE FUNCTION g2_18_raise_allowed_qty(
     p_sales_order_line_id bigint,
     p_work_order_id       bigint,    -- 审批对象工单；NULL = 受注行全体（prd_overproduction_approval.work_order_id）
-    p_new_allowed_qty     numeric,
+    p_delta_qty           numeric,   -- 已批超产增量 = prd_overproduction_approval.request_qty（基本单位）
     p_approval_no         varchar,   -- 超产审批单号
     p_approver_id         bigint,
     p_audit_id            bigint     -- sys_audit_log.id：雪花 ID 由应用生成（04-common-db-spec §5）
@@ -474,33 +474,36 @@ BEGIN
         PERFORM g2_18_raise(4001, 'sales_order_line not found in company: ' || p_sales_order_line_id);
     END IF;
 
-    -- 同一规则：批准值按基本单位精度向下取整（rate 传 0）
-    v_new := g2_18_calc_allowed_qty(p_new_allowed_qty, 0, v_material);
-    -- NULL 守卫：受注行未快照 allowed_qty（v_old NULL）或批准值 NULL 均视为调高值不合法
-    IF v_old IS NULL OR v_new IS NULL OR v_new <= v_old THEN
-        -- 业务规则拒绝（HTTP 422），非并发冲突
-        -- 超产审批批准值不合法：60103 / MSG-PRD-103（HTTP 422，蓝色大肥鱼 2026-10-21 定稿）
-        PERFORM g2_18_raise(60103, format('new allowed_qty %s must be > current %s', p_new_allowed_qty, v_old));   -- MSG-PRD-103 / HTTP 422
+    -- 受注行未快照 allowed_qty：数据/设定不备 → 5000
+    IF v_old IS NULL THEN
+        PERFORM g2_18_raise(5000, 'sales_order_line allowed_qty not snapshotted: ' || p_sales_order_line_id);
     END IF;
+    -- 超产增量不合法（NULL 或 ≤ 0）：60103 / MSG-PRD-103（HTTP 422，蓝色大肥鱼 2026-10-21 定稿）
+    IF p_delta_qty IS NULL OR p_delta_qty <= 0 THEN
+        PERFORM g2_18_raise(60103, format('over-production delta %s must be > 0', p_delta_qty));   -- MSG-PRD-103 / HTTP 422
+    END IF;
+    -- 增量按基本单位精度向下取整（rate 传 0）；取整后为 0 同样不合法
+    v_delta := g2_18_calc_allowed_qty(p_delta_qty, 0, v_material);
+    IF v_delta <= 0 THEN
+        PERFORM g2_18_raise(60103, format('over-production delta %s truncates to %s', p_delta_qty, v_delta));   -- MSG-PRD-103 / HTTP 422
+    END IF;
+    v_new := v_old + v_delta;
 
-    -- 方案 B：按增量调高。delta = 新受注行合计 − 原受注行合计
-    v_delta := v_new - v_old;
-
+    -- 受注行：工单级、行级审批都 += delta
     UPDATE sal_sales_order_line
-       SET allowed_qty = allowed_qty + v_delta,   -- TODO(待T2/T3定稿)
+       SET allowed_qty = v_new,                   -- TODO(待T2/T3定稿)
            version = version + 1, updated_at = now(), updated_by = p_approver_id
      WHERE id = p_sales_order_line_id;
 
-    -- 关联工单 allowed_qty（90 §3.19.1：承認時に受注行・関連工单の allowed_qty を更新）
+    -- 工单：仅工单级审批（work_order_id NOT NULL）时该工单 += delta；行级审批（NULL）工单不变
     -- 行锁已由 g2_18_lock_line_and_work_orders 按 id 升序取得
-    --   工单级审批（work_order_id NOT NULL）：只有该工单 allowed_qty + delta
-    --   受注行级审批（work_order_id NULL）：暂按「每张工单 + delta」处理。
-    --   TODO(待蓝色大肥鱼裁定) 行级审批的工单分配方式未定：全部 +delta / 工单不变 / 按比例分摊
-    UPDATE prd_work_order w
-       SET allowed_qty = w.allowed_qty + v_delta,
-           version = version + 1, updated_at = now(), updated_by = p_approver_id
-     WHERE w.sales_order_line_id = p_sales_order_line_id
-       AND (p_work_order_id IS NULL OR w.id = p_work_order_id);
+    IF p_work_order_id IS NOT NULL THEN
+        UPDATE prd_work_order w
+           SET allowed_qty = w.allowed_qty + v_delta,
+               version = version + 1, updated_at = now(), updated_by = p_approver_id
+         WHERE w.id = p_work_order_id
+           AND w.sales_order_line_id = p_sales_order_line_id;
+    END IF;
 
     -- 审计：审批单号、原值、新值、审批人、时间
     -- TODO(待T2/T3定稿) sys_audit_log 的 module_code/resource_code 取值待定
@@ -513,7 +516,7 @@ BEGIN
         p_audit_id, v_company, p_approver_id, 'APPROVE', 'SAL', 'sales-order-line',
         p_sales_order_line_id::text, p_approval_no,
         jsonb_build_object('allowed_qty', v_old),
-        jsonb_build_object('allowed_qty', v_new, 'requested_allowed_qty', p_new_allowed_qty, 'approval_no', p_approval_no),
+        jsonb_build_object('allowed_qty', v_new, 'delta_qty', v_delta, 'work_order_id', p_work_order_id, 'approval_no', p_approval_no),
         1, now(), p_approver_id
     );
 END $$;
@@ -562,9 +565,9 @@ BEGIN
         PERFORM g2_18_raise(4002, 'approval status ' || v_a.approval_status);
     END IF;
 
-    -- request_qty 口径：90-db-design §3.19.1 定义为「申請後の許容完工数量（基本単位）= 承認後 allowed_qty 候補」，
-    --   即审批后的 allowed_qty 合计，不是超产增量；此处按受注行合计传入，增量 = 取整后 − 当前受注行 allowed_qty。
-    --   注意：文档未写明工单级审批（work_order_id NOT NULL）时 request_qty 是受注行合计还是该工单合计，待确认。
+    -- request_qty 口径（蓝色大肥鱼 2026-10-21 定稿）：申请的超产增量（基本单位），不是审批后合计。
+    --   注：90-db-design §3.19.1 列注释仍写「申請後の許容完工数量」，需由文档侧同步修正。
+    -- approved_allowed_qty：审批通过后受注行的新 allowed_qty（只读快照）
     PERFORM g2_18_raise_allowed_qty(v_line_id, v_a.work_order_id, v_a.request_qty,
                                     v_a.approval_no, p_approver_id, p_audit_id);
 
@@ -597,6 +600,7 @@ DECLARE
     v_new_allowed numeric;
     v_material bigint;
     v_company  bigint;
+    v_approved_delta numeric;
 BEGIN
     PERFORM g2_18_assert_tenant();
     v_company := g2_18_assert_company();
@@ -613,9 +617,15 @@ BEGIN
 
     -- 已定：按基本单位，基数为 base_qty
     -- 同一规则重算：基本单位精度向下取整；调用方在同一事务把返回值写回 allowed_qty
-    -- 注意：此处按 base_qty × (1+rate) 重算，已批准的超产额度会被重置（不保留审批增量）。
-    -- TODO(待 PR #6 文档裁定) 受注改量时是否保留已批超产额度，暂不改变现有行为
+    -- 按快照 rate 重算，再加回该受注行全部已批（30）超产增量（行级 + 工单级都已计入受注行）
+    -- 工单 allowed_qty 不在此重算，工单级已批增量保持不变
     v_new_allowed := g2_18_calc_allowed_qty(p_new_base_qty, v_rate, v_material);
+    SELECT COALESCE(SUM(g2_18_calc_allowed_qty(a.request_qty, 0, v_material)), 0) INTO v_approved_delta
+      FROM prd_overproduction_approval a
+     WHERE a.company_id = v_company
+       AND a.sales_order_line_id = p_sales_order_line_id
+       AND a.approval_status = 30;
+    v_new_allowed := v_new_allowed + v_approved_delta;
 
     IF v_new_allowed < v_done THEN
         -- 业务规则拒绝 → HTTP 422，不是并发冲突（不用 4002/409）
