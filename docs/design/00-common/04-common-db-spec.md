@@ -192,7 +192,7 @@ PostgreSQL の一意制約チェックは RLS を経由しないため、`tenant
 
    - 上記以外（例：`uk_sys_role_code`・`uk_sys_number_rule_code`）は `(tenant_id, company_id, …)`。親 id 先頭の一意キーはいかなる場合も認めない。
 5. `sys_sequence` の増分は `DO UPDATE SET current_value = sys_sequence.current_value + sys_sequence.step`（`EXCLUDED.step` 禁止）。
-6. CI：`RlsCoverageTest.everyUniqueIndexStartsWithTenantId` が業務 schema の全一意インデックス（主キー除く）を検査する。親 id 先頭の例外は認めない（2026-10-21 蓝色大肥鱼 決定、例外一覧は廃止）。
+6. CI：`RlsCoverageTest.everyUniqueIndexStartsWithTenantId` が業務 schema の全一意インデックス（主キー除く）を検査する。加えて #38 以降、pgTAP `composite_fk.sql` が一意キーの `(tenant_id, company_id)` 先頭（`company_id` なしの表は `tenant_id` 先頭）を検査し、項 4 (b) のテナント級一意 8 本は**表名＋索引名の組**で列挙したものだけを許可する（複合 FK 用 `UNIQUE (tenant_id, id)` も許可）。親 id 先頭の例外は認めない（2026-10-21 蓝色大肥鱼 決定、例外一覧は廃止）。
 
 ### 6.2 跨域外键规则（2026-10-21 決定）
 
@@ -432,11 +432,12 @@ V{yyyyMMdd}{NNNN}__{module}_{description}.sql     # バージョンは 12 桁
 | v1.0 | 2026-10-20 | 初版：命名、型、制約、索引、パーティション、Flyway、排他、履歴、容量、多租戸、レビュー観点 | Lead |
 | v1.1 | 2026-10-20 | 第一版全量範囲（分期表記削除）、§8.1 パーティション表 FK 不可、§11.1 ロック順序（RLS・DB ロールは [10](10-rls-and-db-roles.md)、`ON CONFLICT` は #50） | 业务分析 |
 | v1.2 | 2026-10-21 | §6.2 跨域外键规则を新設（跨域は `*_id` のみ・FK なし・サービス層で同一 TX 検証、sys/mdm は例外、将来 FK は NOT VALID→VALIDATE・複合 `(tenant_id, x_id)`）、§6 外部キー行に 6.2 参照を追記 | 业务分析 |
-| v1.3 | 2026-10-21 | §7 に btree 普通索引の `tenant_id` 先頭規則と GIN 例外（`btree_gin` 不導入、租户隔離は RLS・`tenant_id` 条件で保証）を追記（#35） | 业务分析 |
+| v1.3 | 2026-10-21 | §7 に btree 普通索引の `tenant_id` 先頭規則と GIN 例外（`btree_gin` 不導入、租户隔離は RLS・`tenant_id` 条件で保証）を追記（#35） | 数据库与运维 |
 | v1.4 | 2026-10-21 | §3 明細テーブルの `company_id` 省略を廃止（親と同値を冗長保持） | 业务分析 |
 | v1.5 | 2026-10-21 | §6/§6.1：一意キー `(tenant_id, company_id, …)` を「原則」→「必須」に変更、§6.1 項 5（親 id 先頭の例外）と例外一覧表を削除（蓝色大肥鱼 決定）。項 4（`company_id` なしの租户共有テーブルは `(tenant_id, …)`）を唯一の例外として明記。§7 に btree 索引の先頭列規則（`tenant_id`→`company_id`、GIN 除く）を 1 行追加 | 业务分析 |
 | v1.6 | 2026-10-21 | §6.2 項 2：sys/mdm 参照も複合外键 `(tenant_id, x_id)`→`(tenant_id, id)` 必須、被参照表に `UNIQUE (tenant_id, id)`（`uk_<table>_tenant_id`）を明記（#35 迁移 `sys/V202610210707` に整合）。§6.1 項 4 の例外に `sys_company` 自身（`uk_sys_company_code`／`uk_sys_company_credit`）を追加。§7 先頭列行を「btree は必ず tenant_id 先頭（company_id あれば続けて）、GIN 除く」に統一 | 业务分析 |
 | v1.7 | 2026-10-21 | §6.1 項 4：例外を (a) `company_id` なし共有表／(b) テナント級一意 8 本（`sys_company` 2・`sys_menu` 2・`sys_dict_type`・`sys_outbox_event`・`sys_idempotency`・`mdm_exchange_rate`）に限定し表で列挙。`uk_sys_role_code`・`uk_sys_number_rule_code` は `(tenant_id, company_id, …)`（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.8 | 2026-10-21 | §6.1 項 6：#38 以降 pgTAP `composite_fk.sql` がテナント級一意 8 本を表名＋索引名で照合・許可することを追記 | 业务分析 |
 
 ## Flowable 引擎表の schema 分離（issue #7）
 
