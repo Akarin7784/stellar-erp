@@ -94,9 +94,11 @@
 
 ## 未決
 
-| # | 事項 | 現状 | 推奨 | 決定者 |
-|---|---|---|---|---|
-| 1 | 標準原価の版発行（10→40）の承認主体 | 設計に記載なし（[06](06-auto-voucher-costing.md) 未決 #1） | 成本会計が卷算・登録、財務総監が発行（`fin_publish_standard_cost` 実行権限を財務総監ロールに限定） | 蓝色大肥鱼 / 財務総監 |
-| 2 | `prd_work_order.standard_cost NOT NULL DEFAULT 0` | 06-production 側に既定値 0 が残る（R3 G2-21 は既定値なし化を推奨） | PRD の PR で `DEFAULT 0` を削除し、下达時に `fin_standard_cost` 発行版をスナップショット。発行版がなければ NULL を許容し `MSG-FIN-117` で差異分析をスキップ | 蓝色大肥鱼（PRD 担当と調整） |
-| 3 | 期中に標準原価の版を改定した場合の差異比較元 | 「工单下达時スナップショット」と「計算期間の有効版」のどちらで比較するか未記載 | 分批法（MTO）は下达時スナップショット、品种法（MTS）は計算期間の発行済み版で比較し、`fin_cost_variance.standard_cost_id` に記録 | 蓝色大肥鱼 / 成本会計 |
-| 4 | 委外加工費の暂估（BC-14）の `fin_payable.source_type` | E14 由来は `PURCHASE_RECEIPT` に統一済。委外收货（OSR）由来の加工費暂估の来源値が未定 | INV と同じ `OUTSOURCING_ORDER` を使い、`uk_fin_payable_source` で冪等性を担保 | 蓝色大肥鱼 |
+全 4 件 **決定済（2026-10-21 蓝色大肥鱼）**。
+
+| # | 事項 | 決定内容 | 決定者 |
+|---|---|---|---|
+| 1 | 標準原価の版発行（10→40）の承認主体 | **決定済（2026-10-21 蓝色大肥鱼）**：成本会計が卷算・登録、財務総監が発行（`fin_publish_standard_cost` の実行権限を財務総監ロールに限定） | 蓝色大肥鱼 |
+| 2 | `prd_work_order.standard_cost` の既定値 | **決定済（2026-10-21 蓝色大肥鱼）**：06-production で `DEFAULT 0` を削除し NULL 許容、下达時に `fin_standard_cost` 発行版をスナップショット。発行版なしは NULL のまま `MSG-FIN-117` で差異分析スキップ（AC-FIN-09a）。06-production DDL・バックエンドは本決定に追従する | 蓝色大肥鱼 |
+| 3 | 期中改版時の差異比較元 | **決定済（2026-10-21 蓝色大肥鱼）**：分批法（MTO）は下达時スナップショット、品种法（MTS）は計算期間の発行済み版。`fin_cost_variance.standard_cost_id` に記録 | 蓝色大肥鱼 |
+| 4 | 委外加工費暂估の `fin_payable.source_type` | **決定済（2026-10-21 蓝色大肥鱼）**：INV と同じ `OUTSOURCING_ORDER`、`uk_fin_payable_source` で冪等 | 蓝色大肥鱼 |

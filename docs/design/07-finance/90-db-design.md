@@ -851,7 +851,7 @@ CREATE TABLE fin_payable (
     tenant_id         BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id        BIGINT        NOT NULL,
     payable_no        VARCHAR(12)   NOT NULL,              -- AP2610200001
-    source_type       VARCHAR(32)   NOT NULL,              -- PURCHASE_RECEIPT（E14 暫估。INV/PUR と同値）/INVOICE/PREPAY/EXPENSE/ADJUST
+    source_type       VARCHAR(32)   NOT NULL,              -- PURCHASE_RECEIPT（E14 暫估。INV/PUR と同値）/OUTSOURCING_ORDER（委外加工費暫估、95 未決 #4 決定）/INVOICE/PREPAY/EXPENSE/ADJUST
     source_id         BIGINT        NOT NULL,
     source_no         VARCHAR(64),
     supplier_id       BIGINT        NOT NULL,
