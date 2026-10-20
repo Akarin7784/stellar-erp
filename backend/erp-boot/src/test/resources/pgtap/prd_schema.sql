@@ -1,7 +1,7 @@
 -- pgTAP：06-production 建表（V202610210702）结构 / RLS / erp_app 权限 / standard_cost NULL 无默认
 -- 约定：准备数据用 owner，断言前 SET ROLE erp_app；以 ROLLBACK 结束。
 BEGIN;
-SELECT plan(24);
+SELECT plan(28);
 
 -- 结构
 SELECT is((SELECT count(*)::int FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -76,6 +76,29 @@ INSERT INTO prd_defect_code (id, company_id, defect_code, defect_name) VALUES (6
 SELECT is((SELECT count(*)::int FROM prd_defect_code WHERE defect_code = '101'), 1, '不同租户可用相同业务键（uk 含 tenant_id）');
 SELECT throws_ok($$INSERT INTO prd_defect_code (id, defect_code, defect_name) VALUES (6010004, '103', 'x')$$,
                  '23502', NULL, 'company_id 无默认值，缺省时拒绝');
+
+-- ck_prd_opa_qty 拆分（V202610210704）
+SELECT ok(EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'prd_overproduction_approval'::regclass
+                    AND conname = 'ck_prd_opa_request_qty' AND contype = 'c')
+          AND EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'prd_overproduction_approval'::regclass
+                    AND conname = 'ck_prd_opa_allowed_qty' AND contype = 'c')
+          AND NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'prd_overproduction_approval'::regclass
+                    AND conname = 'ck_prd_opa_qty'),
+          'prd_overproduction_approval：有 ck_prd_opa_request_qty / ck_prd_opa_allowed_qty，无 ck_prd_opa_qty');
+SELECT throws_ok($$INSERT INTO prd_overproduction_approval (id, company_id, approval_no, sales_order_id, sales_order_line_id,
+                     material_id, request_qty, current_allowed_qty, requested_by, requested_at)
+                   VALUES (6020001, 1, 'OPA2610210001', 1, 1, 1, 0, 100, 1, now())$$,
+                 '23514', 'new row for relation "prd_overproduction_approval" violates check constraint "ck_prd_opa_request_qty"',
+                 'request_qty = 0 → 23514 ck_prd_opa_request_qty');
+SELECT throws_ok($$INSERT INTO prd_overproduction_approval (id, company_id, approval_no, sales_order_id, sales_order_line_id,
+                     material_id, request_qty, current_allowed_qty, requested_by, requested_at)
+                   VALUES (6020002, 1, 'OPA2610210002', 1, 1, 1, 5, -1, 1, now())$$,
+                 '23514', 'new row for relation "prd_overproduction_approval" violates check constraint "ck_prd_opa_allowed_qty"',
+                 'current_allowed_qty < 0 → 23514 ck_prd_opa_allowed_qty');
+SELECT lives_ok($$INSERT INTO prd_overproduction_approval (id, company_id, approval_no, sales_order_id, sales_order_line_id,
+                     material_id, request_qty, current_allowed_qty, requested_by, requested_at)
+                   VALUES (6020003, 1, 'OPA2610210003', 1, 1, 1, 5, 0, 1, now())$$,
+                'request_qty > 0 且 current_allowed_qty = 0 可写入');
 RESET ROLE;
 
 SELECT * FROM finish();
