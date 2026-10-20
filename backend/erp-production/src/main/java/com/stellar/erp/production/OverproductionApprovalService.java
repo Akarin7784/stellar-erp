@@ -63,6 +63,10 @@ public class OverproductionApprovalService {
         if (line.allowedQty() == null) {
             throw new BizException(ProductionErrorCode.CONFIG_MISSING, "受注行 allowed_qty 尚未快照");
         }
+        if (line.allowedQty().signum() < 0) {
+            // current_allowed_qty 是受注行快照，负值属于数据不整合，不是申请数量错误 → 5000（不是 60103）
+            throw new BizException(ProductionErrorCode.CONFIG_MISSING, "受注行 allowed_qty 为负值，数据不整合");
+        }
 
         String no = DocumentNumbers.next(repo, company, SEQ_KEY, PREFIX, LocalDate.now());
         long id = IdWorker.getId();
@@ -85,16 +89,19 @@ public class OverproductionApprovalService {
                 "超産申請数量が不正です。申請超産数量は 0 より大きい値を指定してください。");
     }
 
-    /** 23502（request_qty NOT NULL）或 23514（ck_prd_opa_qty）。 */
+    /**
+     * 只把以下两种映射为 60103：23502 且列为 {@code "request_qty"}；23514 且约束为 {@code "ck_prd_opa_request_qty"}
+     * （V202610210704 拆分后）。{@code ck_prd_opa_allowed_qty} 等其他约束错误原样抛出，不转换为 60103。
+     */
     static boolean isRequestQtyViolation(Throwable e) {
         for (Throwable t = e; t != null; t = t.getCause()) {
             if (t instanceof java.sql.SQLException sql) {
                 String state = sql.getSQLState();
                 String msg = String.valueOf(sql.getMessage());
-                if ("23502".equals(state) && msg.contains("request_qty")) {
+                if ("23502".equals(state) && msg.contains("\"request_qty\"")) {
                     return true;
                 }
-                if ("23514".equals(state) && msg.contains("ck_prd_opa_qty")) {
+                if ("23514".equals(state) && msg.contains("\"ck_prd_opa_request_qty\"")) {
                     return true;
                 }
             }

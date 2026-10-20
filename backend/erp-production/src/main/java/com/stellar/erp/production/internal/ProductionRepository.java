@@ -68,6 +68,10 @@ public class ProductionRepository {
     /**
      * 当前公司的 {@code prd.completion_over_rate}。只取当前公司的行，不回退到 {@code company_id = 0}
      * （Lead 2026-10-21 决定）。缺失或无法解析为数值时返回 NULL（调用方报 5000）。
+     *
+     * <p>{@code deleted = FALSE} 必须保留：唯一索引 {@code uk_sys_param_key (tenant_id, company_id, param_key) WHERE deleted = FALSE}
+     * （sys/V202610210103__sys_t1_core_tables.sql:166）保证同一租户（RLS）+ 公司 + 键下未删除的行至多一行，
+     * 因此本查询最多返回一行，不需要 ORDER BY / LIMIT。</p>
      */
     public BigDecimal findCompanyOverRate(long companyId) {
         List<String> values = jdbc.sql("""

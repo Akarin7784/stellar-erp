@@ -346,6 +346,54 @@ class ProductionCoreIntegrationTest {
     }
 
     @Test
+    void negativeAllowedQtyIs5000BeforeInsert() {
+        when(salesOrderLines.find(eq(COMPANY), eq(SO_LINE))).thenReturn(Optional.of(
+                new SalesOrderLine(SO_LINE, SO, "SO1", MAT_RATE, null, new BigDecimal("-1"))));
+        assertThatThrownBy(() -> asUser(() -> approvals.request(
+                new OverproductionRequestCommand(SO_LINE, null, new BigDecimal("3"), null))))
+                .isInstanceOfSatisfying(BizException.class, e -> assertThat(e.getCode()).isEqualTo(5000));
+        assertThat(approvalCount()).isZero();
+        assertThat(owner.queryForObject("SELECT count(*) FROM sys_sequence WHERE tenant_id = 303", Long.class)).isZero();
+    }
+
+    @Test
+    void invalidRequestQtyMapsToHttp422() {
+        BizException ex = org.junit.jupiter.api.Assertions.assertThrows(BizException.class, () -> asUser(() ->
+                approvals.request(new OverproductionRequestCommand(SO_LINE, null, BigDecimal.ZERO, null))));
+        var response = new com.stellar.erp.GlobalExceptionHandler().handleBiz(ex);
+        assertThat(response.getStatusCode().value()).isEqualTo(422);
+        assertThat(response.getBody().code()).isEqualTo(60103);
+        assertThat(response.getBody().msgId()).isEqualTo("MSG-PRD-103");
+    }
+
+    ProductionRepository.ApprovalInsert rawApproval(BigDecimal requestQty, BigDecimal currentAllowed) {
+        return new ProductionRepository.ApprovalInsert(993099L, COMPANY, USER, "OPA-X", SO, SO_LINE,
+                null, MAT_RATE, requestQty, currentAllowed, (short) 10, OffsetDateTime.now(), null);
+    }
+
+    @Test
+    void dbCheckViolationOnRequestQtyIsRecognised() {
+        assertThatThrownBy(() -> asUser(() -> tx.execute(s -> {
+            repo.insertApproval(rawApproval(BigDecimal.ZERO, new BigDecimal("105")));
+            return null;
+        }))).isInstanceOfSatisfying(DataIntegrityViolationException.class, e -> {
+            assertThat(e).rootCause().hasMessageContaining("ck_prd_opa_request_qty");
+            assertThat(OverproductionApprovalService.isRequestQtyViolation(e)).isTrue();
+        });
+    }
+
+    @Test
+    void dbCheckViolationOnAllowedQtyIsNotRequestQty() {
+        assertThatThrownBy(() -> asUser(() -> tx.execute(s -> {
+            repo.insertApproval(rawApproval(new BigDecimal("3"), new BigDecimal("-1")));
+            return null;
+        }))).isInstanceOfSatisfying(DataIntegrityViolationException.class, e -> {
+            assertThat(e).rootCause().hasMessageContaining("ck_prd_opa_allowed_qty");
+            assertThat(OverproductionApprovalService.isRequestQtyViolation(e)).isFalse();
+        });
+    }
+
+    @Test
     void dbNotNullViolationOnRequestQtyIsRecognised() {
         // 兜底：绕过服务层直接写 NULL，DB 返回 23502；服务层的识别逻辑会把它转换为 60103（不会成为 500）
         assertThatThrownBy(() -> asUser(() -> tx.execute(s -> {
