@@ -58,7 +58,7 @@ class ProductionCoreIntegrationTest {
     static final long CAT_NULL = 993001, CAT_RATE = 993002;
     static final long MAT_NULL = 993011, MAT_RATE = 993012, MAT_ZERO = 993013, MAT_CAT = 993014, MAT_OTHER_CO = 993015,
             MAT_NO_PLAN = 993016, MAT_PURCHASED = 993017;
-    static final long FACTORY = 993021;
+    static final long FACTORY = 993021, WAREHOUSE = 993061, WAREHOUSE_OTHER_CO = 993062;
     static final long SO = 993031, SO_LINE = 993032;
 
     @Autowired PostgreSQLContainer pg;
@@ -89,6 +89,10 @@ class ProductionCoreIntegrationTest {
               (993016, 303, 31, '9930000016', 'M 无计划行', 10, 993002, 's6', 'PCE', 20, 1, 0.0300),
               (993017, 303, 31, '9930000017', 'M 采购品',   30, 993002, 's7', 'PCE', 20, 1, 0.0300);
             INSERT INTO mdm_factory (id, tenant_id, company_id, factory_code, factory_name) VALUES (993021, 303, 31, 'F31', '工厂31');
+            INSERT INTO mdm_factory (id, tenant_id, company_id, factory_code, factory_name) VALUES (993023, 303, 32, 'F32X', '工厂32');
+            INSERT INTO mdm_warehouse (id, tenant_id, company_id, warehouse_code, warehouse_name, warehouse_type, factory_id) VALUES
+              (993061, 303, 31, 'WH31', '成品仓', 30, 993021),
+              (993062, 303, 32, 'WH32', '他社仓', 30, 993023);
             INSERT INTO prd_material_planning (id, tenant_id, company_id, material_id, material_code, material_name, factory_id, material_type) VALUES
               (993051, 303, 31, 993011, '9930000011', 'M', 993021, 20),
               (993052, 303, 31, 993012, '9930000012', 'M', 993021, 20),
@@ -114,6 +118,7 @@ class ProductionCoreIntegrationTest {
             DELETE FROM sys_sequence WHERE tenant_id = 303;
             DELETE FROM prd_material_planning WHERE tenant_id = 303;
             DELETE FROM sys_param WHERE tenant_id = 303;
+            DELETE FROM mdm_warehouse WHERE tenant_id = 303;
             DELETE FROM mdm_factory WHERE tenant_id = 303;
             DELETE FROM mdm_material WHERE tenant_id = 303;
             DELETE FROM mdm_material_category WHERE tenant_id = 303;
@@ -126,7 +131,7 @@ class ProductionCoreIntegrationTest {
 
     static WorkOrderCreateCommand cmd(long materialId, Long salesOrderLineId) {
         return new WorkOrderCreateCommand(null, FACTORY, materialId, new BigDecimal("120.0000"), "PCE",
-                LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17), null, null, null, salesOrderLineId, null, null);
+                LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17), null, null, WAREHOUSE, salesOrderLineId, null, null);
     }
 
     Map<String, Object> row(long id) {
@@ -264,6 +269,41 @@ class ProductionCoreIntegrationTest {
     }
 
     @Test
+    void warehouseOfOtherCompanyIsNotFound() {
+        WorkOrderCreateCommand c = cmd(MAT_RATE, null);
+        WorkOrderCreateCommand other = new WorkOrderCreateCommand(c.workOrderType(), c.factoryId(), c.materialId(),
+                c.orderQty(), c.uomCode(), c.plannedStartDate(), c.plannedEndDate(), c.priorityNo(), c.departmentId(),
+                WAREHOUSE_OTHER_CO, null, null, null);
+        assertThatThrownBy(() -> asUser(() -> workOrders.create(other)))
+                .isInstanceOfSatisfying(BizException.class, e -> assertThat(e.getCode()).isEqualTo(4001));
+    }
+
+    @Test
+    void departmentOfOtherCompanyIsNotFound() {
+        WorkOrderCreateCommand c = cmd(MAT_RATE, null);
+        WorkOrderCreateCommand other = new WorkOrderCreateCommand(c.workOrderType(), c.factoryId(), c.materialId(),
+                c.orderQty(), c.uomCode(), c.plannedStartDate(), c.plannedEndDate(), c.priorityNo(), 999999L,
+                WAREHOUSE, null, null, null);
+        assertThatThrownBy(() -> asUser(() -> workOrders.create(other)))
+                .isInstanceOfSatisfying(BizException.class, e -> assertThat(e.getCode()).isEqualTo(4001));
+    }
+
+    @Test
+    void apiMissingWarehouseIdIs400() throws Exception {
+        MockMvc mvc = MockMvcBuilders.webAppContextSetup(wac).build();
+        TenantContext.set(TENANT);
+        LoginContext.set(new LoginUser(USER, COMPANY));
+        mvc.perform(post("/api/production/work-orders").contentType(MediaType.APPLICATION_JSON).content("""
+                {"factoryId": %d, "materialId": %d, "orderQty": "10", "uomCode": "PCE",
+                 "plannedStartDate": "2026-11-12", "plannedEndDate": "2026-11-17"}
+                """.formatted(FACTORY, MAT_RATE)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(1001))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.startsWith("warehouseId")));
+        assertThat(owner.queryForObject("SELECT count(*) FROM prd_work_order WHERE tenant_id = 303", Long.class)).isZero();
+    }
+
+    @Test
     void missingLoginContextIs5000() {
         assertThatThrownBy(() -> TenantContext.callAs(TENANT, () -> workOrders.create(cmd(MAT_RATE, null))))
                 .isInstanceOfSatisfying(BizException.class, e -> assertThat(e.getCode()).isEqualTo(5000));
@@ -276,7 +316,7 @@ class ProductionCoreIntegrationTest {
         LoginContext.set(new LoginUser(USER, COMPANY));
         mvc.perform(post("/api/production/work-orders").contentType(MediaType.APPLICATION_JSON).content("""
                 {"companyId": 32, "company_id": 32, "factoryId": %d, "materialId": %d, "orderQty": "10",
-                 "uomCode": "PCE", "plannedStartDate": "2026-11-12", "plannedEndDate": "2026-11-17",
+                 "uomCode": "PCE", "plannedStartDate": "2026-11-12", "plannedEndDate": "2026-11-17", "warehouseId": 993061,
                  "standardCost": "999.000000"}
                 """.formatted(FACTORY, MAT_RATE)))
                 .andExpect(status().isCreated())
@@ -298,7 +338,8 @@ class ProductionCoreIntegrationTest {
         LoginContext.set(new LoginUser(USER, COMPANY));
         mvc.perform(post("/api/production/work-orders").contentType(MediaType.APPLICATION_JSON).content("""
                 {"factoryId": %d, "materialId": %d, "orderQty": "10", "uomCode": "PCE",
-                 "plannedStartDate": "2026-11-12", "plannedEndDate": "2026-11-17", "salesOrderLineId": %d}
+                 "plannedStartDate": "2026-11-12", "plannedEndDate": "2026-11-17", "salesOrderLineId": %d,
+                 "warehouseId": 993061}
                 """.formatted(FACTORY, MAT_RATE, SO_LINE)))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.code").value(60056))

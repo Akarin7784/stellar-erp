@@ -36,6 +36,11 @@
             <artifactId>erp-production</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.stellar.erp</groupId>
+            <artifactId>erp-mdm</artifactId>
+            <version>${project.version}</version>
+        </dependency>
 
         <dependency>
             <groupId>org.springframework.boot</groupId>
