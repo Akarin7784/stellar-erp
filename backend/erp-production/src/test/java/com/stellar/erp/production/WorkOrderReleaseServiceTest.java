@@ -156,6 +156,34 @@ class WorkOrderReleaseServiceTest {
     }
 
     @Test
+    void pastReleaseDateIs60104BeforeAnyLock() {
+        assertThatThrownBy(() -> service.release(WO, new WorkOrderReleaseCommand(0, LocalDate.of(2026, 10, 31))))
+                .isInstanceOfSatisfying(BizException.class, e -> {
+                    assertThat(e.getCode()).isEqualTo(60104);
+                    assertThat(e.getMsgId()).isEqualTo("MSG-PRD-104");
+                });
+        verify(repo, never()).lockWorkOrderForRelease(anyLong(), anyLong());
+    }
+
+    @Test
+    void futureReleaseDatePicksCostOfThatMonth() {
+        stubWo(wo(null, (short) 25, false, 0));
+        when(repo.findEffectiveStandardCost(CO, MAT, LocalDate.of(2027, 1, 1))).thenReturn(Optional.of(new BigDecimal("5")));
+        WorkOrderReleased r = service.release(WO, new WorkOrderReleaseCommand(0, LocalDate.of(2027, 1, 20)));
+        assertThat(r.releaseDate()).isEqualTo(LocalDate.of(2027, 1, 20));
+        assertThat(r.standardCost()).isEqualByComparingTo("5");
+        verify(repo, never()).findEffectiveStandardCost(CO, MAT, LocalDate.of(2026, 11, 1));
+    }
+
+    @Test
+    void todayReleaseDateIsAccepted() {
+        stubWo(wo(null, (short) 25, false, 0));
+        when(repo.findEffectiveStandardCost(anyLong(), anyLong(), any())).thenReturn(Optional.empty());
+        assertThat(service.release(WO, new WorkOrderReleaseCommand(0, LocalDate.of(2026, 11, 1))).releaseDate())
+                .isEqualTo(LocalDate.of(2026, 11, 1));
+    }
+
+    @Test
     void unknownWorkOrderIs4001() {
         when(repo.findWorkOrderForRelease(CO, WO)).thenReturn(Optional.empty());
         assertThatThrownBy(() -> service.release(WO, new WorkOrderReleaseCommand(0)))

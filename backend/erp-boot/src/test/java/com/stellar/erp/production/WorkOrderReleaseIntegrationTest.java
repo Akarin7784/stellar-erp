@@ -219,4 +219,28 @@ class WorkOrderReleaseIntegrationTest {
         assertThat(w.get("order_status")).isEqualTo(30);
         assertThat(((Number) w.get("version")).intValue()).isEqualTo(before + 1);
     }
+
+    @Test
+    void releaseDateInNextMonthPicksThatMonthsVersion() {
+        publish(994206, month, "700");
+        publish(994207, month.plusMonths(1), "800");
+        LocalDate next = month.plusMonths(1).plusDays(9);
+        WorkOrderReleased r = asUser(() -> releases.release(WO, new WorkOrderReleaseCommand(0, next)));
+        assertThat(r.releaseDate()).isEqualTo(next);
+        assertThat((BigDecimal) row(WO).get("standard_cost")).isEqualByComparingTo("800");
+    }
+
+    @Test
+    void apiPastReleaseDateIs422AndNothingChanges() throws Exception {
+        MockMvc mvc = MockMvcBuilders.webAppContextSetup(wac).build();
+        TenantContext.set(TENANT);
+        LoginContext.set(new LoginUser(USER, COMPANY));
+        LocalDate yesterday = LocalDate.now(ZoneId.of("Asia/Shanghai")).minusDays(1);
+        mvc.perform(post("/api/production/work-orders/" + WO + "/release").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"version\": 0, \"releaseDate\": \"" + yesterday + "\"}"))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.code").value(60104))
+                .andExpect(jsonPath("$.msgId").value("MSG-PRD-104"));
+        assertThat(row(WO).get("order_status")).isEqualTo(25);
+    }
 }

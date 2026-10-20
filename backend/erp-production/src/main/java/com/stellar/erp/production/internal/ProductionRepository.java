@@ -59,6 +59,22 @@ public class ProductionRepository {
                 .query(Short.class).optional();
     }
 
+    /** 有効倉庫（当前公司、未删除、status=1）。 */
+    public boolean warehouseExists(long companyId, long warehouseId) {
+        return jdbc.sql("""
+                        SELECT count(*) FROM mdm_warehouse
+                         WHERE id = :id AND company_id = :company AND deleted = FALSE AND status = 1
+                        """)
+                .param("id", warehouseId).param("company", companyId)
+                .query(Long.class).single() > 0;
+    }
+
+    public boolean departmentExists(long companyId, long departmentId) {
+        return jdbc.sql("SELECT count(*) FROM sys_department WHERE id = :id AND company_id = :company AND deleted = FALSE")
+                .param("id", departmentId).param("company", companyId)
+                .query(Long.class).single() > 0;
+    }
+
     public boolean factoryExists(long companyId, long factoryId) {
         return jdbc.sql("SELECT count(*) FROM mdm_factory WHERE id = :id AND company_id = :company AND deleted = FALSE")
                 .param("id", factoryId).param("company", companyId)
@@ -218,6 +234,49 @@ public class ProductionRepository {
                 .param("copy", copyAllowedQty).param("allowed", allowedQty)
                 .param("id", workOrderId).param("company", companyId).param("version", version)
                 .update();
+    }
+
+    /** 提出・承認用：工单行（FOR UPDATE）。 */
+    public record WorkOrderForApproval(long id, short orderStatus, int version, long createdBy) {
+    }
+
+    public Optional<WorkOrderForApproval> lockWorkOrderForApproval(long companyId, long workOrderId) {
+        jdbc.sql("SELECT set_config('lock_timeout', '3s', true)").query(String.class).single();
+        return jdbc.sql("""
+                        SELECT id, order_status, version, created_by FROM prd_work_order
+                         WHERE id = :id AND company_id = :company FOR UPDATE
+                        """)
+                .param("id", workOrderId).param("company", companyId)
+                .query((rs, i) -> new WorkOrderForApproval(rs.getLong("id"), rs.getShort("order_status"),
+                        rs.getInt("version"), rs.getLong("created_by")))
+                .optional();
+    }
+
+    public long countWorkOrderMaterials(long companyId, long workOrderId) {
+        return jdbc.sql("SELECT count(*) FROM prd_work_order_material WHERE company_id = :company AND work_order_id = :id")
+                .param("company", companyId).param("id", workOrderId).query(Long.class).single();
+    }
+
+    /** 10→20（T-01）。 */
+    public int markSubmitted(long companyId, long workOrderId, int version, long userId) {
+        return jdbc.sql("""
+                        UPDATE prd_work_order
+                           SET order_status = 20, submitted_at = now(),
+                               version = version + 1, updated_by = :user, updated_at = now()
+                         WHERE id = :id AND company_id = :company AND order_status = 10 AND version = :version
+                        """)
+                .param("version", version).param("user", userId).param("id", workOrderId).param("company", companyId).update();
+    }
+
+    /** 20→25（T-02）。 */
+    public int markApproved(long companyId, long workOrderId, int version, long userId) {
+        return jdbc.sql("""
+                        UPDATE prd_work_order
+                           SET order_status = 25, approved_by = :user, approved_at = now(),
+                               version = version + 1, updated_by = :user, updated_at = now()
+                         WHERE id = :id AND company_id = :company AND order_status = 20 AND version = :version
+                        """)
+                .param("version", version).param("user", userId).param("id", workOrderId).param("company", companyId).update();
     }
 
     /** 工单（超产申请校验用）。 */

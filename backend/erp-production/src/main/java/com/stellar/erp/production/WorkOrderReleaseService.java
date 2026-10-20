@@ -58,6 +58,12 @@ public class WorkOrderReleaseService {
     public WorkOrderReleased release(long workOrderId, WorkOrderReleaseCommand cmd) {
         LoginContext.LoginUser login = LoginContext.require();
         long company = login.companyId();
+        LocalDate today = LocalDate.now(clock);
+        LocalDate releaseDate = cmd != null && cmd.releaseDate() != null ? cmd.releaseDate() : today;
+        if (releaseDate.isBefore(today)) {
+            throw new BizException(ProductionErrorCode.WO_RELEASE_DATE_PAST, ProductionErrorCode.MSG_WO_RELEASE_DATE_PAST,
+                    "下达日不能早于今天。");
+        }
 
         // 不加锁预读：只为取得 sales_order_line_id，以便按锁序（04 §11.1）先锁受注行、再锁工单。
         // 若这里就对工单 FOR UPDATE，会变成「工单→受注行」的逆序加锁，与完工上报等路径形成死锁。
@@ -97,7 +103,6 @@ public class WorkOrderReleaseService {
                     ProductionErrorCode.MSG_WO_MATERIAL_MISMATCH, "工单品目与销售订单行品目不一致。");
         }
 
-        LocalDate releaseDate = LocalDate.now(clock);
         Optional<BigDecimal> cost = repo.findEffectiveStandardCost(company, wo.materialId(),
                 releaseDate.withDayOfMonth(1));
         BigDecimal standardCost = cost.orElse(null);
