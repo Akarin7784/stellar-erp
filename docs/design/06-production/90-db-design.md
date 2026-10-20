@@ -1048,9 +1048,9 @@ CREATE INDEX idx_prd_work_order_source ON prd_work_order (tenant_id, company_id,
 1. **品目一致**：工单 `material_id` ＝ 紐づく受注行（`sales_order_line_id`）の `material_id`。不一致は業務拒否 **HTTP 422・業務コード `60056`・`MSG-PRD-056`**（共通 4002 は状態競合 409 専用。業務拒否に 4002 を使わない）。
 2. **単位**：工单・報工・完工の数量はすべて**物料基本単位**（販売単位ではない）。
 3. **容差チェーン**（`completion_over_rate` / `over_receipt_rate` は **NUMERIC(5,4) 比率**。NULL＝次段継承、0＝明示 0%）：受注行 → 物料 → 物料分類 → 会社 `sys_param` key `prd.completion_over_rate`（既定 0.05、`sys_init_tenant` シード）。会社パラメータ欠落やテナント未設定は **5000**（設定不備）。
-4. **`allowed_qty`**：`floor(base_qty × (1 + rate))` を `mdm_uom.decimal_places` で切捨て。MTO は受注確定時に受注行へスナップショットし、工单はそれを参照／コピー。再計算は承認済受注変更または超産承認後のみ。
+4. **`allowed_qty`**：`floor(base_qty × (1 + rate))` を `mdm_uom.decimal_places` で切捨て。MTO は受注確定時に受注行へスナップショットし、工单はそれを参照／コピー。再計算は承認済受注変更または超産承認後のみ。受注変更時はスナップショット率で `allowed_qty` を再算出し、承認済（30）超産増分 `request_qty` の合計を加算し戻す（承認済超産は消去しない。基準数量が減っても既存承認は有効）。
 5. **ロック**：跨表は先に受注行 `FOR UPDATE`、次に工单。同一表は id 昇順（[04 §11.1](../00-common/04-common-db-spec.md)）。適用：完工、冲销、返工入庫、受注変更、超産承認。過帳は行ロックのみ（楽観 `version` は画面編集）。
-6. **超産承認**：専用表 `prd_overproduction_approval` ＋ Flowable。承認後に受注行および関連工单の `allowed_qty` を再計算。
+6. **超産承認**：専用表 `prd_overproduction_approval` ＋ Flowable。増分方式 `allowed_qty = allowed_qty + delta`（delta＝`request_qty`）。工单級（`work_order_id` 有値）は受注行と当該工单をそれぞれ +delta、同一受注行の他工单は自身の `allowed_qty` に拘束される。受注行級（NULL）は受注行のみ +delta、工单は変更しない（§3.19.1）。`request_qty` ≤ 0 または NULL は `MSG-PRD-103`/`60103`。共通カラムは伝票類（`deleted` なし、取消は 90）。
 
 ### 3.19.1 prd_overproduction_approval（超産承認）
 
@@ -1070,9 +1070,9 @@ CREATE TABLE prd_overproduction_approval (
     sales_order_line_id BIGINT        NOT NULL,                  -- 受注明細 ID → sal_sales_order_line.id
     work_order_id       BIGINT,                                  -- 対象工单（任意。NULL＝受注行全体）
     material_id         BIGINT        NOT NULL,                  -- 品目（受注行と一致必須）
-    request_qty         NUMERIC(18,4) NOT NULL,                  -- 申請後の許容完工数量（基本単位）= 承認後 allowed_qty 候補
-    current_allowed_qty NUMERIC(18,4) NOT NULL,                  -- 申請時点の allowed_qty（基本単位）
-    approved_allowed_qty NUMERIC(18,4),                          -- 承認後 allowed_qty（承認時に設定）
+    request_qty         NUMERIC(18,4) NOT NULL,                  -- 申請超産増分 delta（基本単位、> 0）。総量ではない
+    current_allowed_qty NUMERIC(18,4) NOT NULL,                  -- 申請時点の受注行 allowed_qty（基本単位、スナップショット）
+    approved_allowed_qty NUMERIC(18,4),                          -- 承認後の受注行新上限（= 承認時点の受注行 allowed_qty + request_qty。スナップショット、参照のみ）
     approval_status     SMALLINT      NOT NULL DEFAULT 10,       -- 10:草稿 20:承認待ち 30:承認済 40:却下 90:取消
     process_instance_id VARCHAR(64),                             -- Flowable process instance id
     requested_by        BIGINT        NOT NULL,                  -- 申請者 → sys_user.id
@@ -1094,7 +1094,7 @@ CREATE INDEX idx_prd_opa_wo
     WHERE work_order_id IS NOT NULL;
 ```
 
-**更新**：申請保存→`approval_status=20` で Flowable 起動。承認（30）時に受注行・関連工单の `allowed_qty = approved_allowed_qty` を更新（ロック順：受注行→工单）。却下（40）／取消（90）では `allowed_qty` を変更しない（再入庫は `MSG-PRD-101`）。
+**更新**：申請保存→`approval_status=20` で Flowable 起動。`request_qty` は申請超産増分 delta（総量ではない）。承認（30）時は増分方式 `allowed_qty = allowed_qty + delta` で更新する（ロック順：受注行→工单）。①工单級（`work_order_id` 有値）：受注行と当該工单の `allowed_qty` をそれぞれ +delta。同一受注行の他工单は自身の `allowed_qty` に拘束され、工单級承認で引き上げた受注行枠を占用できない。②受注行級（`work_order_id` IS NULL）：受注行の `allowed_qty` のみ +delta、配下工单は変更しない（按分しない）。工单でさらに必要な場合は当該工单の工单級承認を別途申請する。承認時に `approved_allowed_qty`（承認後の受注行新上限）をスナップショットとして記録する（参照のみ）。`request_qty` ≤ 0 または NULL は `MSG-PRD-103`/`60103`（ERROR）で拒否（`30022`/`MSG-SAL-056` は流用しない）。受注変更時の再計算はスナップショット率で再算出後、承認済（30）delta 合計を加算し戻す（承認済超産は消去しない。基準数量が減っても既存承認は有効）。却下（40）／取消（90）では `allowed_qty` を変更しない（再入庫は `MSG-PRD-101`）。
 
 
 **更新仕様**
