@@ -55,8 +55,10 @@ if git rev-parse -q --verify "$base^{commit}" >/dev/null 2>&1; then
       echo "ERROR: $f 版本 $ver 不大于基线 $base 上的最大版本 $base_max（新迁移版本号必须单调递增）"; fail=1
     fi
   done
+elif [[ -n "${CI:-}" ]]; then
+  echo "ERROR: CI 上基线 $base 不存在，无法做版本单调递增检查"; fail=1
 else
-  echo "WARN: 基线 $base 不存在，跳过版本单调递增检查"
+  echo "WARN: 基线 $base 不存在，跳过版本单调递增检查（仅本地降级）"
 fi
 
 if [[ $fail -ne 0 ]]; then exit 1; fi
