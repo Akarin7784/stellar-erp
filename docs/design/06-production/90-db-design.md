@@ -1006,7 +1006,7 @@ CREATE TABLE prd_work_order (
     over_report_rate    NUMERIC(5,4)  NOT NULL DEFAULT 0.05,     -- 超報工容差（比率 NUMERIC(5,4)）
     is_hold             BOOLEAN       NOT NULL DEFAULT FALSE,    -- 保留フラグ（工程異常・品質問題）
     hold_reason         VARCHAR(500),                            -- 保留理由
-    standard_cost       NUMERIC(18,6) NOT NULL DEFAULT 0,        -- 標準単位原価（成本卷算値）
+    standard_cost       NUMERIC(18,6),                           -- 標準単位原価スナップショット（既定値なし・NULL 可）。下达時に fin_standard_cost の発行済み版（status=40、当該期間）の total_unit_cost を複写。版なしは NULL（PR #8 決定 2（蓝色大肥鱼 2026-10-21））
     actual_material_cost NUMERIC(18,2) NOT NULL DEFAULT 0,       -- 実績材料費（E22/E36 と E18 の累計）
     actual_labor_cost   NUMERIC(18,2) NOT NULL DEFAULT 0,        -- 実績人工費（E23 累計）
     actual_overhead_cost NUMERIC(18,2) NOT NULL DEFAULT 0,       -- 配賦製造費用（月結で確定）
@@ -2625,3 +2625,4 @@ CREATE INDEX idx_prd_capacity_load_date ON prd_capacity_load (company_id, load_d
 
 | v1.1 | 2026-10-20 | 红队修复第2轮（REV-001/002/003/004/012 等）：INV 単一採番への整合（MII/MIR/FGI/OSI/OSR は INV 所有、PRD は request_no＋stock_doc_id/stock_doc_no 参照）、E15 resultCode/batchNo/warehouseId、E24 stockStatus=10 待検→E15 合格で 20 可用、原価サンプル 120 PCE／材料 79,187.55（標準 79,194.00・価格差異 −6.45）／人工 6,450.00／費用 7,740.00／93,377.55（778.15）、工单結案を 40＋closed_at に統一（45 廃止）、INV API 参照・工费率所有権 | production-designer |
 | v1.2 | 2026-10-20 | 同名索引の重複定義 6 件を削除（`prd_material_issue`、`prd_completion_receipt`、`prd_outsourcing_issue`、`prd_outsourcing_receipt`。定義は完全一致のため後方側を削除） | db-ops |
+| v1.3 | 2026-10-21 | `prd_work_order.standard_cost` を既定値なし・NULL 可に変更、下达時に `fin_standard_cost` 発行版をスナップショット、なしは NULL＋`MSG-FIN-117`・差異スキップ・画面「未設定」（PR #8 決定 2（蓝色大肥鱼 2026-10-21）） | 业务分析 |

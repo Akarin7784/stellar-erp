@@ -423,7 +423,7 @@ function rollUpCost(materialId, baseDate, factoryId):
 | — | 粗利益／粗利率 | 856.50 − 778.20 | 78.30／9.1% |
 
 - 準備工時は「390 min/ロット ÷ 100 PCE = 3.9 min/台」を加算した 2.215 h/台で原価計算する（[routing-demo.md](../90-data/routing-demo.md) §6.1）。上表は簡略化して 2.15 h で表示。
-- 標準原価は `prd_material_planning` の標準単価更新、または BOM/工艺変更時に再卷算する（F-PRD-002）。結果は `prd_work_order.standard_cost` の初期値となる。
+- 標準原価は `prd_material_planning` の標準単価更新、または BOM/工艺変更時に再卷算する（F-PRD-002）。卷算結果は FIN の `fin_standard_cost` 版登録に使い、`prd_work_order.standard_cost` には下达時に発行済み版をスナップショットする（なしは NULL、PR #8 決定 2（蓝色大肥鱼 2026-10-21））。
 - 購買品の標準単価は MDM の購買標準単価、自制半成品は再帰卷算、在庫評価は移動平均（[08](../00-common/08-common-business-rules.md) 第 6 章）であり、標準原価と実際原価の差異は工程で分析する（[03](03-material-issue-reporting.md) 4.7）。
 
 ### 4.6 替代料管理

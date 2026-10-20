@@ -98,7 +98,7 @@ flowchart LR
 | CALC-MI-08 | 報工製造費用（暫定） | `overhead_amount = Σ(machine_hours × overhead_rate)` | 2 桁 | 258.0 × 30.00 = 7,740.00 |
 | CALC-MI-09 | 暫定完工原価 | `actual_total_cost = actual_material_cost + actual_labor_cost + actual_overhead_cost` | 2 桁 | 79,187.55＋6,450.00＋7,740.00＝93,377.55 |
 | CALC-MI-10 | 暫定単位原価 | `unit_cost = actual_total_cost ÷ completed_qty` | 6 桁 | 93,377.55 ÷ 120 = 778.146250 |
-| CALC-MI-11 | 原価差異 | `cost_variance = actual_total_cost − standard_cost × completed_qty` | 2 桁 | 93,377.55 − 93,384.00 = −6.45 |
+| CALC-MI-11 | 原価差異 | `cost_variance = actual_total_cost − standard_cost × completed_qty` | 2 桁 | 93,377.55 − 93,384.00 = −6.45。`standard_cost IS NULL` のときは計算しない（`cost_variance=0` のまま差異分析対象外、FIN は `MSG-FIN-117`） |
 | CALC-MI-12 | 在制品残高 | `wip_cost = actual_material_cost + actual_labor_cost + actual_overhead_cost − Σ(完工入库原価)` | 2 桁 | 月結時 |
 
 > 単位原価は `NUMERIC(18,6)`、金額は `NUMERIC(18,2)`（[01 共通项目定义](../00-common/01-common-item-definitions.md) 第 6 章）。
