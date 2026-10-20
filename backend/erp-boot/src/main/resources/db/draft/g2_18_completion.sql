@@ -16,10 +16,13 @@
 --      - 受注改量：新 allowed_qty < completed_qty 时拒绝；不用乐观锁（version 只 +1 不校验，G2-06）。
 --   D2 加锁顺序（群内 蓝色大肥鱼 2026-10-20 最终裁定）：
 --      先锁受注行，再锁工单；同类多行按 id 升序。完工/冲销/返工入库/受注变更/超产审批统一。
---   D3 错误码：00-common/03-common-api-spec.md 6 章 4002 状态不整合（MSG-COM-034）、1003 値域外、5000 系统错误（公司默认容许率缺失）；
---      PRD 60056 为占位（工单物料与受注行物料不一致），HTTP 422；
---      SAL 30022 为占位（受注改量低于已完工/已发货、超产调高值不合法），HTTP 422；
---      06-production/91-api-design.md 60040 超過入庫（MSG-PRD-040）。
+--   D3 错误码（#56 群内定稿 2026-10-21，HTTP 422 域内码；业务拒绝不用 4002）：
+--      60056 / MSG-PRD-056  工单物料 ≠ 受注行物料；
+--      60100 / MSG-PRD-100  MTO 未批超产（超过 allowed_qty 且超产审批未通过）；
+--      60040 / MSG-PRD-040  硬超 allowed_qty（MTS，或审批额度用尽后仍超；含单张工单上限）；
+--      60102 / MSG-PRD-102  报工冲销数量 > 已完工量；
+--      30022 / MSG-SAL-056  受注改量低于已完工/已发货、超产调高值不合法；
+--      5000 缺租户 / 缺 prd.completion_over_rate / 缺 UOM 精度；4002 仅真状态冲突（HTTP 409）。
 --   D5 蓝色大肥鱼 2026-10-20 追加裁定：
 --      - 上限按基本单位计算：allowed_qty / completed_qty 以基本单位存储，基数取 base_qty；
 --      - 完工容许率优先级：受注行 > 物料 > 物料分类 > 公司；容许率一律存 rate NUMERIC(5,4)，不做 /100 换算；
@@ -242,7 +245,7 @@ BEGIN
     -- 工单物料必须与受注行物料一致：业务规则拒绝（HTTP 422），非并发冲突
     IF v_line_id IS NOT NULL AND v_wo.material_id IS DISTINCT FROM v_line_material THEN
         PERFORM g2_18_raise(60056, format('work_order material %s <> sales_order_line material %s',
-            v_wo.material_id, v_line_material));   -- TODO(待PRD定编号/MSG编号) 60056 为占位（MSG-PRD-056 未使用）
+            v_wo.material_id, v_line_material));   -- MSG-PRD-056 / HTTP 422
     END IF;
 
     -- 状态：30 下达済 / 35 製造中 才能报完工
@@ -253,7 +256,7 @@ BEGIN
         PERFORM g2_18_raise(60047, 'work_order on hold');
     END IF;
 
-    -- 单张工单上限：工单自己的 over_receipt_rate，只作用于本工单
+    -- 单张工单上限：工单自己的 over_receipt_rate，只作用于本工单（硬超 → 60040 / MSG-PRD-040）
     IF v_wo.completed_qty + p_qty > v_wo.order_qty * (1 + v_wo.over_receipt_rate) THEN
         PERFORM g2_18_raise(60040, format('work_order %s: %s + %s > %s',
             v_wo.id, v_wo.completed_qty, p_qty, v_wo.order_qty * (1 + v_wo.over_receipt_rate)));
@@ -262,10 +265,23 @@ BEGIN
     -- 受注行累计上限：0 ≤ completed_qty + qty ≤ allowed_qty
     -- 工单与完工报告均为基本单位，无需换算
     -- allowed_qty 已在受注行确认/改量/超产审批时按基本单位精度向下取整快照，此处直接比较
+    -- AC-PRD-07（#56 群内 2026-10-21）：MTO 未批超产 → 60100；硬超 allowed_qty → 60040
     IF v_line_id IS NOT NULL THEN
         IF v_line_done + p_qty < 0 OR v_line_done + p_qty > v_line_allowed THEN
-            PERFORM g2_18_raise(60040, format('sales_order_line %s: %s + %s > allowed %s',
-                v_line_id, v_line_done, p_qty, v_line_allowed));
+            -- TODO(待超产审批表定稿): 查该受注行是否已有有效超产审批且额度未用尽。
+            --       未批 / 审批无效或已驳回 → 优先 60100 / MSG-PRD-100；
+            --       已批但仍超过新 allowed_qty（额度用尽）→ 60040 / MSG-PRD-040。
+            --       当前无审批表可读：MTO 超限一律按「未批」处理（60100）；
+            --       下方 60040 为硬超落点（审批表落地后：已批仍超才走到这里）。
+            -- stub: treat as NOT approved until over-prod approval DDL lands
+            IF TRUE /* NOT v_over_prod_approved */ THEN
+                PERFORM g2_18_raise(60100, format(
+                    'sales_order_line %s: over-production approval required (%s + %s > allowed %s)',
+                    v_line_id, v_line_done, p_qty, v_line_allowed));   -- MSG-PRD-100 / HTTP 422
+            END IF;
+            PERFORM g2_18_raise(60040, format(
+                'sales_order_line %s: %s + %s > allowed %s',
+                v_line_id, v_line_done, p_qty, v_line_allowed));   -- MSG-PRD-040 / HTTP 422
         END IF;
         UPDATE sal_sales_order_line
            SET completed_qty = completed_qty + p_qty,           -- TODO(待T2/T3定稿)
@@ -321,11 +337,11 @@ BEGIN
     END IF;
 
     IF v_wo.completed_qty - p_qty < 0 THEN
-        -- 业务规则拒绝（HTTP 422），非并发冲突
-        PERFORM g2_18_raise(60032, format('work_order completed_qty %s < reverse %s', v_wo.completed_qty, p_qty));
+        -- 业务规则拒绝（HTTP 422），非并发冲突；#56 定稿 60102 / MSG-PRD-102
+        PERFORM g2_18_raise(60102, format('work_order completed_qty %s < reverse %s', v_wo.completed_qty, p_qty));
     END IF;
     IF v_line_id IS NOT NULL AND v_line_done - p_qty < 0 THEN
-        PERFORM g2_18_raise(60032, format('sales_order_line completed_qty %s < reverse %s', v_line_done, p_qty));
+        PERFORM g2_18_raise(60102, format('sales_order_line completed_qty %s < reverse %s', v_line_done, p_qty));   -- MSG-PRD-102 / HTTP 422
     END IF;
 
     IF v_line_id IS NOT NULL THEN
@@ -370,7 +386,7 @@ BEGIN
     v_new := g2_18_calc_allowed_qty(p_new_allowed_qty, 0, v_material);
     IF v_new IS NULL OR v_new <= v_old THEN
         -- 业务规则拒绝（HTTP 422），非并发冲突
-        PERFORM g2_18_raise(30022, format('new allowed_qty %s must be > current %s', p_new_allowed_qty, v_old));   -- TODO(待SAL定编号/MSG编号)
+        PERFORM g2_18_raise(30022, format('new allowed_qty %s must be > current %s', p_new_allowed_qty, v_old));   -- MSG-SAL-056 / HTTP 422
     END IF;
 
     UPDATE sal_sales_order_line
@@ -425,12 +441,12 @@ BEGIN
 
     IF v_new_allowed < v_done THEN
         -- 业务规则拒绝 → HTTP 422，不是并发冲突（不用 4002/409）
-        -- 30022 为 SAL 领域占位码（03-sales 已用 30001-30021/30050/30090）
-        PERFORM g2_18_raise(30022, format('new allowed_qty %s < completed_qty %s; 先完工退回或走受注变更审批', v_new_allowed, v_done));   -- TODO(待SAL定编号/MSG编号)
+        -- 30022 / MSG-SAL-056：受注改量导致新 allowed_qty < completed_qty（覆盖已完工）
+        PERFORM g2_18_raise(30022, format('new allowed_qty %s < completed_qty %s; 先完工退回或走受注变更审批', v_new_allowed, v_done));
     END IF;
     -- 与 base_qty 比较统一用基本单位已发货数 shipped_base_qty  -- TODO(待T2/T3定稿) T2 新增列
     IF p_new_base_qty < v_shipped THEN
-        PERFORM g2_18_raise(30022, format('new base_qty %s < shipped_base_qty %s', p_new_base_qty, v_shipped));   -- TODO(待SAL定编号/MSG编号) HTTP 422
+        PERFORM g2_18_raise(30022, format('new base_qty %s < shipped_base_qty %s', p_new_base_qty, v_shipped));   -- MSG-SAL-056 / HTTP 422
     END IF;
     RETURN v_new_allowed;
 END $$;
