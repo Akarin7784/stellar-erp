@@ -338,7 +338,7 @@ stateDiagram-v2
 **PRC-WF-005-04 加签**
 
 1. タスク取得・ロック・権限チェック。`addSignUserId`（追加承認者）と `position`（前/後）を検証する。申請者・既存承認者との重複、有効ユーザであることを確認する。
-2. Flowable の `taskService.addCandidateUser` ではなく、新規 UserTask を動的生成（`runtimeService` の動的タスク生成機能）または BPMN のマルチインスタンスを利用する。Phase 1 は「現在のタスクを完了せず、`addSign` 用の子タスクを生成し、子タスク完了後に本体を続行する」方式（`wf_task` に `parent_task_id` を追加する Phase 2 拡張）とする。Phase 1 実装では加签先を「追加承認者」として `wf_task` に `task_type=ADDSIGN` で登録し、完了後に本体タスクが再活性化される設計とする。
+2. Flowable の `taskService.addCandidateUser` ではなく、新規 UserTask を動的生成（`runtimeService` の動的タスク生成機能）または BPMN のマルチインスタンスを利用する。Phase 1 は「現在のタスクを完了せず、`addSign` 用の子タスクを生成し、子タスク完了後に本体を続行する」方式（子タスクは `wf_task.parent_task_id` で本体タスクを参照。[90](90-db-design.md) §3 `wf_task` 参照）とする。Phase 1 実装では加签先を「追加承認者」として `wf_task` に `task_type=ADDSIGN` で登録し、完了後に本体タスクが再活性化される設計とする。
 3. `wf_task_operation` に `operation_type=4`・対象者・前後状態を記録する。
 4. 加签先へ `WF_TASK_CREATED`（加签）を通知する。加签は最大 5 名・3 段まで（無限ループ防止）。
 
@@ -642,4 +642,4 @@ E32 `workflow.process.completed` のペイロード：
 | 版数 | 日付 | 変更内容 | 変更者 |
 |---|---|---|---|
 | v1.0 | 2026-10-20 | 初版：F-WF-003/004/005/006/011/012 の業務ルール 18、画面 7、画面項目定義、処理 13 件、E31/E32 契約、API 20 件、メッセージ 16 件、テスト観点 22 件 | system-workflow |
-| v1.1 | 2026-10-20 | サンプルデータを 90-data のコード体系（物料 1001000001 = 硅钢片）に修正 | system-workflow |
+| v1.1 | 2026-10-20 | サンプルデータを 90-data のコード体系（物料 1001000001 = 硅钢片）に修正 | system-workflow || v1.2 | 2026-10-21 | PRC-WF-005-04 加签：子タスクは `wf_task.parent_task_id` で本体を参照（90 DDL に追加済、Phase 2 拡張の記述を削除） | 业务分析 |
