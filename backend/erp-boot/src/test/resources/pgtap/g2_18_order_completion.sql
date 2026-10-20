@@ -31,7 +31,7 @@ INSERT INTO sys_param (id, tenant_id, company_id, param_key, param_name, param_g
 INSERT INTO sal_sales_order (id, tenant_id, company_id, order_no) VALUES
     (991001, 101, 1, 'SO-G218-1'),
     (991901, 202, 1, 'SO-G218-T202');
-INSERT INTO sal_sales_order_line (id, tenant_id, sales_order_id, line_no, material_id, base_qty, shipped_base_qty, over_receipt_rate, allowed_qty, completed_qty) VALUES
+INSERT INTO sal_sales_order_line (id, tenant_id, sales_order_id, line_no, material_id, base_qty, shipped_base_qty, completion_over_rate, allowed_qty, completed_qty) VALUES
     (991011, 101, 991001, 1, 991001, 100, 0,  0.05, 105, 100),  -- L1 报完工
     (991012, 101, 991001, 2, 991001, 100, 0,  0,    100, 0),    -- L2 工单级审批
     (991013, 101, 991001, 3, 991001, 100, 0,  0,    100, 0),    -- L3 整行审批
@@ -118,7 +118,7 @@ SELECT is(g2_18_calc_allowed_qty(7.333, 0.05, 991006), 7.69::numeric, 'F3 KGM 7.
 -- ---------------------------------------------------------------- S 确认快照 / allowed_qty NULL
 SELECT throws_ok($$SELECT g2_18_raise_allowed_qty(991015, NULL, 10, 'X', 9, 990002)$$, 'P0001', '5000', 'S1 受注行 allowed_qty 未快照时审批 → 5000');
 SELECT is(g2_18_snapshot_on_line_confirm(991015, NULL, 9), 105::numeric, 'S2 确认快照 allowed_qty = floor(100×1.05) = 105');
-SELECT is((SELECT ARRAY[over_receipt_rate, allowed_qty] FROM sal_sales_order_line WHERE id = 991015), ARRAY[0.05, 105]::numeric[], 'S3 快照写入 rate 0.05 / allowed 105');
+SELECT is((SELECT ARRAY[completion_over_rate, allowed_qty] FROM sal_sales_order_line WHERE id = 991015), ARRAY[0.05, 105]::numeric[], 'S3 快照写入 rate 0.05 / allowed 105');
 
 -- ---------------------------------------------------------------- P 报完工（L1：100/105，WO 991101 100/105，+10 同时超行和工单）
 SELECT throws_ok($$SELECT g2_18_report_completion(991101, 0, 9)$$, 'P0001', '1003', 'P1 数量 0 → 1003');
