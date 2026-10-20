@@ -328,7 +328,7 @@ V{yyyyMMdd}{DD}{NN}__{module}_{description}.sql     # バージョンは 12 桁
 ### 11.1 跨表ロック順序（全域共通、2026-10-20 決定）
 
 - 過帳系パスで複数テーブルをロックする場合、**受注行（`sal_sales_order_line`）→ 工单（`prd_work_order`）** の順にロックする。同一テーブルの複数行は **id 昇順** でロックする。
-- 完工超収の上限 `allowed_qty`（基本単位、受注行 `ordered_qty` 基準）と容差チェーンは [01-system 90 §3.39 sys_company_param](../01-system/90-db-design.md) を参照。超産承認表の DDL は 06-production で定義予定。
+- 完工超収の上限 `allowed_qty`（基本単位、受注行 `ordered_qty` 基準）と容差チェーンは `sys_param`（[01-system 90 §3.15](../01-system/90-db-design.md)） を参照。超産承認表の DDL は 06-production で定義予定。
 - 適用対象：完工報告、冲销（取消・反向伝票）、返工入庫、受注変更、超産承認。いずれのストアドプロシージャもこの順序に従う（詳細は G2-18、Refs #29）。
 - 受注変更のように受注行を起点としない処理も、先に受注行を `FOR UPDATE` し、その後関連工单を id 昇順で `FOR UPDATE` してから数量（已完工数・已発貨数）を検証する。
 - **過帳パスは行ロックのみ**（数量累加で `version` を検査しない。409 を返さない）。**楽観排他（`version`）は画面編集のみ**とし、競合時は HTTP `409` + `code=4003`（[03 API 規格 §10](03-common-api-spec.md)）。
