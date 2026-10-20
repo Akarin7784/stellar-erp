@@ -19,7 +19,7 @@ ERP 的数据库需求：强事务、复杂报表（窗口函数/CTE）、单据
 - 迁移：Flyway，SQL 脚本按模块分目录（`db/migration/{module}/V{version}__{desc}.sql`）
 - 主键：`bigint` 雪花 ID（应用层生成，避免自增锁与分库限制）
 - 扩展字段：`jsonb` 列 + GIN 索引
-- 多租户预留：所有业务表带 `tenant_id`，第一版随首批业务表启用 RLS
+- 多租户：所有业务表带 `tenant_id`（租户＝部署客户，唯一 RLS 隔离键；`company_id` 为租户内法人主体，不进 RLS），第一版随首批业务表启用 RLS；`sys_user` 已启用。应用以非 owner 的 `erp_app` 连接，详见 `docs/design/00-common/10-rls-and-db-roles.md`
 
 ## 备选方案
 

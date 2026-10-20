@@ -87,6 +87,7 @@ pnpm dev
 
 - **模块边界**：按 Spring Modulith 约定，模块**根包**下的类型对外暴露，子包（含 `internal`）为内部实现、禁止跨模块引用；CI 中由 `ApplicationModules.verify()` 强制校验
 - **数据库迁移**：以 [04 共通 DB 规范 §10](docs/design/00-common/04-common-db-spec.md) 为准：`db/migration/{module}/V{yyyyMMdd}{DD}{NN}__{module}_{描述}.sql`，`{module}` 为表前缀（sys/mdm/sal/pur/inv/prd/fin/wf/int/rpt），`DD` 为域代码（防止跨域撞号）；现有 `V1__baseline.sql` 保持不变。CI 由 `.github/scripts/check-migrations.sh` 校验文件名与版本唯一
+- **数据库账号与 RLS**：Flyway 以 owner（`DB_USER`，dev 为 `erp`）执行迁移；应用以非 owner 的 `erp_app`（`DB_APP_USER`/`DB_APP_PASSWORD`，dev 默认密码 `erp_app_dev_password`，由迁移回调设置）连接，受 RLS 约束。访问业务表须在事务内，租户由 `TenantContext` 注入。详见 [10 RLS・数据库角色](docs/design/00-common/10-rls-and-db-roles.md)
 - **接口规范**：统一返回 `Result<T>`，业务异常抛 `BizException`，由全局异常处理器转换
 - **提交规范**：Conventional Commits（`feat:` / `fix:` / `docs:` / `chore:` / `refactor:` / `test:`）
 

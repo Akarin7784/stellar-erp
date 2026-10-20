@@ -117,7 +117,7 @@
 ```sql
 CREATE TABLE sys_sequence (
     id          BIGINT       NOT NULL,
-    tenant_id   BIGINT       NOT NULL DEFAULT 0,
+    tenant_id   BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     sequence_key VARCHAR(64) NOT NULL,   -- 例 'SAL_SALES_ORDER'
     sequence_date DATE       NOT NULL,   -- 日次リセット用（月次は月初日）
     current_value BIGINT     NOT NULL DEFAULT 0,
@@ -335,9 +335,10 @@ V{yyyyMMdd}{DD}{NN}__{module}_{description}.sql     # バージョンは 12 桁
 
 ## 14. マルチテナント・多公司
 
-- 全業務テーブルに `tenant_id`（首期 0）と `company_id`（首期 1）を保持。
+- 全業務テーブルに `tenant_id`（租户＝部署客户、RLS の唯一の隔離キー）と `company_id`（租户内の法人主体、業務キー・索引の先頭列）を保持。1 tenant ⊇ N company。列名は `tenant_id` に統一。
+- `tenant_id` の既定値は `current_setting('app.tenant_id')::bigint`（**`DEFAULT 0` 禁止**）。租户上下文なしの INSERT は失敗する。Flyway/owner のシード投入は `tenant_id` を明示する。
 - 一意制約は `(company_id, business_key)` を基本とする。
-- Phase 2 多公司：会社間取引・会社別会計期間・会社別採番を追加。第一版（首批業務テーブルと同時）：`tenant_id` + RLS（`CREATE POLICY ... USING (tenant_id = current_setting('app.tenant_id')::bigint)`）。
+- Phase 2 多公司：会社間取引・会社別会計期間・会社別採番を追加。第一版（首批業務テーブルと同時）：`tenant_id` + RLS（ENABLE + FORCE、`USING` と `WITH CHECK` の両方に `tenant_id = current_setting('app.tenant_id')::bigint`）。テンプレート・DB ロール（owner / `erp_app`）・租户上下文は [10 RLS・数据库角色](10-rls-and-db-roles.md) を正とする（`sys_user` で実装済み）。
 - 本設計では `company_id` の付与を全業務テーブルで必須とし、後からの追加を不要にする。
 
 ## 15. バックアップ・リカバリ（設計前提）
