@@ -103,7 +103,7 @@ erDiagram
 ```sql
 CREATE TABLE int_interface_config (
     id                  BIGINT        NOT NULL,
-    tenant_id           BIGINT        NOT NULL DEFAULT 0,
+    tenant_id           BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id          BIGINT        NOT NULL DEFAULT 1,
     interface_code      VARCHAR(32)   NOT NULL,              -- IF-INT-001
     interface_name      VARCHAR(200)  NOT NULL,
@@ -174,7 +174,7 @@ COMMENT ON COLUMN int_interface_config.credential_ref IS '認証情報の参照�
 ```sql
 CREATE TABLE int_interface_mapping (
     id              BIGINT       NOT NULL,
-    tenant_id       BIGINT       NOT NULL DEFAULT 0,
+    tenant_id       BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id      BIGINT       NOT NULL DEFAULT 1,
     interface_id    BIGINT       NOT NULL,
     direction       SMALLINT     NOT NULL,                  -- 10:送信 20:受信
@@ -206,7 +206,7 @@ CREATE INDEX idx_int_interface_mapping_if ON int_interface_mapping (interface_id
 ```sql
 CREATE TABLE int_api_client (
     id                  BIGINT       NOT NULL,
-    tenant_id           BIGINT       NOT NULL DEFAULT 0,
+    tenant_id           BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id          BIGINT       NOT NULL DEFAULT 1,
     client_id           VARCHAR(64)  NOT NULL,              -- 公開識別子
     client_name         VARCHAR(200) NOT NULL,
@@ -240,7 +240,7 @@ CREATE INDEX idx_int_api_client_status ON int_api_client (status, effective_to);
 ```sql
 CREATE TABLE int_api_call_log (
     id              BIGINT       NOT NULL,
-    tenant_id       BIGINT       NOT NULL DEFAULT 0,
+    tenant_id       BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id      BIGINT       NOT NULL DEFAULT 1,
     if_id           BIGINT,
     interface_code  VARCHAR(32),
@@ -276,7 +276,7 @@ CREATE INDEX idx_int_api_call_log_client ON int_api_call_log (api_client_id, cal
 ```sql
 CREATE TABLE int_external_message (
     id              BIGINT       NOT NULL,
-    tenant_id       BIGINT       NOT NULL DEFAULT 0,
+    tenant_id       BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id      BIGINT       NOT NULL DEFAULT 1,
     if_id           BIGINT       NOT NULL,
     direction       SMALLINT     NOT NULL,                  -- 10:送信 20:受信
@@ -307,7 +307,7 @@ CREATE INDEX idx_int_external_message_status ON int_external_message (status, re
 ```sql
 CREATE TABLE int_sync_job (
     id              BIGINT       NOT NULL,
-    tenant_id       BIGINT       NOT NULL DEFAULT 0,
+    tenant_id       BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id      BIGINT       NOT NULL DEFAULT 1,
     job_no          VARCHAR(48)  NOT NULL,                  -- JOB-INT-YYYYMMDD-0001
     if_id           BIGINT,
@@ -339,7 +339,7 @@ CREATE INDEX idx_int_sync_job_date ON int_sync_job (biz_date DESC, status);
 ```sql
 CREATE TABLE int_sync_task (
     id                  BIGINT       NOT NULL,
-    tenant_id           BIGINT       NOT NULL DEFAULT 0,
+    tenant_id           BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id          BIGINT       NOT NULL DEFAULT 1,
     job_id              BIGINT,
     if_id               BIGINT       NOT NULL,
@@ -381,7 +381,7 @@ CREATE INDEX idx_int_sync_task_job ON int_sync_task (job_id);
 ```sql
 CREATE TABLE int_retry_log (
     id              BIGINT       NOT NULL,
-    tenant_id       BIGINT       NOT NULL DEFAULT 0,
+    tenant_id       BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id      BIGINT       NOT NULL DEFAULT 1,
     sync_task_id    BIGINT       NOT NULL,
     retry_no        SMALLINT     NOT NULL,
@@ -411,7 +411,7 @@ CREATE INDEX idx_int_retry_log_task ON int_retry_log (sync_task_id, retried_at D
 ```sql
 CREATE TABLE int_tax_invoice (
     id                  BIGINT       NOT NULL,
-    tenant_id           BIGINT       NOT NULL DEFAULT 0,
+    tenant_id           BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id          BIGINT       NOT NULL DEFAULT 1,
     invoice_req_no      VARCHAR(48)  NOT NULL,              -- 請求流水号（冪等キー）
     invoice_type        SMALLINT     NOT NULL,              -- 10:藍専 20:藍普 30:紅専 40:紅普
@@ -464,7 +464,7 @@ CREATE INDEX idx_int_tax_invoice_source ON int_tax_invoice (source_type, source_
 ```sql
 CREATE TABLE int_tax_invoice_line (
     id                      BIGINT       NOT NULL,
-    tenant_id               BIGINT       NOT NULL DEFAULT 0,
+    tenant_id               BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     invoice_id              BIGINT       NOT NULL,
     line_no                 INT          NOT NULL,
     material_id             BIGINT,
@@ -493,7 +493,7 @@ CREATE TABLE int_tax_invoice_line (
 ```sql
 CREATE TABLE int_input_invoice (
     id                  BIGINT       NOT NULL,
-    tenant_id           BIGINT       NOT NULL DEFAULT 0,
+    tenant_id           BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id          BIGINT       NOT NULL DEFAULT 1,
     invoice_code        VARCHAR(32),
     invoice_no          VARCHAR(32)  NOT NULL,
@@ -536,7 +536,7 @@ CREATE INDEX idx_int_input_invoice_date ON int_input_invoice (invoice_date DESC,
 ```sql
 CREATE TABLE int_bank_account (
     id                  BIGINT       NOT NULL,
-    tenant_id           BIGINT       NOT NULL DEFAULT 0,
+    tenant_id           BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id          BIGINT       NOT NULL DEFAULT 1,
     fin_bank_account_id BIGINT       NOT NULL,              -- FIN の口座 ID（FK なし）
     bank_code           VARCHAR(16)  NOT NULL,              -- CNAPS 12 桁（S-067）
@@ -569,7 +569,7 @@ CREATE INDEX idx_int_bank_account_status ON int_bank_account (connection_status,
 ```sql
 CREATE TABLE int_bank_payment (
     id                      BIGINT       NOT NULL,
-    tenant_id               BIGINT       NOT NULL DEFAULT 0,
+    tenant_id               BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id              BIGINT       NOT NULL DEFAULT 1,
     payment_no              VARCHAR(48)  NOT NULL,          -- 指令番号（冪等キー）
     bank_account_id         BIGINT       NOT NULL,
@@ -613,7 +613,7 @@ CREATE INDEX idx_int_bank_payment_status ON int_bank_payment (status, submitted_
 ```sql
 CREATE TABLE int_bank_statement_file (
     id                  BIGINT       NOT NULL,
-    tenant_id           BIGINT       NOT NULL DEFAULT 0,
+    tenant_id           BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id          BIGINT       NOT NULL DEFAULT 1,
     file_no             VARCHAR(48)  NOT NULL,              -- BST-INT-YYYYMMDD-0001
     bank_account_id     BIGINT       NOT NULL,
@@ -646,7 +646,7 @@ CREATE TABLE int_bank_statement_file (
 ```sql
 CREATE TABLE int_file_layout (
     id              BIGINT       NOT NULL,
-    tenant_id       BIGINT       NOT NULL DEFAULT 0,
+    tenant_id       BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id      BIGINT       NOT NULL DEFAULT 1,
     layout_code     VARCHAR(64)  NOT NULL,
     layout_name     VARCHAR(200) NOT NULL,
@@ -678,7 +678,7 @@ CREATE TABLE int_file_layout (
 ```sql
 CREATE TABLE int_file_transfer (
     id              BIGINT       NOT NULL,
-    tenant_id       BIGINT       NOT NULL DEFAULT 0,
+    tenant_id       BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id      BIGINT       NOT NULL DEFAULT 1,
     transfer_no     VARCHAR(48)  NOT NULL,
     layout_id       BIGINT       NOT NULL,
@@ -712,7 +712,7 @@ CREATE INDEX idx_int_file_transfer_layout ON int_file_transfer (layout_id, biz_d
 ```sql
 CREATE TABLE int_file_transfer_error (
     id              BIGINT       NOT NULL,
-    tenant_id       BIGINT       NOT NULL DEFAULT 0,
+    tenant_id       BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     transfer_id     BIGINT       NOT NULL,
     row_no          INT          NOT NULL,
     column_name     VARCHAR(100),
@@ -732,7 +732,7 @@ CREATE INDEX idx_int_file_transfer_error ON int_file_transfer_error (transfer_id
 ```sql
 CREATE TABLE int_notification_channel (
     id                  BIGINT       NOT NULL,
-    tenant_id           BIGINT       NOT NULL DEFAULT 0,
+    tenant_id           BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id          BIGINT       NOT NULL DEFAULT 1,
     channel_code        VARCHAR(32)  NOT NULL,              -- SMTP/SMS/WECOM/DINGTALK
     channel_name        VARCHAR(200) NOT NULL,
@@ -759,7 +759,7 @@ CREATE TABLE int_notification_channel (
 ```sql
 CREATE TABLE int_pda_device (
     id              BIGINT       NOT NULL,
-    tenant_id       BIGINT       NOT NULL DEFAULT 0,
+    tenant_id       BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id      BIGINT       NOT NULL DEFAULT 1,
     device_code     VARCHAR(64)  NOT NULL,
     device_name     VARCHAR(200) NOT NULL,
@@ -789,7 +789,7 @@ CREATE TABLE int_pda_device (
 ```sql
 CREATE TABLE int_pda_offline_batch (
     id              BIGINT       NOT NULL,
-    tenant_id       BIGINT       NOT NULL DEFAULT 0,
+    tenant_id       BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id      BIGINT       NOT NULL DEFAULT 1,
     batch_no        VARCHAR(64)  NOT NULL,                  -- 端末側採番
     device_code     VARCHAR(64)  NOT NULL,
@@ -815,7 +815,7 @@ CREATE TABLE int_pda_offline_batch (
 ```sql
 CREATE TABLE int_sync_reconcile (
     id              BIGINT       NOT NULL,
-    tenant_id       BIGINT       NOT NULL DEFAULT 0,
+    tenant_id       BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id      BIGINT       NOT NULL DEFAULT 1,
     reconcile_date  DATE         NOT NULL,
     if_id           BIGINT       NOT NULL,

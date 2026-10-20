@@ -82,7 +82,7 @@ erDiagram
 ```sql
 -- 全テーブル共通（各テーブル DDL に展開する。以下は雛形）
 id          BIGINT       NOT NULL,                          -- 主キー（雪花 ID）
-tenant_id   BIGINT       NOT NULL DEFAULT 0,                -- 租户 ID（首期 0）
+tenant_id   BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,                -- 租户 ID（首期 0）
 company_id  BIGINT       NOT NULL DEFAULT 1,                -- 公司 ID（明細は親で保持）
 created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),            -- 作成日時
 created_by  BIGINT       NOT NULL DEFAULT 0,                -- 作成者

@@ -94,7 +94,7 @@ erDiagram
 ```sql
 CREATE TABLE rpt_kpi_definition (
     id              BIGINT       NOT NULL,
-    tenant_id       BIGINT       NOT NULL DEFAULT 0,
+    tenant_id       BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id      BIGINT       NOT NULL DEFAULT 1,
     kpi_code        VARCHAR(32)  NOT NULL,              -- KPI-RPT-001
     kpi_name        VARCHAR(200) NOT NULL,
@@ -146,7 +146,7 @@ CREATE UNIQUE INDEX uk_rpt_kpi_definition_current ON rpt_kpi_definition (kpi_cod
 ```sql
 CREATE TABLE rpt_kpi_target (
     id              BIGINT       NOT NULL,
-    tenant_id       BIGINT       NOT NULL DEFAULT 0,
+    tenant_id       BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id      BIGINT       NOT NULL DEFAULT 1,
     kpi_code        VARCHAR(32)  NOT NULL,
     period_code     VARCHAR(7)   NOT NULL,              -- 2026-10 / 2026
@@ -172,7 +172,7 @@ CREATE TABLE rpt_kpi_target (
 ```sql
 CREATE TABLE rpt_kpi_snapshot (
     id                  BIGINT       NOT NULL,
-    tenant_id           BIGINT       NOT NULL DEFAULT 0,
+    tenant_id           BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id          BIGINT       NOT NULL DEFAULT 1,
     kpi_code            VARCHAR(32)  NOT NULL,
     period_type         CHAR(1)      NOT NULL,          -- D/M/Q/Y
@@ -204,7 +204,7 @@ CREATE INDEX idx_rpt_kpi_snapshot_kpi ON rpt_kpi_snapshot (kpi_code, period_type
 ```sql
 CREATE TABLE rpt_kpi_lineage (
     id              BIGINT       NOT NULL,
-    tenant_id       BIGINT       NOT NULL DEFAULT 0,
+    tenant_id       BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id      BIGINT       NOT NULL DEFAULT 1,
     kpi_code        VARCHAR(32)  NOT NULL,
     seq_no          INT          NOT NULL,
@@ -227,7 +227,7 @@ CREATE TABLE rpt_kpi_lineage (
 ```sql
 CREATE TABLE rpt_kpi_comment (
     id              BIGINT       NOT NULL,
-    tenant_id       BIGINT       NOT NULL DEFAULT 0,
+    tenant_id       BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id      BIGINT       NOT NULL DEFAULT 1,
     kpi_code        VARCHAR(32)  NOT NULL,
     period_code     VARCHAR(10)  NOT NULL,
@@ -247,7 +247,7 @@ CREATE INDEX idx_rpt_kpi_comment_kpi ON rpt_kpi_comment (kpi_code, period_code D
 ```sql
 CREATE TABLE rpt_dashboard (
     id              BIGINT       NOT NULL,
-    tenant_id       BIGINT       NOT NULL DEFAULT 0,
+    tenant_id       BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id      BIGINT       NOT NULL DEFAULT 1,
     dashboard_code  VARCHAR(32)  NOT NULL,
     dashboard_name  VARCHAR(200) NOT NULL,
@@ -265,7 +265,7 @@ CREATE TABLE rpt_dashboard (
 
 CREATE TABLE rpt_dashboard_widget (
     id              BIGINT       NOT NULL,
-    tenant_id       BIGINT       NOT NULL DEFAULT 0,
+    tenant_id       BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id      BIGINT       NOT NULL DEFAULT 1,
     dashboard_id    BIGINT       NOT NULL,
     widget_code     VARCHAR(64)  NOT NULL,
@@ -293,7 +293,7 @@ CREATE TABLE rpt_dashboard_widget (
 ```sql
 CREATE TABLE rpt_analysis_favorite (
     id              BIGINT       NOT NULL,
-    tenant_id       BIGINT       NOT NULL DEFAULT 0,
+    tenant_id       BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id      BIGINT       NOT NULL DEFAULT 1,
     owner_user_id   BIGINT       NOT NULL,
     favorite_name   VARCHAR(200) NOT NULL,
@@ -318,7 +318,7 @@ CREATE TABLE rpt_analysis_favorite (
 ```sql
 CREATE TABLE rpt_sales_detail (
     id                  BIGINT       NOT NULL,
-    tenant_id           BIGINT       NOT NULL DEFAULT 0,
+    tenant_id           BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id          BIGINT       NOT NULL DEFAULT 1,
     line_id             BIGINT       NOT NULL,          -- sal_delivery_note_line.id
     order_no            VARCHAR(32)  NOT NULL,
@@ -361,7 +361,7 @@ CREATE INDEX idx_rpt_sales_detail_dept ON rpt_sales_detail (sales_dept_id, ship_
 ```sql
 CREATE TABLE rpt_purchase_detail (
     id                  BIGINT       NOT NULL,
-    tenant_id           BIGINT       NOT NULL DEFAULT 0,
+    tenant_id           BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id          BIGINT       NOT NULL DEFAULT 1,
     line_id             BIGINT       NOT NULL,          -- pur_receipt_line.id
     po_no               VARCHAR(32),
@@ -398,7 +398,7 @@ CREATE INDEX idx_rpt_purchase_detail_mat ON rpt_purchase_detail (material_id, re
 ```sql
 CREATE TABLE rpt_inventory_snapshot (
     id                  BIGINT       NOT NULL,
-    tenant_id           BIGINT       NOT NULL DEFAULT 0,
+    tenant_id           BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id          BIGINT       NOT NULL DEFAULT 1,
     snapshot_date       DATE         NOT NULL,
     warehouse_id        BIGINT       NOT NULL,
@@ -428,7 +428,7 @@ CREATE INDEX idx_rpt_inventory_snapshot_mat ON rpt_inventory_snapshot (material_
 ```sql
 CREATE TABLE rpt_production_detail (
     id                  BIGINT       NOT NULL,
-    tenant_id           BIGINT       NOT NULL DEFAULT 0,
+    tenant_id           BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id          BIGINT       NOT NULL DEFAULT 1,
     work_order_no       VARCHAR(32)  NOT NULL,
     material_id         BIGINT       NOT NULL,
@@ -465,7 +465,7 @@ CREATE INDEX idx_rpt_production_detail_mat ON rpt_production_detail (material_id
 ```sql
 CREATE TABLE rpt_finance_detail (
     id                  BIGINT       NOT NULL,
-    tenant_id           BIGINT       NOT NULL DEFAULT 0,
+    tenant_id           BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id          BIGINT       NOT NULL DEFAULT 1,
     period_code         VARCHAR(7)   NOT NULL,
     voucher_no          VARCHAR(32),
@@ -490,7 +490,7 @@ CREATE INDEX idx_rpt_finance_detail_cust ON rpt_finance_detail (customer_id) WHE
 ```sql
 CREATE TABLE rpt_warning_rule (
     id                  BIGINT       NOT NULL,
-    tenant_id           BIGINT       NOT NULL DEFAULT 0,
+    tenant_id           BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id          BIGINT       NOT NULL DEFAULT 1,
     rule_code           VARCHAR(32)  NOT NULL,          -- WARN-RPT-001
     rule_name           VARCHAR(200) NOT NULL,
@@ -525,7 +525,7 @@ CREATE TABLE rpt_warning_rule (
 ```sql
 CREATE TABLE rpt_warning_event (
     id                  BIGINT       NOT NULL,
-    tenant_id           BIGINT       NOT NULL DEFAULT 0,
+    tenant_id           BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id          BIGINT       NOT NULL DEFAULT 1,
     event_no            VARCHAR(64)  NOT NULL,
     rule_code           VARCHAR(32)  NOT NULL,
@@ -560,7 +560,7 @@ CREATE INDEX idx_rpt_warning_event_status ON rpt_warning_event (status, event_da
 ```sql
 CREATE TABLE rpt_warning_subscription (
     id              BIGINT       NOT NULL,
-    tenant_id       BIGINT       NOT NULL DEFAULT 0,
+    tenant_id       BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id      BIGINT       NOT NULL DEFAULT 1,
     rule_code       VARCHAR(32)  NOT NULL,
     subscriber_type SMALLINT     NOT NULL DEFAULT 10,   -- 10:ユーザ 20:ロール
@@ -579,7 +579,7 @@ CREATE TABLE rpt_warning_subscription (
 ```sql
 CREATE TABLE rpt_subscription (
     id                  BIGINT       NOT NULL,
-    tenant_id           BIGINT       NOT NULL DEFAULT 0,
+    tenant_id           BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id          BIGINT       NOT NULL DEFAULT 1,
     subscription_no     VARCHAR(48)  NOT NULL,
     subscription_name   VARCHAR(200) NOT NULL,
@@ -609,7 +609,7 @@ CREATE INDEX idx_rpt_subscription_next ON rpt_subscription (status, next_send_at
 ```sql
 CREATE TABLE rpt_subscription_log (
     id                  BIGINT       NOT NULL,
-    tenant_id           BIGINT       NOT NULL DEFAULT 0,
+    tenant_id           BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id          BIGINT       NOT NULL DEFAULT 1,
     subscription_id     BIGINT       NOT NULL,
     period_code         VARCHAR(10)  NOT NULL,
@@ -630,7 +630,7 @@ CREATE TABLE rpt_subscription_log (
 ```sql
 CREATE TABLE rpt_etl_job (
     id              BIGINT       NOT NULL,
-    tenant_id       BIGINT       NOT NULL DEFAULT 0,
+    tenant_id       BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id      BIGINT       NOT NULL DEFAULT 1,
     job_no          VARCHAR(48)  NOT NULL,
     job_type        SMALLINT     NOT NULL,              -- 10:销售 20:采购 30:库存 40:生产 50:财务 60:KPI 70:再計算
@@ -654,7 +654,7 @@ CREATE INDEX idx_rpt_etl_job_date ON rpt_etl_job (biz_date DESC, job_type);
 
 CREATE TABLE rpt_etl_error (
     id              BIGINT       NOT NULL,
-    tenant_id       BIGINT       NOT NULL DEFAULT 0,
+    tenant_id       BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     job_id          BIGINT       NOT NULL,
     row_no          BIGINT,
     column_name     VARCHAR(100),
@@ -673,7 +673,7 @@ CREATE INDEX idx_rpt_etl_error_job ON rpt_etl_error (job_id, row_no);
 ```sql
 CREATE TABLE rpt_data_quality_check (
     id              BIGINT       NOT NULL,
-    tenant_id       BIGINT       NOT NULL DEFAULT 0,
+    tenant_id       BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id      BIGINT       NOT NULL DEFAULT 1,
     check_date      DATE         NOT NULL,
     check_type      SMALLINT     NOT NULL,              -- 10:KPI vs 業務域 20:欠測 30:異常値 40:遅延
@@ -697,7 +697,7 @@ CREATE INDEX idx_rpt_data_quality_check_status ON rpt_data_quality_check (status
 ```sql
 CREATE TABLE rpt_query_log (
     id              BIGINT       NOT NULL,
-    tenant_id       BIGINT       NOT NULL DEFAULT 0,
+    tenant_id       BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id      BIGINT       NOT NULL DEFAULT 1,
     user_id         BIGINT       NOT NULL,
     query_type      SMALLINT     NOT NULL,              -- 10:閲覧 20:ドリルダウン 30:出力 40:订阅

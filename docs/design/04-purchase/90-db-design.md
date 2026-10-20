@@ -42,7 +42,7 @@
 
 ```sql
 id          BIGINT       NOT NULL,                 -- 主キー（雪花 ID）
-tenant_id   BIGINT       NOT NULL DEFAULT 0,       -- 租户（首期 0）
+tenant_id   BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,       -- 租户（首期 0）
 company_id  BIGINT       NOT NULL DEFAULT 1,       -- 公司（ヘッダのみ）
 created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
 created_by  BIGINT       NOT NULL DEFAULT 0,
@@ -140,7 +140,7 @@ erDiagram
 ```sql
 CREATE TABLE pur_purchase_requisition (
     id                    BIGINT       NOT NULL,
-    tenant_id             BIGINT       NOT NULL DEFAULT 0,
+    tenant_id             BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id            BIGINT       NOT NULL DEFAULT 1,
     pr_no                 VARCHAR(32)  NOT NULL,                  -- 请购单号 PR{YYMMDD}{4桁}
     pr_type               SMALLINT     NOT NULL DEFAULT 1,        -- 1通常/2计划/3紧急/4费用性
@@ -251,7 +251,7 @@ CREATE TABLE pur_purchase_requisition (
 ```sql
 CREATE TABLE pur_purchase_requisition_line (
     id                      BIGINT       NOT NULL,
-    tenant_id               BIGINT       NOT NULL DEFAULT 0,
+    tenant_id               BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     purchase_requisition_id BIGINT       NOT NULL,
     line_no                 INT          NOT NULL,
     material_id             BIGINT       NOT NULL,
@@ -329,7 +329,7 @@ CREATE TABLE pur_purchase_requisition_line (
 ```sql
 CREATE TABLE pur_rfq (
     id                   BIGINT       NOT NULL,
-    tenant_id            BIGINT       NOT NULL DEFAULT 0,
+    tenant_id            BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id           BIGINT       NOT NULL DEFAULT 1,
     rfq_no               VARCHAR(32)  NOT NULL,
     rfq_type             SMALLINT     NOT NULL DEFAULT 1,      -- 1一般/2紧急/3年度框架
@@ -397,7 +397,7 @@ CREATE TABLE pur_rfq (
 ```sql
 CREATE TABLE pur_rfq_line (
     id                  BIGINT       NOT NULL,
-    tenant_id           BIGINT       NOT NULL DEFAULT 0,
+    tenant_id           BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     rfq_id              BIGINT       NOT NULL,
     line_no             INT          NOT NULL,
     purchase_requisition_line_id BIGINT,
@@ -461,7 +461,7 @@ CREATE TABLE pur_rfq_line (
 ```sql
 CREATE TABLE pur_rfq_supplier (
     id              BIGINT       NOT NULL,
-    tenant_id       BIGINT       NOT NULL DEFAULT 0,
+    tenant_id       BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     rfq_id          BIGINT       NOT NULL,
     supplier_id     BIGINT       NOT NULL,
     supplier_code   VARCHAR(20)  NOT NULL,
@@ -512,7 +512,7 @@ CREATE TABLE pur_rfq_supplier (
 ```sql
 CREATE TABLE pur_supplier_quotation (
     id                  BIGINT       NOT NULL,
-    tenant_id           BIGINT       NOT NULL DEFAULT 0,
+    tenant_id           BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     rfq_id              BIGINT       NOT NULL,
     supplier_id         BIGINT       NOT NULL,
     quotation_no        VARCHAR(64),                  -- 供应商側の見積番号（外部）
@@ -571,7 +571,7 @@ CREATE TABLE pur_supplier_quotation (
 ```sql
 CREATE TABLE pur_supplier_quotation_line (
     id                   BIGINT       NOT NULL,
-    tenant_id            BIGINT       NOT NULL DEFAULT 0,
+    tenant_id            BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     quotation_id         BIGINT       NOT NULL,
     rfq_line_id          BIGINT       NOT NULL,
     material_id          BIGINT       NOT NULL,
@@ -647,7 +647,7 @@ CREATE TABLE pur_supplier_quotation_line (
 ```sql
 CREATE TABLE pur_purchase_order (
     id                     BIGINT       NOT NULL,
-    tenant_id              BIGINT       NOT NULL DEFAULT 0,
+    tenant_id              BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id             BIGINT       NOT NULL DEFAULT 1,
     po_no                  VARCHAR(32)  NOT NULL,
     po_type                SMALLINT     NOT NULL DEFAULT 1,        -- 1标准/2框架/3试作
@@ -757,7 +757,7 @@ CREATE TABLE pur_purchase_order (
 ```sql
 CREATE TABLE pur_purchase_order_line (
     id                       BIGINT       NOT NULL,
-    tenant_id                BIGINT       NOT NULL DEFAULT 0,
+    tenant_id                BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     purchase_order_id        BIGINT       NOT NULL,
     line_no                  INT          NOT NULL,
     purchase_requisition_line_id BIGINT,
@@ -846,7 +846,7 @@ CREATE TABLE pur_purchase_order_line (
 ```sql
 CREATE TABLE pur_purchase_order_his (
     id               BIGINT       NOT NULL,
-    tenant_id        BIGINT       NOT NULL DEFAULT 0,
+    tenant_id        BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     purchase_order_id BIGINT      NOT NULL,
     version_no       INT          NOT NULL,
     change_type      SMALLINT     NOT NULL,          -- 1数量/2単価/3交期/4取消行/5行追加/9その他
@@ -894,7 +894,7 @@ CREATE TABLE pur_purchase_order_his (
 ```sql
 CREATE TABLE pur_receipt (
     id                   BIGINT       NOT NULL,
-    tenant_id            BIGINT       NOT NULL DEFAULT 0,
+    tenant_id            BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id           BIGINT       NOT NULL DEFAULT 1,
     receipt_no           VARCHAR(32)  NOT NULL,
     purchase_order_id    BIGINT       NOT NULL,
@@ -965,7 +965,7 @@ CREATE TABLE pur_receipt (
 ```sql
 CREATE TABLE pur_receipt_line (
     id                    BIGINT       NOT NULL,
-    tenant_id             BIGINT       NOT NULL DEFAULT 0,
+    tenant_id             BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     receipt_id            BIGINT       NOT NULL,
     line_no               INT          NOT NULL,
     purchase_order_line_id BIGINT      NOT NULL,
@@ -1057,7 +1057,7 @@ CREATE TABLE pur_receipt_line (
 ```sql
 CREATE TABLE pur_return (
     id                   BIGINT       NOT NULL,
-    tenant_id            BIGINT       NOT NULL DEFAULT 0,
+    tenant_id            BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id           BIGINT       NOT NULL DEFAULT 1,
     return_no            VARCHAR(32)  NOT NULL,
     return_type          SMALLINT     NOT NULL DEFAULT 1,      -- 1質量/2数量/3錯発/4換貨/5貸項
@@ -1135,7 +1135,7 @@ CREATE TABLE pur_return (
 ```sql
 CREATE TABLE pur_return_line (
     id                    BIGINT       NOT NULL,
-    tenant_id             BIGINT       NOT NULL DEFAULT 0,
+    tenant_id             BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     return_id             BIGINT       NOT NULL,
     line_no               INT          NOT NULL,
     receipt_id            BIGINT,
@@ -1208,7 +1208,7 @@ CREATE TABLE pur_return_line (
 ```sql
 CREATE TABLE pur_invoice (
     id                     BIGINT       NOT NULL,
-    tenant_id              BIGINT       NOT NULL DEFAULT 0,
+    tenant_id              BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id             BIGINT       NOT NULL DEFAULT 1,
     invoice_no             VARCHAR(32)  NOT NULL,                 -- 登記番号 PIV{YYMMDD}{4桁}
     invoice_type           SMALLINT     NOT NULL DEFAULT 10,      -- 10增值税专票/20增值税普票/30数电专票/40数电普票/50红字发票
@@ -1287,7 +1287,7 @@ CREATE UNIQUE INDEX uk_pur_invoice_number ON pur_invoice
 ```sql
 CREATE TABLE pur_invoice_line (
     id                     BIGINT       NOT NULL,
-    tenant_id              BIGINT       NOT NULL DEFAULT 0,
+    tenant_id              BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     invoice_id             BIGINT       NOT NULL,
     line_no                INT          NOT NULL,
     purchase_order_id      BIGINT,
@@ -1355,7 +1355,7 @@ CREATE TABLE pur_invoice_line (
 ```sql
 CREATE TABLE pur_invoice_match (
     id                    BIGINT       NOT NULL,
-    tenant_id             BIGINT       NOT NULL DEFAULT 0,
+    tenant_id             BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     invoice_id            BIGINT       NOT NULL,
     invoice_line_id       BIGINT       NOT NULL,
     purchase_order_id     BIGINT       NOT NULL,
@@ -1439,7 +1439,7 @@ CREATE TABLE pur_invoice_match (
 ```sql
 CREATE TABLE pur_statement (
     id                     BIGINT       NOT NULL,
-    tenant_id              BIGINT       NOT NULL DEFAULT 0,
+    tenant_id              BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id             BIGINT       NOT NULL DEFAULT 1,
     statement_no           VARCHAR(32)  NOT NULL,            -- PST{YYMMDD}{4桁}
     supplier_id            BIGINT       NOT NULL,
@@ -1503,7 +1503,7 @@ CREATE TABLE pur_statement (
 ```sql
 CREATE TABLE pur_statement_line (
     id                BIGINT       NOT NULL,
-    tenant_id         BIGINT       NOT NULL DEFAULT 0,
+    tenant_id         BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     statement_id      BIGINT       NOT NULL,
     line_no           INT          NOT NULL,
     source_type       VARCHAR(32)  NOT NULL,        -- RECEIPT/PURCHASE_ORDER/RETURN/INVOICE/PAYMENT
@@ -1556,7 +1556,7 @@ CREATE TABLE pur_statement_line (
 ```sql
 CREATE TABLE pur_tolerance_rule (
     id               BIGINT       NOT NULL,
-    tenant_id        BIGINT       NOT NULL DEFAULT 0,
+    tenant_id        BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id       BIGINT       NOT NULL DEFAULT 1,
     rule_type        SMALLINT     NOT NULL,     -- 1超收/2単価差異/3数量差異/4税額差異/5金額差異
     rule_name        VARCHAR(100) NOT NULL,
@@ -1625,7 +1625,7 @@ CREATE UNIQUE INDEX uk_pur_tolerance_rule ON pur_tolerance_rule
 ```sql
 CREATE TABLE pur_delivery_followup (
     id                  BIGINT       NOT NULL,
-    tenant_id           BIGINT       NOT NULL DEFAULT 0,
+    tenant_id           BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     purchase_order_id   BIGINT       NOT NULL,
     purchase_order_line_id BIGINT    NOT NULL,
     followup_date       DATE         NOT NULL,
@@ -1673,7 +1673,7 @@ CREATE TABLE pur_delivery_followup (
 ```sql
 CREATE TABLE pur_supplier_performance (
     id                     BIGINT       NOT NULL,
-    tenant_id              BIGINT       NOT NULL DEFAULT 0,
+    tenant_id              BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id             BIGINT       NOT NULL DEFAULT 1,
     period_code            VARCHAR(7)   NOT NULL,          -- YYYY-MM
     supplier_id            BIGINT       NOT NULL,

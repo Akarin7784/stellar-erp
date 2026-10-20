@@ -123,7 +123,7 @@ erDiagram
 ```sql
 -- 業務テーブル（伝票・残高・マスタ）に展開
 id          BIGINT       NOT NULL,              -- 雪花 ID（MyBatis-Plus ASSIGN_ID）
-tenant_id   BIGINT       NOT NULL DEFAULT 0,
+tenant_id   BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
 company_id  BIGINT       NOT NULL DEFAULT 1,
 version     INT          NOT NULL DEFAULT 0,    -- 楽観排他
 remark      VARCHAR(500),
@@ -188,7 +188,7 @@ updated_by  BIGINT       NOT NULL DEFAULT 0
 ```sql
 CREATE TABLE inv_stock_balance (
     id              BIGINT        NOT NULL,
-    tenant_id       BIGINT        NOT NULL DEFAULT 0,
+    tenant_id       BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id      BIGINT        NOT NULL DEFAULT 1,
     warehouse_id    BIGINT        NOT NULL,
     location_id     BIGINT        NOT NULL DEFAULT 0,      -- 0 = 库位未管理
@@ -298,7 +298,7 @@ COMMENT ON COLUMN inv_stock_balance.avg_unit_cost IS '同一(倉庫,物料,批�
 ```sql
 CREATE TABLE inv_stock_txn (
     id                BIGINT        NOT NULL,
-    tenant_id         BIGINT        NOT NULL DEFAULT 0,
+    tenant_id         BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id        BIGINT        NOT NULL DEFAULT 1,
     txn_no            VARCHAR(32)   NOT NULL,          -- GRI/SDO/MII/MIR/FGI/OSI/OSR/TR/CNT/AOI/AOO/ST
     txn_type          VARCHAR(16)   NOT NULL,
@@ -438,7 +438,7 @@ COMMENT ON COLUMN inv_stock_txn.accounting_period IS 'txn_date から導出し�
 ```sql
 CREATE TABLE inv_stock_txn_line (
     id              BIGINT        NOT NULL,
-    tenant_id       BIGINT        NOT NULL DEFAULT 0,
+    tenant_id       BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id      BIGINT        NOT NULL DEFAULT 1,
     txn_id          BIGINT        NOT NULL,
     line_no         INT           NOT NULL,
@@ -543,7 +543,7 @@ COMMENT ON COLUMN inv_stock_txn_line.after_avg_cost IS '過账後の移動平均
 ```sql
 CREATE TABLE inv_transfer (
     id               BIGINT        NOT NULL,
-    tenant_id        BIGINT        NOT NULL DEFAULT 0,
+    tenant_id        BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id       BIGINT        NOT NULL DEFAULT 1,
     transfer_no      VARCHAR(32)   NOT NULL,
     transfer_type    SMALLINT      NOT NULL DEFAULT 20,   -- 10同倉移庫/20跨倉調撥/30跨工場(P2)
@@ -603,7 +603,7 @@ COMMENT ON COLUMN inv_transfer.in_transit_qty IS '出庫済・未受入の数量
 ```sql
 CREATE TABLE inv_transfer_line (
     id              BIGINT        NOT NULL,
-    tenant_id       BIGINT        NOT NULL DEFAULT 0,
+    tenant_id       BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id      BIGINT        NOT NULL DEFAULT 1,
     transfer_id     BIGINT        NOT NULL,
     line_no         INT           NOT NULL,
@@ -653,7 +653,7 @@ COMMENT ON TABLE inv_transfer_line IS '库存调拨单明细。金額保存則 �
 ```sql
 CREATE TABLE inv_stocktake_plan (
     id                 BIGINT        NOT NULL,
-    tenant_id          BIGINT        NOT NULL DEFAULT 0,
+    tenant_id          BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id         BIGINT        NOT NULL DEFAULT 1,
     plan_no            VARCHAR(32)   NOT NULL,
     plan_name          VARCHAR(100)  NOT NULL,
@@ -701,7 +701,7 @@ COMMENT ON COLUMN inv_stocktake_plan.scope_json IS 'JSON: {"categoryCodes":[],"m
 ```sql
 CREATE TABLE inv_stocktake (
     id                BIGINT        NOT NULL,
-    tenant_id         BIGINT        NOT NULL DEFAULT 0,
+    tenant_id         BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id        BIGINT        NOT NULL DEFAULT 1,
     stocktake_no      VARCHAR(32)   NOT NULL,
     plan_id           BIGINT        NOT NULL,
@@ -754,7 +754,7 @@ COMMENT ON COLUMN inv_stocktake.snapshot_txn_id IS 'スナップショット時�
 ```sql
 CREATE TABLE inv_stocktake_line (
     id               BIGINT        NOT NULL,
-    tenant_id        BIGINT        NOT NULL DEFAULT 0,
+    tenant_id        BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id       BIGINT        NOT NULL DEFAULT 1,
     stocktake_id     BIGINT        NOT NULL,
     line_no          INT           NOT NULL,
@@ -814,7 +814,7 @@ COMMENT ON COLUMN inv_stocktake_line.net_movement IS 'スナップショット�
 ```sql
 CREATE TABLE inv_batch (
     id               BIGINT        NOT NULL,
-    tenant_id        BIGINT        NOT NULL DEFAULT 0,
+    tenant_id        BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id       BIGINT        NOT NULL DEFAULT 1,
     batch_no         VARCHAR(64)   NOT NULL,
     material_id      BIGINT        NOT NULL,
@@ -867,7 +867,7 @@ COMMENT ON COLUMN inv_batch.supplier_batch_no IS '供給者ロット番号（BN-
 ```sql
 CREATE TABLE inv_batch_genealogy (
     id                 BIGINT      NOT NULL,
-    tenant_id          BIGINT      NOT NULL DEFAULT 0,
+    tenant_id          BIGINT      NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id         BIGINT      NOT NULL DEFAULT 1,
     parent_batch_id    BIGINT      NOT NULL,      -- 消費された原料/半成品の批次
     child_batch_id     BIGINT      NOT NULL,      -- 生成された製品/半製品の批次
@@ -906,7 +906,7 @@ COMMENT ON TABLE inv_batch_genealogy IS '批次系譜（父批次→子批次）
 ```sql
 CREATE TABLE inv_serial (
     id                BIGINT       NOT NULL,
-    tenant_id         BIGINT       NOT NULL DEFAULT 0,
+    tenant_id         BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id        BIGINT       NOT NULL DEFAULT 1,
     serial_no         VARCHAR(64)  NOT NULL,
     external_serial_no VARCHAR(64),
@@ -957,7 +957,7 @@ COMMENT ON COLUMN inv_serial.serial_no IS '成品: {YYMMDD}{機座号3桁}{4位�
 ```sql
 CREATE TABLE inv_serial_txn (
     id           BIGINT      NOT NULL,
-    tenant_id    BIGINT      NOT NULL DEFAULT 0,
+    tenant_id    BIGINT      NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id   BIGINT      NOT NULL DEFAULT 1,
     serial_id    BIGINT      NOT NULL,
     txn_id       BIGINT      NOT NULL,
@@ -995,7 +995,7 @@ COMMENT ON TABLE inv_serial_txn IS '序列号状態変化履歴。追記専用';
 ```sql
 CREATE TABLE inv_reservation (
     id               BIGINT       NOT NULL,
-    tenant_id        BIGINT       NOT NULL DEFAULT 0,
+    tenant_id        BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id       BIGINT       NOT NULL DEFAULT 1,
     reservation_no   VARCHAR(32)  NOT NULL,          -- RSV + YYMMDD + 4桁（08 §2.1）
     source_type      VARCHAR(32)  NOT NULL,          -- SALES_ORDER / WORK_ORDER / MANUAL
@@ -1042,7 +1042,7 @@ COMMENT ON COLUMN inv_reservation.reservation_status IS '10有効(RESERVED)/20�
 ```sql
 CREATE TABLE inv_reservation_line (
     id              BIGINT        NOT NULL,
-    tenant_id       BIGINT        NOT NULL DEFAULT 0,
+    tenant_id       BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id      BIGINT        NOT NULL DEFAULT 1,
     reservation_id  BIGINT        NOT NULL,
     line_no         INT           NOT NULL,
@@ -1090,7 +1090,7 @@ COMMENT ON TABLE inv_reservation_line IS '库存预留明细（倉庫×物料×�
 ```sql
 CREATE TABLE inv_cost_layer (
     id                BIGINT        NOT NULL,
-    tenant_id         BIGINT        NOT NULL DEFAULT 0,
+    tenant_id         BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id        BIGINT        NOT NULL DEFAULT 1,
     layer_type        SMALLINT      NOT NULL DEFAULT 10,  -- 10入庫層/20原価調整層/30期初層
     warehouse_id      BIGINT        NOT NULL,
@@ -1149,7 +1149,7 @@ COMMENT ON COLUMN inv_cost_layer.remaining_amount IS 'Σ remaining_amount（cost
 ```sql
 CREATE TABLE inv_cost_adjustment (
     id                  BIGINT        NOT NULL,
-    tenant_id           BIGINT        NOT NULL DEFAULT 0,
+    tenant_id           BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id          BIGINT        NOT NULL DEFAULT 1,
     adjustment_no       VARCHAR(32)   NOT NULL,          -- CA + YYMMDD + 4桁（08 §2.1）
     adjustment_type     SMALLINT      NOT NULL DEFAULT 10, -- 10暂估差异/20运费差异/30关税差异/40价格调整/50期間再計算
@@ -1194,7 +1194,7 @@ COMMENT ON TABLE inv_cost_adjustment IS '原価調整単（価格差異・運費
 ```sql
 CREATE TABLE inv_cost_adjustment_line (
     id                    BIGINT        NOT NULL,
-    tenant_id             BIGINT        NOT NULL DEFAULT 0,
+    tenant_id             BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id            BIGINT        NOT NULL DEFAULT 1,
     adjustment_id         BIGINT        NOT NULL,
     line_no               INT           NOT NULL,
@@ -1239,7 +1239,7 @@ COMMENT ON TABLE inv_cost_adjustment_line IS '原価調整明細。在庫分と�
 ```sql
 CREATE TABLE inv_period (
     id               BIGINT       NOT NULL,
-    tenant_id        BIGINT       NOT NULL DEFAULT 0,
+    tenant_id        BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id       BIGINT       NOT NULL DEFAULT 1,
     period_code      VARCHAR(7)   NOT NULL,
     period_start_date DATE        NOT NULL,
@@ -1284,7 +1284,7 @@ COMMENT ON COLUMN inv_period.recalc_lock IS '期間再計算の実行中フラ�
 ```sql
 CREATE TABLE inv_stock_summary (
     id              BIGINT        NOT NULL,
-    tenant_id       BIGINT        NOT NULL DEFAULT 0,
+    tenant_id       BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id      BIGINT        NOT NULL DEFAULT 1,
     period_code     VARCHAR(7)    NOT NULL,
     warehouse_id    BIGINT        NOT NULL,
@@ -1320,7 +1320,7 @@ COMMENT ON TABLE inv_stock_summary IS '月次收发存汇总。期初＋入庫�
 ```sql
 CREATE TABLE inv_age_snapshot (
     id             BIGINT        NOT NULL,
-    tenant_id      BIGINT        NOT NULL DEFAULT 0,
+    tenant_id      BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id     BIGINT        NOT NULL DEFAULT 1,
     snapshot_date  DATE          NOT NULL,
     warehouse_id   BIGINT        NOT NULL,
@@ -1353,7 +1353,7 @@ COMMENT ON TABLE inv_age_snapshot IS '日次庫齢スナップショット（BAT
 ```sql
 CREATE TABLE inv_replenishment (
     id                  BIGINT        NOT NULL,
-    tenant_id           BIGINT        NOT NULL DEFAULT 0,
+    tenant_id           BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id          BIGINT        NOT NULL DEFAULT 1,
     as_of_date          DATE          NOT NULL,
     warehouse_id        BIGINT        NOT NULL,
@@ -1401,7 +1401,7 @@ COMMENT ON TABLE inv_replenishment IS '補貨建議（BAT-INV-004）。発注点
 ```sql
 CREATE TABLE inv_scan_log (
     id            BIGINT       NOT NULL,
-    tenant_id     BIGINT       NOT NULL DEFAULT 0,
+    tenant_id     BIGINT       NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id    BIGINT       NOT NULL DEFAULT 1,
     device_id     VARCHAR(64)  NOT NULL,
     local_seq     BIGINT,                       -- PDA ローカル連番（冪等キー）
@@ -1452,7 +1452,7 @@ COMMENT ON TABLE inv_scan_log IS 'PDA スキャン記録（成功・失敗の全
 ```sql
 CREATE TABLE inv_event_wait (
     id              BIGINT        NOT NULL,
-    tenant_id       BIGINT        NOT NULL DEFAULT 0,
+    tenant_id       BIGINT        NOT NULL DEFAULT current_setting('app.tenant_id')::bigint,
     company_id      BIGINT        NOT NULL DEFAULT 1,
     event_id        UUID          NOT NULL,           -- 受信イベント ID（冪等キー）
     event_type      VARCHAR(100)  NOT NULL,           -- quality.inspection.completed

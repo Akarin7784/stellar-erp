@@ -33,7 +33,7 @@
 
 ```sql
 -- 共通カラム（全テーブル必須・定義は 01 第 2 章）:
--- id BIGINT PK, tenant_id BIGINT DEFAULT 0, company_id BIGINT DEFAULT 1,
+-- id BIGINT PK, tenant_id BIGINT DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT DEFAULT 1,
 -- created_at TIMESTAMPTZ, created_by BIGINT, updated_at TIMESTAMPTZ, updated_by BIGINT,
 -- version INT DEFAULT 0, deleted BOOLEAN DEFAULT FALSE, remark VARCHAR(500), ext_data JSONB
 ```
