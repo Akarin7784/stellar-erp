@@ -215,11 +215,11 @@ describe('业务码 10035 / 20077（HTTP 422）', () => {
     expect(ElMessage.error).toHaveBeenCalledWith('[MSG-MDM-178] 期间重复')
   })
 
-  it('20077：缺 message/msgId 时用 93-messages 的默认文案', async () => {
+  it('20077：缺 message/msgId 时用中文默认文案', async () => {
     const err = await catchError(
       respond(422, { code: 20077, message: '', data: null, msgId: null }),
     )
-    expect(err.message).toBe('[MSG-MDM-178] 有効期間が既存の換算率と重複しています。')
+    expect(err.message).toBe('[MSG-MDM-178] 有效期与已有换算率重叠，请调整有效期。')
   })
 
   it('10035 缺 message 时退回通用文案（不自造含占位符的文案）', async () => {

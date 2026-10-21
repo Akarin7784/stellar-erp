@@ -84,10 +84,10 @@ export const PRD_CODE_FIELD: Partial<Record<number, keyof WorkOrderCreateRequest
 
 /** 后端未给消息文本时的默认提示。 */
 export const PRD_CODE_DEFAULT_MESSAGE: Partial<Record<number, string>> = {
-  /** 审批时工序明细 0 行（CHK-PRD-002-08，文案同 06-production/93-messages.md:60 MSG-PRD-021） */
-  60021: '有効な工艺路线がありません。工艺路线を登録してください。',
-  /** 单位不整合（CHK-PRD-002-10，文案同 93-messages.md:61 MSG-PRD-022） */
-  60022: 'BOM の単位と物料の基本単位が整合しません（換算不可）。',
+  /** 审批时工序明细 0 行（CHK-PRD-002-08，译自 06-production/93-messages.md:60 MSG-PRD-021） */
+  60021: '没有有效的工艺路线，请先登记工艺路线。',
+  /** 单位不整合（CHK-PRD-002-10，译自 93-messages.md:61 MSG-PRD-022） */
+  60022: 'BOM 的单位与物料的基本单位不一致（无法换算）。',
 }
 
 /** 后端未给 msgId 时的默认 msgId。 */

@@ -158,21 +158,21 @@ describe('60104', () => {
 })
 
 describe('60021 / 60022', () => {
-  it('60021 → MSG-PRD-021 默认文案与 93:60 一致（后端无消息时）', () => {
+  it('60021 → MSG-PRD-021 中文默认文案（后端无消息时）', () => {
     expect(PRD_BUSINESS_CODES).toContain(60021)
     const e = new ApiError('x', { status: 422, code: 60021, data: { code: 60021 } })
     expect(toCreateErrorView(e)).toEqual({
       kind: 'business',
-      message: '[MSG-PRD-021] 有効な工艺路线がありません。工艺路线を登録してください。',
+      message: '[MSG-PRD-021] 没有有效的工艺路线，请先登记工艺路线。',
       field: undefined,
     })
   })
 
-  it('60022 → MSG-PRD-022 默认文案与 93:61 一致', () => {
+  it('60022 → MSG-PRD-022 中文默认文案', () => {
     expect(PRD_BUSINESS_CODES).toContain(60022)
     const e = new ApiError('x', { status: 422, code: 60022, data: { code: 60022 } })
     expect(toCreateErrorView(e).message).toBe(
-      '[MSG-PRD-022] BOM の単位と物料の基本単位が整合しません（換算不可）。',
+      '[MSG-PRD-022] BOM 的单位与物料的基本单位不一致（无法换算）。',
     )
   })
 
