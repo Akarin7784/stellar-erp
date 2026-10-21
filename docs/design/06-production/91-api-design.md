@@ -90,6 +90,7 @@
 | 39f | POST | `/api/production/overproduction-approvals/{id}/reject` | `production:overproduction-approval:approve` | 却下（20→40。§3.14） | F-PRD-008 |
 | 39g | POST | `/api/production/overproduction-approvals/{id}/cancel` | `production:overproduction-approval:cancel` | 取消（10/20→90。§3.14） | F-PRD-008 |
 | 39h | PUT | `/api/production/overproduction-approvals/{id}` | `production:overproduction-approval:create` | 草稿修正（10 のみ、`allowed_qty` 不変。§3.14）。権限は create を共用（蓝色大肥鱼 2026-10-21 決定） | F-PRD-008 |
+| 39i | GET | `/api/production/overproduction-approvals/sales-order-lines` | `production:overproduction-approval:create` | 超産申請登録用の受注行選択（当前会社・受注状態 25/30/35・行状態 10/30/35・`allowed_qty` NOT NULL。§3.14）。権限は create を共用（蓝色大肥鱼 2026-10-21 決定） | F-PRD-008 |
 
 ### 2.3 領料・報工・完工入库（F-PRD-006〜008）
 
@@ -592,6 +593,9 @@
 | 取消 `POST /api/production/overproduction-approvals/{id}/cancel` | `{ "version": n }` | 200（10・20→90） | 30・40・90 は `60101`／`4003` |
 | 詳細 `GET /api/production/overproduction-approvals/{id}` | — | 200 + 申請 DTO | 他社・不存在は 404 |
 | 一覧 `GET /api/production/overproduction-approvals` | `page`、`size`、絞込（受注行・工单・状態） | 200 + `PageResult` | 当前会社＋RLS |
+| 受注行選択 `GET /api/production/overproduction-approvals/sales-order-lines` | `salesOrderNo`（部分一致）、`material`（品目コードまたは品目名の部分一致）、`page`、`size`（最大 200。超過は 400／`1001`＋`fieldErrors`） | 200 + `PageResult`（1 行 11 項目。`salesOrderLineId`、`salesOrderId`、`salesOrderNo`、`lineNo`、`materialId`、`materialCode`、`materialName`、`baseUomCode`、`baseQty`、`allowedQty`、`completedQty`） | 対象は当前会社かつ受注ヘッダ状態 25/30/35、受注行状態 10/30/35、`allowed_qty` IS NOT NULL の行のみ。権限なしは 403／`3001`（蓝色大肥鱼 2026-10-21 決定） |
+
+- 申請 DTO の `requestedByName`（申請者名）は `sys_user` を `tenant_id` と `id` のみで結合する（ユーザは複数会社に所属し得るため `company_id` では絞らない。蓝色大肥鱼 2026-10-21 決定）。
 
 - **承認時の更新（案 B）**：受注行→工单の順に `FOR UPDATE`。工单級は受注行と当該工单の `allowed_qty` をそれぞれ +`request_qty`、受注行級は受注行のみ +`request_qty`。更新 0 行は全体ロールバック。却下・取消では `allowed_qty` を変更しない。
 - **version**：承認により受注行と工单の `version` が +1 される（想定どおり）。前端は編集画面の保存で 409／`4003` を受けた場合、「データが更新されました」と表示して再読込する（自動上書きしない）。
@@ -688,3 +692,5 @@
 | v1.22 | 2026-10-21 | 同時下达の後続 4002 を 422 に訂正（409 は 4003 専用、#83 に追随）。対象：:264（§3.2） | 业务分析 |
 | v1.23 | 2026-10-21 | 超産却下の rejectReason を必須化（共通 03 §284 に追随）。未入力は 400／1001（MSG-COM-040）、500 文字超過は 400／1001（MSG-COM-041）。HTTP は 03 §6.2（1001＝400）に従う。対象：:589（§3.14） | 业务分析 |
 | v1.24 | 2026-10-21 | 超産申請の草稿修正 API を追加（状態 10 のみ、version 必須、allowed_qty 不変）（蓝色大肥鱼 2026-10-21 決定）。§2.2 に #39h（権限 create 共用）、§3.14 に草稿修正行（可変 requestQty・workOrderId・remark、状態不正 422／60101）を追加（v1.23 は #104） | 业务分析 |
+| v1.25 | 2026-10-21 | §2.2 に #39i 受注行選択 `GET /api/production/overproduction-approvals/sales-order-lines`（権限 create 共用）、§3.14 に受注行選択行（絞込 salesOrderNo・material、size ≤ 200（超過は 400／1001）、当前会社・受注状態 25/30/35・行状態 10/30/35・`allowed_qty` NOT NULL）と `requestedByName` の `sys_user` 結合条件を追加（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.26 | 2026-10-21 | §3.14 受注行選択：返却 11 項目（`salesOrderLineId`、`salesOrderId`、`salesOrderNo`、`lineNo`、`materialId`、`materialCode`、`materialName`、`baseUomCode`、`baseQty`、`allowedQty`、`completedQty`）を明記、`size` > 200 は 400／`1001`＋`fieldErrors`（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
