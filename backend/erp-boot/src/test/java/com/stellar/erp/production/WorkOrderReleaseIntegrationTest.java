@@ -38,6 +38,7 @@ import com.stellar.erp.common.LoginContext.LoginUser;
 import com.stellar.erp.common.TenantContext;
 import com.stellar.erp.support.DbIntegrationTest;
 import com.stellar.erp.support.OwnerJdbc;
+import com.stellar.erp.support.PermissionGrants;
 
 /**
  * 任务 D：工单下达 25→30 + standard_cost 快照（真实 fin_standard_cost / fin_publish_standard_cost，erp_app + RLS）。
@@ -60,6 +61,7 @@ class WorkOrderReleaseIntegrationTest {
     void seed() {
         owner = OwnerJdbc.of(pg);
         cleanup();
+        PermissionGrants.grant(owner, TENANT, COMPANY, USER, 994900, PermissionGrants.WORK_ORDER_ALL);
         owner.execute("""
             INSERT INTO mdm_material_category (id, tenant_id, company_id, category_code, category_name, category_path, category_level, is_leaf)
               VALUES (994001, 304, 41, 'D1', 'D', '/D1/', 1, TRUE);
@@ -111,6 +113,7 @@ class WorkOrderReleaseIntegrationTest {
     }
 
     void cleanup() {
+        PermissionGrants.cleanup(owner, TENANT);
         owner.execute("""
             DELETE FROM prd_work_order_material WHERE tenant_id = 304;
             DELETE FROM prd_work_order WHERE tenant_id = 304;

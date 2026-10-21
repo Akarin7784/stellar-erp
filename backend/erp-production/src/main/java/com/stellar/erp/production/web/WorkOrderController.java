@@ -44,6 +44,7 @@ public class WorkOrderController {
 
     /** 詳細（91 #24 / 02 §7 No.2）。 */
     @GetMapping("/{id}")
+    @RequirePermission("production:work-order:view")
     public Result<WorkOrderDetail> get(@PathVariable long id) {
         return Result.ok(queryService.get(id));
     }
@@ -61,18 +62,21 @@ public class WorkOrderController {
 
     /** 承認提出 10→20（91 #28 / 02 §7 No.5）。 */
     @PostMapping("/{id}/submit")
+    @RequirePermission("production:work-order:submit")
     public Result<WorkOrderDetail> submit(@PathVariable long id, @Valid @RequestBody WorkOrderStateCommand body) {
         return Result.ok(approvalService.submit(id, body));
     }
 
 
     @PostMapping
+    @RequirePermission("production:work-order:create")
     public ResponseEntity<Result<WorkOrderCreated>> create(@Valid @RequestBody WorkOrderCreateCommand body) {
         return ResponseEntity.status(HttpStatus.CREATED).body(Result.ok(service.create(body)));
     }
 
     /** 下达（91 #29 / §3.2）：200。标准成本未设定时 data.warnings[] 含 MSG-FIN-117。 */
     @PostMapping("/{id}/release")
+    @RequirePermission("production:work-order:release")
     public Result<WorkOrderReleased> release(@PathVariable long id, @Valid @RequestBody WorkOrderReleaseCommand body) {
         return Result.ok(releaseService.release(id, body));
     }
