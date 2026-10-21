@@ -82,11 +82,11 @@ public class WorkOrderReleaseService {
         if (peek.salesOrderLineId() != null) {
             line = salesOrderLines.lockForUpdate(company, peek.salesOrderLineId())
                     .orElseThrow(() -> new BizException(ProductionErrorCode.NOT_FOUND, "受注行不存在"));
-            if (line.allowedQty() == null) {
-                // 受注确认时未快照 allowed_qty：不把 NULL 拷到工单。业务数据未就绪 → 422 / 60101 / MSG-PRD-101
+            if (line.allowedQty() == null || line.allowedQty().signum() < 0) {
+                // 受注确认时未快照 allowed_qty（或负值）：不拷到工单。业务数据未就绪 → 422 / 60101 / MSG-PRD-101
                 // （lead 2026-10-21 决定；5000 仅用于配置缺失）
                 throw new BizException(ProductionErrorCode.OPA_INVALID, ProductionErrorCode.MSG_OPA_INVALID,
-                        "受注行の allowed_qty が未確定のため下达できません。");
+                        "受注行の allowed_qty が未確定または不正のため下达できません。");
             }
         }
         WorkOrderForRelease wo = repo.lockWorkOrderForRelease(company, workOrderId)

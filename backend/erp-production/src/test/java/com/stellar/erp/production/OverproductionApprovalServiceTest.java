@@ -130,4 +130,82 @@ class OverproductionApprovalServiceTest {
         assertThatThrownBy(() -> service.request(new OverproductionRequestCommand(null, null, BigDecimal.ZERO, null)))
                 .isInstanceOfSatisfying(BizException.class, e -> assertThat(e.getCode()).isEqualTo(60103));
     }
+
+    // ------------------------------------------------------------------ 受注行消失 → 60101／状態更新 0 行 → 4003
+
+    static final long APPROVAL = 555L, APPROVER = 8L;
+
+    private static com.stellar.erp.production.internal.ProductionRepository.ApprovalRow approvalRow(short status, int version) {
+        return new com.stellar.erp.production.internal.ProductionRepository.ApprovalRow(APPROVAL, "OPA1", LINE, null,
+                new BigDecimal("3"), status, version, USER);
+    }
+
+    private static void assert60101(Throwable t) {
+        assertThat(t).isInstanceOfSatisfying(BizException.class, e -> {
+            assertThat(e.getCode()).isEqualTo(60101);
+            assertThat(e.getMsgId()).isEqualTo("MSG-PRD-101");
+        });
+    }
+
+    @Test
+    void updateWhenSalesOrderLineMissingIs60101() {
+        var repo = org.mockito.Mockito.mock(com.stellar.erp.production.internal.ProductionRepository.class);
+        SalesOrderLineLookup lookup = org.mockito.Mockito.mock(SalesOrderLineLookup.class);
+        org.mockito.Mockito.when(repo.findApproval(CO, APPROVAL, true)).thenReturn(java.util.Optional.of(approvalRow((short) 10, 0)));
+        org.mockito.Mockito.when(lookup.find(CO, LINE)).thenReturn(java.util.Optional.empty());
+        OverproductionApprovalService service = new OverproductionApprovalService(repo, lookup);
+        com.stellar.erp.common.LoginContext.set(new com.stellar.erp.common.LoginContext.LoginUser(USER, CO));
+        try {
+            assert60101(org.assertj.core.api.Assertions.catchThrowable(() -> service.update(APPROVAL,
+                    new OverproductionUpdateCommand(0, null, new BigDecimal("3"), null))));
+            org.mockito.Mockito.verify(repo, org.mockito.Mockito.never()).updateDraftApproval(
+                    org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyInt(),
+                    org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                    org.mockito.ArgumentMatchers.any());
+        } finally {
+            com.stellar.erp.common.LoginContext.clear();
+        }
+    }
+
+    @Test
+    void approveWhenSalesOrderLineMissingIs60101() {
+        var repo = org.mockito.Mockito.mock(com.stellar.erp.production.internal.ProductionRepository.class);
+        SalesOrderLineLookup lookup = org.mockito.Mockito.mock(SalesOrderLineLookup.class);
+        org.mockito.Mockito.when(repo.findApproval(CO, APPROVAL, false)).thenReturn(java.util.Optional.of(approvalRow((short) 20, 1)));
+        org.mockito.Mockito.when(lookup.lockForUpdate(CO, LINE)).thenReturn(java.util.Optional.empty());
+        OverproductionApprovalService service = new OverproductionApprovalService(repo, lookup);
+        com.stellar.erp.common.LoginContext.set(new com.stellar.erp.common.LoginContext.LoginUser(APPROVER, CO));
+        try {
+            assert60101(org.assertj.core.api.Assertions.catchThrowable(() -> service.approve(APPROVAL, 1)));
+            org.mockito.Mockito.verify(repo, org.mockito.Mockito.never()).addSalesOrderLineAllowedQty(
+                    org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any(),
+                    org.mockito.ArgumentMatchers.anyLong());
+        } finally {
+            com.stellar.erp.common.LoginContext.clear();
+        }
+    }
+
+    @Test
+    void approveStatusUpdateZeroRowsIs4003() {
+        var repo = org.mockito.Mockito.mock(com.stellar.erp.production.internal.ProductionRepository.class);
+        SalesOrderLineLookup lookup = org.mockito.Mockito.mock(SalesOrderLineLookup.class);
+        org.mockito.Mockito.when(repo.findApproval(CO, APPROVAL, false)).thenReturn(java.util.Optional.of(approvalRow((short) 20, 1)));
+        org.mockito.Mockito.when(repo.findApproval(CO, APPROVAL, true)).thenReturn(java.util.Optional.of(approvalRow((short) 20, 1)));
+        org.mockito.Mockito.when(lookup.lockForUpdate(CO, LINE)).thenReturn(java.util.Optional.of(
+                new SalesOrderLineLookup.SalesOrderLine(LINE, SO, "SO1", MAT, null, new BigDecimal("105"))));
+        org.mockito.Mockito.when(repo.addSalesOrderLineAllowedQty(CO, LINE, new BigDecimal("3"), APPROVER))
+                .thenReturn(java.util.Optional.of(new BigDecimal("108")));
+        org.mockito.Mockito.when(repo.markOverproductionApproved(CO, APPROVAL, 1, APPROVER, new BigDecimal("108"))).thenReturn(0);
+        OverproductionApprovalService service = new OverproductionApprovalService(repo, lookup);
+        com.stellar.erp.common.LoginContext.set(new com.stellar.erp.common.LoginContext.LoginUser(APPROVER, CO));
+        try {
+            assertThatThrownBy(() -> service.approve(APPROVAL, 1))
+                    .isInstanceOfSatisfying(BizException.class, e -> {
+                        assertThat(e.getCode()).isEqualTo(4003);
+                        assertThat(e.getMsgId()).isEqualTo("MSG-COM-033");
+                    });
+        } finally {
+            com.stellar.erp.common.LoginContext.clear();
+        }
+    }
 }

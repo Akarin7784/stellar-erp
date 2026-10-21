@@ -190,6 +190,19 @@ class WorkOrderReleaseServiceTest {
     }
 
     @Test
+    void mtoNegativeAllowedQtyIs60101BeforeWorkOrderLock() {
+        when(repo.findWorkOrderForRelease(CO, WO)).thenReturn(Optional.of(wo(LINE, (short) 25, false, 0)));
+        when(lines.lockForUpdate(CO, LINE)).thenReturn(Optional.of(
+                new SalesOrderLine(LINE, 1L, "SO1", MAT, null, new BigDecimal("-1"))));
+        assertThatThrownBy(() -> service.release(WO, new WorkOrderReleaseCommand(0)))
+                .isInstanceOfSatisfying(BizException.class, e -> {
+                    assertThat(e.getCode()).isEqualTo(60101);
+                    assertThat(e.getMsgId()).isEqualTo("MSG-PRD-101");
+                });
+        verify(repo, never()).lockWorkOrderForRelease(anyLong(), anyLong());
+    }
+
+    @Test
     void mtoLocksSalesOrderLineBeforeWorkOrder() {
         stubWo(wo(LINE, (short) 25, false, 3));
         when(lines.lockForUpdate(CO, LINE)).thenReturn(Optional.of(
