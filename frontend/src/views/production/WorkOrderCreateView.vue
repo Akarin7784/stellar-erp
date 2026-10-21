@@ -70,7 +70,7 @@
               @change="onMaterialChange"
             >
               <el-option
-                v-for="m in materials"
+                v-for="m in materialOptions"
                 :key="String(m.id)"
                 :label="`${m.materialCode} ${m.materialName}`"
                 :value="String(m.id)"
@@ -128,8 +128,9 @@
           </el-form-item>
         </el-col>
         <el-col :span="8">
+          <!-- 后端暂无部门列表/选项接口（如 GET /api/sys/depts/options），先保留手填 ID -->
           <el-form-item label="部門ID" prop="departmentId">
-            <el-input v-model="form.departmentId" />
+            <el-input v-model="form.departmentId" data-test="department" />
           </el-form-item>
         </el-col>
         <el-col :span="8">
@@ -272,9 +273,20 @@ const factories = ref<FactoryOption[]>([])
 const warehouses = ref<WarehouseOption[]>([])
 const materials = ref<MaterialOption[]>([])
 const materialLoading = ref(false)
-const selectedMaterial = computed(
-  () => materials.value.find((m) => String(m.id) === form.materialId) ?? null,
-)
+/** 已选品目的快照：即使不在当前检索结果里也照样显示 code/name 和 unitName */
+const pickedMaterial = ref<MaterialOption | null>(null)
+const selectedMaterial = computed(() => {
+  if (!form.materialId) return null
+  const hit = materials.value.find((m) => String(m.id) === form.materialId)
+  if (hit) return hit
+  const p = pickedMaterial.value
+  return p && String(p.id) === form.materialId ? p : null
+})
+const materialOptions = computed(() => {
+  const p = selectedMaterial.value
+  if (!p || materials.value.some((m) => String(m.id) === String(p.id))) return materials.value
+  return [p, ...materials.value]
+})
 
 /** undefined=未查询，null=无有效 BOM（60020），'error'=查询失败 */
 const bom = ref<EffectiveBom | null | undefined | 'error'>(undefined)
@@ -309,19 +321,24 @@ async function onFactoryChange(factoryId: string) {
   }
 }
 
+/** 递增序号：只采用最后一次检索的响应，丢弃过期（乱序到达）的响应 */
+let materialSeq = 0
 async function onMaterialSearch(keyword: string) {
+  const seq = ++materialSeq
   materialLoading.value = true
   try {
-    materials.value = (await searchMaterials(keyword)).list
+    const list = (await searchMaterials(keyword)).list
+    if (seq === materialSeq) materials.value = list
   } catch {
-    materials.value = []
+    if (seq === materialSeq) materials.value = []
   } finally {
-    materialLoading.value = false
+    if (seq === materialSeq) materialLoading.value = false
   }
 }
 
 function onMaterialChange() {
   const m = selectedMaterial.value
+  pickedMaterial.value = m
   if (m?.baseUomCode) form.uomCode = m.baseUomCode
 }
 
@@ -372,6 +389,8 @@ async function onSave() {
     await router.push({
       name: 'production-work-order-detail',
       params: { id: String(created.value.id) },
+      // warnings 只交给详情页显示一次，建单页不重复提示
+      state: { warnings: JSON.parse(JSON.stringify(created.value.warnings ?? [])) },
     })
   } catch (e) {
     error.value = toCreateErrorView(e)

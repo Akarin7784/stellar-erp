@@ -10,6 +10,7 @@ import {
   createWorkOrder,
   formatRatePercent,
   MSG_GENERIC_ERROR,
+  MSG_ID_BY_CODE,
   PRD_BUSINESS_CODES,
   toCreateErrorView,
   type WorkOrderCreateRequest,
@@ -43,7 +44,7 @@ describe('toCreateErrorView', () => {
     const v = toCreateErrorView(bizErr(code, undefined, '业务拒否'))
     expect(v.kind).toBe('business')
     expect(v.field).toBeUndefined()
-    expect(v.message).toBe(`[${code}] 业务拒否`)
+    expect(v.message).toBe(`[${MSG_ID_BY_CODE[code] ?? code}] 业务拒否`)
   })
 
   it('5000 → 通用错误，不显示后端文本', () => {
@@ -152,5 +153,29 @@ describe('60104', () => {
     expect(PRD_BUSINESS_CODES).toContain(60104)
     const v = toCreateErrorView(bizErr(60104, 'MSG-PRD-104', '下达日不能早于今天。'))
     expect(v).toEqual({ kind: 'business', message: '[MSG-PRD-104] 下达日不能早于今天。' })
+  })
+})
+
+describe('60021 / 60022', () => {
+  it('60021 → MSG-PRD-021 至少需要 1 道工序（后端无消息时用默认文案）', () => {
+    expect(PRD_BUSINESS_CODES).toContain(60021)
+    const e = new ApiError('x', { status: 422, code: 60021, data: { code: 60021 } })
+    expect(toCreateErrorView(e)).toEqual({
+      kind: 'business',
+      message: '[MSG-PRD-021] 至少需要 1 道工序',
+      field: undefined,
+    })
+  })
+
+  it('60022 → MSG-PRD-022 物料单位与 BOM 单位不一致且无法换算', () => {
+    expect(PRD_BUSINESS_CODES).toContain(60022)
+    const e = new ApiError('x', { status: 422, code: 60022, data: { code: 60022 } })
+    expect(toCreateErrorView(e).message).toBe('[MSG-PRD-022] 物料单位与 BOM 单位不一致且无法换算')
+  })
+
+  it('后端带消息时优先用后端文本', () => {
+    expect(toCreateErrorView(bizErr(60021, 'MSG-PRD-021', '工序明細 0 件')).message).toBe(
+      '[MSG-PRD-021] 工序明細 0 件',
+    )
   })
 })

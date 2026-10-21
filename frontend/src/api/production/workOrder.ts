@@ -36,6 +36,15 @@ export interface WorkOrderCreated {
   /** 创建时恒为 null（下达时快照） */
   standardCost: string | number | null
   version: number
+  /** 91 §3.1：201 也可能带警告，例如无有效 BOM → 60020 / MSG-PRD-020 */
+  warnings?: WorkOrderWarning[] | null
+}
+
+/** 业务警告（backend WorkOrderReleased.Warning）。 */
+export interface WorkOrderWarning {
+  code: number
+  msgId: string
+  message: string
 }
 
 /** 工单类型（90-db-design prd_work_order.work_order_type）。 */
@@ -63,12 +72,28 @@ export const DEFAULT_WORK_ORDER_TYPE = 10
 export const DEFAULT_PRIORITY_NO = 5
 
 /** 生产域需要在画面上展示的 422 业务码（91-api-design §9）。 */
-export const PRD_BUSINESS_CODES = [60001, 60040, 60056, 60100, 60101, 60102, 60103, 60104] as const
+export const PRD_BUSINESS_CODES = [
+  60001, 60021, 60022, 60040, 60056, 60100, 60101, 60102, 60103, 60104,
+] as const
 
 /** 业务码 → 关联的表单字段（用于在字段下方显示错误）。 */
 export const PRD_CODE_FIELD: Partial<Record<number, keyof WorkOrderCreateRequest>> = {
   60001: 'materialId',
   60056: 'salesOrderLineId',
+}
+
+/** 后端未给消息文本时的默认提示。 */
+export const PRD_CODE_DEFAULT_MESSAGE: Partial<Record<number, string>> = {
+  /** 审批时无工序（CHK-PRD-002-08 / MSG-PRD-021） */
+  60021: '至少需要 1 道工序',
+  /** 物料单位与 BOM 单位不一致且无法换算（MSG-PRD-022，后端待实现） */
+  60022: '物料单位与 BOM 单位不一致且无法换算',
+}
+
+/** 后端未给 msgId 时的默认 msgId。 */
+export const MSG_ID_BY_CODE: Partial<Record<number, string>> = {
+  60021: 'MSG-PRD-021',
+  60022: 'MSG-PRD-022',
 }
 
 export const MSG_GENERIC_ERROR = '系统异常，请稍后重试或联系管理员'
@@ -86,8 +111,8 @@ export function toCreateErrorView(err: unknown): CreateErrorView {
   if (err instanceof ApiError) {
     const code = err.code
     if (code !== undefined && (PRD_BUSINESS_CODES as readonly number[]).includes(code)) {
-      const id = err.msgId ?? String(code)
-      const text = backendMessage(err) ?? err.message
+      const id = err.msgId ?? MSG_ID_BY_CODE[code] ?? String(code)
+      const text = backendMessage(err) ?? PRD_CODE_DEFAULT_MESSAGE[code] ?? err.message
       return { kind: 'business', message: `[${id}] ${text}`, field: PRD_CODE_FIELD[code] }
     }
     if (code === 1001 || err.status === 400) {
