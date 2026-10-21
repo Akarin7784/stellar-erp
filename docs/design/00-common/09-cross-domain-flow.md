@@ -382,7 +382,7 @@ sequenceDiagram
 | J28 | 期间损益结转 | 主营业务收入 `6001` 等 | 本年利润 `4103` | 当期収益 | 「期末结转 {期间}」 | 月結 |
 | J29 | 期间损益结转（费用） | 本年利润 `4103` | 主营业务成本 `6401`、税金及附加 `6403`、销售费用 `6601`、管理费用 `6602`、财务费用 `6603`、所得税费用 `6801` 等 | 当期費用 | 「期末结转 {期间}」 | 月結 |
 | J30 | 年结（利润分配） | 本年利润 `4103` | 利润分配 `4104` | 当期純利益 | 「年度结转 {年度}」 | 年結 |
-| J31 | 原価調整（E19 `inventory.cost.updated`） | 在庫分：库存商品/原材料 `1405`/`1403`；既出庫分：主营业务成本 `6401`／生产成本-直接材料 `5001.01` | 采购暂估/应付等の調整相手（来源 `source_type` による。減額は赤伝） | 在庫分 `adjustmentAmount`、既出庫分 `issuedAdjustmentAmount` | 「成本调整 {调整单号}」 | 原価調整確定 |
+| J31 | 原価調整（E19 `inventory.cost.updated`） | 在庫分：库存商品/原材料 `1405`/`1403`；既出庫分：主营业务成本 `6401`／生产成本-直接材料 `5001.01` | 来源 `source_type` 別：`PURCHASE_INVOICE` 2202.01 应付货款（2202 应付账款）、`PURCHASE_RECEIPT` 2202.02 暂估应付、`FINISHED_COST` 5001 生产成本。負差異は借貸方向不変で赤字冲销 | 在庫分 `adjustmentAmount`、既出庫分 `issuedAdjustmentAmount` | 「成本调整 {调整单号}」 | 原価調整確定 |
 
 > 科目コードは【実データ】企业会计准则（CAS）常用科目コード。詳細な明細科目・補助核算は [07-finance/01-accounting-subjects.md](../07-finance/01-accounting-subjects.md) と [90-data/accounting-subjects.csv](../90-data/accounting-subjects.csv) を正とする。仕訳は自動仕訳テンプレート（`fin_voucher_template`）で管理し、金額根拠・補助核算を定義する。
 
@@ -547,3 +547,4 @@ CREATE INDEX idx_sys_outbox_event_pending ON sys_outbox_event (tenant_id, compan
 | v1.3 | 2026-10-21 | `sys_outbox_event` の `uk_sys_outbox_event_id` を `(tenant_id, event_id)` に修正（0708 豁免と一致、蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.4 | 2026-10-21 | main（#31）取込み後の再整合：一意索引・非一意 btree 索引を `tenant_id`（＋`company_id`）先頭に再適用、テナント級一意は 00-common/04 §6.1 第 4 条に従う（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.5 | 2026-10-21 | §7.2 に J31（E19 原価調整：在庫分 1403/1405、既出庫分 6401/5001.01）を追加（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.6 | 2026-10-21 | §7.2 J31 貸方を来源別に確定（2202.01／2202.02 暂估应付／5001）、負差異は赤字冲销（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
