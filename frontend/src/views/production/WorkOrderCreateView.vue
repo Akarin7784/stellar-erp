@@ -93,7 +93,7 @@
           </el-form-item>
         </el-col>
         <el-col :span="8">
-          <el-form-item label="计划着手日" prop="plannedStartDate">
+          <el-form-item label="计划开工日" prop="plannedStartDate">
             <el-date-picker v-model="form.plannedStartDate" type="date" value-format="YYYY-MM-DD" />
           </el-form-item>
         </el-col>

@@ -10,7 +10,7 @@ export function validateOrderQty(v: unknown): Error | undefined {
 /** 着手日 ≦ 完成日（CHK-PRD-002-04 / MSG-COM-045）。 */
 export function validateDateRange(start: unknown, end: unknown): Error | undefined {
   if (typeof start === 'string' && typeof end === 'string' && start && end && start > end) {
-    return new Error('「计划着手日」不能大于「计划完成日」。')
+    return new Error('「计划开工日」不能大于「计划完成日」。')
   }
   return undefined
 }

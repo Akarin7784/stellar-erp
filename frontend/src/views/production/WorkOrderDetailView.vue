@@ -47,10 +47,10 @@
       <el-descriptions-item label="订单数量"
         >{{ detail.orderQty }} {{ detail.uomCode }}</el-descriptions-item
       >
-      <el-descriptions-item label="计划着手日">{{ detail.plannedStartDate }}</el-descriptions-item>
+      <el-descriptions-item label="计划开工日">{{ detail.plannedStartDate }}</el-descriptions-item>
       <el-descriptions-item label="计划完成日">{{ detail.plannedEndDate }}</el-descriptions-item>
       <el-descriptions-item label="优先级">{{ detail.priorityNo }}</el-descriptions-item>
-      <el-descriptions-item label="完工超收容差">{{
+      <el-descriptions-item label="完工超产容差">{{
         formatRatePercent(detail.overReceiptRate)
       }}</el-descriptions-item>
       <el-descriptions-item label="允许完工上限">{{
