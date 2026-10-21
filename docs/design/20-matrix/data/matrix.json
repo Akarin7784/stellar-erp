@@ -21,7 +21,7 @@
       "reports": 15,
       "batches": 10,
       "interfaces": 7,
-      "messages": 104,
+      "messages": 105,
       "apis": 192
     },
     "SAL": {
@@ -11565,6 +11565,15 @@
     {
       "id": "MSG-MDM-100",
       "type": "コード存在",
+      "body": "",
+      "condition": "",
+      "action": "",
+      "domain": "MDM",
+      "source": "02-mdm/04-uom-currency-tax.md"
+    },
+    {
+      "id": "MSG-MDM-178",
+      "type": "",
       "body": "",
       "condition": "",
       "action": "",

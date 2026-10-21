@@ -8,7 +8,7 @@
 | 作成日 | 2026-10-20 |
 | 作成者 | Lead（生成工具 gen_matrix.py） |
 | 状態 | ドラフト（自动生成・最終レビュー前） |
-| 備考 | 全 910 件。メッセージID/種別/本文/発生条件/対処/域/提取元 |
+| 備考 | 全 911 件。メッセージID/種別/本文/発生条件/対処/域/提取元 |
 
 > 本文件由 `20-matrix/tools/gen_matrix.py` 从各域设计书中自动提取生成。修改设计书后重新运行即可更新。
 
@@ -371,6 +371,7 @@
 | MSG-MDM-174 | 範囲 |  |  |  | MDM | 02-mdm/07-substitute-barcode-governance.md |
 | MSG-MDM-176 | 相関 |  |  |  | MDM | 02-mdm/07-substitute-barcode-governance.md |
 | MSG-MDM-177 | 一意 |  |  |  | MDM | 02-mdm/07-substitute-barcode-governance.md |
+| MSG-MDM-178 |  |  |  |  | MDM | 02-mdm/04-uom-currency-tax.md |
 | MSG-MDM-180 | I | 変更申請を承認しました。対象マスタへ反映します。 | 承認 | — | MDM | 02-mdm/07-substitute-barcode-governance.md |
 | MSG-MDM-181 | I | 変更内容を反映しました。関連業務に通知されます。 | 反映 | — | MDM | 02-mdm/07-substitute-barcode-governance.md |
 | MSG-MDM-182 | 相関 |  |  |  | MDM | 02-mdm/07-substitute-barcode-governance.md |

@@ -987,7 +987,7 @@ CREATE TABLE mdm_uom_conversion (
 ALTER TABLE mdm_uom_conversion ADD CONSTRAINT ex_mdm_uom_conversion_period EXCLUDE USING gist (
     tenant_id WITH =, company_id WITH =, conversion_group WITH =, from_uom_code WITH =, to_uom_code WITH =,
     daterange(valid_from, valid_to, '[]') WITH &&
-) WHERE (deleted = FALSE);  -- 有効期間の重複禁止（valid_to NULL は無期限）
+) WHERE (deleted = FALSE AND status = 1);  -- 有効期間の重複禁止。閉区間 '[]'（valid_to 当日も有効）、valid_to NULL は無期限。無効化（status≠1）行は範囲を占有しない（再有効化で重複すると 23P01 → 20077）
 CREATE INDEX idx_mdm_uom_conversion_group ON mdm_uom_conversion (tenant_id, company_id, conversion_group, valid_from DESC);
 -- ex_mdm_uom_conversion_period は既存迁移 mdm/V202610210203 に未収録。btree_gist 拡張は fin/V202610210701 で導入済のため、追加迁移では本 EXCLUDE 制約の追加のみ行う（蓝色大肥鱼 2026-10-21 決定）。
 
@@ -1546,3 +1546,4 @@ CREATE UNIQUE INDEX uk_mdm_data_scope_policy ON mdm_data_scope_policy (tenant_id
 | v1.5 | 2026-10-21 | 非一意 btree 索引（`idx_`）53 箇所を `tenant_id` 先頭（`company_id` がある表は次に `company_id`）に変更（DDL・索引一覧。既存迁移の索引は sys/V202610210707 と同一列。GIN は対象外。蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.6 | 2026-10-21 | main（#31）取込み後の再整合：一意索引・非一意 btree 索引を `tenant_id`（＋`company_id`）先頭に再適用、テナント級一意は 00-common/04 §6.1 第 4 条に従う（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.7 | 2026-10-21 | `mdm_uom_conversion` に排他制約 `ex_mdm_uom_conversion_period`（`EXCLUDE USING gist`：`tenant_id`・`company_id`・`conversion_group`・`from_uom_code`・`to_uom_code` が同一で `daterange(valid_from, valid_to, '[]')` が重なる行を禁止、`WHERE (deleted = FALSE)`、`valid_to` NULL は無期限）を追加（DB は追加迁移で制約のみ追加、btree_gist は fin/V202610210701 で導入済）。基準日に有効な換算率が複数件・0 件なら工单の単位換算は `60022`（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.8 | 2026-10-21 | `ex_mdm_uom_conversion_period` の WHERE を `deleted = FALSE AND status = 1` に変更、閉区間（valid_to 当日有効）・NULL 無期限を明記、23P01 は 20077／MSG-MDM-178 に変換（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
