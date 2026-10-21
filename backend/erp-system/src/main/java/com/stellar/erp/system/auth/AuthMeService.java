@@ -16,7 +16,10 @@ import com.stellar.erp.system.UserPermissionService;
  * ロール・権限は session の会社（{@code sys_user_role.company_id}）のもののみ。
  *
  * <p>sys_user は現状 V1 baseline の列（username / nickname）のみ。01/90 の正式列（user_code・real_name・
- * department 等）は sys_user 正式迁移後に追加する。menus / dataScopes も未対応。</p>
+ * department 等）は sys_user 正式迁移後に追加する。dataScopes は対象外。</p>
+ *
+ * <p>menus：session の会社で付与された（有効なロール経由の）メニュー（ボタン menu_type=3 を除く）と、
+ * その祖先ディレクトリ（menu_type=1）。ID は Long（Jackson で文字列化）。</p>
  */
 @Service
 public class AuthMeService {
@@ -27,7 +30,11 @@ public class AuthMeService {
     public record RoleInfo(String roleCode, String roleName) {
     }
 
-    public record Me(UserInfo userInfo, long companyId, List<RoleInfo> roles, List<String> permissions) {
+    public record MenuInfo(Long id, Long parentId, int menuType, String menuCode, String routePath, int sortNo) {
+    }
+
+    public record Me(UserInfo userInfo, long companyId, List<RoleInfo> roles, List<String> permissions,
+                     List<MenuInfo> menus) {
     }
 
     private final JdbcClient jdbc;
@@ -59,6 +66,35 @@ public class AuthMeService {
                 .param("user", login.userId()).param("company", login.companyId())
                 .query((rs, i) -> new RoleInfo(rs.getString(1), rs.getString(2))).list();
         List<String> codes = List.copyOf(new TreeSet<>(permissions.permissionCodes(login.userId(), login.companyId())));
-        return new Me(user, login.companyId(), roles, codes);
+        List<MenuInfo> menus = jdbc.sql("""
+                        WITH RECURSIVE granted AS (
+                            SELECT DISTINCT m.id, m.parent_id
+                              FROM sys_user_role ur
+                              JOIN sys_role r
+                                ON r.id = ur.role_id AND r.tenant_id = ur.tenant_id AND r.deleted = FALSE AND r.status = 1
+                              JOIN sys_role_permission rp ON rp.role_id = r.id AND rp.tenant_id = r.tenant_id
+                              JOIN sys_menu m
+                                ON m.id = rp.menu_id AND m.tenant_id = rp.tenant_id
+                               AND m.deleted = FALSE AND m.status = 1 AND m.menu_type <> 3
+                             WHERE ur.user_id = :user AND ur.company_id = :company AND ur.status = 1
+                               AND (ur.valid_from IS NULL OR ur.valid_from <= CURRENT_DATE)
+                               AND (ur.valid_to IS NULL OR ur.valid_to >= CURRENT_DATE)
+                        ), tree AS (
+                            SELECT id, parent_id FROM granted
+                            UNION
+                            SELECT p.id, p.parent_id
+                              FROM tree t
+                              JOIN sys_menu p ON p.id = t.parent_id AND p.deleted = FALSE AND p.menu_type = 1
+                        )
+                        SELECT m.id, m.parent_id, m.menu_type, m.menu_code, m.route_path, m.sort_no
+                          FROM sys_menu m
+                         WHERE m.id IN (SELECT id FROM tree)
+                         ORDER BY m.sort_no, m.id
+                        """)
+                .param("user", login.userId()).param("company", login.companyId())
+                .query((rs, i) -> new MenuInfo(rs.getLong(1), rs.getLong(2), rs.getInt(3), rs.getString(4),
+                        rs.getString(5), rs.getInt(6)))
+                .list();
+        return new Me(user, login.companyId(), roles, codes, menus);
     }
 }

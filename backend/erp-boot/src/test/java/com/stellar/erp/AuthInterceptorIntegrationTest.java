@@ -226,4 +226,60 @@ class AuthInterceptorIntegrationTest {
                 .andExpect(jsonPath("$.data.permissions[1]").value("test:b"));
         is401(withToken("not-a-token", get("/api/system/auth/me")));
     }
+
+    void menu(long id, long parent, int type, int sortNo) {
+        owner.update("""
+                INSERT INTO sys_menu (id, tenant_id, company_id, menu_code, menu_name, menu_type, parent_id, module_code,
+                                      route_path, permission_code, sort_no)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'test', ?, ?, ?)
+                """, id, TENANT, CO, "M" + id, "m" + id, type, parent, "/r/" + id,
+                type == 1 ? null : "test:menu:" + id, sortNo);
+    }
+
+    void grantMenus(long role, long company, long... menuIds) {
+        owner.update("INSERT INTO sys_role (id, tenant_id, company_id, role_code, role_name) VALUES (?, ?, ?, ?, 'r')",
+                role, TENANT, company, "TEST_" + role);
+        for (long m : menuIds) {
+            owner.update("""
+                    INSERT INTO sys_role_permission (id, tenant_id, company_id, role_id, menu_id, permission_code)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """, role * 10 + m % 10, TENANT, company, role, m, "test:menu:" + m);
+        }
+        owner.update("INSERT INTO sys_user_role (id, tenant_id, company_id, user_id, role_id) VALUES (?, ?, ?, ?, ?)",
+                role + 1, TENANT, company, USER, role);
+    }
+
+    @Test
+    void meMenusAreSessionCompanyGrantsPlusParentDirectories() throws Exception {
+        owner.update("INSERT INTO sys_user (id, tenant_id, username, nickname, password) VALUES (?, ?, 'u7401', '用户', 'x')",
+                USER, TENANT);
+        long d1 = 9984001, d2 = 9984002, m1 = 9984003, m2 = 9984004, btn = 9984005, d3 = 9984006;
+        menu(d1, 0, 1, 1);      // ルートディレクトリ
+        menu(d2, d1, 1, 2);     // サブディレクトリ
+        menu(m1, d2, 2, 3);     // CO で付与
+        menu(m2, d1, 2, 4);     // CO2 のみ付与 → 含まない
+        menu(btn, m1, 3, 5);    // ボタン → menus に含まない
+        menu(d3, 0, 1, 6);      // 未付与ディレクトリ → 含まない
+        grantMenus(99841, CO, m1, btn);
+        grantMenus(99851, CO2, m2);
+        withToken(token(USER, TENANT, CO), get("/api/system/auth/me"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.menus.length()").value(3))
+                .andExpect(jsonPath("$.data.menus[0].id").value(String.valueOf(d1)))
+                .andExpect(jsonPath("$.data.menus[0].parentId").value("0"))
+                .andExpect(jsonPath("$.data.menus[0].menuType").value(1))
+                .andExpect(jsonPath("$.data.menus[1].id").value(String.valueOf(d2)))
+                .andExpect(jsonPath("$.data.menus[1].parentId").value(String.valueOf(d1)))
+                .andExpect(jsonPath("$.data.menus[2].id").value(String.valueOf(m1)))
+                .andExpect(jsonPath("$.data.menus[2].parentId").value(String.valueOf(d2)))
+                .andExpect(jsonPath("$.data.menus[2].menuType").value(2))
+                .andExpect(jsonPath("$.data.menus[2].menuCode").value("M" + m1))
+                .andExpect(jsonPath("$.data.menus[2].routePath").value("/r/" + m1))
+                .andExpect(jsonPath("$.data.menus[2].sortNo").value(3));
+        // 会社切替（CO2）：m2 とその親 d1 のみ
+        withToken(token(USER, TENANT, CO2), get("/api/system/auth/me"))
+                .andExpect(jsonPath("$.data.menus.length()").value(2))
+                .andExpect(jsonPath("$.data.menus[0].id").value(String.valueOf(d1)))
+                .andExpect(jsonPath("$.data.menus[1].id").value(String.valueOf(m2)));
+    }
 }
