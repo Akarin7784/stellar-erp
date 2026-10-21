@@ -79,13 +79,14 @@ class ProductionCoreIntegrationTest {
         owner.execute("""
             INSERT INTO mdm_material_category (id, tenant_id, company_id, category_code, category_name, category_path, category_level, is_leaf, completion_over_rate) VALUES
               (993001, 303, 31, 'C1', '无率分类', '/C1/', 1, TRUE, NULL),
-              (993002, 303, 31, 'C2', '分类率',   '/C2/', 1, TRUE, 0.0200);
+              (993002, 303, 31, 'C2', '分类率',   '/C2/', 1, TRUE, 0.0200),
+              (993003, 303, 32, 'C1', '无率分类 32', '/C1/', 1, TRUE, NULL);
             INSERT INTO mdm_material (id, tenant_id, company_id, material_code, material_name, material_type, category_id, spec, base_uom_code, valuation_method, status, completion_over_rate) VALUES
               (993011, 303, 31, '9930000011', 'M 全 NULL',  10, 993001, 's1', 'PCE', 20, 1, NULL),
               (993012, 303, 31, '9930000012', 'M 物料率',   10, 993002, 's2', 'PCE', 20, 1, 0.0300),
               (993013, 303, 31, '9930000013', 'M 显式 0',   10, 993002, 's3', 'PCE', 20, 1, 0),
               (993014, 303, 31, '9930000014', 'M 继承分类', 10, 993002, 's4', 'PCE', 20, 1, NULL),
-              (993015, 303, 32, '9930000015', 'M 其他公司', 10, 993001, 's5', 'PCE', 20, 1, 0.0400),
+              (993015, 303, 32, '9930000015', 'M 其他公司', 10, 993003, 's5', 'PCE', 20, 1, 0.0400),
               (993016, 303, 31, '9930000016', 'M 无计划行', 10, 993002, 's6', 'PCE', 20, 1, 0.0300),
               (993017, 303, 31, '9930000017', 'M 采购品',   30, 993002, 's7', 'PCE', 20, 1, 0.0300);
             INSERT INTO mdm_factory (id, tenant_id, company_id, factory_code, factory_name) VALUES (993021, 303, 31, 'F31', '工厂31');
