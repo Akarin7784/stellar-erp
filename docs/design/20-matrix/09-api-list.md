@@ -676,7 +676,7 @@
 | GET | /api/production/overproduction-approvals | 超産申請一覧（詳細 §3.14） | production:overproduction-approval:view | PRD | 06-production/91-api-design.md |
 | POST | /api/production/overproduction-approvals | 超産申請登録（→10、201。§3.14） | production:overproduction-approval:create | PRD | 06-production/91-api-design.md |
 | GET | /api/production/overproduction-approvals/{id} | 超産申請詳細（§3.14） | 同上 | PRD | 06-production/91-api-design.md |
-| PUT | /api/production/overproduction-approvals/{id} | 草稿修正（10 のみ、allowed_qty 不変。§3.14）。専用 update 権限は種子に未登録のため create を流用（蓝色大肥鱼確認待ち） | production:overproduction-approval:create | PRD | 06-production/91-api-design.md |
+| PUT | /api/production/overproduction-approvals/{id} | 草稿修正（10 のみ、allowed_qty 不変。§3.14）。権限は create を共用（蓝色大肥鱼 2026-10-21 決定） | production:overproduction-approval:create | PRD | 06-production/91-api-design.md |
 | POST | /api/production/overproduction-approvals/{id}/approve | 承認（20→30、allowed_qty +request_qty。§3.14） | production:overproduction-approval:approve | PRD | 06-production/91-api-design.md |
 | POST | /api/production/overproduction-approvals/{id}/cancel | 取消（10/20→90。§3.14） | production:overproduction-approval:cancel | PRD | 06-production/91-api-design.md |
 | POST | /api/production/overproduction-approvals/{id}/reject | 却下（20→40。§3.14） | production:overproduction-approval:approve | PRD | 06-production/91-api-design.md |
