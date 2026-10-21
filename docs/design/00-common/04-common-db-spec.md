@@ -4,7 +4,7 @@
 |---|---|
 | 文書名 | DB 共通规格（DB 共通仕様） |
 | 文書番号 | DSN-CMN-004 |
-| 版数 | v1.19 |
+| 版数 | v1.20 |
 | 作成日 | 2026-10-20 |
 | 作成者 | Lead（设计基盤） |
 | 承認者 | 未承認（社内レビュー待ち） |
@@ -463,6 +463,7 @@ V{yyyyMMdd}{NNNN}__{module}_{description}.sql     # バージョンは 12 桁
 | v1.17 | 2026-10-21 | §6.2 項 2a：跨域・sys/mdm 参照は参照先に `company_id` があれば三列 `(tenant_id, company_id, x_id)`、なければ二列 `(tenant_id, x_id)`（公司隔离優先）。v1.11 の二列規則は置換と注記。`fk_inv_stock_balance_material` の三列化は DBA 別 PR（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.18 | 2026-10-21 | §6.2 項 2a：`fk_inv_stock_balance_material` を三列化（`inv/V202610211409`、`uk_mdm_material_tenant_company_id`）。pgTAP `composite_fk.sql` 断言 2 を本規則に収紧し、既存二列 FK 104 本を〔A〕已定例外 33・〔B〕待改为三列（存量，按域分批）71 に分けて逐条登録 | DBA |
 | v1.19 | 2026-10-21 | §6.2 項 2 末尾に「列構成は項 2a を参照」を追記 | 业务分析 |
+| v1.20 | 2026-10-21 | §6.2 項 2a：inv → mdm 跨域 FK 残り 27 本を三列化（`inv/V202610211410`、被参照側 `uk_mdm_{warehouse,customer,supplier}_tenant_company_id` 追加）。登録表 `t_cfk_2col_exception` を 77 本に縮小し〔A〕已定例外 1（`fk_sys_role_permission_menu`）・〔B〕待改为三列 76（prd 29／sal 14／fin 1／mdm 32）に再分類。mdm 域内部 32 本は後続 PR で三列化（「維持」「恒久」の記述を削除）（蓝色大肥鱼 2026-10-21 決定） | DBA |
 
 ## Flowable 引擎表の schema 分離（issue #7）
 
