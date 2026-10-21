@@ -93,7 +93,9 @@ describe('http 错误处理', () => {
   })
 
   it('HTTP 409 + 领域码（如 70127）只显示 message，不弹刷新提示', async () => {
-    const err = await catchError(respond(409, { code: 70127, message: '损益转记已执行', data: null }))
+    const err = await catchError(
+      respond(409, { code: 70127, message: '损益转记已执行', data: null }),
+    )
     expect(err.status).toBe(409)
     expect(err.code).toBe(70127)
     expect(ElMessage.error).toHaveBeenCalledWith('损益转记已执行')
@@ -179,5 +181,58 @@ describe('http 错误处理', () => {
     const err = await catchError(respond(401, { code: 2001, message: '未登录', data: null }))
     expect(err.status).toBe(401)
     expect(localStorage.getItem(TOKEN_KEY)).toBeNull()
+  })
+})
+
+describe('业务码 10035 / 20077（HTTP 422）', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('10035：显示后端 message 与 msgId，不弹刷新提示', async () => {
+    const message = '公司代码「C01」或统一社会信用代码已存在，请使用其他代码。'
+    const err = await catchError(
+      respond(422, { code: 10035, message, data: null, msgId: 'MSG-SYS-093' }),
+    )
+    expect(err.status).toBe(422)
+    expect(err.code).toBe(10035)
+    expect(err.message).toBe(`[MSG-SYS-093] ${message}`)
+    expect(ElMessage.error).toHaveBeenCalledWith(`[MSG-SYS-093] ${message}`)
+    expect(ElMessage.warning).not.toHaveBeenCalled()
+  })
+
+  it('10035：缺 msgId 时按 code 补 MSG-SYS-093，message 仍用后端', async () => {
+    const err = await catchError(
+      respond(422, { code: 10035, message: '重复', data: null, msgId: null }),
+    )
+    expect(err.message).toBe('[MSG-SYS-093] 重复')
+    expect(err.msgId).toBeUndefined()
+  })
+
+  it('20077：显示后端 message 与 msgId', async () => {
+    const err = await catchError(
+      respond(422, { code: 20077, message: '期间重复', data: null, msgId: 'MSG-MDM-178' }),
+    )
+    expect(err.message).toBe('[MSG-MDM-178] 期间重复')
+    expect(ElMessage.error).toHaveBeenCalledWith('[MSG-MDM-178] 期间重复')
+  })
+
+  it('20077：缺 message/msgId 时用 93-messages 的默认文案', async () => {
+    const err = await catchError(
+      respond(422, { code: 20077, message: '', data: null, msgId: null }),
+    )
+    expect(err.message).toBe('[MSG-MDM-178] 有効期間が既存の換算率と重複しています。')
+  })
+
+  it('10035 缺 message 时退回通用文案（不自造含占位符的文案）', async () => {
+    const err = await catchError(
+      respond(422, { code: 10035, message: '', data: null, msgId: null }),
+    )
+    expect(err.message).toBe('[MSG-SYS-093] 请求失败')
+  })
+
+  it('其他 422 业务码不受影响', async () => {
+    const err = await catchError(
+      respond(422, { code: 10001, message: '已存在', data: null, msgId: 'MSG-COM-050' }),
+    )
+    expect(err.message).toBe('[MSG-COM-050] 已存在')
   })
 })
