@@ -4,7 +4,7 @@
 |---|---|
 | 文書名 | DB 共通规格（DB 共通仕様） |
 | 文書番号 | DSN-CMN-004 |
-| 版数 | v1.20 |
+| 版数 | v1.21 |
 | 作成日 | 2026-10-20 |
 | 作成者 | Lead（设计基盤） |
 | 承認者 | 未承認（社内レビュー待ち） |
@@ -207,7 +207,7 @@ PostgreSQL の一意制約チェックは RLS を経由しないため、`tenant
 1. **跨域は `*_id BIGINT` のみ保持し、FK は張らない**。参照先の存在性と租户（`tenant_id`・`company_id`）一致は、参照元ドメインのサービス層が**同一トランザクション内**で検証する。
 2. **例外**：主データ域 **sys**（`sys_*`）と **mdm**（`mdm_*`）は、他域から硬 FK で参照してよい（6 章「外部キー」の規則に従う）。ただし**必ず複合外键 `FOREIGN KEY (tenant_id, x_id) REFERENCES 被参照表 (tenant_id, id)`** とし、`x_id` 単独の FK は禁止。被参照表には `UNIQUE (tenant_id, id)`（命名 `uk_<table>_tenant_id`）を付与する。適用済：`sys/V202610210707__sys_composite_tenant_fk.sql`（#35。被参照 17 表に `uk_<table>_tenant_id`、sys/mdm 向け単列 FK 76 本〔mdm 32／prd 29／sal 14／fin 1〕を複合 FK に再作成、原制約名・NO ACTION を維持）。列構成は項 2a を参照。
 2a. **同一域内の親子・自己参照（同域外键）**：`FOREIGN KEY (tenant_id, company_id, x_id) REFERENCES 父表 (tenant_id, company_id, id)` の三列複合外键とする（跨公司の親子紐付けを DB で拒否）。被参照父表には `UNIQUE (tenant_id, company_id, id)`（命名 `uk_<table>_tenant_company_id`）を付与する。適用済：`sys/V202610211401__sys_same_domain_parent_fk.sql`（#43。父表 34 張に `uk_<table>_tenant_company_id`、同域単列 FK 74 本〔prd 46／sal 28〕を再作成、原制約名・ON DELETE 動作〔RESTRICT／NO ACTION〕を維持）。CI：pgTAP `same_domain_parent_fk.sql` が public 下の非 mdm 同域外键を動的に収集し三列形を検査する（新域も自動対象）。
-   - **跨域参照・sys/mdm 参照の列構成（2026-10-21 決定）**：参照先テーブルが `company_id` を持つ場合は三列 `(tenant_id, company_id, x_id)` → `(tenant_id, company_id, id)`（`uk_<table>_tenant_company_id`）とし、`company_id` を持たない場合のみ二列 `(tenant_id, x_id)` → `(tenant_id, id)` とする。公司隔离を旧先例の踏襲より優先する（蓝色大肥鱼 2026-10-21 決定）。旧規則（項 2 の二列形、v1.11 の「跨域・sys/mdm 参照は `(tenant_id, x_id)`」）は本規則で置き換える。inv 域の既存二列 FK（例：`fk_inv_stock_balance_material`、`inv/V202610211404:1219`）は `inv/V202610211409`・`inv/V202610211410` で三列化済み（完了）。prd／sal／fin は域ごとの後続 PR で三列化する（待改）。下記 mdm 域内部 FK も後続 PR で三列化する（待改）。
+   - **跨域参照・sys/mdm 参照の列構成（2026-10-21 決定）**：参照先テーブルが `company_id` を持つ場合は三列 `(tenant_id, company_id, x_id)` → `(tenant_id, company_id, id)`（`uk_<table>_tenant_company_id`）とし、`company_id` を持たない場合のみ二列 `(tenant_id, x_id)` → `(tenant_id, id)` とする。公司隔离を旧先例の踏襲より優先する（蓝色大肥鱼 2026-10-21 決定）。旧規則（項 2 の二列形、v1.11 の「跨域・sys/mdm 参照は `(tenant_id, x_id)`」）は本規則で置き換える。inv 域の既存二列 FK（例：`fk_inv_stock_balance_material`、`inv/V202610211404:1219`）は `inv/V202610211409`・`inv/V202610211410` で三列化済み（完了）。prd 域 29 本は `prd/V202610211411` で三列化済み（完了）。sal／fin は域ごとの後続 PR で三列化する（待改）。下記 mdm 域内部 FK も後続 PR で三列化する（待改）。
    - **命名例外：`sys_menu` を参照する外键**（`sys_role_permission.menu_id` のみ、`fk_sys_role_permission_menu`）は `(tenant_id, menu_id)` → `sys_menu (tenant_id, id)` の 2 列とする。`sys_menu` はテナント単位（`company_id = 0`）で、参照元（会社単位の `sys_role_permission`）と `company_id` が一致しないため三列形は使えない（蓝色大肥鱼 2026-10-21 決定）。pgTAP `same_domain_parent_fk.sql` の除外対象に追加する（DBA）。
    - **命名例外：外键を付けない自己参照列**：`sys_menu.parent_id`・`sys_department.parent_id`。`parent_id` は 0＝ルート（V202610210104、01/90 §3.12）、ルート行は `parent_id=0` だが `id=0` の行は存在しないため、自己参照 FK を付けるとルート行の投入が 23503 で失敗する。親子関係はアプリで検査する（`sys_menu`：`MSG-SYS-021`、`sys_department`：存在・循環検査）。`sys_menu` 種データは pgTAP `sys_menu_permission_seed.sql` で検査する（`parent_id<>0` の行は同一テナントに `id=parent_id` の菜单が存在、`parent_id=0` は目录 10 行のみ）（蓝色大肥鱼 2026-10-21 決定、案 A）。
    - **適用：`fk_inv_stock_balance_material`**（`inv_stock_balance.material_id`）を上記規則どおり三列 `(tenant_id, company_id, material_id)` → `mdm_material (tenant_id, company_id, id)` に改めた（`inv/V202610211409`、被参照側 `uk_mdm_material_tenant_company_id UNIQUE (tenant_id, company_id, id)`）。inv の残り 27 本も `inv/V202610211410` で三列化（被参照側に `uk_mdm_{warehouse,customer,supplier}_tenant_company_id` を追加）。prd → mdm 29 本も `prd/V202610211411` で三列化。CI：pgTAP `composite_fk.sql` 断言 2 は参照先に `company_id` があれば三列のみ許可（被参照末列は `id`）。既存の二列 FK 48 本は登録表 `t_cfk_2col_exception` に逐条登録：〔A〕已定例外 1 本（`fk_sys_role_permission_menu`）、〔B〕待改为三列（存量，按域分批）47 本（sal 14／fin 1／mdm 32）。新規 FK は登録なしに二列にできない。
@@ -464,6 +464,7 @@ V{yyyyMMdd}{NNNN}__{module}_{description}.sql     # バージョンは 12 桁
 | v1.18 | 2026-10-21 | §6.2 項 2a：`fk_inv_stock_balance_material` を三列化（`inv/V202610211409`、`uk_mdm_material_tenant_company_id`）。pgTAP `composite_fk.sql` 断言 2 を本規則に収紧し、既存二列 FK 104 本を〔A〕已定例外 33・〔B〕待改为三列（存量，按域分批）71 に分けて逐条登録 | DBA |
 | v1.19 | 2026-10-21 | §6.2 項 2 末尾に「列構成は項 2a を参照」を追記 | 业务分析 |
 | v1.20 | 2026-10-21 | §6.2 項 2a：inv → mdm 跨域 FK 残り 27 本を三列化（`inv/V202610211410`、被参照側 `uk_mdm_{warehouse,customer,supplier}_tenant_company_id` 追加）。登録表 `t_cfk_2col_exception` を 77 本に縮小し〔A〕已定例外 1（`fk_sys_role_permission_menu`）・〔B〕待改为三列 76（prd 29／sal 14／fin 1／mdm 32）に再分類。mdm 域内部 32 本は後続 PR で三列化（「維持」「恒久」の記述を削除）（蓝色大肥鱼 2026-10-21 決定）。§6.2 項 2a の「三列化は DBA が別 PR」記述を「inv は V202610211409／1410 で三列化済み」に更新 | DBA |
+| v1.21 | 2026-10-21 | §6.2 項 2a：prd → mdm 跨域 FK 29 本を三列化（`prd/V202610211411`、被参照 `uk_mdm_{material,factory,warehouse,supplier}_tenant_company_id` は既存、子表側 FK 索引 9 本を追加）。登録表 `t_cfk_2col_exception` を 48 本に縮小（〔A〕1・〔B〕47：sal 14／fin 1／mdm 32）（蓝色大肥鱼 2026-10-21 決定） | DBA |
 
 ## Flowable 引擎表の schema 分離（issue #7）
 
