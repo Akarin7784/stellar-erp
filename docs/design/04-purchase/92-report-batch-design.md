@@ -407,7 +407,7 @@
 | 3 | `materialId` | BIGINT | ○ | 物料 ID | `pur_purchase_requisition_line.material_id` |
 | 4 | `materialCode` | VARCHAR(20) | ○ | 物料编码 | スナップショット |
 | 5 | `requiredQty` | NUMERIC(18,4) | ○ | 推奨発注数量 | `quantity` |
-| 6 | `uomCode` | VARCHAR(8) | ○ | 単位 | `uom_code` |
+| 6 | `uomCode` | VARCHAR(16) | ○ | 単位 | `uom_code` |
 | 7 | `requiredDate` | DATE | ○ | 希望交期 | `required_date` |
 | 8 | `suggestedSupplierId` | BIGINT | — | 推奨供應商 | `supplier_suggest_id` |
 | 9 | `sourceType` | VARCHAR(16) | ○ | MRP/SAFETY_STOCK | `source_type` |
@@ -429,7 +429,7 @@
 | 1 | `receiptId` | BIGINT | ○ | `source_id` | 在庫取引の源泉 |
 | 2 | `lines[].materialId` | BIGINT | ○ | `material_id` | — |
 | 3 | `lines[].receivedQty` | NUMERIC(18,4) | ○ | `qty` | 基本単位換算は INV 側で実施 |
-| 4 | `lines[].uom` | VARCHAR(8) | ○ | `uom_code` | — |
+| 4 | `lines[].uom` | VARCHAR(16) | ○ | `uom_code` | — |
 | 5 | `lines[].warehouseId` | BIGINT | ○ | `warehouse_id` | — |
 | 6 | `lines[].batchNo` | VARCHAR(64) | △ | `batch_no` | 批次管理物料で必須 |
 | 7 | `lines[].unitPrice` | NUMERIC(18,6) | ○ | `unit_cost`（暫估単価） | FIN の J01 金額根拠 |
@@ -469,3 +469,4 @@
 |---|---|---|---|
 | v1.0 | 2026-10-20 | 初版：帳票 14（請購/比価/発注/入荷/返品/対账/未入荷/採購額/価格趨勢/交付/暫估/差異/績效/発票簿）、バッチ 11、IF 11 の定義・印字項目・処理手順・異常処理 | purchase-designer |
 | v1.1 | 2026-10-21 | `prd_planned_order`→`prd_mrp_plan_order`（`plan_no`→`plan_order_no`） | 业务分析 |
+| v1.2 | 2026-10-21 | 単位コード項目（`uom_code`/`uomCode` 等）を VARCHAR(8)→VARCHAR(16) に変更し `mdm_uom.uom_code`（02-mdm/90:961）と整合（币种 `currency_code` 等の VARCHAR(8) は対象外。蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

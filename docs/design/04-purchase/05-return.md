@@ -200,7 +200,7 @@ stateDiagram-v2
 | 5 | `receivedQty` | 入荷数量 | 数値 | NUMERIC(18,4) | 自動 | 来源値 | — | 收货明细 | 導出 | 参照のみ |
 | 6 | `rejectedQty` | 不合格数量 | 数値 | NUMERIC(18,4) | 自動 | 来源値 | — | 收货明细 | 導出 | 参照のみ |
 | 7 | `returnQty` | 退货数量 | 数値 | NUMERIC(18,4) | ○ | 0 | > 0、≤ 可退数量（CALC-01） | — | `return_qty` | — |
-| 8 | `uomCode` | 单位 | テキスト | VARCHAR(8) | 自動 | 来源値 | — | 收货明细 | `uom_code` | — |
+| 8 | `uomCode` | 单位 | テキスト | VARCHAR(16) | 自動 | 来源値 | — | 收货明细 | `uom_code` | — |
 | 9 | `unitPrice` | PO 税抜単価 | 数値 | NUMERIC(18,6) | 自動 | 来源値 | — | PO 明細 | `unit_price` | — |
 | 10 | `amount` | 退货金額 | 数値 | NUMERIC(18,2) | 自動 | 0.00 | — | 計算 | `amount` | — |
 | 11 | `taxCode`/`taxRate`/`taxAmount` | 税码・税率・税額 | テキスト/数値 | — | 自動 | 来源値 | — | PO 明細 | 同名項目 | — |
@@ -576,3 +576,4 @@ stateDiagram-v2
 |---|---|---|---|
 | v1.0 | 2026-10-20 | 初版：F-PUR-015/016（退货申請・出庫確認）、E16、红字发票・進項税転出、换货・貸項、画面項目定義、テスト観点 | purchase-designer |
 | v1.1 | 2026-10-20 | 红队第 2 轮修复：E16 payload に unitPrice/taxRate/amount/taxAmount を追加（09 §3 改訂）、invoice_type を 10/20/30/40/50 に統一 | purchase-designer |
+| v1.2 | 2026-10-21 | 単位コード項目（`uom_code`/`uomCode` 等）を VARCHAR(8)→VARCHAR(16) に変更し `mdm_uom.uom_code`（02-mdm/90:961）と整合（币种 `currency_code` 等の VARCHAR(8) は対象外。蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

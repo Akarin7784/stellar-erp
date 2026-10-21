@@ -242,7 +242,7 @@ stateDiagram-v2
 | 2 | `materialCode` | 物料编码 | 選択ダイアログ | VARCHAR(20) | ○ | 空 | 存在・有効・采购视图可采购（`MSG-PUR-002`） | `mdm_material` | `material_id`/`material_code` | コード直接入力可 |
 | 3 | `materialName` | 品名 | テキスト | VARCHAR(200) | 自動 | 空 | — | `mdm_material` | `material_name` | スナップショット |
 | 4 | `spec` | 规格 | テキスト | VARCHAR(200) | 自動 | 空 | — | `mdm_material` | `spec` | スナップショット |
-| 5 | `uomCode` | 采购单位 | 選択 | VARCHAR(8) | ○ | 物料采购单位 | 同一单位组 | `mdm_uom`（06 §6） | `uom_code` | 換算率を保持 |
+| 5 | `uomCode` | 采购单位 | 選択 | VARCHAR(16) | ○ | 物料采购单位 | 同一单位组 | `mdm_uom`（06 §6） | `uom_code` | 換算率を保持 |
 | 6 | `quantity` | 请购数量 | 数値 | NUMERIC(18,4) | ○ | 0 | > 0（`MSG-COM-047`） | — | `quantity` | 単位精度 4 桁 |
 | 7 | `estimatedUnitPrice` | 预计单价 | 数値 | NUMERIC(18,6) | △ | 取价 CALC-08 | ≥ 0（`MSG-COM-048`） | `mdm_purchase_price` | `estimated_unit_price` | 税抜単価 |
 | 8 | `estimatedAmount` | 预计金额 | 数値 | NUMERIC(18,2) | 自動 | 0.00 | — | 計算 | `estimated_amount` | 数量×単価 |
@@ -683,3 +683,4 @@ stateDiagram-v2
 | v1.0 | 2026-10-20 | 初版：F-PUR-001～003（请购登録・承認・転単）、状態遷移、画面項目定義、処理詳細、API、テスト観点 | purchase-designer |
 | v1.1 | 2026-10-20 | 红队第 2 轮修复：MOQ 参照を mdm_supplier_material 第一・material/purchase_price フォールバックに変更、PR 理由を唯一シナリオ（120 PCE）へ整合 | purchase-designer |
 | v1.2 | 2026-10-21 | `pr_line_id`→`purchase_requisition_line_id`（90 DDL に統一） | 业务分析 |
+| v1.3 | 2026-10-21 | 単位コード項目（`uom_code`/`uomCode` 等）を VARCHAR(8)→VARCHAR(16) に変更し `mdm_uom.uom_code`（02-mdm/90:961）と整合（币种 `currency_code` 等の VARCHAR(8) は対象外。蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
