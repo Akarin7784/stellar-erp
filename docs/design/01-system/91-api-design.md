@@ -4,7 +4,7 @@
 |---|---|
 | 文書名 | 系统管理 API 设计书（系统管理 API 設計書） |
 | 文書番号 | DSN-SYS-091 |
-| 版数 | v1.12 |
+| 版数 | v1.13 |
 | 作成日 | 2026-10-20 |
 | 作成者 | system-workflow（域設計担当） |
 | 承認者 | 未承認（レビュー待ち） |
@@ -196,7 +196,7 @@
 | captcha | string | △ | 検証コード（4 桁英数） |
 | rememberMe | boolean | — | アカウント記憶 |
 
-レスポンス項目：`token` / `tokenName` / `expiresIn` / `passwordResetRequired` / `userInfo{id,userCode,realName,departmentName,avatarUrl}` / `roles[{roleCode,roleName}]` / `permissions[]`（付与された権限コードを**コードで重複排除**した集合、[94 §2.10](94-sample-data.md)） / `menus[]`（`id`/`parentId`/`menuType`/`menuCode`/`menuName`/`routePath`/`sortNo` の 7 項目のフラット配列。当前会社で権限のあるメニュー＋祖先目录）。`dataScopes` は別 PR。企業代码不存在・ユーザ不存在・パスワード誤りは同一の 2002／MSG-COM-021、検証コードは 2005／MSG-COM-022（[01-auth-login](01-auth-login.md) §7.1）（蓝色大肥鱼 2026-10-21 #71 決定）。
+レスポンス項目：`token` / `tokenName` / `expiresIn` / `passwordResetRequired` / `userInfo{id,userCode,realName,departmentName,avatarUrl}` / `roles[{roleCode,roleName}]` / `permissions[]`（付与された権限コードを**コードで重複排除**した集合、[94 §2.10](94-sample-data.md)） / `menus[]`（`id`/`parentId`/`menuType`/`menuCode`/`menuName`/`isVisible`/`routePath`/`sortNo` の 8 項目のフラット配列。当前会社で権限のあるメニュー＋祖先目录、`status=1`・未削除・`menu_type<>3`、`is_visible` では絞り込まず `isVisible=false` も返却）。`dataScopes` は別 PR。企業代码不存在・ユーザ不存在・パスワード誤りは同一の 2002／MSG-COM-021、検証コードは 2005／MSG-COM-022（[01-auth-login](01-auth-login.md) §7.1）（蓝色大肥鱼 2026-10-21 #71 決定）。
 
 ### 3.2 POST /api/system/users
 
@@ -279,3 +279,4 @@ Outbox 監視（`status`、`eventType`、`from`/`to`、ページング）。Payl
 | v1.10 | 2026-10-21 | §1.1：10001 のメッセージ ID を MSG-COM-050 に（v1.9 の MSG-SYS-095 を撤回）、10035 を 409 → 422。#2 login：プロトコル層エラーは 400 を注記（蓝色大肥鱼 2026-10-21 16:24 決定） | 业务分析 |
 | v1.11 | 2026-10-21 | HTTP 409 を `version` 競合（4003）専用とし、状態不整合（4002）・二重処理/処理中（4005）・同時実行・確定済変更不可・二重実行等の 409 も 422 に統一し、409 は `version` 競合（4003）のみとする（蓝色大肥鱼 2026-10-21 決定）。対象：:37、:43 | 业务分析 |
 | v1.12 | 2026-10-21 | #2 login・`/auth/me` の `menus[]` に `menuName`（`sys_menu.menu_name`）を追加し 7 項目に（01-auth-login v1.9 と同期、蓝色大肥鱼 2026-10-21 決定）。対象：:199 | 业务分析 |
+| v1.13 | 2026-10-21 | #2 login・`/auth/me` の `menus[]` に `isVisible`（`sys_menu.is_visible`）を追加し 8 項目に。`is_visible` では絞り込まない（01-auth-login v1.10 と同期、蓝色大肥鱼 2026-10-21 決定）。対象：:199 | 业务分析 |
