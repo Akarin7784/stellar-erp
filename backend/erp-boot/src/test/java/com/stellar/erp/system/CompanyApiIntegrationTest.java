@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.SingleConnectionDataSource;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.json.JsonCompareMode;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
@@ -24,6 +25,7 @@ import org.springframework.web.context.WebApplicationContext;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import com.jayway.jsonpath.JsonPath;
+import com.stellar.erp.system.company.CompanyAuditWriter;
 import com.stellar.erp.common.LoginContext;
 import com.stellar.erp.common.LoginContext.LoginUser;
 import com.stellar.erp.common.TenantContext;
@@ -38,10 +40,12 @@ class CompanyApiIntegrationTest {
 
     static final long TENANT = 314L, CO = 91L, USER = 7601L, NOPERM = 7602L;
     static final String URL = "/api/system/companies";
-    static final String USCC_A = "91320400MA1XXXXX0A", USCC_B = "91320400MA1XXXXX0B";
+    /** GB 32100-2015 校验位が正しい 18 桁（CHK-SYS-014-01）。 */
+    static final String USCC_A = "91320400MA1XXXXX0D", USCC_B = "91320400MA1XXXXX1G";
 
     @Autowired PostgreSQLContainer pg;
     @Autowired WebApplicationContext wac;
+    @MockitoSpyBean CompanyAuditWriter auditWriter;
 
     static JdbcTemplate owner;
     MockMvc mvc;
@@ -73,6 +77,8 @@ class CompanyApiIntegrationTest {
                 DELETE FROM sys_menu WHERE tenant_id = %1$d AND module_code = 'test';
                 DELETE FROM sys_param WHERE tenant_id = %1$d;
                 DELETE FROM sys_company WHERE tenant_id = %1$d;
+                DELETE FROM sys_audit_log WHERE tenant_id = %1$d;
+                DELETE FROM sys_user WHERE tenant_id = %1$d;
                 """.formatted(TENANT));
     }
 
@@ -201,9 +207,156 @@ class CompanyApiIntegrationTest {
                         {"code":1001,"message":"「公司代码」只能输入半角英数字。","msgId":"MSG-COM-087","data":{"fieldErrors":[
                           {"field":"companyCode","message":"「公司代码」只能输入半角英数字。"},
                           {"field":"companyName","message":"请输入必填项「公司名称」。"},
-                          {"field":"unifiedSocialCreditCode","message":"「统一社会信用代码」的数值格式不正确。"},
-                          {"field":"fiscalYearStartMonth","message":"「会计年度起始月」的值不正确。"}]}}
+                          {"field":"unifiedSocialCreditCode","message":"「统一社会信用代码」的格式不正确。"},
+                          {"field":"fiscalYearStartMonth","message":"「会计年度起始月」必须在 1 到 12 之间。"}]}}
                         """, JsonCompareMode.STRICT));
         assertThat(companies()).isZero();
+    }
+
+    // ------------------------------------------------------------------ CHK-SYS-014-01/04/05/06（03:180-183）
+
+    static String one(String field, String message, String msgId) {
+        return "{\"code\":1001,\"message\":\"" + message + "\",\"msgId\":\"" + msgId + "\",\"data\":{\"fieldErrors\":["
+                + "{\"field\":\"" + field + "\",\"message\":\"" + message + "\"}]}}";
+    }
+
+    String withField(String extra) {
+        return "{\"companyCode\":\"VC1\",\"companyName\":\"校验\",\"unifiedSocialCreditCode\":\"" + USCC_A + "\"" + extra + "}";
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"91350100M000100Y43", "91110000600037341L"})
+    void validCheckDigitIsAccepted(String uscc) throws Exception {
+        create(USER, body("OK" + uscc.substring(15), uscc)).andExpect(status().isCreated());
+        assertThat(companies()).isEqualTo(1);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {
+            "91350100M000100Y44",  // 校验位違い
+            "91320400MA1XXXXX0A",  // 校验位違い
+            "91350100M000100Y4",   // 17 桁
+            "91350100m000100Y43",  // 小文字
+            "91350100I000100Y43"   // 使用不可文字
+    })
+    void invalidUsccIs088(String uscc) throws Exception {
+        create(USER, body("NG1", uscc))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().json(one("unifiedSocialCreditCode", "「统一社会信用代码」的格式不正确。", "MSG-COM-088"),
+                        JsonCompareMode.STRICT));
+        assertThat(companies()).isZero();
+    }
+
+    @Test
+    void usccOver18Is041() throws Exception {
+        create(USER, body("NG2", "91350100M000100Y430"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().json(one("unifiedSocialCreditCode", "「统一社会信用代码」不能超过 18 个字符。", "MSG-COM-041"),
+                        JsonCompareMode.STRICT));
+    }
+
+    @Test
+    void usccMissingIs040() throws Exception {
+        create(USER, "{\"companyCode\":\"NG3\",\"companyName\":\"n\"}")
+                .andExpect(status().isBadRequest())
+                .andExpect(content().json(one("unifiedSocialCreditCode", "请输入必填项「统一社会信用代码」。", "MSG-COM-040"),
+                        JsonCompareMode.STRICT));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {0, 3})
+    void taxPayerTypeOutOfRangeIs089(int v) throws Exception {
+        create(USER, withField(",\"taxPayerType\":" + v))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().json(one("taxPayerType", "「纳税人类型」必须在 1 到 2 之间。", "MSG-COM-089"),
+                        JsonCompareMode.STRICT));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {0, 13})
+    void fiscalYearStartMonthOutOfRangeIs089(int v) throws Exception {
+        create(USER, withField(",\"fiscalYearStartMonth\":" + v))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().json(one("fiscalYearStartMonth", "「会计年度起始月」必须在 1 到 12 之间。", "MSG-COM-089"),
+                        JsonCompareMode.STRICT));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"cny", "CN", "CNYY", "C1Y"})
+    void baseCurrencyCodeInvalidIs088(String v) throws Exception {
+        create(USER, withField(",\"baseCurrencyCode\":\"" + v + "\""))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().json(one("baseCurrencyCode", "「记账本位币」的格式不正确。", "MSG-COM-088"),
+                        JsonCompareMode.STRICT));
+    }
+
+    @Test
+    void boundaryValuesAreAccepted() throws Exception {
+        create(USER, "{\"companyCode\":\"BND\",\"companyName\":\"b\",\"unifiedSocialCreditCode\":\"" + USCC_A
+                + "\",\"taxPayerType\":2,\"fiscalYearStartMonth\":12,\"baseCurrencyCode\":\"USD\"}")
+                .andExpect(status().isCreated());
+    }
+
+    // ------------------------------------------------------------------ 監査ログ（PRC-SYS-014-03 手順 4）
+
+    @Test
+    void creationWritesAuditLogInSameTransaction() throws Exception {
+        owner.update("""
+                INSERT INTO sys_user (id, tenant_id, company_id, user_code, username, real_name, nickname, password_hash)
+                VALUES (?, ?, ?, 'E007601', 'admin7601', '管理员', '管理员', 'x')
+                """, USER, TENANT, CO);
+        String json = create(USER, body("AUD1", USCC_A)).andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        long id = Long.parseLong(JsonPath.read(json, "$.data.id"));
+        Map<String, Object> a = owner.queryForMap("""
+                SELECT tenant_id, company_id, user_id, username, operation_type, module_code, resource_code, resource_id,
+                       resource_no, result, after_data::text AS after
+                  FROM sys_audit_log WHERE tenant_id = ? AND resource_code = 'company' AND resource_id = ?
+                """, TENANT, String.valueOf(id));
+        assertThat(((Number) a.get("tenant_id")).longValue()).isEqualTo(TENANT);
+        assertThat(((Number) a.get("company_id")).longValue()).isEqualTo(CO);
+        assertThat(((Number) a.get("user_id")).longValue()).isEqualTo(USER);
+        assertThat(a.get("username")).isEqualTo("admin7601");
+        assertThat(a.get("operation_type")).isEqualTo("CREATE");
+        assertThat(a.get("module_code")).isEqualTo("system");
+        assertThat(a.get("resource_no")).isEqualTo("AUD1");
+        assertThat(((Number) a.get("result")).intValue()).isEqualTo(1);
+        Map<String, Object> after = JsonPath.read((String) a.get("after"), "$");
+        assertThat(after).containsEntry("companyCode", "AUD1").containsEntry("unifiedSocialCreditCode", USCC_A)
+                .containsEntry("taxPayerType", 1).containsEntry("fiscalYearStartMonth", 1)
+                .containsEntry("baseCurrencyCode", "CNY");
+        assertThat(owner.queryForObject("SELECT count(*) FROM sys_audit_log WHERE tenant_id = ?", Integer.class, TENANT))
+                .isEqualTo(1);
+    }
+
+    @Test
+    void failedCreationWritesNoAuditLog() throws Exception {
+        create(USER, body("DUPA", USCC_A)).andExpect(status().isCreated());
+        create(USER, body("DUPA", USCC_B)).andExpect(status().isUnprocessableContent());
+        CompanyInitInjector.action = (jdbc, id) ->
+                jdbc.sql("SELECT set_config('app.tenant_id', '999999', true)").query((rs, i) -> 1).list();
+        create(USER, body("RBK2", "91350100M000100Y43")).andExpect(status().isInternalServerError());
+        assertThat(owner.queryForObject("SELECT count(*) FROM sys_audit_log WHERE tenant_id = ?", Integer.class, TENANT))
+                .isEqualTo(1);
+    }
+
+    @Test
+    void auditWriteFailureRollsBackWith5000Msg091() throws Exception {
+        create(USER, body("PRE1", USCC_A)).andExpect(status().isCreated());
+        long companiesBefore = companies();
+        int auditsBefore = owner.queryForObject("SELECT count(*) FROM sys_audit_log WHERE tenant_id = ?", Integer.class, TENANT);
+        org.mockito.Mockito.doThrow(new org.springframework.dao.DataAccessResourceFailureException("audit down"))
+                .when(auditWriter).write(org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong(),
+                        org.mockito.ArgumentMatchers.any());
+        create(USER, body("AUDNG", USCC_B))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.code").value(5000))
+                .andExpect(jsonPath("$.msgId").value("MSG-SYS-091"))
+                .andExpect(jsonPath("$.message").value("审计日志写入失败，操作已中止，请稍后重试或联系管理员。"));
+        assertThat(companies()).isEqualTo(companiesBefore);
+        assertThat(owner.queryForObject("SELECT count(*) FROM sys_company WHERE tenant_id = ? AND company_code = 'AUDNG'",
+                Integer.class, TENANT)).isZero();
+        assertThat(owner.queryForObject("SELECT count(*) FROM sys_audit_log WHERE tenant_id = ?", Integer.class, TENANT))
+                .isEqualTo(auditsBefore);
     }
 }
