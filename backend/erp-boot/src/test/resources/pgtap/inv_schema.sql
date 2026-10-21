@@ -1,6 +1,6 @@
 -- pgTAP：05 库存域（inv/V202610211404）。结构（24 表 / RLS / 分区 / FK）、关键 CHECK、表头触发器、inv_stock_txn_key 防重（90-db-design.md:458-489）、跨公司隔离。
 BEGIN;
-SELECT plan(60);
+SELECT plan(62);
 
 -- ===== 结构 =====
 SELECT is((SELECT count(*)::int FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -45,6 +45,12 @@ SELECT ok(NOT has_table_privilege('erp_app', 'inv_stock_txn_y2028m03', 'SELECT')
           AND NOT has_table_privilege('erp_app', 'inv_stock_txn_y2028m03', 'INSERT'), '新分区 erp_app 无权限');
 SELECT lives_ok($$SELECT public.inv_create_stock_txn_partition(DATE '2028-03-01')$$, '重复调用不报错（幂等）');
 SELECT is((SELECT count(*)::int FROM pg_inherits WHERE inhparent = 'inv_stock_txn'::regclass), 26, '重复调用不多建分区');
+SELECT ok(has_function_privilege('erp_partition_maintainer', 'public.inv_create_stock_txn_partition(date)', 'EXECUTE'),
+          'erp_partition_maintainer 有 inv_create_stock_txn_partition 的 EXECUTE');
+SELECT ok(NOT EXISTS (SELECT 1 FROM pg_proc p, aclexplode(COALESCE(p.proacl, acldefault('f', p.proowner))) a
+                      WHERE p.oid = 'public.inv_create_stock_txn_partition(date)'::regprocedure
+                        AND a.grantee = 0 AND a.privilege_type = 'EXECUTE'),
+          'PUBLIC 没有 inv_create_stock_txn_partition 的 EXECUTE');
 SELECT ok(NOT has_function_privilege('erp_app', 'public.inv_create_stock_txn_partition(date)', 'EXECUTE')
           AND (SELECT prosecdef FROM pg_proc WHERE proname = 'inv_create_stock_txn_partition'),
           '函数为 SECURITY DEFINER，erp_app 无 EXECUTE');

@@ -160,6 +160,17 @@ BEGIN
     RETURN v_rel;
 END $$;
 REVOKE ALL ON FUNCTION public.inv_create_stock_txn_partition(DATE) FROM PUBLIC;
+-- 月次作业专用角色（蓝色大肥鱼 2026-10-21 决定，#55）：幂等创建，写法同 sys/V202610210103 的 erp_tenant_provisioner；
+-- 只授予本函数的 EXECUTE，其余权限一概不给（不授予 erp_app / PUBLIC）。
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'erp_partition_maintainer') THEN
+        CREATE ROLE erp_partition_maintainer NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE
+            NOBYPASSRLS NOREPLICATION INHERIT;
+    END IF;
+END
+$$;
+GRANT EXECUTE ON FUNCTION public.inv_create_stock_txn_partition(DATE) TO erp_partition_maintainer;
 COMMENT ON FUNCTION public.inv_create_stock_txn_partition(DATE) IS
     '建 inv_stock_txn 月分区 inv_stock_txn_yYYYYmMM（幂等），同步 ENABLE+FORCE RLS、tenant_isolation 策略、REVOKE erp_app；SECURITY DEFINER，不授予 erp_app';
 SELECT public.inv_create_stock_txn_partition(DATE '2026-01-01');
