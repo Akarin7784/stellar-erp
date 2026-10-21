@@ -278,13 +278,17 @@ class AuthInterceptorIntegrationTest {
         menu(m2, d1, 2, 4);     // CO2 のみ付与 → 含まない
         menu(btn, m1, 3, 5);    // ボタン → menus に含まない
         menu(d3, 0, 1, 6);      // 未付与ディレクトリ → 含まない
-        grantMenus(99841, CO, m1, btn);
+        long hidden = 9984007;
+        menu(hidden, d2, 2, 7); // 非表示メニュー → is_visible=false でも返す（フィルタしない）
+        owner.update("UPDATE sys_menu SET is_visible = FALSE WHERE id = ?", hidden);
+        grantMenus(99841, CO, m1, btn, hidden);
         grantMenus(99851, CO2, m2);
         withToken(token(USER, TENANT, CO), get("/api/system/auth/me"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.menus.length()").value(3))
+                .andExpect(jsonPath("$.data.menus.length()").value(4))
                 .andExpect(jsonPath("$.data.menus[0].id").value(String.valueOf(d1)))
                 .andExpect(jsonPath("$.data.menus[0].parentId").value("0"))
+                .andExpect(jsonPath("$.data.menus[0].isVisible").value(true))
                 .andExpect(jsonPath("$.data.menus[0].menuType").value(1))
                 .andExpect(jsonPath("$.data.menus[1].id").value(String.valueOf(d2)))
                 .andExpect(jsonPath("$.data.menus[1].parentId").value(String.valueOf(d1)))
@@ -293,7 +297,16 @@ class AuthInterceptorIntegrationTest {
                 .andExpect(jsonPath("$.data.menus[2].menuType").value(2))
                 .andExpect(jsonPath("$.data.menus[2].menuCode").value("M" + m1))
                 .andExpect(jsonPath("$.data.menus[2].routePath").value("/r/" + m1))
-                .andExpect(jsonPath("$.data.menus[2].sortNo").value(3));
+                .andExpect(jsonPath("$.data.menus[2].sortNo").value(3))
+                .andExpect(jsonPath("$.data.menus[2].menuName").value("m" + m1))
+                .andExpect(jsonPath("$.data.menus[0].menuName").value("m" + d1))
+                .andExpect(jsonPath("$.data.menus[2].isVisible").value(true))
+                .andExpect(jsonPath("$.data.menus[3].id").value(String.valueOf(hidden)))
+                .andExpect(jsonPath("$.data.menus[3].menuName").value("m" + hidden))
+                .andExpect(jsonPath("$.data.menus[3].isVisible").value(false))
+                .andExpect(jsonPath("$.data.menus[2].length()").value(8))
+                .andExpect(jsonPath("$.data.menus[2].keys()").value(org.hamcrest.Matchers.containsInAnyOrder(
+                        "id", "parentId", "menuType", "menuCode", "menuName", "routePath", "sortNo", "isVisible")));
         // 会社切替（CO2）：m2 とその親 d1 のみ
         withToken(token(USER, TENANT, CO2), get("/api/system/auth/me"))
                 .andExpect(jsonPath("$.data.menus.length()").value(2))
