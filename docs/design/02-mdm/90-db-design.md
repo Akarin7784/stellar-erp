@@ -984,10 +984,12 @@ CREATE TABLE mdm_uom_conversion (
     CONSTRAINT pk_mdm_uom_conversion PRIMARY KEY (id),
     CONSTRAINT ck_mdm_uom_conversion_rate CHECK (conversion_rate > 0)
 );
-CREATE UNIQUE INDEX uk_mdm_uom_conversion ON mdm_uom_conversion (tenant_id, company_id, conversion_group, from_uom_code, to_uom_code, valid_from) WHERE deleted = FALSE;
+ALTER TABLE mdm_uom_conversion ADD CONSTRAINT ex_mdm_uom_conversion_period EXCLUDE USING gist (
+    tenant_id WITH =, company_id WITH =, conversion_group WITH =, from_uom_code WITH =, to_uom_code WITH =,
+    daterange(valid_from, valid_to, '[]') WITH &&
+) WHERE (deleted = FALSE);  -- 有効期間の重複禁止（valid_to NULL は無期限）。btree_gist 拡張が必要
 CREATE INDEX idx_mdm_uom_conversion_group ON mdm_uom_conversion (tenant_id, company_id, conversion_group, valid_from DESC);
--- 同一 (conversion_group, from_uom_code, to_uom_code) の有効期間（valid_from〜valid_to）の重複はサービス層で検査する（DB 制約は設けない）（蓝色大肥鱼 2026-10-21 決定）。
--- uk_mdm_uom_conversion は既存迁移 mdm/V202610210203 に未収録のため、DB 担当が追加迁移で作成する。
+-- ex_mdm_uom_conversion_period は既存迁移 mdm/V202610210203 に未収録のため、DB 担当が追加迁移（btree_gist 拡張を含む）で作成する（蓝色大肥鱼 2026-10-21 決定）。
 
 CREATE TABLE mdm_currency (
     id BIGINT NOT NULL, tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint, company_id BIGINT NOT NULL,
@@ -1543,4 +1545,4 @@ CREATE UNIQUE INDEX uk_mdm_data_scope_policy ON mdm_data_scope_policy (tenant_id
 | v1.4 | 2026-10-21 | 例外一覧に `uk_sys_user_username`（`(tenant_id, username)`、テナント単位）を追加（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.5 | 2026-10-21 | 非一意 btree 索引（`idx_`）53 箇所を `tenant_id` 先頭（`company_id` がある表は次に `company_id`）に変更（DDL・索引一覧。既存迁移の索引は sys/V202610210707 と同一列。GIN は対象外。蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.6 | 2026-10-21 | main（#31）取込み後の再整合：一意索引・非一意 btree 索引を `tenant_id`（＋`company_id`）先頭に再適用、テナント級一意は 00-common/04 §6.1 第 4 条に従う（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
-| v1.7 | 2026-10-21 | `mdm_uom_conversion` に一意キー `uk_mdm_uom_conversion (tenant_id, company_id, conversion_group, from_uom_code, to_uom_code, valid_from)` を追加。有効期間の重複はサービス層で検査（DB 制約なし）。基準日に有効な換算率が 0 件または複数件なら工单の単位換算は `60022`（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.7 | 2026-10-21 | `mdm_uom_conversion` に排他制約 `ex_mdm_uom_conversion_period`（`EXCLUDE USING gist`：`tenant_id`・`company_id`・`conversion_group`・`from_uom_code`・`to_uom_code` が同一で `daterange(valid_from, valid_to, '[]')` が重なる行を禁止、`WHERE (deleted = FALSE)`、`valid_to` NULL は無期限）を追加（DB は追加迁移）。基準日に有効な換算率が複数件・0 件なら工单の単位換算は `60022`（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

@@ -1148,7 +1148,7 @@ CREATE TABLE prd_work_order_material (
     material_spec       VARCHAR(200),                            -- 材料规格（スナップショット）
     uom_code            VARCHAR(16)   NOT NULL,                  -- 单位（物料基本単位 mdm_material.base_uom_code。数量列はすべてこの単位）
     bom_uom_code        VARCHAR(16),                             -- BOM 使用単位（換算前、追跡用。mdm_uom.uom_code）
-    bom_qty             NUMERIC(18,4),                           -- BOM 単位の総必要量（換算前、追跡用）
+    bom_qty             NUMERIC(18,4),                           -- BOM 単位の総必要量（換算前、追跡用。精度は required_qty と同一）
     required_qty        NUMERIC(18,4) NOT NULL,                  -- 純必要量（BOM.component_qty × order_qty ÷ base_qty、基本単位へ換算・切上げ）
     loss_rate           NUMERIC(7,4)  NOT NULL DEFAULT 0,        -- 適用损耗率（BOM スナップショット）
     loss_qty            NUMERIC(18,4) NOT NULL DEFAULT 0,        -- 损耗量 = required_qty ÷ (1 − loss_rate) − required_qty
