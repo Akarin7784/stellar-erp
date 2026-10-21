@@ -349,4 +349,63 @@ class UomConsistencyIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.orderStatus").value(20));
     }
+
+    // ---- 停用単位（status != 1）は論理削除と同じ扱い（蓝色大肥鱼 2026-10-21） ----
+
+    @Test
+    void inactiveBomUnitAtCreateIs60022AndRollsBack() {
+        rate(999112, CO, "GRM", "KGM", "0.001", "2026-01-01", null, 1, false);
+        owner.update("UPDATE mdm_uom SET status = 0 WHERE id = 999073");   // GRM 停用
+        bom(999206, "GRM", "1", COMP_KG);
+        is60022(() -> as(() -> workOrders.create(cmd())));
+        assertThat(woCount()).isZero();
+        assertThat(lineCount()).isZero();
+    }
+
+    @Test
+    void inactiveBaseUnitOnSameUnitLineAtCreateIs60022() {
+        owner.update("UPDATE mdm_uom SET status = 0 WHERE id = 999072");   // KGM 停用
+        bom(999207, "KGM", "1", COMP_KG);
+        is60022(() -> as(() -> workOrders.create(cmd())));
+        assertThat(woCount()).isZero();
+    }
+
+    @Test
+    void checkOnSameUnitLineRequiresActiveBaseUnit() {
+        inTx(() -> { uoms.check(CO, "KGM", "KGM", D); return null; });     // 有効なら通る
+        owner.update("UPDATE mdm_uom SET status = 0 WHERE id = 999072");
+        is60022(() -> inTx(() -> { uoms.check(CO, "KGM", "KGM", D); return null; }));
+        is60022(() -> inTx(() -> { uoms.check(CO, "LBR", "LBR", D); return null; }));   // 未登録
+    }
+
+    long insertSameUnitKgLine(long wo, long lineId) {
+        owner.update("""
+            INSERT INTO prd_work_order_material (id, tenant_id, company_id, work_order_id, line_no, material_id,
+                material_code, material_name, uom_code, required_qty, total_required_qty, remaining_qty)
+            VALUES (?, 309, 91, ?, 10, 999012, '9990000012', 'U 原料 kg', 'KGM', 1, 1, 1)
+            """, lineId, wo);
+        return lineId;
+    }
+
+    @Test
+    void submitWithInactiveBaseUnitOnSameUnitLineIs60022() {
+        long wo = insertWo(999304, 10);
+        insertSameUnitKgLine(wo, 999403);
+        owner.update("UPDATE mdm_uom SET status = 0 WHERE id = 999072");
+        is60022(() -> as(() -> approvals.submit(wo, new WorkOrderStateCommand(0, null))));
+        assertThat(owner.queryForObject("SELECT order_status FROM prd_work_order WHERE id = ?", Integer.class, wo))
+                .isEqualTo(10);
+        assertThat(owner.queryForObject("SELECT required_qty FROM prd_work_order_material WHERE id = 999403",
+                BigDecimal.class)).isEqualByComparingTo("1");   // 既存行は書き換えない
+    }
+
+    @Test
+    void releaseWithMissingBaseUnitOnSameUnitLineIs60022() {
+        long wo = insertWo(999305, 25);
+        insertSameUnitKgLine(wo, 999404);
+        owner.update("UPDATE mdm_uom SET deleted = TRUE WHERE id = 999072");   // KGM 論理削除＝未登録扱い
+        is60022(() -> as(() -> releases.release(wo, new WorkOrderReleaseCommand(0))));
+        assertThat(owner.queryForObject("SELECT order_status FROM prd_work_order WHERE id = ?", Integer.class, wo))
+                .isEqualTo(25);
+    }
 }
