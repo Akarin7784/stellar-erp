@@ -7,46 +7,12 @@ SELECT is((SELECT count(*)::int FROM pg_constraint k JOIN pg_class r ON r.oid = 
           0, '指向 sys_/mdm_ 的单列外键为 0');
 -- 断言 2（收紧）：被引用表有 company_id 时只允许三列 (tenant_id, company_id, x) → (tenant_id, company_id, id)；
 -- 被引用表无 company_id 时为 (tenant_id, x) → (tenant_id, id)。被引用侧末列必须是 id。
--- 2 列 (tenant_id, x) → (tenant_id, id) 登记表：〔A〕已定例外 33 条、〔B〕待改为三列（存量，按域分批）71 条。新增 FK 不得默认走 2 列。
+-- 2 列 (tenant_id, x) → (tenant_id, id) 登记表：〔A〕已定例外 1 条、〔B〕待改为三列（存量，按域分批）103 条。新增 FK 不得默认走 2 列。
 CREATE TEMP TABLE t_cfk_2col_exception (conname name PRIMARY KEY) ON COMMIT DROP;
 INSERT INTO t_cfk_2col_exception VALUES
-        -- 〔A〕已定例外 33 条（04 §6.2 2a 命名例外，恒久保持 2 列）
-        -- mdm 域内部 32 条
-        ('fk_mdm_admission_supplier'),
-        ('fk_mdm_bank_account_bank'),
-        ('fk_mdm_barcode_material'),
-        ('fk_mdm_change_line_request'),
-        ('fk_mdm_credit_limit_customer'),
-        ('fk_mdm_credit_limit_rule'),
-        ('fk_mdm_customer_address_customer'),
-        ('fk_mdm_customer_contact_customer'),
-        ('fk_mdm_dq_issue_rule'),
-        ('fk_mdm_eval_item_evaluation'),
-        ('fk_mdm_evaluation_supplier'),
-        ('fk_mdm_material_category'),
-        ('fk_mdm_material_category_parent'),
-        ('fk_mdm_material_factory_material'),
-        ('fk_mdm_payment_term_line_term'),
-        ('fk_mdm_price_line_list'),
-        ('fk_mdm_purchase_price_material'),
-        ('fk_mdm_purchase_price_supplier'),
-        ('fk_mdm_quotation_line_material'),
-        ('fk_mdm_quotation_line_quotation'),
-        ('fk_mdm_quotation_supplier'),
-        ('fk_mdm_substitute_material'),
-        ('fk_mdm_substitute_target'),
-        ('fk_mdm_supplier_address_supplier'),
-        ('fk_mdm_supplier_contact_supplier'),
-        ('fk_mdm_supplier_material_supplier'),
-        ('fk_mdm_supplier_qualification_supplier'),
-        ('fk_mdm_tax_rate_code'),
-        ('fk_mdm_warehouse_bin_warehouse'),
-        ('fk_mdm_warehouse_bin_zone'),
-        ('fk_mdm_warehouse_factory'),
-        ('fk_mdm_warehouse_zone_warehouse'),
-        -- 指向 sys_menu（company_id=0 的租户级表）1 条
+        -- 〔A〕已定例外 1 条（04 §6.2 2a 命名例外：指向 sys_menu〔company_id=0 的租户级表〕）
         ('fk_sys_role_permission_menu'),
-        -- 〔B〕待改为三列（存量，按域分批）71 条：fin 1／inv 27／prd 29／sal 14
+        -- 〔B〕待改为三列（存量，按域分批）103 条：fin 1／inv 27／mdm 32／prd 29／sal 14
         -- fin 1 条
         ('fk_fin_standard_cost_material'),
         -- inv 27 条
@@ -121,7 +87,40 @@ INSERT INTO t_cfk_2col_exception VALUES
         ('fk_sal_sales_order_line_m'),
         ('fk_sal_special_price_cust'),
         ('fk_sal_special_price_mat'),
-        ('fk_sal_statement_customer');
+        ('fk_sal_statement_customer'),
+        -- mdm 域内部 32 条
+        ('fk_mdm_admission_supplier'),
+        ('fk_mdm_bank_account_bank'),
+        ('fk_mdm_barcode_material'),
+        ('fk_mdm_change_line_request'),
+        ('fk_mdm_credit_limit_customer'),
+        ('fk_mdm_credit_limit_rule'),
+        ('fk_mdm_customer_address_customer'),
+        ('fk_mdm_customer_contact_customer'),
+        ('fk_mdm_dq_issue_rule'),
+        ('fk_mdm_eval_item_evaluation'),
+        ('fk_mdm_evaluation_supplier'),
+        ('fk_mdm_material_category'),
+        ('fk_mdm_material_category_parent'),
+        ('fk_mdm_material_factory_material'),
+        ('fk_mdm_payment_term_line_term'),
+        ('fk_mdm_price_line_list'),
+        ('fk_mdm_purchase_price_material'),
+        ('fk_mdm_purchase_price_supplier'),
+        ('fk_mdm_quotation_line_material'),
+        ('fk_mdm_quotation_line_quotation'),
+        ('fk_mdm_quotation_supplier'),
+        ('fk_mdm_substitute_material'),
+        ('fk_mdm_substitute_target'),
+        ('fk_mdm_supplier_address_supplier'),
+        ('fk_mdm_supplier_contact_supplier'),
+        ('fk_mdm_supplier_material_supplier'),
+        ('fk_mdm_supplier_qualification_supplier'),
+        ('fk_mdm_tax_rate_code'),
+        ('fk_mdm_warehouse_bin_warehouse'),
+        ('fk_mdm_warehouse_bin_zone'),
+        ('fk_mdm_warehouse_factory'),
+        ('fk_mdm_warehouse_zone_warehouse');
 CREATE TEMP TABLE t_cfk ON COMMIT DROP AS
 SELECT k.conname, r.relname AS parent,
        EXISTS (SELECT 1 FROM pg_attribute x WHERE x.attrelid = r.oid AND x.attname = 'company_id' AND NOT x.attisdropped) AS parent_has_co,
