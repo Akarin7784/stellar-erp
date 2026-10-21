@@ -36,6 +36,12 @@ public class UomConverter {
     record Rate(BigDecimal rate, boolean forward) {
     }
 
+    /**
+     * 停用単位（status != 1）は論理削除と同じ扱いで 60022（蓝色大肥鱼 2026-10-21）。
+     * 既存行の再チェック（submit/release）でも適用するか（案 a）は未確定のため、この条件を一箇所に分離している。
+     */
+    static final String ACTIVE_UOM_FILTER = " AND status = 1";
+
     private final JdbcClient jdbc;
 
     public UomConverter(JdbcClient jdbc) {
@@ -56,9 +62,12 @@ public class UomConverter {
 
     /** 整合チェックのみ（換算はしない）。 */
     public void check(long company, String fromUom, String baseUom, LocalDate d) {
-        if (!fromUom.equals(baseUom)) {
-            rate(company, fromUom, baseUom, d);
+        if (fromUom.equals(baseUom)) {
+            // toBase と同じく、同一単位でも基本単位が有効な mdm_uom 行を持たなければ 60022
+            uom(company, baseUom).orElseThrow(() -> mismatch(fromUom, baseUom));
+            return;
         }
+        rate(company, fromUom, baseUom, d);
     }
 
     /** 適用する換算率（正方向優先、逆方向は正方向 0 件のときのみ）。 */
@@ -97,7 +106,7 @@ public class UomConverter {
         return jdbc.sql("""
                         SELECT conversion_group, decimal_places FROM mdm_uom
                          WHERE company_id = :c AND uom_code = :u AND deleted = FALSE
-                        """)
+                        """ + ACTIVE_UOM_FILTER)
                 .param("c", company).param("u", code)
                 .query((rs, i) -> new Uom(rs.getString(1), rs.getInt(2)))
                 .optional();

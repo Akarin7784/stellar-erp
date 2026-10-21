@@ -64,9 +64,8 @@ class WorkOrderMaterials {
                 throw new BizException(ProductionErrorCode.UOM_MISMATCH, ProductionErrorCode.MSG_UOM_MISMATCH,
                         "BOM の単位と物料の基本単位が一致しません。（行 " + l.lineNo() + "）");
             }
-            if (l.bomUomCode() != null) {
-                uoms.check(company, l.bomUomCode(), l.baseUom(), baseDate);
-            }
+            // 手工行（bom_uom_code NULL）も基本単位が有効な mdm_uom 行を持つか確認（停用・未登録は 60022）
+            uoms.check(company, l.bomUomCode() != null ? l.bomUomCode() : l.baseUom(), l.baseUom(), baseDate);
         }
     }
 }
