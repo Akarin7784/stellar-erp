@@ -447,6 +447,7 @@ V{yyyyMMdd}{NNNN}__{module}_{description}.sql     # バージョンは 12 桁
 | v1.10 | 2026-10-21 | §6.1 項 4：複合外键の参照先専用 `UNIQUE (tenant_id, id)`（例 `uk_wf_task_tenant_id`）は業務一意キーではなく `(tenant_id, company_id, …)` 規則の対象外と明記 | 业务分析 |
 | v1.11 | 2026-10-21 | §6.2 項 2a を新設、§6.1 項 4 に `uk_<table>_tenant_company_id` は FK 参照先専用で業務一意キーではない旨を追記：同域親子 FK は `(tenant_id, company_id, x_id)` → 父表 `uk_<table>_tenant_company_id UNIQUE (tenant_id, company_id, id)`、跨域・sys/mdm 参照は `(tenant_id, x_id)`、mdm 域内部 FK は命名例外として `(tenant_id, x_id)` 維持（#43 迁移 `sys/V202610211401` に整合） | 业务分析 |
 | v1.12 | 2026-10-21 | §6「外部キー」：論理削除マスタにも硬 FK `(tenant_id, x_id)` を張れる旨に改訂（マスタは物理削除しない。論理削除済みの新規参照禁止はサービス層）（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.13 | 2026-10-21 | §6.1 項 2：`company_id` の値は `sys_company.id`（`LoginContext.companyId` 同値、`sys_company.company_id` = 自行 `id`）と明記（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 
 ## Flowable 引擎表の schema 分離（issue #7）
 
@@ -456,4 +457,3 @@ V{yyyyMMdd}{NNNN}__{module}_{description}.sql     # バージョンは 12 桁
 - 表の解決は接続ごとの `search_path = public, flowable`（`spring.datasource.hikari.connection-init-sql`）で行う。`flowable.database-schema` は設定しない（Flowable が接続に `setSchema()` を発行し、プール接続の `search_path` が `flowable` のみになるため）。
 - Flowable のバージョンアップ時は、新しい jar の `org/flowable/**/db/upgrade/*.postgres.upgradestep.*.sql` を新規 Flyway 迁移として追加する（`database-schema-update=true` に戻さない）。
 - RLS は業務 schema（`public`）の業務表のみ対象。Flowable 表は `tenant_id` を持たず RLS 対象外。
-| v1.13 | 2026-10-21 | §6.1 項 2：`company_id` の値は `sys_company.id`（`LoginContext.companyId` 同値、`sys_company.company_id` = 自行 `id`）と明記（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
