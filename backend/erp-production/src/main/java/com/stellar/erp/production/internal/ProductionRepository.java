@@ -351,6 +351,79 @@ public class ProductionRepository {
                 .param("version", version).param("user", userId).param("id", workOrderId).param("company", companyId).update();
     }
 
+    /** 20→10（T-04 却下・E32 強制終了、v1 は 95／90 を使わない）。 */
+    public int markReturnedToDraft(long companyId, long workOrderId, int version, long userId) {
+        return jdbc.sql("""
+                        UPDATE prd_work_order
+                           SET order_status = 10, version = version + 1, updated_by = :user, updated_at = now()
+                         WHERE id = :id AND company_id = :company AND order_status = 20 AND version = :version
+                        """)
+                .param("version", version).param("user", userId).param("id", workOrderId).param("company", companyId).update();
+    }
+
+    /** {@code sys_event_consume_log.consume_status}：1 成功 / 0 失敗（00-common 09 §10.1）。 */
+    public static final short CONSUME_OK = 1, CONSUME_FAILED = 0;
+
+    /** 未消費なら null、成功 1、失敗 0。 */
+    public Short findConsumeStatus(long tenantId, java.util.UUID eventId, String consumer) {
+        return jdbc.sql("""
+                        SELECT consume_status FROM sys_event_consume_log
+                         WHERE tenant_id = :tenant AND event_id = :eventId AND consumer_name = :consumer
+                        """)
+                .param("tenant", tenantId).param("eventId", eventId).param("consumer", consumer)
+                .query(Short.class).optional().orElse(null);
+    }
+
+    /** 成功行を新規確保。競合（他 TX が既に確保）なら false。 */
+    public boolean tryClaimEvent(long tenantId, java.util.UUID eventId, String eventType, String consumer) {
+        return jdbc.sql("""
+                        INSERT INTO sys_event_consume_log
+                            (id, tenant_id, event_id, event_type, consumer_name, consume_status)
+                        VALUES (:id, :tenant, :eventId, :type, :consumer, 1)
+                        ON CONFLICT (tenant_id, event_id, consumer_name) DO NOTHING
+                        """)
+                .param("id", com.baomidou.mybatisplus.core.toolkit.IdWorker.getId()).param("tenant", tenantId)
+                .param("eventId", eventId).param("type", eventType).param("consumer", consumer).update() == 1;
+    }
+
+    /** 失敗行を成功に戻す（0→1、error_message クリア、retry_count+1）。INSERT しない。他が先に 1 なら false。 */
+    public boolean reclaimFailedEvent(long tenantId, java.util.UUID eventId, String consumer) {
+        return jdbc.sql("""
+                        UPDATE sys_event_consume_log
+                           SET consume_status = 1, error_message = NULL, retry_count = retry_count + 1,
+                               consumed_at = now()
+                         WHERE tenant_id = :tenant AND event_id = :eventId AND consumer_name = :consumer
+                           AND consume_status = 0
+                        """)
+                .param("tenant", tenantId).param("eventId", eventId).param("consumer", consumer).update() == 1;
+    }
+
+    /**
+     * 失敗を記録（consume_status=0）。既存行があれば UPDATE（retry_count+1）、無ければ INSERT。
+     * 呼出し元は REQUIRES_NEW で先にコミットすること（業務 TX と同居するとロールバックで消える）。
+     */
+    public void markEventFailed(long tenantId, java.util.UUID eventId, String eventType, String consumer,
+                                String errorMessage) {
+        int updated = jdbc.sql("""
+                        UPDATE sys_event_consume_log
+                           SET consume_status = 0, error_message = :err, retry_count = retry_count + 1,
+                               consumed_at = now()
+                         WHERE tenant_id = :tenant AND event_id = :eventId AND consumer_name = :consumer
+                        """)
+                .param("err", errorMessage).param("tenant", tenantId)
+                .param("eventId", eventId).param("consumer", consumer).update();
+        if (updated == 0) {
+            jdbc.sql("""
+                            INSERT INTO sys_event_consume_log
+                                (id, tenant_id, event_id, event_type, consumer_name, consume_status, error_message)
+                            VALUES (:id, :tenant, :eventId, :type, :consumer, 0, :err)
+                            """)
+                    .param("id", com.baomidou.mybatisplus.core.toolkit.IdWorker.getId()).param("tenant", tenantId)
+                    .param("eventId", eventId).param("type", eventType).param("consumer", consumer)
+                    .param("err", errorMessage).update();
+        }
+    }
+
     /** 工单（超产申请校验用）。 */
     public record WorkOrderRef(long id, long materialId, Long salesOrderLineId) {
     }
