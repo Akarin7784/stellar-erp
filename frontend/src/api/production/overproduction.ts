@@ -73,8 +73,8 @@ export interface OpaListQuery {
   salesOrderLineId?: string
   workOrderId?: string
   approvalStatus?: number
-  page?: number
-  size?: number
+  pageNum?: number
+  pageSize?: number
 }
 
 /** backend OverproductionRequestCommand（requestQty = 增量 delta，> 0）。 */
@@ -133,11 +133,11 @@ export interface SalesOrderLineQuery {
   salesOrderNo?: string
   /** 物料编码／名称部分一致 */
   material?: string
-  page?: number
-  size?: number
+  pageNum?: number
+  pageSize?: number
 }
 
-/** 受注行选择器 size 上限（后端超过时 400 / 1001 / MSG-COM-045） */
+/** 受注行选择器 pageSize 上限（后端超过时 400 / 1001 / MSG-COM-045） */
 export const SALES_ORDER_LINE_PAGE_SIZE_MAX = 200
 
 const BASE = '/production/overproduction-approvals'
@@ -192,15 +192,15 @@ export async function updateOverproductionApproval(
 export async function searchSalesOrderLines(
   q: SalesOrderLineQuery = {},
 ): Promise<PageResult<SalesOrderLineOption>> {
-  const size = Math.min(q.size ?? 20, SALES_ORDER_LINE_PAGE_SIZE_MAX)
+  const pageSize = Math.min(q.pageSize ?? 20, SALES_ORDER_LINE_PAGE_SIZE_MAX)
   const res = await http.get<ApiResult<PageResult<SalesOrderLineOption>>>(
     `${BASE}/sales-order-lines`,
     {
       params: dropEmpty({
         salesOrderNo: q.salesOrderNo?.trim(),
         material: q.material?.trim(),
-        page: q.page ?? 1,
-        size,
+        pageNum: q.pageNum ?? 1,
+        pageSize,
       }),
       silent: true,
     },
