@@ -1,7 +1,7 @@
 -- pgTAP：06-production 建表（V202610210702）结构 / RLS / erp_app 权限 / standard_cost NULL 无默认
 -- 约定：准备数据用 owner，断言前 SET ROLE erp_app；以 ROLLBACK 结束。
 BEGIN;
-SELECT plan(28);
+SELECT plan(37);
 
 -- 结构
 SELECT is((SELECT count(*)::int FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -62,6 +62,50 @@ SELECT is((SELECT count(*)::int FROM pg_index i
             WHERE tc.relname LIKE 'prd\_%' AND i.indisunique AND NOT i.indisprimary
               AND a.attname IS DISTINCT FROM 'company_id'),
           0, 'prd_ 唯一索引第二列均为 company_id（无父 ID 打头例外）');
+
+-- prd → mdm 跨域 FK 29 条三列化（prd/V202610211411，04 §6.2 项 2a）
+SELECT is((SELECT count(*)::int FROM pg_constraint k JOIN pg_class c ON c.oid = k.conrelid JOIN pg_class p ON p.oid = k.confrelid
+            WHERE k.contype = 'f' AND c.relname ~ '^prd_' AND p.relname ~ '^mdm_'), 29, 'prd → mdm 跨域 FK 29 条');
+SELECT is((SELECT count(*)::int FROM pg_constraint k JOIN pg_class c ON c.oid = k.conrelid JOIN pg_class p ON p.oid = k.confrelid
+            WHERE k.contype = 'f' AND c.relname ~ '^prd_' AND p.relname ~ '^mdm_'
+              AND (pg_get_constraintdef(k.oid) !~ '^FOREIGN KEY \(tenant_id, company_id, \w+\) REFERENCES mdm_\w+\(tenant_id, company_id, id\)$'
+                   OR k.confdeltype <> 'a' OR k.confupdtype <> 'a')),
+          0, 'prd → mdm FK 29 条全部三列 (tenant_id, company_id, x_id) → (tenant_id, company_id, id)，NO ACTION');
+SELECT is((SELECT count(*)::int FROM pg_constraint k JOIN pg_class c ON c.oid = k.conrelid JOIN pg_class p ON p.oid = k.confrelid
+            WHERE k.contype = 'f' AND c.relname ~ '^prd_' AND p.relname ~ '^mdm_'
+              AND NOT EXISTS (SELECT 1 FROM pg_index i JOIN pg_class ic ON ic.oid = i.indexrelid JOIN pg_am am ON am.oid = ic.relam
+                               WHERE i.indrelid = k.conrelid AND am.amname = 'btree' AND i.indnatts >= 3
+                                 AND i.indkey[0] = k.conkey[1] AND i.indkey[1] = k.conkey[2] AND i.indkey[2] = k.conkey[3])),
+          0, 'prd → mdm FK 29 条的子表均有以 (tenant_id, company_id, x_id) 打头的 btree 索引');
+
+INSERT INTO mdm_factory (id, tenant_id, company_id, factory_code, factory_name)
+VALUES (6030001, 603, 1, '9PRD1', 'prd f c1'), (6030002, 603, 2, '9PRD2', 'prd f c2');
+INSERT INTO mdm_material_category (id, tenant_id, company_id, category_code, category_name, category_path, category_level, is_leaf, status)
+VALUES (6030001, 603, 1, '9PRD', 'prd', '/9PRD/', 1, TRUE, 1), (6030002, 603, 2, '9PRD', 'prd', '/9PRD/', 1, TRUE, 1);
+INSERT INTO mdm_material (id, tenant_id, company_id, material_code, material_name, material_type, category_id, spec, base_uom_code, valuation_method, status)
+VALUES (6030001, 603, 1, '9PRD000001', 'prd m c1', 10, 6030001, 's', 'PCE', 10, 1),
+       (6030002, 603, 2, '9PRD000002', 'prd m c2', 10, 6030002, 's', 'PCE', 10, 1);
+INSERT INTO mdm_supplier (id, tenant_id, company_id, supplier_code, supplier_name, supplier_type, tax_no, buyer_id, payment_term_code, settlement_method_code)
+VALUES (6030001, 603, 1, '9PRDS1', 's c1', 10, 'T1', 1, 'P', 'S'), (6030002, 603, 2, '9PRDS2', 's c2', 10, 'T2', 1, 'P', 'S');
+SET ROLE erp_app;
+SELECT set_config('app.tenant_id', '603', true);
+SELECT throws_ok($$INSERT INTO prd_work_center (id, company_id, work_center_code, work_center_name, factory_id) VALUES (6030001, 1, 'WC1', 'wc', 6030002)$$,
+                 '23503', NULL, 'fk_prd_work_center_factory：公司 1 引用同租户公司 2 的工厂 → 23503');
+SELECT lives_ok($$INSERT INTO prd_work_center (id, company_id, work_center_code, work_center_name, factory_id) VALUES (6030002, 1, 'WC2', 'wc', 6030001)$$,
+                'fk_prd_work_center_factory：同公司工厂可写入');
+SELECT throws_ok($$INSERT INTO prd_demand_forecast (id, company_id, forecast_no, material_id, material_code, factory_id, bucket_date, forecast_qty)
+                   VALUES (6030001, 1, 'FC1', 6030002, '9PRD000002', 6030001, DATE '2026-11-01', 1)$$,
+                 '23503', NULL, 'fk_prd_demand_forecast_material：公司 1 引用同租户公司 2 的物料 → 23503');
+SELECT lives_ok($$INSERT INTO prd_demand_forecast (id, company_id, forecast_no, material_id, material_code, factory_id, bucket_date, forecast_qty)
+                  VALUES (6030002, 1, 'FC2', 6030001, '9PRD000001', 6030001, DATE '2026-11-01', 1)$$,
+                'fk_prd_demand_forecast_material：同公司物料可写入');
+SELECT throws_ok($$INSERT INTO prd_outsourcing_settlement (id, company_id, settlement_no, supplier_id, supplier_code, supplier_name, factory_id, period_code, settlement_date)
+                   VALUES (6030001, 1, 'OS1', 6030002, '9PRDS2', 's c2', 6030001, '2026-10', DATE '2026-10-21')$$,
+                 '23503', NULL, 'fk_prd_outsourcing_settlement_supplier：公司 1 引用同租户公司 2 的供应商 → 23503');
+SELECT lives_ok($$INSERT INTO prd_outsourcing_settlement (id, company_id, settlement_no, supplier_id, supplier_code, supplier_name, factory_id, period_code, settlement_date)
+                  VALUES (6030002, 1, 'OS2', 6030001, '9PRDS1', 's c1', 6030001, '2026-10', DATE '2026-10-21')$$,
+                'fk_prd_outsourcing_settlement_supplier：同公司供应商可写入');
+RESET ROLE;
 
 -- RLS 行为（prd_defect_code，无跨表 FK）
 SET ROLE erp_app;
