@@ -1,6 +1,7 @@
 package com.stellar.erp;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -23,6 +24,9 @@ import com.stellar.erp.common.TenantContext;
 import com.stellar.erp.support.DbIntegrationTest;
 import com.stellar.erp.support.OwnerJdbc;
 import com.stellar.erp.support.PermissionGrants;
+import com.stellar.erp.system.AuthSessions;
+
+import cn.dev33.satoken.context.mock.SaTokenContextMockUtil;
 
 /** 認証（401 / 2001 / MSG-COM-020）と {@code @RequirePermission}（403 / 3001 / MSG-COM-030）。 */
 @DbIntegrationTest
@@ -50,6 +54,7 @@ class AuthInterceptorIntegrationTest {
     @AfterEach
     void tearDown() {
         PermissionGrants.cleanup(owner, TENANT);
+        owner.update("DELETE FROM sys_user WHERE tenant_id = ?", TENANT);
         LoginContext.clear();
         TenantContext.clear();
     }
@@ -137,5 +142,75 @@ class AuthInterceptorIntegrationTest {
         is403(getAs(CO, "/api/test/permission-probe/method"));
         owner.update("UPDATE sys_role SET status = 1 WHERE id = 998100");
         getAs(CO, "/api/test/permission-probe/method").andExpect(status().isOk());
+    }
+
+    // ------------------------------------------------------------------ Sa-Token セッション経由
+
+    /** ログイン成立時と同じ {@link AuthSessions#open} でトークンを発行（Sa-Token の mock コンテキスト内）。 */
+    static String token(long user, long tenant, long company) {
+        String[] t = new String[1];
+        SaTokenContextMockUtil.setMockContext(() -> t[0] = AuthSessions.open(user, tenant, company));
+        return t[0];
+    }
+
+    ResultActions withToken(String token, org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder req)
+            throws Exception {
+        LoginContext.clear();
+        TenantContext.clear();
+        return mvc.perform(req.header("Authorization", token));
+    }
+
+    @Test
+    void tokenSessionSuppliesTenantAndCompany() throws Exception {
+        PermissionGrants.grant(owner, TENANT, CO, USER, 998100, "test:probe:view");
+        withToken(token(USER, TENANT, CO), get("/api/test/permission-probe/method")).andExpect(status().isOk());
+        // 業務 API：session の tenant → app.tenant_id（RLS）、company → LoginContext
+        withToken(token(USER, TENANT, CO), get("/api/system/departments/options")).andExpect(status().isOk());
+        // リクエスト後にスレッドへ残らない
+        org.assertj.core.api.Assertions.assertThat(LoginContext.current()).isEmpty();
+        org.assertj.core.api.Assertions.assertThat(TenantContext.current()).isEmpty();
+    }
+
+    @Test
+    void codeInCompanyAButNotBIs403InB() throws Exception {
+        PermissionGrants.grant(owner, TENANT, CO, USER, 998100, "test:probe:view");
+        withToken(token(USER, TENANT, CO), get("/api/test/permission-probe/method")).andExpect(status().isOk());
+        is403(withToken(token(USER, TENANT, CO2), get("/api/test/permission-probe/method")));
+    }
+
+    @Test
+    void invalidTokenIs401() throws Exception {
+        is401(withToken("not-a-token", get("/api/system/departments/options")));
+    }
+
+    @Test
+    void logoutIsPublicIdempotentAndInvalidatesOnlyThatToken() throws Exception {
+        mvc.perform(post("/api/system/auth/logout")).andExpect(status().isOk()).andExpect(jsonPath("$.code").value(0));
+        withToken("not-a-token", post("/api/system/auth/logout")).andExpect(status().isOk());
+        String t1 = token(USER, TENANT, CO);
+        String t2 = token(USER, TENANT, CO);
+        withToken(t1, post("/api/system/auth/logout")).andExpect(status().isOk());
+        withToken(t1, post("/api/system/auth/logout")).andExpect(status().isOk());   // 2 回目も 200
+        is401(withToken(t1, get("/api/system/departments/options")));
+        withToken(t2, get("/api/system/departments/options")).andExpect(status().isOk());   // 他端末は維持（BR-07）
+    }
+
+    @Test
+    void meReturnsUserRolesAndDedupedPermissionsOfSessionCompany() throws Exception {
+        owner.update("INSERT INTO sys_user (id, tenant_id, username, nickname, password) VALUES (?, ?, 'u7401', '用户', 'x')",
+                USER, TENANT);
+        PermissionGrants.grant(owner, TENANT, CO, USER, 998100, "test:a", "test:b");
+        PermissionGrants.grant(owner, TENANT, CO, USER, 998200, "test:b");          // 重複コード
+        PermissionGrants.grant(owner, TENANT, CO2, USER, 998300, "test:other-co");  // 他社は含まない
+        withToken(token(USER, TENANT, CO), get("/api/system/auth/me"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.userInfo.id").value(String.valueOf(USER)))
+                .andExpect(jsonPath("$.data.userInfo.username").value("u7401"))
+                .andExpect(jsonPath("$.data.companyId").value(String.valueOf(CO)))
+                .andExpect(jsonPath("$.data.roles.length()").value(2))
+                .andExpect(jsonPath("$.data.permissions.length()").value(2))
+                .andExpect(jsonPath("$.data.permissions[0]").value("test:a"))
+                .andExpect(jsonPath("$.data.permissions[1]").value("test:b"));
+        is401(withToken("not-a-token", get("/api/system/auth/me")));
     }
 }

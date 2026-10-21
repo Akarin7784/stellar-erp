@@ -22,6 +22,7 @@ import com.stellar.erp.common.TenantContext;
 public class TenantAwareTransactionManager extends JdbcTransactionManager {
 
     static final String SET_TENANT_SQL = "SELECT set_config('app.tenant_id', ?, true)";
+    static final String SET_COMPANY_SQL = "SELECT set_config('app.company_id', ?, true)";
 
     public TenantAwareTransactionManager(DataSource dataSource) {
         super(dataSource);
@@ -37,6 +38,14 @@ public class TenantAwareTransactionManager extends JdbcTransactionManager {
         try (PreparedStatement ps = con.prepareStatement(SET_TENANT_SQL)) {
             ps.setString(1, Long.toString(tenant.getAsLong()));
             ps.execute();
+        }
+        // 会社（ログインセッション由来）も事務級で設定（draft g2_18 等 current_setting('app.company_id') 参照用）
+        java.util.Optional<com.stellar.erp.common.LoginContext.LoginUser> login = com.stellar.erp.common.LoginContext.current();
+        if (login.isPresent()) {
+            try (PreparedStatement ps = con.prepareStatement(SET_COMPANY_SQL)) {
+                ps.setString(1, Long.toString(login.get().companyId()));
+                ps.execute();
+            }
         }
     }
 }

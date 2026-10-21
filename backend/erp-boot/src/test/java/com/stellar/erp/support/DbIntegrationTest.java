@@ -19,7 +19,8 @@ import org.springframework.context.annotation.Import;
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
 @Tag("integration")
-@SpringBootTest
+// erp.auth.trust-preset-context：既存 MockMvc テストは LoginContext を直接設定する。本番既定は false。
+@SpringBootTest(properties = "erp.auth.trust-preset-context=true")
 @Import(PostgresContainerConfig.class)
 public @interface DbIntegrationTest {
 }
