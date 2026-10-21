@@ -4,7 +4,7 @@
 |---|---|
 | 文書名 | 认证与登录 详细设计书（認証・ログイン 詳細設計書） |
 | 文書番号 | DSN-SYS-001 |
-| 版数 | v1.0 |
+| 版数 | v1.3 |
 | 作成日 | 2026-10-20 |
 | 作成者 | system-workflow（域設計担当） |
 | 承認者 | 未承認（レビュー待ち） |
@@ -35,8 +35,8 @@
 | 1 | `sys_user.status=1`（在职）かつ `account_status IN (1,4)` | ログイン拒否。`account_status=2` はロック中、`3` は停用（`MSG-SYS-001`） |
 | 2 | Redis が利用可能（トークン・検証コード・キャッシュ。トークンは Sa-Token の Redis DAO で保存し、メモリ保存は不可） | 503 + `MSG-COM-083`。DB フォールバックはしない |
 | 3 | パスワードは BCrypt（cost 10 以上）で保存されている | 認証失敗。実装不備としてログ ERROR |
-| 4 | ユーザに少なくとも 1 つの有効ロールがある |
-| 5 | 入力された企業コード（`tenantCode`）の租户が有効（`status=1`）・未削除（`deleted=FALSE`）・期限内（`expire_date IS NULL OR expire_date >= current_date`） | ログイン拒否。租户不存在・無効・期限切れはユーザ不存在・パスワード誤りと同じ `MSG-COM-021`（code=2002）を返し、区別しない | ログインは成功するが、メニューは「権限なし」画面。運用でロール付与 |
+| 4 | ユーザに少なくとも 1 つの有効ロールがある（必須ではない） | ログインは成功する。`/auth/me` の `menus` は空配列 `[]`、フロントは「暂无权限，请联系管理员」を表示。運用でロール付与（蓝色大肥鱼 2026-10-21 決定） |
+| 5 | 入力された企業コード（`tenantCode`）の租户が有効（`status=1`）・未削除（`deleted=FALSE`）・期限内（`expire_date IS NULL OR expire_date >= current_date`） | ログイン拒否。租户不存在・無効・期限切れはユーザ不存在・パスワード誤りと同じ `MSG-COM-021`（code=2002）を返し、区別しない |
 
 ### 2.2 業務ルール
 
@@ -54,8 +54,9 @@
 | BR-10 | 個人中心で変更可能な項目は ニックネーム・携帯・メール・アバター・通知設定・画面設定のみ。氏名・部門・工号・ロールは管理者のみ変更可能 | 人事データの統制 | `sys_user` |
 | BR-11 | セッションは 8 時間（`sa-token.timeout`）、無操作 30 分で activity-timeout。残り 5 分で画面警告 | [画面共通規格](../00-common/02-common-screen-spec.md) 15 章 | — |
 | BR-12 | 認証・ログアウト・失敗・パスワード変更はすべて監査ログ（`sys_audit_log`）とログインログ（`sys_login_log`）に記録 | [共通項目定義](../00-common/01-common-item-definitions.md) 第 12 章 | — |
-| BR-13 | ログインは「企業代码（`tenantCode`）＋ 账号（`username`）＋ 密码」で行い、3 項目とも必須。`username` は租户内でのみ一意（`uk_sys_user_username (tenant_id, username)`）のため、企業代码で租户を特定してからユーザを引く。子域名による租户判定は第一版対象外（将来は子域名からフロントが `tenantCode` を自動入力するのみで API は変えない） | 多テナント運用（蓝色大肥鱼 2026-10-21 #71 決定） | `tenantCode`、`sys_tenant.tenant_code` |
+| BR-13 | ログインは「企業代码（`tenantCode`）＋ 账号（`username`）＋ 密码」で行い、3 項目とも必須。`username` は租户内でのみ一意（`uk_sys_user_username (tenant_id, username)`）のため、企業代码で租户を特定してからユーザを引く。企業代码は大文字小文字を区別しない（照合前に `upper()`、DB は大文字で保存）、`username` は完全一致（区別あり）。子域名による租户判定は第一版対象外（将来は子域名からフロントが `tenantCode` を自動入力するのみで API は変えない） | 多テナント運用（蓝色大肥鱼 2026-10-21 #71 決定） | `tenantCode`、`sys_tenant.tenant_code` |
 | BR-14 | 企業代码不存在・租户無効/期限切れ・ユーザ不存在・パスワード不一致は、同一のエラー（HTTP 200 + `code=2002`、`MSG-COM-021`）と同等の応答時間（ダミー BCrypt 照合）で返し、どれに該当したかを応答から判別できないようにする | 租户・アカウント列挙対策（蓝色大肥鱼 2026-10-21 #71 決定） | — |
+| BR-15 | ログイン系エラーの HTTP ステータス：HTTP 401 は `code=2001`（未認証・期限切れ）のみ。`2002`（ログイン失敗）・`2003`（ロック）・`2004`（パスワード期限切れ）・`2005`（検証コード不一致）は HTTP 200 で返し、`code` を body に載せる | 蓝色大肥鱼 2026-10-21 決定（[03](../00-common/03-common-api-spec.md) §6.1） | — |
 
 ### 2.3 計算式・判定式
 
@@ -257,7 +258,7 @@ stateDiagram-v2
 **PRC-SYS-001-02 ログイン認証**
 
 1. 入力チェック（第 5 章 CHK-12、CHK-01〜05）を実行する。検証コード不一致は失敗回数を増やさず `MSG-COM-022`（code=2005）。
-2. ログイン前は RLS 用の `app.tenant_id` が未設定でユーザを参照できないため、`erp_app` で SECURITY DEFINER 関数 `sys_auth_find_login_user(p_tenant_code, p_username)` を呼ぶ。関数は `sys_tenant` を `tenant_code` で引き（`deleted=FALSE`・`status=1`・`expire_date IS NULL OR expire_date >= current_date`）、同租户の `sys_user` を `username`（`deleted=FALSE`）で引いて、照合に必要な最小項目のみ返す：`tenant_id`、`user_id`、`company_id`（所属会社）、`password_hash`、`status`、`account_status`、`lock_until`、`login_fail_count`、`password_reset_required`、`password_expire_at`、`version`。氏名・連絡先等は返さない。`EXECUTE` は `erp_app` のみに GRANT（`PUBLIC` から REVOKE）、`SET search_path` を固定する（DB 実装は DBA の `sys_user` 正式迁移）。0 行（企業代码不存在・租户無効/期限切れ・ユーザ不存在）の場合もダミー BCrypt 照合で同等の時間をかけ、パスワード不一致と同じ `MSG-COM-021`（code=2002）を返す（BR-14、租户・ユーザ列挙対策）。
+2. ログイン前は RLS 用の `app.tenant_id` が未設定でユーザを参照できないため、`erp_app` で SECURITY DEFINER 関数 `sys_auth_find_login_user(p_tenant_code, p_username)` を呼ぶ。`p_tenant_code` には入力値を `upper()` した値を渡す（`tenant_code` は大文字小文字を区別せず大文字で保存、90 §3.3）。`p_username` は変換せず完全一致（大文字小文字を区別）で照合する。関数は `sys_tenant` を `tenant_code` で引き（`deleted=FALSE`・`status=1`・`expire_date IS NULL OR expire_date >= current_date`）、同租户の `sys_user` を `username`（`deleted=FALSE`）で引いて、照合に必要な最小項目のみ返す：`tenant_id`、`user_id`、`company_id`（所属会社）、`password_hash`、`status`、`account_status`、`lock_until`、`login_fail_count`、`password_reset_required`、`password_expire_at`、`version`。氏名・連絡先等は返さない。`EXECUTE` は `erp_app` のみに GRANT（`PUBLIC` から REVOKE）、`SET search_path` を固定する（DB 実装は DBA の `sys_user` 正式迁移）。0 行（企業代码不存在・租户無効/期限切れ・ユーザ不存在）の場合もダミー BCrypt 照合で同等の時間をかけ、パスワード不一致と同じ `MSG-COM-021`（code=2002）を返す（BR-14、租户・ユーザ列挙対策）。
 2a. 1 行取得できたら、以降のトランザクションで `app.tenant_id`（＋`app.company_id`）を設定し、ユーザ更新・ログインログは RLS 範囲内で行う。
 3. `status`・`account_status` を判定する。`account_status=2` かつ `lock_until > now()` は `MSG-COM-023`（残り分数）。期限切れの場合はロック解除状態に戻す。
 4. `BCrypt.checkpw(password, password_hash)` で照合する。不一致時は `login_fail_count+1`、5 回目で `account_status=2`・`lock_until=now()+30 分` に更新し、`sys_login_log` に失敗を記録して `MSG-COM-021` を返す。
@@ -366,7 +367,7 @@ stateDiagram-v2
 
 **POST /api/system/auth/logout**：免ログイン。ヘッダ `Authorization` のトークンを失効。トークンなし・無効・期限切れでも 200 `{code:0}`（冪等、繰り返し可）（蓝色大肥鱼 2026-10-21 #71 決定）。
 
-**GET /api/system/auth/me**：`userInfo`、`roles`、`permissions`（コードで重複排除）、`menus`、`passwordExpireDays` を返す。`menus[]` はフラット配列で、項目は `id`、`parentId`（DB `parent_id`、0＝ルート）、`menuType`（`menu_type`）、`menuCode`（`menu_code`）、`routePath`（`route_path`、先頭スラッシュなし。按钮行は null）、`sortNo`（`sort_no`）。対象は**当前会社で権限のあるメニュー**（`sys_user_role.company_id = セッション company_id` のロールに付与されたもの）と、その**祖先の目录**（親を辿って補完、付与対象外の目录も含む）。ツリー化はフロントで行う。`id`/`parentId` は文字列（03 §8）。`dataScopes` は別 PR で追加する（本 PR 時点では返さない）（蓝色大肥鱼 2026-10-21 #71 決定）。
+**GET /api/system/auth/me**：`userInfo`、`roles`、`permissions`（コードで重複排除）、`menus`、`passwordExpireDays` を返す。`menus[]` はフラット配列で、項目は `id`、`parentId`（DB `parent_id`、0＝ルート）、`menuType`（`menu_type`）、`menuCode`（`menu_code`）、`routePath`（`route_path`、先頭スラッシュなし。按钮行は null）、`sortNo`（`sort_no`）。対象は**当前会社で権限のあるメニュー**（`sys_user_role.company_id = セッション company_id` のロールに付与されたもの）と、その**祖先の目录**（親を辿って補完、付与対象外の目录も含む）。ツリー化はフロントで行う。`id`/`parentId` は文字列（03 §8）。`dataScopes` は別 PR で追加する（本 PR 時点では返さない）（蓝色大肥鱼 2026-10-21 #71 決定）。ロールを 1 つも持たないユーザもログインは成功し、`menus` は空配列 `[]` を返す。フロントは「暂无权限，请联系管理员」を表示する（蓝色大肥鱼 2026-10-21 決定）。
 
 ## 8. データ更新仕様
 
@@ -413,6 +414,7 @@ stateDiagram-v2
 | 監査ログ | ログイン/ログアウト/失敗/ロック/解除/改密/プロフィール更新を記録。パスワード・トークンは記録しない |
 | 通信 | 本番 HTTPS 必須。トークンは `Authorization` ヘッダ、Cookie 不使用（CSRF 不要） |
 | 攻撃対策 | 検証コード（失敗 3 回で必須）、ロック（5 回/30 分）、租户・ユーザ列挙対策（企業代码不存在も同一エラー＋ダミー照合、BR-14）、レート制限（同一 IP 20 回/分、超過 429） |
+| ロックによる存在判明 | 連続失敗でロックされた後は `code=2003`／`MSG-COM-023` を返す。ロックは実在アカウントにしか発生しないため、これによりアカウントの存在が判明しうる（BR-14 の列挙対策の例外）。ロック機構の代償としてこのリスクは受容済み（蓝色大肥鱼 2026-10-21 決定） |
 | パスワード保存 | BCrypt cost 12（既定）。平文・可逆暗号は禁止 |
 | ログイン前の参照 | RLS 外のユーザ参照は SECURITY DEFINER 関数 `sys_auth_find_login_user(tenant_code, username)` のみ。最小項目のみ返却、`EXECUTE` は `erp_app` のみ。`erp_app` に `sys_user`/`sys_tenant` の RLS バイパス権限は付与しない |
 
@@ -471,3 +473,5 @@ stateDiagram-v2
 |---|---|---|---|
 | v1.0 | 2026-10-20 | 初版：F-SYS-001/018 の業務ルール、画面項目定義（3 画面）、処理 9 件、API 10 件、メッセージ 17 件、テスト観点 17 件 | system-workflow |
 | v1.1 | 2026-10-21 | ログインに必須項目「企业代码」`tenantCode` を追加（前提 #5、BR-13/14、§4.3〜4.7、CHK-SYS-001-12/06、PRC-SYS-001-02 手順 2/2a/7/8、§6.3、§7.1、§10、テスト 14〜20）。今朝（#41、main `de517e8`）の「ログイン ID は `username` のみ（租户単位一意）」を「`tenantCode`＋`username`」に改め、`username` は租户内一意のまま。ログイン前のユーザ参照は SECURITY DEFINER `sys_auth_find_login_user(tenant_code, username)`（最小項目・`erp_app` のみ EXECUTE、租户は有効・未削除・期限内）。企業代码不存在・ユーザ不存在・パスワード誤りは同一エラー（code=2002／MSG-COM-021）。MSG-COM-022 に code=2005。トークン・検証コードは Sa-Token Redis DAO で Redis。logout は免ログイン・冪等。`/auth/me` の `menus` を id/parentId/menuType/menuCode/routePath/sortNo（当前会社の権限メニュー＋祖先目录）に確定、`dataScopes` は別 PR（蓝色大肥鱼 2026-10-21 #71 決定） | 业务分析 |
+| v1.2 | 2026-10-21 | BR-13・PRC-SYS-001-02 手順 2：企業代码は大文字小文字を区別せず照合前に `upper()`、`username` は完全一致。§10 にロック後の 2003/MSG-COM-023 がアカウント存在を露呈するリスクを受容済みと追記（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.3 | 2026-10-21 | 前提 #4：ロールなしでもログイン成功、`/auth/me` `menus`=`[]`、フロントは「暂无权限，请联系管理员」（前提表 #4/#5 の列ずれも修正）。BR-15：HTTP 401 は 2001 のみ、2002〜2005 は 200＋body `code`。§7.1 `/auth/me` に同旨（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
