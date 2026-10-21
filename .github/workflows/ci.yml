@@ -80,5 +80,8 @@ jobs:
         run: pnpm lint
         continue-on-error: true
 
+      - name: Unit tests (vitest)
+        run: pnpm test
+
       - name: Type-check & build
         run: pnpm build
