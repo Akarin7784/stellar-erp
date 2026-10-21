@@ -22552,7 +22552,7 @@
     {
       "method": "POST",
       "path": "/api/system/companies",
-      "name": "公司登録（同一 TX で sys_param 既定行を投入、[90 §3.1](90-db-design.md)）",
+      "name": "公司登録（同一 TX で sys_param 既定行と SYSTEM_ADMIN ロール＋全権限付与を投入、[90 §3.1](90-db-design.md)・[94 §2.10](94-sample-data.md)）",
       "permission": "system:company:create",
       "domain": "SYS",
       "source": "01-system/91-api-design.md"

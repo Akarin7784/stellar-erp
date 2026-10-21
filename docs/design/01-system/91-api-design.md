@@ -92,7 +92,7 @@
 | 45 | PUT | /api/system/positions/{id} | `system:position:update` | 岗位更新 | F-SYS-006 | 4003 |
 | 46 | DELETE | /api/system/positions/{id} | `system:position:delete` | 岗位無効化 | F-SYS-006 | 10036 |
 | 47 | GET | /api/system/companies | `system:company:view` | 公司一覧 | F-SYS-014 | 3001 |
-| 47a | POST | /api/system/companies | `system:company:create` | 公司登録（同一 TX で `sys_param` 既定行を投入、[90 §3.1](90-db-design.md)） | F-SYS-014 | 1001/10035 |
+| 47a | POST | /api/system/companies | `system:company:create` | 公司登録（同一 TX で `sys_param` 既定行と `SYSTEM_ADMIN` ロール＋全権限付与を投入、[90 §3.1](90-db-design.md)・[94 §2.10](94-sample-data.md)） | F-SYS-014 | 1001/10035 |
 | 48 | PUT | /api/system/companies/{id} | `system:company:update` | 公司更新 | F-SYS-014 | 4003 |
 | 49 | GET | /api/system/factories | `system:company:view` | 工厂组织設合一覧（MDM の `mdm_factory` を参照） | F-SYS-014 | 3001 |
 | 50 | POST | /api/system/factories | `system:company:update` | 工厂組織設定登録（有効化・既定割当） | F-SYS-014 | 10034 |
@@ -245,3 +245,4 @@ Outbox 監視（`status`、`eventType`、`from`/`to`、ページング）。Payl
 | v1.1 | 2026-10-20 | Lead 裁决反映：工厂主データを MDM へ移管したため、`/api/system/factories` 3 API を「工厂組織設定（MDM 参照）」に変更 | system-workflow |
 | v1.2 | 2026-10-20 | 红队第 2 轮修复：データ範囲 API に工場/倉庫次元（`factoryIds`/`warehouseIds`、scopeType 1〜7）を追加。ユーザ再開 API の権限を `system:user:reopen` に変更 | system-workflow |
 | v1.3 | 2026-10-21 | API 47a `POST /api/system/companies`（公司登録）を追加：`sys_company` INSERT と同一トランザクションで 90 §3.15 業務パラメータの既定行を当該会社（`company_id` = 新 `sys_company.id`）に冪等投入、全 114 API。権限は新設 `system:company:create`（テナント開設級操作、`update` と分離）。1001 は汎用入力検証のみ、公司代码・信用代码重複は新設 `10035`／`MSG-SYS-093`（409）（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.4 | 2026-10-21 | API 47a：会社登録と同一トランザクションで `SYSTEM_ADMIN` ロール（会社ごと 1 件）と `permission_code` を持つ全 `sys_menu` 行の付与を冪等投入（94 §2.10）（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
