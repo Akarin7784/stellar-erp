@@ -70,7 +70,7 @@
       "batches": 11,
       "interfaces": 4,
       "messages": 101,
-      "apis": 122
+      "apis": 123
     },
     "FIN": {
       "name": "财务管理",
@@ -10647,6 +10647,24 @@
       "body": "「{0}」只能输入半角英数字。",
       "condition": "半角英数チェック",
       "action": "—",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-088",
+      "type": "E",
+      "body": "「{0}」的格式不正确。",
+      "condition": "形式エラー（数値・日付以外の書式、例：统一社会信用代码・通貨コード）",
+      "action": "code=1001",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-089",
+      "type": "E",
+      "body": "「{0}」必须在 {1} 到 {2} 之间。",
+      "condition": "値域エラー（上下限）",
+      "action": "code=1001",
       "domain": "COM",
       "source": "00-common/05-common-message-list.md"
     },
@@ -29117,6 +29135,14 @@
     },
     {
       "method": "GET",
+      "path": "/api/production/overproduction-approvals/sales-order-lines",
+      "name": "超産申請登録用の受注行選択（当前会社・受注状態 25/30/35・行状態 10/30/35・allowed_qty NOT NULL。§3.14）。権限は create を共用（蓝色大肥鱼 2026-10-21 決定）",
+      "permission": "production:overproduction-approval:create",
+      "domain": "PRD",
+      "source": "06-production/91-api-design.md"
+    },
+    {
+      "method": "GET",
       "path": "/api/production/material-issues",
       "name": "領料/退料一覧",
       "permission": "production:material-issue:view",
@@ -32422,7 +32448,7 @@
     },
     {
       "file": "06-production/00-overview.md",
-      "line": 511,
+      "line": 512,
       "text": "> 本文正文中不保留未処理の `【未決】` マーカー。決定が必要な事項は本表に集約し、レビュー後に回写・クローズする。"
     },
     {

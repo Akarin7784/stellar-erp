@@ -137,6 +137,28 @@
 - G：状態 10。W：`remark` 501 文字。T：**400 / `1001` / `MSG-COM-041`**。
 - 画面（SCR-PRD-034）：修正は状態 10 のみ表示。
 
+## AC-PRD-19 超産申請の受注行選択（蓝色大肥鱼 2026-10-21 決定）
+
+- G：当前会社に受注状態 25/30/35・行状態 10/30/35・`allowed_qty` NOT NULL の行と、それ以外（他社・受注状態 10/20 等・行状態 20/40 等・`allowed_qty` NULL）の行がある。W：`GET /api/production/overproduction-approvals/sales-order-lines`。T：200、前者のみ返る。各行は 11 項目（`salesOrderLineId`、`salesOrderId`、`salesOrderNo`、`lineNo`、`materialId`、`materialCode`、`materialName`、`baseUomCode`、`baseQty`、`allowedQty`、`completedQty`）。
+- G：同上。W：`salesOrderNo`／`material`（コード・名称）の部分一致で絞込。T：一致行のみ。W：`size=201`。T：**400 / `1001`**、`data.fieldErrors` に `size` を含む。`size=200` は 200。
+- G：`production:overproduction-approval:create` なし。W：同 API。T：**403 / `3001`**。
+- 画面（SCR-PRD-034）：新規ダイアログの受注行選択は本 API を使う。
+
+## AC-PRD-20 工单承認の WF 連携（蓝色大肥鱼 2026-10-21 決定）
+
+- G：工单 `order_status=20`、流程 `prd_work_order_release`。W：E32 承認。T：`order_status=25`、`approved_by/at` 設定。
+- G：同上。W：E32 却下。T：`order_status=10`（95 にしない）、再編集・再提出可。
+- G：同一 `taskId`＋`result` の E32 を再受信。T：状態・`version` 不変（冪等）。
+- G：工单 `order_status=20`。W：E32 強制終了（TERMINATED）。T：TERMINATED 後に `order_status=10`（90 にしない）。
+- G：同上。W：E32 却下（理由あり）。T：却下理由は WF 履歴（`wf_task_operation`）で参照でき、`prd_work_order` に却下理由列はない。
+
+## AC-PRD-21 超産申請の WF 回調マッピング（蓝色大肥鱼 2026-10-21 決定）
+
+- G：超産申請 `approval_status=20`、流程 `prd_overproduction_approval`。W：E32 承認。T：`approval_status=30`、`allowed_qty` +`request_qty`（§3.14 案 B と同一）。
+- G：同上。W：E32 却下。T：`approval_status=40`、`allowed_qty` 不変。
+- G：同上。W：E32 強制終了（TERMINATED）。T：`approval_status=90`、`allowed_qty` 不変。
+- G：E32 処理済。W：同一 `taskId`＋`result` を再受信。T：`approval_status`・`version`・受注行／工单の `allowed_qty` すべて不変（冪等）。
+
 ## 改訂履歴
 
 | 版数 | 日付 | 変更内容 | 変更者 |
@@ -155,3 +177,6 @@
 | v1.11 | 2026-10-21 | HTTP 409 を `version` 競合（4003）専用とし、状態不整合（4002）・二重処理/処理中（4005）・同時実行・確定済変更不可・二重実行等の 409 も 422 に統一し、409 は `version` 競合（4003）のみとする（蓝色大肥鱼 2026-10-21 決定）。対象：:32、:67、:91 | 业务分析 |
 | v1.12 | 2026-10-21 | 超産却下の rejectReason を必須化（共通 03 §284 に追随）。AC-PRD-17 を追加（未入力 400／1001／MSG-COM-040、501 文字 400／1001／MSG-COM-041、500 文字は成功） | 业务分析 |
 | v1.13 | 2026-10-21 | 超産申請の草稿修正 API を追加（状態 10 のみ、version 必須、allowed_qty 不変）（蓝色大肥鱼 2026-10-21 決定）。AC-PRD-18 を追加（可変 requestQty・workOrderId・remark、状態不正 422／60101）（v1.12 は #104） | 业务分析 |
+| v1.14 | 2026-10-21 | AC-PRD-19 を追加：超産申請の受注行選択（当前会社・受注状態 25/30/35・行状態 10/30/35・`allowed_qty` NOT NULL、部分一致絞込、size ≤ 200（`size=201` は 400／1001）、権限 create）（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.15 | 2026-10-21 | AC-PRD-19：返却 11 項目、`size=201` は 400／1001＋fieldErrors（`size=200` は成功）を明記（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.16 | 2026-10-21 | AC-PRD-20（工单 WF：承認→25、却下→10、冪等）・AC-PRD-21（超産回調マッピング：承認→30、却下→40、強制終了→90）を追加（蓝色大肥鱼 2026-10-21 決定）。追補：#113（AC-PRD-19、合并済）に続けて 20／21 に繰下げ。AC-PRD-21 に冪等、AC-PRD-20 に強制終了→10・却下理由は WF 履歴（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

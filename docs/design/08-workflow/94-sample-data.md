@@ -70,7 +70,8 @@
 | `EXPENSE_CLAIM` | 费用报销 | finance | `claimNo` | FIN | `APR-EXP` | 【示例値】 |
 | `MASTER_DATA_CHANGE` | 主数据变更 | mdm | `changeNo` | MDM | `APR-MDM`/`APR-PRC`/`APR-CR` | 【示例値】 |
 | `INVENTORY_COUNT` | 盘盈盘亏 | inventory | `countNo` | INV | `APR-STKADJ` | 【示例値】 |
-| `WORK_ORDER` | 生产工单 | production | `workOrderNo` | PRD | —（[PRD 域](../06-production/00-overview.md) 定義） | 【示例値】 |
+| `WORK_ORDER` | 生产工单 | production | `workOrderNo` | PRD | `APR-WO`（流程 key `prd_work_order_release`） | 【示例値】 |
+| `OVERPRODUCTION_APPROVAL` | 超产申请 | production | `approvalNo` | PRD | `APR-OPA`（流程 key `prd_overproduction_approval`） | 【示例値】 |
 | `SYS_USER_CHANGE` | 用户/权限变更 | system | `requestNo` | SYS | — | 【示例値】 |
 | `WF_DELEGATION` | 高权限代理 | system | `delegationNo` | WF | — | 【示例値】 |
 
@@ -95,7 +96,8 @@
 | `MDM_A16` | MASTER_DATA_CHANGE | `APR-MDM` | 银行口座・価格・与信の重要変更 | 10 | 【示例値】 |
 | `MDM_A19`/`MDM_A20` | MASTER_DATA_CHANGE | `APR-PRC`/`APR-CR` | 価格表／与信限度の変更 | 20/30 | 【示例値】 |
 | `STKADJ_A17/A18` | INVENTORY_COUNT | `APR-STKADJ-L{n}` | 金額阶梯 | 10/20 | 【示例値】 |
-| `WO_STANDARD` | WORK_ORDER | `WORK_ORDER` | なし | 100 | 【示例値】 |
+| `WO_STANDARD` | WORK_ORDER | `prd_work_order_release` | なし（単独、条件分岐なし） | 100 | 【示例値】 |
+| `OPA_STANDARD` | OVERPRODUCTION_APPROVAL | `prd_overproduction_approval` | なし（単独、条件分岐なし） | 100 | 【示例値】 |
 | `SYS_USER_STANDARD` | SYS_USER_CHANGE | `SYS_USER_CHANGE` | なし | 100 | 【示例値】 |
 | `WF_DELEGATION_STANDARD` | WF_DELEGATION | `WF_DELEGATION` | 高権限委任のみ | 100 | 【示例値】 |
 
@@ -185,3 +187,4 @@
 | v1.0 | 2026-10-20 | 初版：実データと出典、初期データ（定義 12・業務類型 12・マッピング 20・マトリクス 18・超時 3）、サンプルシナリオ 3、仮定値 6、未決 3 | system-workflow |
 | v1.1 | 2026-10-20 | 90-data/approval-matrix.md と整合：流程 key を `APR-*`、マトリクスコードを A01〜A20、ロールコードを `ROLE-*`、業務類型に approval_code 対応を追加。未決を 5 件に更新 | system-workflow |
 | v1.2 | 2026-10-20 | Lead 裁决反映：承認マトリクス表名 `wf_approval_matrix`・流程キー `APR-*`・T10（承認中金額変更）を已裁决に更新 | system-workflow |
+| v1.3 | 2026-10-21 | §2.2 に `OVERPRODUCTION_APPROVAL` を追加、`WORK_ORDER` の流程 key を `prd_work_order_release` に（approval_code は待確認）、§2.3 `WO_STANDARD` の proc_def_key を `prd_work_order_release` に変更、`OPA_STANDARD`（`prd_overproduction_approval`）を追加。経路条件は待確認（蓝色大肥鱼 2026-10-21 決定）。追補：`APR-WO`／`APR-OPA`・`OVERPRODUCTION_APPROVAL`・`OPA_STANDARD` を正式化、単独・条件分岐なし（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

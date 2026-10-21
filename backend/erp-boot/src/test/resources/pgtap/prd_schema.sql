@@ -1,7 +1,7 @@
 -- pgTAP：06-production 建表（V202610210702）结构 / RLS / erp_app 权限 / standard_cost NULL 无默认
 -- 约定：准备数据用 owner，断言前 SET ROLE erp_app；以 ROLLBACK 结束。
 BEGIN;
-SELECT plan(37);
+SELECT plan(38);
 
 -- 结构
 SELECT is((SELECT count(*)::int FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -145,6 +145,10 @@ SELECT lives_ok($$INSERT INTO prd_overproduction_approval (id, company_id, appro
                    VALUES (6020003, 1, 'OPA2610210003', 1, 1, 1, 5, 0, 1, now())$$,
                 'request_qty > 0 且 current_allowed_qty = 0 可写入');
 RESET ROLE;
+
+SELECT is((SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'ck_prd_work_order_status'),
+          'CHECK ((order_status = ANY (ARRAY[10, 20, 25, 30, 35, 40, 90])))',
+          'ck_prd_work_order_status 不含 95（prd/V202610211420）');
 
 SELECT * FROM finish();
 ROLLBACK;

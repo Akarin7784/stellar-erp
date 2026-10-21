@@ -1,6 +1,6 @@
--- pgTAP：复合外键（sys/V202610210707、inv/V202610211409・V202610211410、prd/V202610211411、sal/V202610211412、fin/V202610211413、mdm/V202610211414；FK 前导索引 inv/V202610211415・mdm/V202610211416・prd/V202610211417・sal/V202610211418）。指向有 company_id 的 sys_/mdm_ 表的 FK 须为三列 (tenant_id, company_id, x)（2 列须登记：已定例外或待改存量），跨租户引用被拒。
+-- pgTAP：复合外键（sys/V202610210707、inv/V202610211409・V202610211410、prd/V202610211411、sal/V202610211412、fin/V202610211413、mdm/V202610211414；FK 前导索引 inv/V202610211415・mdm/V202610211416・prd/V202610211417・sal/V202610211418；注释中文化 sys/V202610211419）。指向有 company_id 的 sys_/mdm_ 表的 FK 须为三列 (tenant_id, company_id, x)（2 列须登记：已定例外或待改存量），跨租户引用被拒。
 BEGIN;
-SELECT plan(22);
+SELECT plan(21);
 
 SELECT is((SELECT count(*)::int FROM pg_constraint k JOIN pg_class r ON r.oid = k.confrelid
             WHERE k.contype = 'f' AND array_length(k.conkey, 1) = 1 AND r.relname ~ '^(sys|mdm)_'),
@@ -50,12 +50,6 @@ SELECT is((SELECT count(*)::int FROM pg_constraint k JOIN pg_class c ON c.oid = 
               AND pg_get_constraintdef(k.oid) ~ '^FOREIGN KEY \(tenant_id, company_id, [a-z_]+\) REFERENCES mdm_[a-z_]+\(tenant_id, company_id, id\)$'
               AND k.confdeltype = 'a' AND k.confupdtype = 'a'),
           32, 'mdm 域内部 FK 32 条全部为 04 §6.2 2a 标准三列形，NO ACTION（mdm/V202610211414），登记表无 fk_mdm_*');
-SELECT is((SELECT count(*)::int FROM pg_constraint k JOIN pg_class c ON c.oid = k.conrelid JOIN pg_class p ON p.oid = k.confrelid
-            WHERE k.contype = 'f' AND c.relname ~ '^mdm_' AND p.relname ~ '^mdm_'
-              AND NOT EXISTS (SELECT 1 FROM pg_index i JOIN pg_class ic ON ic.oid = i.indexrelid JOIN pg_am am ON am.oid = ic.relam
-                               WHERE i.indrelid = k.conrelid AND am.amname = 'btree' AND i.indnatts >= 3
-                                 AND i.indkey[0] = k.conkey[1] AND i.indkey[1] = k.conkey[2] AND i.indkey[2] = k.conkey[3])),
-          0, 'mdm 域内部 FK 32 条子表均有以 (tenant_id, company_id, x_id) 打头的 btree 索引');
 -- 04 §6.2 项 2a 索引规则（v1.25，inv/V202610211415・mdm/V202610211416・prd/V202610211417・sal/V202610211418）：
 -- public 下全部子列为 (tenant_id, company_id, x) 的三列 FK（全域，新域自动覆盖），子表须有以这三列依次打头的 btree 索引。
 -- 部分索引只认谓词恰为「x IS NOT NULL」的（RI 检查 x = $1 可推出该谓词）；WHERE deleted = false 等不覆盖软删除行，不计入。失败时列出缺索引的约束名。

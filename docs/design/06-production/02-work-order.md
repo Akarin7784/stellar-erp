@@ -92,8 +92,7 @@ stateDiagram-v2
     S10 --> S20: 承認提出（WF）
     S20 --> S25: 承認（E32）
     S20 --> S10: 差戻し
-    S20 --> S95: 却下
-    S95 --> S10: 修正再提出
+    S20 --> S10: 却下（v1 は 10 へ戻す）
     S25 --> S30: 下达（引当 E21）
     S30 --> S35: 首件報工／初回領料確定
     S35 --> S35: 部分報工／部分入庫
@@ -111,7 +110,7 @@ stateDiagram-v2
 | T-01 | 10→20 | 承認提出 | `production:work-order:submit` | `order_status=20`、`submitted_at` | 条件なし（材料明細 0 行可（蓝色大肥鱼 2026-10-21 PR #37 決定）。有効 BOM は不要（蓝色大肥鱼 2026-10-21 #36 決定）） | `MSG-COM-005` |
 | T-02 | 20→25 | 承認（WF E32） | `production:work-order:approve` | `order_status=25`、`approved_by/at` | 承認者本人、自己承認不可 | — |
 | T-03 | 20→10 | 差戻し | 承認者 | `order_status=10` | 理由必須 | `MSG-COM-034` |
-| T-04 | 20→95 | 却下 | 承認者 | `order_status=95` | 理由必須 | — |
+| T-04 | 20→10 | 却下（WF E32 却下） | 承認者 | `order_status=10` | 理由必須。v1 は 95 を使わず 10 へ戻す（蓝色大肥鱼 2026-10-21 決定） | — |
 | T-05 | 25→30 | 下达 | `production:work-order:release` | `order_status=30`、`released_by/at`、E21 発行 | 材料明細 0 行なら同一トランザクションで有効 BOM を展開（基準日＝`planned_start_date`、未入力時は下达処理日の会社タイムゾーン当日（現時点 Asia/Shanghai。登録時と同一規則））。BOM なしは 422／`60020`／`MSG-PRD-020`、状態不変・書込みなし（蓝色大肥鱼 2026-10-21 #36 決定（蓝色大肥鱼 2026-10-21 PR #37 決定））。既存明細があれば再展開しない、引当可能（不足可）、工作日历済 | `MSG-PRD-044` |
 | T-06 | 30→35 | 首件報工/領料確定 | `production:work-report:create` / `material-issue:create` | `order_status=35`、`actual_start_date` | 保留中でない | — |
 | T-07 | 35→40 | 全数入庫 | `production:completion:create` | `order_status=40`、`completion_status=20`、`actual_end_date` | 入庫累計 ≥ order_qty、FQC 合格/特采 | `MSG-PRD-040` |
@@ -302,7 +301,7 @@ stateDiagram-v2
 | `order_status ≥ 25` | 品目・数量（完了済を除く）・BOM/工艺 | 編集不可（変更申請ボタンのみ） |
 | `order_status=10` | 下达ボタン | 非表示 |
 | `order_status=25` | 編集・削除 | 非表示、下达ボタン表示 |
-| `order_status ∈ {40,45,90,95}` | 編集・下达・領料・報工・入庫 | 非表示（詳細参照のみ） |
+| `order_status ∈ {40,45,90}` | 編集・下达・領料・報工・入庫 | 非表示（詳細参照のみ） |
 | `is_hold=true` | 報工・入庫 | 非表示、保留理由を表示 |
 | 権限 `production:work-order:cost-view` なし | 標準原価・実績原価・差異 | 非表示（API でも返さない） |
 | `standard_cost IS NULL`（下达前、または下达時に発行版なし） | 標準原価・原価差異 | 「未設定」と表示（0 と表示しない）。API は `standardCost: null`（PR #8 決定 2（蓝色大肥鱼 2026-10-21）） |
@@ -382,9 +381,9 @@ stateDiagram-v2
 1. `order_status=10` を確認（それ以外は `MSG-COM-034`）。
 2. 工序明細 1 行以上を確認する（0 行は 422／`60021`／`MSG-PRD-021`、状態不変（蓝色大肥鱼 2026-10-21 決定））。材料明細は確認しない（0 行可。材料は下达時に §6.4 2a で確保）（蓝色大肥鱼 2026-10-21 PR #37 決定）。
 2a. 全材料明細（BOM 展開行・手動行とも、変更追跡なし）について CHK-PRD-002-10 を再検査する（換算率の基準日は CALC-WO-10 に従う）。1 行でも換算不可なら 422／`60022`／`MSG-PRD-022` で中止し全体ロールバック（`order_status=10`・`version` 不変、WF 提出なし）（蓝色大肥鱼 2026-10-21 最終決定）。
-3. WF へ提出（`businessType=PRODUCTION_WORK_ORDER`、`businessId`、`variables` に金額・工場・優先度）。E31/E32 の受信で状態更新（冪等：`taskId`＋`result`）。
+3. WF へ提出（`businessType=WORK_ORDER`、`businessId`、`variables` に金額・工場・優先度）。E31/E32 の受信で状態更新（冪等：`taskId`＋`result`）。
 4. 承認時に `approved_by/at` を設定。自己承認チェック。
-5. 却下（95）は再提出不可（10 へ戻して修正）。
+5. 却下は 10（草稿）へ戻す（`order_status` に 95 は使わない。`prd_work_order_change.change_status` の 95 は対象外で変更しない）。E32 強制終了（TERMINATED）も 10 へ戻す（90 にしない）（蓝色大肥鱼 2026-10-21 決定）。却下理由は WF 履歴（`wf_task_operation`）のみに保存し、工单表に列は追加しない（蓝色大肥鱼 2026-10-21 決定）。WF は一級承認（生产主管）、流程 key `prd_work_order_release`（蓝色大肥鱼 2026-10-21 決定）。
 
 ### 6.4 工单下达（PRC-PRD-002-04）
 
@@ -707,3 +706,4 @@ stateDiagram-v2
 | v1.15 | 2026-10-21 | §6.4 2a 単位整合：既存材料明細は検査のみで回写しない（換算不可は 422／60022 で全体ロールバック、AC-PRD-13 と整合）（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.16 | 2026-10-21 | CALC-WO-10：換算率は正方向 1 件優先、正方向なしは逆方向 1 件で除算、正方向複数・逆方向複数・両方向なし・基本単位の mdm_uom 未登録・停用／削除単位（既存保存行も提出・下达で検査、データ不変）は 60022。基本単位と同一単位の行も含め全行を基本単位の decimal_places で切上げ（例外なし）（蓝色大肥鱼 2026-10-21 最終決定） | 业务分析 |
 | v1.17 | 2026-10-21 | HTTP 409 を `version` 競合（4003）専用とし、状態不整合（4002）・二重処理/処理中（4005）・同時実行・確定済変更不可・二重実行等の 409 も 422 に統一し、409 は `version` 競合（4003）のみとする（蓝色大肥鱼 2026-10-21 決定）。対象：:400、:497、:668 | 业务分析 |
+| v1.18 | 2026-10-21 | 状態遷移図・T-04・§規則 5：却下は 20→10（v1 は 95 不使用）。WF 一級（生产主管）・流程 key `prd_work_order_release` を追記（蓝色大肥鱼 2026-10-21 決定）。追補：画面制御から 95 を削除、businessType を `WORK_ORDER` に統一、E32 強制終了→10・却下理由は WF 履歴のみ、工单变更 change_status の 95 は不変（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

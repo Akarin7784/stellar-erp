@@ -312,7 +312,9 @@ describe('OverproductionApprovalView（SCR-PRD-034）', () => {
     save()
     await flushPromises()
     expect(api.create).not.toHaveBeenCalled()
-    expect(body().querySelector('[data-test="create-error"]')!.textContent).toContain('受注明细ID')
+    expect(body().querySelector('[data-test="create-error"]')!.textContent).toContain(
+      '销售订单明细ID',
+    )
 
     const set = (sel: string, v: string) => {
       const i = field(sel)
