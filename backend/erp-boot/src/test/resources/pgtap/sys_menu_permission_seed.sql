@@ -1,7 +1,7 @@
 -- pgTAP：菜单/权限/SYSTEM_ADMIN 种子（sys/V202610211405；01-system/94 §2.10、付录 A）
 -- owner 连接执行（superuser，绕过 RLS，须显式写 tenant_id），最后 ROLLBACK。
 BEGIN;
-SELECT plan(33);
+SELECT plan(36);
 
 -- 0. 迁移回填：种租户 0 已有付录 A 的全部菜单
 SELECT is((SELECT count(*)::int FROM sys_menu WHERE tenant_id = 0 AND deleted = FALSE), 589, '回填：租户 0 的 sys_menu = 589 行');
@@ -29,6 +29,11 @@ SELECT results_eq($$SELECT menu_type::int, count(*)::int FROM sys_menu WHERE ten
 SELECT is((SELECT count(*)::int FROM sys_menu WHERE tenant_id = 9201 AND menu_type = 2 AND is_visible), 174, '显示菜单 174 行');
 SELECT is((SELECT count(*)::int FROM sys_menu c WHERE c.tenant_id = 9201 AND c.parent_id <> 0
             AND NOT EXISTS (SELECT 1 FROM sys_menu p WHERE p.tenant_id = 9201 AND p.id = c.parent_id)), 0, 'parent_id 全部解决到同租户菜单');
+SELECT is((SELECT count(*)::int FROM sys_menu c WHERE c.tenant_id IN (0, 9201) AND c.parent_id <> 0
+            AND NOT EXISTS (SELECT 1 FROM sys_menu p WHERE p.tenant_id = c.tenant_id AND p.id = c.parent_id)), 0,
+          '租户 0（回填）与 9201：parent_id <> 0 的菜单都能在同一租户找到 id = parent_id 的菜单');
+SELECT results_eq($$SELECT menu_type::int, count(*)::int FROM sys_menu WHERE tenant_id = 9201 AND parent_id = 0 GROUP BY 1$$,
+                  $$VALUES (1, 10)$$, 'parent_id = 0 的行正好是 10 个目录（menu_type = 1）');
 SELECT is((SELECT p.menu_code::text FROM sys_menu c JOIN sys_menu p ON p.tenant_id = c.tenant_id AND p.id = c.parent_id
             WHERE c.tenant_id = 9201 AND c.menu_code = 'SCR-SYS-004'), 'DIR-SYS', 'SCR-SYS-004 的父菜单 = DIR-SYS');
 SELECT is((SELECT route_path::text FROM sys_menu WHERE tenant_id = 9201 AND menu_code = 'SCR-SYS-004'), 'system/users', 'route_path 不带开头的 /');
@@ -64,6 +69,10 @@ SELECT sys_init_tenant(9202);
 RESET ROLE;
 DELETE FROM sys_role_permission WHERE tenant_id = 9202;
 DELETE FROM sys_role WHERE tenant_id = 9202;
+CREATE TEMP VIEW v_seed_cnt AS
+  SELECT (SELECT count(*) FROM sys_role) AS roles, (SELECT count(*) FROM sys_role_permission) AS grants,
+         (SELECT count(*) FROM sys_param) AS params, (SELECT count(*) FROM sys_menu) AS menus;
+CREATE TEMP TABLE t_before AS SELECT * FROM v_seed_cnt;
 SET ROLE erp_app;
 SELECT set_config('app.tenant_id', '9202', true);
 SELECT throws_like($$SELECT sys_init_company(9201, 920101)$$, '%不一致%', 'erp_app：p_tenant_id 与 app.tenant_id 不一致 → 报错');
@@ -73,6 +82,11 @@ INSERT INTO sys_company (id, tenant_id, company_id, company_code, company_name, 
 SET ROLE erp_app;
 SELECT set_config('app.tenant_id', '9202', true);
 SELECT throws_like($$SELECT sys_init_company(9202, 920202)$$, '%不存在%', 'erp_app：传入已删除的公司 → 报错');
+RESET ROLE;
+SELECT results_eq($$SELECT * FROM v_seed_cnt$$, $$SELECT * FROM t_before$$,
+                  '三种报错调用前后 sys_role / sys_role_permission / sys_param / sys_menu 行数不变（什么都没写）');
+SET ROLE erp_app;
+SELECT set_config('app.tenant_id', '9202', true);
 SELECT lives_ok($$SELECT sys_init_company(9202, 920201)$$, 'erp_app：本租户公司调用成功');
 SELECT lives_ok($$SELECT sys_init_company(9202, 920201)$$, 'erp_app：重复调用成功');
 RESET ROLE;
