@@ -21,6 +21,12 @@
             <artifactId>erp-common</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!-- FactoryDataScope（CALC-02a 工厂数据范围，system 模块公开 API） -->
+        <dependency>
+            <groupId>com.stellar.erp</groupId>
+            <artifactId>erp-system</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>

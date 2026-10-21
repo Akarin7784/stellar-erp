@@ -1,4 +1,4 @@
-package com.stellar.erp.production.internal;
+package com.stellar.erp.system;
 
 import java.sql.Array;
 import java.util.HashSet;
@@ -10,7 +10,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
 
 /**
- * 工場次元のデータ範囲（01-system 02 BR-07 / CALC-02、06/91 §3.15・02 §4.7）。
+ * 工場次元のデータ範囲（CALC-02a。system 模块の公開 API（非 internal）として production 工单一览・mdm 工厂下拉から共用。01-system 02 BR-07 / CALC-02、06/91 §3.15・02 §4.7）。
  *
  * <p>実効値は「ユーザ個別（{@code sys_user_data_scope}）＞ロールのリソース別（{@code sys_role_data_scope}、
  * resource 完全一致＞{@code '*'}）＞ロール既定（{@code sys_role.data_scope_type}）」で解決する。
