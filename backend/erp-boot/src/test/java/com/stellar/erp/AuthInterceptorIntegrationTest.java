@@ -253,8 +253,10 @@ class AuthInterceptorIntegrationTest {
 
     @Test
     void userWithoutRolesGetsEmptyRolesPermissionsAndMenus() throws Exception {
-        owner.update("INSERT INTO sys_user (id, tenant_id, username, nickname, password) VALUES (?, ?, 'u7401', '用户', 'x')",
-                USER, TENANT);
+        owner.update("""
+                INSERT INTO sys_user (id, tenant_id, company_id, user_code, username, real_name, nickname, password_hash)
+                VALUES (?, ?, ?, 'E007401', 'u7401', '用户', '用户', 'x')
+                """, USER, TENANT, CO);
         withToken(token(USER, TENANT, CO), get("/api/system/auth/me"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.roles.length()").value(0))

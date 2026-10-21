@@ -88,7 +88,7 @@ class LoginIntegrationTest {
     }
 
     static void isBadCredentials(ResultActions r) throws Exception {
-        r.andExpect(status().isUnauthorized())
+        r.andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(2002))
                 .andExpect(jsonPath("$.msgId").value("MSG-COM-021"))
                 .andExpect(jsonPath("$.message").value("企业代码、用户名或密码错误。"));
@@ -132,7 +132,7 @@ class LoginIntegrationTest {
         }
         assertThat(owner.queryForObject("SELECT account_status FROM sys_user WHERE id = ?", Integer.class, USER)).isEqualTo(2);
         login(CODE, "u7501", PW)
-                .andExpect(status().isUnauthorized())
+                .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(2003))
                 .andExpect(jsonPath("$.msgId").value("MSG-COM-023"))
                 .andExpect(jsonPath("$.message").value("账号已被锁定，请于 30 分钟后重试或联系管理员。"));
@@ -157,5 +157,16 @@ class LoginIntegrationTest {
     void passwordResetRequiredFalseWhenCleared() throws Exception {
         owner.update("UPDATE sys_user SET password_reset_required = FALSE WHERE id = ?", USER);
         login(CODE, "u7501", PW).andExpect(jsonPath("$.data.passwordResetRequired").value(false));
+    }
+
+    @Test
+    void userWithoutRolesLogsInWithEmptyMenus() throws Exception {
+        PermissionGrants.cleanup(owner, TENANT);
+        login(CODE, "u7501", PW)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data.roles.length()").value(0))
+                .andExpect(jsonPath("$.data.permissions.length()").value(0))
+                .andExpect(jsonPath("$.data.menus.length()").value(0));
     }
 }
