@@ -1179,7 +1179,7 @@ CREATE INDEX idx_prd_work_order_material_material ON prd_work_order_material (te
 CREATE INDEX idx_prd_work_order_material_unissued ON prd_work_order_material (tenant_id, company_id, work_order_id, remaining_qty) WHERE remaining_qty > 0;
 ```
 
-> 単位（蓝色大肥鱼 2026-10-21 決定）：数量列は物料基本単位で保持し、BOM／手入力の単位と換算前数量を `bom_uom_code`・`bom_qty` に残す。換算は 02-mdm/90 §4.4 の `mdm_uom`（`conversion_group`・`decimal_places`）と `mdm_uom_conversion`（`conversion_rate`）による（CALC-WO-03、基本単位精度で切上げ）。単位はプロジェクト全体で `uom_code` 参照であり、`mdm_uom` の一意キー `uk_mdm_uom_code` は部分索引（`WHERE deleted = FALSE`）のため FK 参照先にならず、`bom_uom_code` も既存の `uom_code` 列と同じく FK なし（`mdm_uom` には `UNIQUE (tenant_id, id)` もない）。両列は既存迁移 `prd/V202610210702` に未収録のため、DB 担当が小さな追加迁移で `ADD COLUMN` する。
+> 単位（蓝色大肥鱼 2026-10-21 決定）：数量列は物料基本単位で保持し、BOM／手入力の単位と換算前数量を `bom_uom_code`・`bom_qty` に残す。換算は 02-mdm/90 §4.4 の `mdm_uom`（`conversion_group`・`decimal_places`）と `mdm_uom_conversion`（`conversion_rate`）による（CALC-WO-10、基本単位精度で切上げ）。単位はプロジェクト全体で `uom_code` 参照であり、`mdm_uom` の一意キー `uk_mdm_uom_code` は部分索引（`WHERE deleted = FALSE`）のため FK 参照先にならず、`bom_uom_code` も既存の `uom_code` 列と同じく FK なし（`mdm_uom` には `UNIQUE (tenant_id, id)` もない）。両列は既存迁移 `prd/V202610210702` に未収録のため、DB 担当が小さな追加迁移で `ADD COLUMN` する。
 
 ### 3.21 prd_work_order_operation（工单工序）
 
