@@ -296,6 +296,7 @@ sequenceDiagram
 | SCR-PRD-031 | 工时・效率统计 | 一覧検索 | F-PRD-017 | `production:report:view` | 菜单：生产管理 > 统计 | 033 |
 | SCR-PRD-032 | 设备台账 | 一覧検索 | F-PRD-018 | `production:equipment:view` | 菜单：生产管理 > 设备 | 032 |
 | SCR-PRD-033 | 生产报表 | 帳票プレビュー | F-PRD-019 | `production:report:view` | 菜单：生产管理 > 报表 | 031 |
+| SCR-PRD-034 | 超产申请一覧 | 一覧検索 | F-PRD-008 | `production:overproduction-approval:view` | 菜单：生产管理 > 超产申请 | 同一画面（詳細・新規・提出・承認/却下・取消はダイアログ。API は [91](91-api-design.md) 超産承認） |
 
 ## 6. 帳票一覧
 
@@ -518,4 +519,4 @@ sequenceDiagram
 
 
 | v1.1 | 2026-10-20 | 红队修复第2轮（REV-001/002/003/004/012 等）：INV 単一採番への整合（MII/MIR/FGI/OSI/OSR は INV 所有、PRD は request_no＋stock_doc_id/stock_doc_no 参照）、E15 resultCode/batchNo/warehouseId、E24 stockStatus=10 待検→E15 合格で 20 可用、原価サンプル 120 PCE／材料 79,187.55（標準 79,194.00・価格差異 −6.45）／人工 6,450.00／費用 7,740.00／93,377.55（778.15）、工单結案を 40＋closed_at に統一（45 廃止）、INV API 参照・工费率所有権 | production-designer |
-
+| v1.2 | 2026-10-21 | §5 画面一覧に SCR-PRD-034 超产申请一覧（`production:overproduction-approval:view`、菜单入口）を追加（#66/#68、蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
