@@ -301,3 +301,148 @@ export function toReleaseErrorView(err: unknown): ReleaseErrorView {
   }
   return { kind: 'generic', message: MSG_GENERIC_ERROR, reload: false }
 }
+
+// ───────── 工单一览（06/91 §3.15，GET /api/production/work-orders） ─────────
+
+/** 来源区分（90 prd_work_order.source_type）。 */
+export const SOURCE_TYPE_LABELS: Record<number, string> = {
+  10: 'MRP计划订单',
+  20: '手工',
+  30: '销售订单',
+  40: '拆分',
+  50: '合并',
+  60: '返工NCR',
+  70: 'MPS',
+}
+
+/** 一览默认状态条件（10,20,25,30,35；蓝色大肥鱼 2026-10-21 决定）。 */
+export const LIST_DEFAULT_STATUSES = [10, 20, 25, 30, 35] as const
+/** 一览默认计划完成日：当天〜+90 天 */
+export const LIST_DEFAULT_END_DAYS = 90
+export const LIST_PAGE_SIZE_MAX = 200
+/** sort 允许的键（§3.15） */
+export const LIST_SORT_KEYS = [
+  'workOrderNo',
+  'plannedStartDate',
+  'plannedEndDate',
+  'priorityNo',
+  'orderStatus',
+  'createdAt',
+] as const
+export type ListSortKey = (typeof LIST_SORT_KEYS)[number]
+
+/** backend WorkOrderListDto。 */
+export interface WorkOrderListRow {
+  id: string
+  workOrderNo: string
+  workOrderType: number
+  materialId: string
+  materialCode: string
+  materialName: string
+  materialSpec: string | null
+  uomCode: string
+  orderQty: string
+  completedQty: string
+  reportedGoodQty: string
+  progressRate: string
+  plannedStartDate: string
+  plannedEndDate: string
+  orderStatus: number
+  priorityNo: number
+  sourceType: number
+  isHold: boolean
+  factoryId: string
+  factoryCode: string | null
+  factoryName: string | null
+  departmentId: string | null
+  departmentName: string | null
+  /** null＝MTS（按库存生产） */
+  salesOrderId: string | null
+  salesOrderNo: string | null
+  customerId: string | null
+  customerName: string | null
+  version: number
+}
+
+export interface WorkOrderListQuery {
+  workOrderNo?: string
+  material?: string
+  workOrderType?: number
+  status?: number[]
+  plannedStartDateFrom?: string
+  plannedStartDateTo?: string
+  plannedEndDateFrom?: string
+  plannedEndDateTo?: string
+  factoryId?: string
+  departmentId?: string
+  salesOrderNo?: string
+  customerId?: string
+  priorityNo?: number
+  sourceType?: number
+  isHold?: boolean
+  sort?: { key: ListSortKey; dir: 'asc' | 'desc' }
+  pageNum?: number
+  pageSize?: number
+}
+
+export interface WorkOrderPage {
+  list: WorkOrderListRow[]
+  total: number
+  pageNum: number
+  pageSize: number
+  pages: number
+}
+
+/** 上海时区的 yyyy-MM-dd（today + offsetDays） */
+export function shanghaiDate(offsetDays = 0, now: Date = new Date()): string {
+  const d = new Date(now.getTime() + offsetDays * 86_400_000)
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(d)
+}
+
+/** 查询参数：去掉空值；status 逗号分隔；sort 为 `key,dir`；pageSize ≤ 200。 */
+export function buildListParams(q: WorkOrderListQuery): Record<string, string | number | boolean> {
+  const out: Record<string, string | number | boolean> = {}
+  const { status, sort, pageNum, pageSize, ...rest } = q
+  for (const [k, v] of Object.entries(rest)) {
+    if (v === undefined || v === null) continue
+    if (typeof v === 'string') {
+      const t = v.trim()
+      if (t) out[k] = t
+    } else out[k] = v as number | boolean
+  }
+  if (status && status.length) out.status = status.join(',')
+  if (sort) out.sort = `${sort.key},${sort.dir}`
+  out.pageNum = pageNum ?? 1
+  out.pageSize = Math.min(pageSize ?? 20, LIST_PAGE_SIZE_MAX)
+  return out
+}
+
+/** 一览检索（权限 production:work-order:view）。silent：错误由画面显示。 */
+export async function listWorkOrders(q: WorkOrderListQuery = {}): Promise<WorkOrderPage> {
+  const res = await http.get<ApiResult<WorkOrderPage>>('/production/work-orders', {
+    params: buildListParams(q),
+    silent: true,
+  })
+  return res.data.data
+}
+
+/**
+ * 一览错误 → 画面文案。消息由拦截器统一生成（403/3001・3002 为无权限文案）；
+ * 400/1001 参数错误（MSG-COM-043/044/045/046/049/088/089）显示 `[msgId] message`。
+ */
+export function toListErrorText(err: unknown): string {
+  if (err instanceof ApiError) {
+    if (err.code === 1001) {
+      const d = err.data as { message?: unknown } | undefined
+      const msg = typeof d?.message === 'string' && d.message ? d.message : err.message
+      return err.msgId ? `[${err.msgId}] ${msg}` : msg
+    }
+    return err.message || MSG_GENERIC_ERROR
+  }
+  return MSG_GENERIC_ERROR
+}
