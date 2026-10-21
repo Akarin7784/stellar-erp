@@ -116,7 +116,7 @@ class WorkOrderReleaseServiceTest {
         assertThat(c.getValue().materialId()).isEqualTo(900);
         assertThat(c.getValue().uomCode()).isEqualTo("PCE");
         assertThat(c.getValue().bomUomCode()).isEqualTo("PCE");
-        assertThat(c.getValue().bomQty()).isEqualByComparingTo("15.0000");
+        assertThat(c.getValue().bomQty()).isEqualByComparingTo("15.0754");   // 換算前の総必要量
     }
 
     @Test

@@ -19,8 +19,8 @@ import com.stellar.erp.production.ProductionErrorCode;
  *   <li>同一単位 → 整合（換算なし）。</li>
  *   <li>異なる単位 → 両方が同じ {@code mdm_uom.conversion_group}、かつ基準日 {@code d} に有効な換算率がちょうど 1 件。
  *       有効＝{@code deleted=FALSE AND status=1 AND valid_from <= d AND (valid_to IS NULL OR d <= valid_to)}（valid_to 含む）。
- *       {@code conversion_rate} は「1 from = n to」。from→base は ×rate、base→from（逆方向行）は ÷rate。
- *       正逆両方向の行が同時に有効な場合も「複数」とみなし 60022。</li>
+ *       {@code conversion_rate} は「1 from = n to」（CALC-WO-10）。{@code from=BOM 単位・to=基本単位} の行を使い（×rate）、
+ *       正方向が 0 件で逆方向行のみ 1 件なら ÷rate。正方向（または逆方向のみの場合の逆方向）が 0 件・複数件なら 60022。</li>
  *   <li>換算結果は基本単位の {@code mdm_uom.decimal_places} 桁へ CEILING（rounding_mode は無視）。</li>
  * </ul>
  * tenant は RLS、company は登录上下文の値で明示条件。
@@ -45,9 +45,11 @@ public class UomConverter {
         if (fromUom.equals(baseUom)) {
             return qty;
         }
-        BigDecimal rate = rate(company, fromUom, baseUom, d);
+        Rate rate = rate(company, fromUom, baseUom, d);
         int scale = uom(company, baseUom).orElseThrow(() -> mismatch(fromUom, baseUom)).decimalPlaces();
-        return qty.multiply(rate).setScale(scale, RoundingMode.CEILING);
+        return rate.forward()
+                ? qty.multiply(rate.rate()).setScale(scale, RoundingMode.CEILING)
+                : qty.divide(rate.rate(), scale, RoundingMode.CEILING);
     }
 
     /** 整合チェックのみ（換算はしない）。 */
@@ -57,8 +59,8 @@ public class UomConverter {
         }
     }
 
-    /** 1 {@code fromUom} = n {@code baseUom} の n。 */
-    BigDecimal rate(long company, String fromUom, String baseUom, LocalDate d) {
+    /** 適用する換算率（正方向優先、逆方向は正方向 0 件のときのみ）。 */
+    Rate rate(long company, String fromUom, String baseUom, LocalDate d) {
         Uom from = uom(company, fromUom).orElseThrow(() -> mismatch(fromUom, baseUom));
         Uom base = uom(company, baseUom).orElseThrow(() -> mismatch(fromUom, baseUom));
         if (!from.group().equals(base.group())) {
@@ -73,11 +75,20 @@ public class UomConverter {
                 .param("c", company).param("g", from.group()).param("from", fromUom).param("to", baseUom).param("d", d)
                 .query((rs, i) -> new Rate(rs.getBigDecimal(1), rs.getBoolean(2)))
                 .list();
-        if (rates.size() != 1) {
-            throw mismatch(fromUom, baseUom);
+        return pick(rates).orElseThrow(() -> mismatch(fromUom, baseUom));
+    }
+
+    /** 正方向がちょうど 1 件ならそれ、正方向 0 件かつ逆方向ちょうど 1 件ならそれ、それ以外（0 件・複数件）は空。 */
+    static Optional<Rate> pick(List<Rate> rates) {
+        List<Rate> forward = rates.stream().filter(Rate::forward).toList();
+        if (forward.size() == 1) {
+            return Optional.of(forward.get(0));
         }
-        Rate r = rates.get(0);
-        return r.forward() ? r.rate() : BigDecimal.ONE.divide(r.rate(), 16, RoundingMode.HALF_UP);
+        if (!forward.isEmpty()) {
+            return Optional.empty();
+        }
+        List<Rate> reverse = rates.stream().filter(r -> !r.forward()).toList();
+        return reverse.size() == 1 ? Optional.of(reverse.get(0)) : Optional.empty();
     }
 
     Optional<Uom> uom(long company, String code) {

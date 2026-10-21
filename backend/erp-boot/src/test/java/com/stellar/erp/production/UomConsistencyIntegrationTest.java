@@ -56,6 +56,7 @@ class UomConsistencyIntegrationTest {
         owner.execute("""
             INSERT INTO mdm_uom (id, tenant_id, company_id, uom_code, uom_name, conversion_group, decimal_places) VALUES
               (999071, 309, 91, 'PCE', '个', 'PCS', 0),
+              (999077, 309, 91, 'BX', '箱', 'PCS', 0),
               (999072, 309, 91, 'KGM', '千克', 'MASS', 3),
               (999073, 309, 91, 'GRM', '克', 'MASS', 0),
               (999074, 309, 91, 'TNE', '吨', 'MASS', 6),
@@ -160,10 +161,28 @@ class UomConsistencyIntegrationTest {
     }
 
     @Test
-    void multipleEffectiveRatesIs60022() {
-        rate(999104, CO, "GRM", "KGM", "0.001", "2026-01-01", null, 1, false);
-        rate(999105, CO, "KGM", "GRM", "1000", "2026-01-01", null, 1, false);    // 正逆両方向が同時に有効
-        is60022(() -> toKg("GRM", "1", D));
+    void forwardRateWinsOverReverseRow() {
+        rate(999104, CO, "GRM", "KGM", "0.002", "2026-01-01", null, 1, false);
+        rate(999105, CO, "KGM", "GRM", "1000", "2026-01-01", null, 1, false);    // 逆方向は正方向 0 件のときのみ
+        assertThat(toKg("GRM", "1000", D)).isEqualByComparingTo("2.000");
+    }
+
+    /** 同一方向の有効換算率の重複は ex_mdm_uom_conversion_period で DB が拒否（複数件 → 60022 は UomConverterTest）。 */
+    @Test
+    void overlappingSameDirectionRatesAreRejectedByDb() {
+        rate(999112, CO, "GRM", "KGM", "0.001", "2026-01-01", "2026-12-31", 1, false);
+        assertThatThrownBy(() -> rate(999113, CO, "GRM", "KGM", "0.002", "2026-12-31", null, 1, false))
+                .isInstanceOf(org.springframework.dao.DataAccessException.class);
+    }
+
+    @Test
+    void ac14BoxToPceCeilsTo121() {
+        owner.update("""
+            INSERT INTO mdm_uom_conversion (id, tenant_id, company_id, conversion_group, from_uom_code, to_uom_code,
+                conversion_rate, valid_from)
+            VALUES (999114, 309, 91, 'PCS', 'BX', 'PCE', 12, DATE '2026-01-01')
+            """);
+        assertThat(inTx(() -> uoms.toBase(CO, "BX", "PCE", new BigDecimal("10.0050"), D))).isEqualByComparingTo("121");
     }
 
     @Test
