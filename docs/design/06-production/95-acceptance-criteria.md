@@ -159,6 +159,14 @@
 - G：同上。W：E32 強制終了（TERMINATED）。T：`approval_status=90`、`allowed_qty` 不変。
 - G：E32 処理済。W：同一 `taskId`＋`result` を再受信。T：`approval_status`・`version`・受注行／工单の `allowed_qty` すべて不変（冪等）。
 
+## AC-PRD-22 工单一覧（蓝色大肥鱼 2026-10-21 決定）
+
+- G：当前会社に状態・工单号・品目・計画完成日の異なる工单が複数あり、他社の工单もある。W：`GET /api/production/work-orders`（条件なし）。T：200、当前会社の行のみ、`data` は `list`・`total`・`pageNum`・`pageSize`・`pages`。既定順は計画完成日昇順→優先度昇順→工单号昇順（91 §3.15）。
+- G：同上。W：`workOrderNo`（前方一致）、`material`（コード・名称の部分一致）、`status=10,20`、`plannedEndDateFrom`／`plannedEndDateTo`、`salesOrderNo` で絞込。T：条件に一致する行のみ。W：`plannedEndDateFrom` > `plannedEndDateTo`。T：**400 / `1001`**（`MSG-COM-046`）。
+- G：同上。W：`pageSize=201`。T：**400 / `1001`**、`data.fieldErrors` に `pageSize`（`MSG-COM-045`）。W：`pageNum=0` または `pageSize=0`。T：**400 / `1001`**、`fieldErrors`（`MSG-COM-044`）。`pageSize=200` は 200。
+- G：`production:work-order:view` なし。W：同 API。T：**403 / `3001`**。G：データ範囲外の工場。W：`factoryId` に当該工場。T：**403 / `3002`**。
+- 画面（SCR-PRD-008）：一覧は本 API を使い、既定検索条件（工場・状態 10〜35・計画完成日）は前端が送る。
+
 ## 改訂履歴
 
 | 版数 | 日付 | 変更内容 | 変更者 |
@@ -181,3 +189,4 @@
 | v1.15 | 2026-10-21 | AC-PRD-19：返却 11 項目、`size=201` は 400／1001＋fieldErrors（`size=200` は成功）を明記（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.16 | 2026-10-21 | AC-PRD-20（工单 WF：承認→25、却下→10、冪等）・AC-PRD-21（超産回調マッピング：承認→30、却下→40、強制終了→90）を追加（蓝色大肥鱼 2026-10-21 決定）。追補：#113（AC-PRD-19、合并済）に続けて 20／21 に繰下げ。AC-PRD-21 に冪等、AC-PRD-20 に強制終了→10・却下理由は WF 履歴（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.17 | 2026-10-21 | 工单下达で受注行 `allowed_qty` NULL・負値は 5000 → 422／60101（5000 は `prd.overproduction_max_rate` 欠落のみ、蓝色大肥鱼 2026-10-21 決定）。追補：5000 の対象は欠落したサーバー側システムパラメータ（`prd.overproduction_max_rate`・`prd.completion_over_rate` 等）すべて（蓝色大肥鱼 2026-10-21 決定：サーバー側システムパラメータ欠落はすべて 5000、BR-WO-15 は変更なし） | 业务分析 |
+| v1.18 | 2026-10-21 | AC-PRD-22 を追加：工单一覧（当前会社のみ、既定ソート、絞込、From > To は 400／1001／MSG-COM-046、`pageSize=201` は 400／1001／MSG-COM-045、`pageNum`・`pageSize` < 1 は 400／1001／MSG-COM-044、権限なし 403／3001、データ範囲外 403／3002）（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

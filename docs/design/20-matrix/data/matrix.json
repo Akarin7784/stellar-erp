@@ -29000,7 +29000,7 @@
     {
       "method": "GET",
       "path": "/api/production/work-orders",
-      "name": "工单一覧",
+      "name": "工单一覧（詳細 §3.15）",
       "permission": "production:work-order:view",
       "domain": "PRD",
       "source": "06-production/91-api-design.md"
