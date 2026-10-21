@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.stellar.erp.common.RequirePermission;
 import com.stellar.erp.common.Result;
 import com.stellar.erp.production.WorkOrderCreateCommand;
 import com.stellar.erp.production.WorkOrderApprovalService;
@@ -50,9 +51,10 @@ public class WorkOrderController {
     /**
      * 承認 20→25（Lead 2026-10-21 決定）。将来の Flowable E32 コールバックと同じ
      * {@link WorkOrderApprovalService#approve} を呼ぶ。08-workflow 落地後はコールバック専用とし、この API は廃止する。
-     * TODO 権限チェック（production:work-order:approve）は認証落地後に接入。
+     * 権限：production:work-order:approve（06/91 #28a）。
      */
     @PostMapping("/{id}/approve")
+    @RequirePermission("production:work-order:approve")
     public Result<WorkOrderDetail> approve(@PathVariable long id, @Valid @RequestBody WorkOrderStateCommand body) {
         return Result.ok(approvalService.approve(id, body));
     }

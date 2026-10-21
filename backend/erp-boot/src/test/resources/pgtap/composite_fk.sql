@@ -1,19 +1,19 @@
--- pgTAP：复合外键（sys/V202610210707、inv/V202610211409・V202610211410）。指向有 company_id 的 sys_/mdm_ 表的 FK 须为三列 (tenant_id, company_id, x)（2 列须登记：已定例外或待改存量），跨租户引用被拒。
+-- pgTAP：复合外键（sys/V202610210707、inv/V202610211409・V202610211410、prd/V202610211411）。指向有 company_id 的 sys_/mdm_ 表的 FK 须为三列 (tenant_id, company_id, x)（2 列须登记：已定例外或待改存量），跨租户引用被拒。
 BEGIN;
-SELECT plan(12);
+SELECT plan(13);
 
 SELECT is((SELECT count(*)::int FROM pg_constraint k JOIN pg_class r ON r.oid = k.confrelid
             WHERE k.contype = 'f' AND array_length(k.conkey, 1) = 1 AND r.relname ~ '^(sys|mdm)_'),
           0, '指向 sys_/mdm_ 的单列外键为 0');
 -- 断言 2（收紧）：被引用表有 company_id 时只允许三列 (tenant_id, company_id, x) → (tenant_id, company_id, id)；
 -- 被引用表无 company_id 时为 (tenant_id, x) → (tenant_id, id)。被引用侧末列必须是 id。
--- 2 列 (tenant_id, x) → (tenant_id, id) 登记表：〔A〕已定例外 1 条、〔B〕待改为三列（存量，按域分批）76 条（inv 27 条已由 inv/V202610211410 改为三列）。新增 FK 不得默认走 2 列。
+-- 2 列 (tenant_id, x) → (tenant_id, id) 登记表：〔A〕已定例外 1 条、〔B〕待改为三列（存量，按域分批）47 条（inv 27 条已由 inv/V202610211410、prd 29 条已由 prd/V202610211411 改为三列）。新增 FK 不得默认走 2 列。
 CREATE TEMP TABLE t_cfk_2col_exception (conname name PRIMARY KEY) ON COMMIT DROP;
 INSERT INTO t_cfk_2col_exception VALUES
         -- 〔A〕已定例外 1 条（04 §6.2 2a 命名例外）
         -- 指向 sys_menu（company_id=0 的租户级表）1 条
         ('fk_sys_role_permission_menu'),
-        -- 〔B〕待改为三列（存量，按域分批）76 条：prd 29／sal 14／fin 1／mdm 32（inv 27 条已于 inv/V202610211410 改为三列）
+        -- 〔B〕待改为三列（存量，按域分批）47 条：sal 14／fin 1／mdm 32（inv 27 条已于 inv/V202610211410、prd 29 条已于 prd/V202610211411 改为三列）
         -- mdm 域内部 32 条
         ('fk_mdm_admission_supplier'),
         ('fk_mdm_bank_account_bank'),
@@ -49,36 +49,6 @@ INSERT INTO t_cfk_2col_exception VALUES
         ('fk_mdm_warehouse_zone_warehouse'),
         -- fin 1 条
         ('fk_fin_standard_cost_material'),
-        -- prd 29 条
-        ('fk_prd_bom_factory'),
-        ('fk_prd_bom_line_component'),
-        ('fk_prd_bom_material'),
-        ('fk_prd_bom_substitute_material'),
-        ('fk_prd_completion_receipt_line_material'),
-        ('fk_prd_completion_receipt_wh'),
-        ('fk_prd_demand_forecast_material'),
-        ('fk_prd_inspection_material'),
-        ('fk_prd_material_issue_wh'),
-        ('fk_prd_material_planning_factory'),
-        ('fk_prd_material_planning_material'),
-        ('fk_prd_mps_factory'),
-        ('fk_prd_mps_line_material'),
-        ('fk_prd_mrp_run_factory'),
-        ('fk_prd_outsourcing_issue_line_material'),
-        ('fk_prd_outsourcing_issue_wh'),
-        ('fk_prd_outsourcing_order_factory'),
-        ('fk_prd_outsourcing_order_line_material'),
-        ('fk_prd_outsourcing_order_supplier'),
-        ('fk_prd_outsourcing_receipt_line_material'),
-        ('fk_prd_outsourcing_receipt_wh'),
-        ('fk_prd_outsourcing_settlement_line_material'),
-        ('fk_prd_outsourcing_settlement_supplier'),
-        ('fk_prd_routing_factory'),
-        ('fk_prd_routing_material'),
-        ('fk_prd_work_center_factory'),
-        ('fk_prd_work_order_factory'),
-        ('fk_prd_work_order_material'),
-        ('fk_prd_work_order_material_material'),
         -- sal 14 条
         ('fk_sal_credit_log_customer'),
         ('fk_sal_credit_occ_customer'),
@@ -119,6 +89,9 @@ SELECT ok(EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uk_mdm_material_t
 SELECT is((SELECT count(*)::int FROM t_cfk WHERE conname ~ '^fk_inv_'
             AND NOT (cols[1:2] = ARRAY['tenant_id', 'company_id']::name[] AND refcols = ARRAY['tenant_id', 'company_id', 'id']::name[])),
           0, 'inv → mdm FK 28 条全部为 04 §6.2 2a 标准三列形（inv/V202610211409・V202610211410），登记表无 fk_inv_*');
+SELECT is((SELECT count(*)::int FROM t_cfk WHERE conname ~ '^fk_prd_'
+            AND NOT (cols[1:2] = ARRAY['tenant_id', 'company_id']::name[] AND refcols = ARRAY['tenant_id', 'company_id', 'id']::name[])),
+          0, 'prd → mdm FK 29 条全部为 04 §6.2 2a 标准三列形（prd/V202610211411），登记表无 fk_prd_*');
 SELECT is((SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'fk_inv_stock_balance_material'),
           'FOREIGN KEY (tenant_id, company_id, material_id) REFERENCES mdm_material(tenant_id, company_id, id)',
           'fk_inv_stock_balance_material 为 04 §6.2 2a 标准三列形 = (tenant_id, company_id, material_id) → mdm_material(tenant_id, company_id, id)');
