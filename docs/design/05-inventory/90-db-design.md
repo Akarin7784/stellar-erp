@@ -4,7 +4,7 @@
 |---|---|
 | 文書名 | 库存管理 DB 设计书（在庫管理 DB 設計書） |
 | 文書番号 | DSN-INV-090 |
-| 版数 | v1.10 |
+| 版数 | v1.11 |
 | 作成日 | 2026-10-20 |
 | 作成者 | inventory-designer |
 | 承認者 | 未承認（レビュー待ち） |
@@ -179,7 +179,7 @@ CREATE POLICY tenant_isolation ON inv_xxx
 ```
 
 - パーティション表 `inv_stock_txn` は親表に ENABLE/FORCE とポリシーを付ける。**子パーティション（初回 25 個：2026-01〜2027-12 + DEFAULT）にも ENABLE/FORCE RLS とポリシーを付け、`REVOKE ALL ON <子> FROM erp_app` で直接アクセスを禁止する**（`erp_app` は親表経由のみ。`RlsCoverageTest` は relkind='r' の子表も対象）。
-- 以降の月次パーティションは**月次パーティション作成関数**（`inv_` 接頭辞、`SECURITY INVOKER`、関数名は #55 迁移に従う）でのみ作成し、同関数が作成と同一 TX で ENABLE/FORCE RLS・ポリシー付与・`REVOKE ALL FROM erp_app` を行う。pgTAP で新規作成分区の RLS 有効と `erp_app` 無権限を断言する（蓝色大肥鱼 2026-10-21 決定、PR #55）。
+- 以降の月次パーティションは**月次パーティション作成関数**`public.inv_create_stock_txn_partition(p_month DATE)`（`SECURITY DEFINER`、`REVOKE EXECUTE ... FROM PUBLIC`、実行権限は `erp_partition_maintainer` のみ。4.2.2 参照）でのみ作成し、同関数が作成と同一 TX で ENABLE/FORCE RLS・ポリシー付与・`REVOKE ALL FROM erp_app` を行う。pgTAP で新規作成分区の RLS 有効と `erp_app` 無権限を断言する（蓝色大肥鱼 2026-10-21 決定、PR #55）。
 - `erp_app` の DML 権限は `sys/V202610200101` の `ALTER DEFAULT PRIVILEGES` で自動付与されるため、迁移で GRANT を書かない。
 - **同域親子 FK の被参照表**には `CONSTRAINT uk_<table>_tenant_company_id UNIQUE (tenant_id, company_id, id)` を付ける（業務一意キーではない。PR #43 `sys/V202610211401` の規則）。本域の対象：`inv_transfer`、`inv_stocktake_plan`、`inv_stocktake`、`inv_serial`、`inv_reservation`、`inv_cost_adjustment`。
 - `uk_<table>_tenant_id UNIQUE (tenant_id, id)` は**他域から複合 FK で参照される表にのみ**付ける（[04 §6.2](../00-common/04-common-db-spec.md)）。本域の表を他域が硬 FK で参照する計画はないため、本域では 0 件。
@@ -380,7 +380,10 @@ CREATE TABLE inv_stock_txn (
     CONSTRAINT ck_inv_stock_txn_reversal CHECK (is_reversal = FALSE OR reversal_of_txn_id IS NOT NULL)
 ) PARTITION BY RANGE (txn_date);
 -- 月次パーティション：inv_stock_txn_yYYYYmMM（例 inv_stock_txn_y2026m10）。初回迁移で 2026-01〜2027-12 と DEFAULT パーティションを作成し、
--- 以降は月次ジョブ（sys_scheduled_job）が月次パーティション作成関数で 3 か月先まで事前作成する（第 10 章 #7）。
+-- 以降は月次ジョブ（sys_scheduled_job）が public.inv_create_stock_txn_partition(p_month DATE) で少なくとも 3 か月先まで事前作成する（第 10 章 #7）。
+-- 関数は SECURITY DEFINER。REVOKE EXECUTE ON FUNCTION public.inv_create_stock_txn_partition(DATE) FROM PUBLIC とし、
+-- EXECUTE は専用ロール erp_partition_maintainer にのみ GRANT する（同ロールの権限は当該関数の EXECUTE のみ）。月次ジョブは同ロールで実行し、迁移用アカウントでは実行しない。
+-- DEFAULT パーティション inv_stock_txn_default に 1 行でも存在すればアラートを上げる（DEFAULT に当該月の行があると月分区の作成が失敗するため）。
 -- 同関数は新分区に ENABLE/FORCE RLS・ポリシーを付け、erp_app から REVOKE ALL する（§3.4、蓝色大肥鱼 2026-10-21 決定）。
 
 -- パーティション表の一意索引はパーティションキーを含む必要があるため、全社一意は 4.2.6 の inv_stock_txn_key で保証する（第 10 章 #7 決定済）。
@@ -1821,3 +1824,4 @@ COMMENT ON COLUMN inv_event_wait.waiting_for IS 'PI=入荷待ち、FGI=完工入
 | v1.8 | 2026-10-21 | 未決 #7〜#12 を決定済に（蓝色大肥鱼 2026-10-21 決定）：`inv_stock_txn_key` 正式化、標準原価差異・月初版切替・月結後再評価、MTO は工单単位批次で受注別引当、E19→J31、`inv_event_wait` に OSR/OUTSOURCING_ORDER、mdm 硬 FK（04 §6 改訂） | 业务分析 |
 | v1.9 | 2026-10-21 | §9 版数規則から具体版数を削除（main 最大版より大きいこと、check-migrations で確認）、§6.3 の余分な表区切り行を削除 | 业务分析 |
 | v1.10 | 2026-10-21 | PR #55 指摘の決定反映（蓝色大肥鱼 2026-10-21 決定）：`ck_inv_stock_txn_reason` を NULL 不可に（AOI/AOO 10〜60、SC_OUT 10〜50）、`uk_inv_batch_genealogy_key` を NULLS NOT DISTINCT、子パーティション RLS・REVOKE と月次作成関数（§3.4/4.2.2）、明細 insert-only（4.3.3）、`txn_id` FK なし（4.3.2）、`inv_stock_balance.material_id` 硬 FK と履歴・ログ表の倉庫 FK（§6.3）、§6.3 末尾の旧 FK 表を削除、`inv_stock_txn` 索引 6 本を具名例外（§5） | 业务分析 |
+| v1.11 | 2026-10-21 | 月次パーティション作成関数を `public.inv_create_stock_txn_partition(p_month DATE)`（SECURITY DEFINER、PUBLIC から REVOKE）と明記、月次ジョブは専用ロール `erp_partition_maintainer`（当該関数の EXECUTE のみ）で実行・3 か月以上先まで事前作成、DEFAULT パーティションに行があればアラート（§3.4・4.2.2） | 业务分析 |

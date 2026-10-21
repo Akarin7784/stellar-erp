@@ -1,6 +1,6 @@
 -- pgTAP：同域父子表复合外键（sys/V202610211401）。public 下非 mdm 同域外键必须为 (tenant_id, company_id, x_id) → (tenant_id, company_id, id)，跨公司引用被拒。
 BEGIN;
-SELECT plan(9);
+SELECT plan(11);
 
 -- 同域判定：public 下表名前缀（split_part(_,1)）相同；排除 Flowable 引擎表（act_/flw_）。
 -- 合规形态：(tenant_id, company_id, x_id) → (tenant_id, company_id, id)；
@@ -35,6 +35,14 @@ SELECT is((SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = '
 SELECT ok(EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uk_prd_bom_tenant_company_id' AND contype = 'u'
                    AND pg_get_constraintdef(oid) = 'UNIQUE (tenant_id, company_id, id)'),
           'prd_bom 有 uk_prd_bom_tenant_company_id UNIQUE (tenant_id, company_id, id)');
+
+SELECT is((SELECT count(*)::int FROM t_sdfk WHERE dom = 'inv'), 6, 'inv 域同域外键（动态收集）= 6 条（90-db-design.md §6.3 #1〜6）');
+SELECT set_eq($$SELECT conname::text FROM t_sdfk WHERE dom = 'inv'
+                 AND array_length(cols, 1) = 3 AND cols[1] = 'tenant_id' AND cols[2] = 'company_id'
+                 AND refcols = ARRAY['tenant_id', 'company_id', 'id']::name[]$$,
+              ARRAY['fk_inv_transfer_line_head', 'fk_inv_stocktake_plan', 'fk_inv_stocktake_line_head',
+                    'fk_inv_serial_txn_serial', 'fk_inv_reservation_line_head', 'fk_inv_cost_adjustment_line_head'],
+              'inv 文档 6 条同域外键全部被动态收集到且为 (tenant_id, company_id, x_id) → (tenant_id, company_id, id)');
 
 -- 准备（owner）：租户 803 的工厂 + 公司 1 的 MRP 运行
 INSERT INTO mdm_factory (id, tenant_id, company_id, factory_code, factory_name)
