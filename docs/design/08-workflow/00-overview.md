@@ -9,7 +9,7 @@
 | 作成者 | system-workflow（域設計担当） |
 | 承認者 | 未承認（レビュー待ち） |
 | 状態 | ドラフト（レビュー中） |
-| 関連文書 | [体系总览](../README.md) / [共通业务规则](../00-common/08-common-business-rules.md) / [跨域流程](../00-common/09-cross-domain-flow.md) / [系统管理概要](../01-system/00-overview.md) / [Flowable 8.0.0 技術前提](../../tech-selection.md) |
+| 関連文書 | [体系总览](../README.md) / [共通业务规则](../00-common/08-common-business-rules.md) / [跨域流程](../00-common/09-cross-domain-flow.md) / [系统管理概要](../01-system/00-overview.md) / [Flowable 8.0.0 技術前提](../../tech-selection.md) / [業務伝票承認 横断一覧](04-business-approval-catalog.md) |
 
 ---
 
@@ -299,3 +299,4 @@ sequenceDiagram
 | v1.0 | 2026-10-20 | 初版：業務概要、承認ロール/マトリクス、業務フロー、F-WF-001〜012、画面 16、帳票 4、バッチ 6、テーブル 15、IF 3、権限一覧、用語、未決 10 | system-workflow |
 | v1.1 | 2026-10-20 | 90-data/approval-matrix.md と整合：`APR-*` 流程キー・A01〜A20 シナリオ・`ROLE-*` ロールの対応を明記。未決 #1 に他域参照の事実と選択肢を追記、#1-b を追加 | system-workflow |
 | v1.2 | 2026-10-20 | Lead 裁决反映：承認マトリクス表名 `wf_approval_matrix`（WF 所有）・流程キー `APR-*`・シナリオコードの扱いを已裁决に更新 | system-workflow |
+| v1.3 | 2026-10-21 | 関連文書に [04 業務伝票承認・状態遷移 横断一覧](04-business-approval-catalog.md)（DSN-WF-004：既存定義の集約、待確認 10 件）を追加 | 业务分析 |

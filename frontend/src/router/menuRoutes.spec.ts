@@ -8,8 +8,16 @@ import { menuChildren } from './index'
 // vitest 在 frontend/ 下运行
 const DOC = resolve(process.cwd(), '../docs/design/01-system/94-sample-data.md')
 
-/** 从 94 付録 A 解析 menu_type=2 行：[画面 ID, route_path]。 */
-function docMenus(): [string, string][] {
+interface DocMenu {
+  screenId: string
+  title: string
+  path: string
+  permission: string
+  hidden: boolean
+}
+
+/** 94 付録 A 的表格行（列：# | menu_code | menu_name | menu_type | module | 親 | route_path | permission_code | sort_no | 備考）。 */
+function docRows(): string[][] {
   const text = readFileSync(DOC, 'utf8')
   const start = text.indexOf('## 6. 付録 A')
   const section = text.slice(start, text.indexOf('\n## ', start + 1))
@@ -17,15 +25,37 @@ function docMenus(): [string, string][] {
     .split('\n')
     .filter((l) => /^\| \d+ \|/.test(l))
     .map((l) => l.split('|').map((c) => c.trim().replace(/`/g, '')))
-    .filter((c) => c[4].startsWith('2'))
-    .map((c) => [c[2], c[7]])
+}
+
+/** menu_type=2 行。 */
+function docMenus(): DocMenu[] {
+  return docRows()
+    .filter((c) => c[4]!.startsWith('2'))
+    .map((c) => ({
+      screenId: c[2]!,
+      title: c[3]!,
+      path: c[7]!,
+      permission: c[8]!,
+      hidden: c[10]!.includes('is_visible=FALSE'),
+    }))
 }
 
 describe('menuRoutes（94 付録 A）', () => {
-  it('与文档的菜单行完全一致（画面 ID、route_path、顺序）', () => {
+  it('与文档的菜单行完全一致（画面 ID、menu_name、route_path、permission_code、非表示、顺序）', () => {
     const doc = docMenus()
     expect(doc.length).toBe(340)
-    expect(MENU_ROUTES.map((m) => [m.screenId, m.path])).toEqual(doc)
+    expect(MENU_ROUTES.map((m) => ({ ...m }))).toEqual(doc)
+  })
+
+  it('文档中没有 menu_type=4（外部链接）行；将来出现时不生成路由、不检查权限', () => {
+    expect(docRows().some((c) => c[4]!.startsWith('4'))).toBe(false)
+  })
+
+  it('每个菜单路由的 meta 带 title / permission / hidden', () => {
+    for (const r of menuChildren) {
+      const m = MENU_ROUTES.find((x) => x.path === r.path)!
+      expect(r.meta).toMatchObject({ title: m.title, permission: m.permission, hidden: m.hidden })
+    }
   })
 
   it('route_path 与路由名均唯一', () => {
