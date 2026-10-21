@@ -695,7 +695,7 @@
 | PUT | /api/production/work-centers/{id} | 工作中心変更 | 同上 | PRD | 06-production/91-api-design.md |
 | GET | /api/production/work-centers/{id}/calendar | 工作日历取得 | production:work-center:view | PRD | 06-production/91-api-design.md |
 | POST | /api/production/work-centers/{id}/calendar | 工作日历一括登録 | production:work-center:update | PRD | 06-production/91-api-design.md |
-| GET | /api/production/work-orders | 工单一覧 | production:work-order:view | PRD | 06-production/91-api-design.md |
+| GET | /api/production/work-orders | 工单一覧（詳細 §3.15） | production:work-order:view | PRD | 06-production/91-api-design.md |
 | POST | /api/production/work-orders | 工单登録 | production:work-order:create | PRD | 06-production/91-api-design.md |
 | POST | /api/production/work-orders/batch-release | 一括下达 | 同上 | PRD | 06-production/91-api-design.md |
 | GET | /api/production/work-orders/by-no/{no} | 工单番号検索（PDA） | 同上 | PRD | 06-production/91-api-design.md |

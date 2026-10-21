@@ -64,7 +64,7 @@
 
 | # | メソッド | パス | 権限 | 概要 | 関連機能 |
 |---|---|---|---|---|---|
-| 23 | GET | `/api/production/work-orders` | `production:work-order:view` | 工单一覧 | F-PRD-005 |
+| 23 | GET | `/api/production/work-orders` | `production:work-order:view` | 工单一覧（詳細 §3.15） | F-PRD-005 |
 | 24 | GET | `/api/production/work-orders/{id}` | 同上 | 工单詳細 | F-PRD-005 |
 | 25 | GET | `/api/production/work-orders/by-no/{no}` | 同上 | 工单番号検索（PDA） | F-PRD-005 |
 | 26 | POST | `/api/production/work-orders` | `production:work-order:create` | 工单登録 | F-PRD-005 |
@@ -592,14 +592,70 @@
 | 却下 `POST /api/production/overproduction-approvals/{id}/reject` | `{ "version": n, "rejectReason": "…" }`（`rejectReason` **必須**・≤ 500 文字、DB `reject_reason VARCHAR(500)`。共通 [03 §284](../00-common/03-common-api-spec.md) 却下理由必須） | 200（20→40） | `rejectReason` 未入力・空白のみは 400／`1001`（`MSG-COM-040`）、500 文字超過は 400／`1001`（`MSG-COM-041`）（[03 §6.2](../00-common/03-common-api-spec.md)）／20 以外は `60101`／`4003` |
 | 取消 `POST /api/production/overproduction-approvals/{id}/cancel` | `{ "version": n }` | 200（10・20→90） | 30・40・90 は `60101`／`4003` |
 | 詳細 `GET /api/production/overproduction-approvals/{id}` | — | 200 + 申請 DTO | 他社・不存在は 404 |
-| 一覧 `GET /api/production/overproduction-approvals` | `page`、`size`、絞込（受注行・工单・状態） | 200 + `PageResult` | 当前会社＋RLS |
-| 受注行選択 `GET /api/production/overproduction-approvals/sales-order-lines` | `salesOrderNo`（部分一致）、`material`（品目コードまたは品目名の部分一致）、`page`、`size`（最大 200。`size` > 200 は 400／`1001`＋`fieldErrors`（`MSG-COM-045`）、`page`・`size` < 1 は 400／`1001`＋`fieldErrors`（`MSG-COM-044`）） | 200 + `PageResult`（1 行 11 項目。`salesOrderLineId`、`salesOrderId`、`salesOrderNo`、`lineNo`、`materialId`、`materialCode`、`materialName`、`baseUomCode`、`baseQty`、`allowedQty`、`completedQty`） | 対象は当前会社かつ受注ヘッダ状態 25/30/35、受注行状態 10/30/35、`allowed_qty` IS NOT NULL の行のみ。権限なしは 403／`3001`（蓝色大肥鱼 2026-10-21 決定） |
+| 一覧 `GET /api/production/overproduction-approvals` | `pageNum`、`pageSize`、絞込（受注行・工单・状態） | 200 + `PageResult` | 当前会社＋RLS |
+| 受注行選択 `GET /api/production/overproduction-approvals/sales-order-lines` | `salesOrderNo`（部分一致）、`material`（品目コードまたは品目名の部分一致）、`pageNum`、`pageSize`（1〜200、[03 §7.1](../00-common/03-common-api-spec.md)。`pageSize` > 200 は 400／`1001`＋`fieldErrors`（`MSG-COM-045`）、`pageNum`・`pageSize` < 1 は 400／`1001`＋`fieldErrors`（`MSG-COM-044`）） | 200 + `PageResult`（1 行 11 項目。`salesOrderLineId`、`salesOrderId`、`salesOrderNo`、`lineNo`、`materialId`、`materialCode`、`materialName`、`baseUomCode`、`baseQty`、`allowedQty`、`completedQty`） | 対象は当前会社かつ受注ヘッダ状態 25/30/35、受注行状態 10/30/35、`allowed_qty` IS NOT NULL の行のみ。権限なしは 403／`3001`（蓝色大肥鱼 2026-10-21 決定） |
 
 - 申請 DTO の `requestedByName`（申請者名）は `sys_user` を `tenant_id` と `id` のみで結合する（ユーザは複数会社に所属し得るため `company_id` では絞らない。蓝色大肥鱼 2026-10-21 決定）。
 
 - **WF 接入後**：流程 key `prd_overproduction_approval`、一級（生产主管）。表の状態値は 30／40 のまま、E32 受信側で承認→30、却下→40、強制終了→90 にマッピングする（蓝色大肥鱼 2026-10-21 決定）。
 - **承認時の更新（案 B）**：受注行→工单の順に `FOR UPDATE`。工单級は受注行と当該工单の `allowed_qty` をそれぞれ +`request_qty`、受注行級は受注行のみ +`request_qty`。更新 0 行は全体ロールバック。却下・取消では `allowed_qty` を変更しない。
 - **version**：承認により受注行と工单の `version` が +1 される（想定どおり）。前端は編集画面の保存で 409／`4003` を受けた場合、「データが更新されました」と表示して再読込する（自動上書きしない）。
+
+### 3.15 GET `/api/production/work-orders`（工单一覧、§2.2 #23、蓝色大肥鱼 2026-10-21 決定）
+
+画面 SCR-PRD-008（[02-work-order.md §4.6](02-work-order.md)）の一覧検索 API。会社・租户はログインコンテキストから取り（当前会社＋RLS）、クエリの `companyId` は受け付けない。工单は伝票のため `deleted` 列を持たず（[90 §1.2](90-db-design.md)）、取消（`order_status=90`）も検索対象とする（状態条件で除外）。
+
+| 項目 | 内容 |
+|---|---|
+| 権限 | `production:work-order:view`。なしは 403／`3001`（`MSG-COM-030`）。データ範囲外の工場を `factoryId` に指定した場合は 403／`3002`（`MSG-COM-031`、[02 §4.7](02-work-order.md)）。範囲指定なしの検索ではデータ範囲内の工場の行のみ返す |
+| ページング | `pageNum`（既定 1、≥ 1）、`pageSize`（既定 20、1〜200）（[03 §7.1](../00-common/03-common-api-spec.md)）。`pageSize` > 200 は 400／`1001`＋`fieldErrors`（`MSG-COM-045`）、`pageNum`・`pageSize` < 1 は 400／`1001`＋`fieldErrors`（`MSG-COM-044`）（§3.14 受注行選択と同一） |
+| ソート | 既定：`planned_end_date` 昇順 → `priority_no` 昇順 → `work_order_no` 昇順（[02 §4.6](02-work-order.md)）。`sort` 指定は [03 §7.1](../00-common/03-common-api-spec.md) 形式、許可キーは `workOrderNo`・`plannedStartDate`・`plannedEndDate`・`priorityNo`・`orderStatus`・`createdAt`。それ以外は 400／`1001`＋`fieldErrors`（蓝色大肥鱼 2026-10-21 決定） |
+| レスポンス | 200 + `PageResult<WorkOrderListDto>`（`data.list`・`total`・`pageNum`・`pageSize`・`pages`、[03 §7.2](../00-common/03-common-api-spec.md)） |
+
+**検索条件**（すべて任意、AND 結合。[02 §4.6](02-work-order.md) の検索条件のうち `prd_work_order` に列があるもの）
+
+| パラメータ | 対象列 | 条件 |
+|---|---|---|
+| `workOrderNo` | `work_order_no` | 前方一致 |
+| `material` | `material_code`・`material_name`（スナップショット） | 部分一致（いずれか。`salesOrderNo` 部分一致・`workOrderNo` 前方一致とあわせて蓝色大肥鱼 2026-10-21 決定） |
+| `workOrderType` | `work_order_type` | 一致（10/20/30/40） |
+| `status` | `order_status` | 複数（`status=10,20,25`）。値は 10/20/25/30/35/40/90 のみ、それ以外は 400／`1001` |
+| `plannedStartDateFrom`／`plannedStartDateTo` | `planned_start_date` | 範囲（両端含む） |
+| `plannedEndDateFrom`／`plannedEndDateTo` | `planned_end_date` | 範囲（両端含む） |
+| `factoryId` | `factory_id` | 一致 |
+| `departmentId` | `department_id` | 一致 |
+| `salesOrderNo` | `sales_order_no`（スナップショット） | 部分一致 |
+| `customerId` | `customer_id` | 一致 |
+| `priorityNo` | `priority_no` | 一致（1〜9） |
+| `sourceType` | `source_type` | 一致（10/20/30/40/50/60/70） |
+| `isHold` | `is_hold` | 一致（`true`/`false`） |
+
+- `workOrderNo`（前方一致）・`material`・`salesOrderNo`（部分一致）は `prd_work_order` のスナップショット列（`work_order_no`・`material_code`・`material_name`・`sales_order_no`）で照合し、他表は結合しない。利用者入力中の `%`・`_`・`\` はワイルドカード付与前にエスケープし、`LIKE … ESCAPE '\'` で照合する（入力の `%` は文字として扱う）（蓝色大肥鱼 2026-10-21 決定）。
+- 日付範囲で From > To は 400／`1001`（`MSG-COM-046`）。
+- 画面の既定検索条件（蓝色大肥鱼 2026-10-21 決定）（工場＝ログインユーザ既定、状態＝10,20,25,30,35、計画完成日＝当日〜+90 日）は**前端が初期値として送る**。API 側は条件未指定時に絞り込まない。
+- 「欠品フラグ」は `prd_work_order` に列がないため現時点では検索条件・行項目とも返さない。**廃止ではなく保留**とし、MRP の欠品計算の実装後に追加する（蓝色大肥鱼 2026-10-21 決定）。
+
+**行項目（`WorkOrderListDto`）**
+
+| 項目 | 由来 |
+|---|---|
+| `id` | `prd_work_order.id` |
+| `workOrderNo` | `work_order_no` |
+| `workOrderType` | `work_order_type` |
+| `materialId`／`materialCode`／`materialName`／`materialSpec` | `material_id`・`material_code`・`material_name`・`material_spec`（スナップショット、`mdm_material` は結合しない） |
+| `uomCode` | `uom_code` |
+| `orderQty`／`completedQty`／`reportedGoodQty`／`progressRate` | 同名列（文字列） |
+| `plannedStartDate`／`plannedEndDate` | `planned_start_date`・`planned_end_date` |
+| `orderStatus` | `order_status`（名称は前端が辞書で表示） |
+| `priorityNo`／`sourceType`／`isHold` | 同名列 |
+| `factoryId`／`factoryCode`／`factoryName` | `factory_id`、`mdm_factory`（`tenant_id`・`company_id`・`id` で結合） |
+| `departmentId`／`departmentName` | `department_id`、`sys_department`（`tenant_id`・`company_id`・`id` で LEFT JOIN、NULL 可） |
+| `salesOrderId`／`salesOrderNo` | `sales_order_id`・`sales_order_no`（スナップショット、NULL＝MTS） |
+| `customerId`／`customerName` | `customer_id`、`mdm_customer.customer_name`（`tenant_id`・`company_id`・`id` で LEFT JOIN、NULL 可） |
+| `version` | `version` |
+
+- 状態名称は返さず前端が辞書で表示し、品目は `mdm_material` を結合せずスナップショット列を返す（蓝色大肥鱼 2026-10-21 決定）。
+- 原価項目（`standard_cost` 等）は一覧では返さない。
 
 ## 4. エラーコード対応表（本域の主要コード）
 
@@ -698,3 +754,4 @@
 | v1.27 | 2026-10-21 | §3.11 備考に工单 WF（`prd_work_order_release`、一級、承認→25・却下→10）、§3.14 に超産 WF（`prd_overproduction_approval`、一級、承認→30・却下→40・強制終了→90 の回調マッピング）を追記（蓝色大肥鱼 2026-10-21 決定）。追補：§3.11 に E32 強制終了→10・却下理由は WF 履歴のみを追記（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.28 | 2026-10-21 | §3.14 受注行選択：`size` > 200 は 400／1001＋fieldErrors（MSG-COM-045）、`page`・`size` < 1 は 400／1001（MSG-COM-044）を明記。草稿修正：入力検証の `60101` は工单級の工单未下达・`allowed_qty` NULL 検査であり状態不正の `60101` と別であることを明記（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.29 | 2026-10-21 | §3.14 登録：受注行 `allowed_qty` NULL・負値は 422／60101、`salesOrderLineId` 未指定は 400／1001／MSG-COM-040＋fieldErrors、5000 は `prd.overproduction_max_rate` 欠落のみ。草稿修正：`version` 未指定・null は 400／1001／MSG-COM-040。§2.2 見出し・関連文書の「生产订单」を「工单」に（蓝色大肥鱼 2026-10-21 決定）。追補：工单下达（§チェック順序・受注行 allowed_qty 未スナップショット）も受注行 `allowed_qty` NULL・負値は 422／60101（5000 は `prd.overproduction_max_rate` 欠落のみ）。追補：5000 の対象を「欠落したサーバー側システムパラメータのみ」に改める（§3.14 登録・受注行 allowed_qty 未スナップショット）（蓝色大肥鱼 2026-10-21 決定：サーバー側システムパラメータ欠落はすべて 5000、BR-WO-15 は変更なし） | 业务分析 |
+| v1.30 | 2026-10-21 | §3.15 工单一覧 `GET /api/production/work-orders` を新設（§2.2 #23 に詳細参照を追記）：検索条件 13 項目（02 §4.6 のうち `prd_work_order` に列があるもの、欠品フラグは対象外）、`pageNum`／`pageSize`（1〜200、超過 400／1001／MSG-COM-045、< 1 は 400／1001／MSG-COM-044）、既定ソート（計画完成日→優先度→工单号）、`PageResult<WorkOrderListDto>` 行項目と結合条件、権限 403／3001・データ範囲 403／3002（蓝色大肥鱼 2026-10-21 決定）（追補：§3.14 受注行選択・超産申請一覧のページングを `page`／`size` から `pageNum`／`pageSize`（03 §7.1）に統一、エラー文言（044／045）も同様。後端・前端は追随する。§3.15 欠品フラグは保留（MRP 欠品計算実装後に追加）。既定検索条件は前端送信、`material` 単一パラメータ・`salesOrderNo` 部分一致、`sort` 許可キー、状態名称は前端辞書・品目はスナップショットを確定（蓝色大肥鱼 2026-10-21 決定）。追補：§3.15 の前方一致・部分一致はスナップショット列で照合（結合なし）、入力の `%`・`_`・`\` はエスケープし `LIKE … ESCAPE '\'`（蓝色大肥鱼 2026-10-21 決定）） | 业务分析 |
