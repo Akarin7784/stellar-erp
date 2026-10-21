@@ -518,9 +518,9 @@ CREATE TABLE sal_sales_order_line (
 - `conversion_rate` は受注確定時のスナップショット。単位換算後の基本単位数量は `base_qty` / `shipped_base_qty`。
 - `allowed_qty` / `completed_qty` は基本単位。`allowed_qty = floor(ordered_qty × conversion_rate × (1 + rate))`（`mdm_uom.decimal_places` で切捨て）。容差チェーンは受注行 > 物料 > 物料分類 > 会社（`sys_param.prd.completion_over_rate`）。確定時にスナップショットし、承認済の受注変更または超産承認時のみ再計算。
 - 跨表ロック順序：受注行 → 工单（同一表は id 昇順）。過帳は行ロックのみ（[04 §11.1](../00-common/04-common-db-spec.md)）。
-- **完工上報処理（2026-10-21）**：受注行を `SELECT … FOR UPDATE` でロックした直後に `allowed_qty IS NULL` を判定し、NULL（未スナップショット）なら 5000 を返して処理を中断する（0 とみなして比較しない）。非 NULL の場合のみ `completed_qty + 今回 ≤ allowed_qty` を検証する。超産承認時も同様。
+- **完工上報処理（2026-10-21）**：受注行を `SELECT … FOR UPDATE` でロックした直後に `allowed_qty IS NULL` を判定し、NULL（未スナップショット）または負値なら 422／`60101` を返して処理を中断する（0 とみなして比較しない）。非 NULL の場合のみ `completed_qty + 今回 ≤ allowed_qty` を検証する。超産承認時も同様。
 - 工单の物料は受注行の物料と一致しなければならない（生産ドメインで検証）。
-- **`allowed_qty` の NULL（2026-10-21 決定）**：NULL 可・既定値なし。NULL＝受注確定時のスナップショット未取得。完工上報・工单下达で NULL を読んだ場合はサービス層が 5000 を返す。超産申請の登録で受注行の `allowed_qty` が NULL または負値の場合は 422／`60101`（[06/91 §3.14](../06-production/91-api-design.md)）。超産承認で NULL を読んだ場合は 5000（下达は工单ロック前に受注行で判定。蓝色大肥鱼 2026-10-21 決定）（G2-18 S1 と同じ扱い。0 とみなさない）。`ck_sal_sol_completed_qty` および `ck_sal_sales_order_line_qty` の `allowed_qty` 条件は NULL を通過させる（SQL CHECK の UNKNOWN＝通過）。
+- **`allowed_qty` の NULL（2026-10-21 決定）**：NULL 可・既定値なし。NULL＝受注確定時のスナップショット未取得。超産申請の登録・超産承認・完工上報・工单下达で NULL または負値を読んだ場合はサービス層が 422／`60101` を返す（[06/91 §3.14](../06-production/91-api-design.md)。5000 は `prd.overproduction_max_rate` 欠落の構成不備のみ。下达は工单ロック前に受注行で判定。蓝色大肥鱼 2026-10-21 決定）（G2-18 S1 と同じ扱い。0 とみなさない）。`ck_sal_sol_completed_qty` および `ck_sal_sales_order_line_qty` の `allowed_qty` 条件は NULL を通過させる（SQL CHECK の UNKNOWN＝通過）。
 - **完工上限 CHECK（2026-10-21 決定）**：`ck_sal_sol_completed_qty CHECK (completed_qty >= 0 AND completed_qty <= allowed_qty)` を受注明細に付与する（G2-18 承認済設計、[30-review/R3-对抗性评审-第2轮-异常路径.md:89](../30-review/R3-对抗性评审-第2轮-异常路径.md)）。サービス層が先に 60040／60100 で拒否し、本制約は DB 層の最終防衛線。SQLSTATE 23514 を受けた場合、制約名 `ck_sal_sol_completed_qty` で判定して 60040 に変換する（OPA と同じ方式。5000 に落とさない）。
 
 
@@ -1535,4 +1535,4 @@ CREATE INDEX idx_sal_forecast_line_material ON sal_sales_forecast_line (tenant_i
 | v1.12 | 2026-10-21 | 同域親子 FK を `(tenant_id, company_id, x_id)` → `(tenant_id, company_id, id)` に変更（28 本、父表 12 張に `uk_<table>_tenant_company_id UNIQUE (tenant_id, company_id, id)` を追加。#43 迁移 `sys/V202610211401` と同一、原制約名・ON DELETE 維持。00-common/04 §6.2 項 2a） | 业务分析 |
 | v1.13 | 2026-10-21 | sys/mdm 向け跨域 FK 14 本を三列 `(tenant_id, company_id, x_id)` → 被参照表 `(tenant_id, company_id, id)` に変更（00-common/04 §6.2 項 2a、迁移 `sal/V202610211412`。被参照 `uk_{mdm_customer,mdm_material,mdm_warehouse,sys_department}_tenant_company_id` は既存、制約名・NO ACTION 維持）。子表側に `(tenant_id, company_id, x_id)` 先頭の btree 索引が無かった 3 本分を追加（`idx_sal_delivery_note_wh`・`idx_sal_forecast_dept`・`idx_sal_special_price_mat`） | DBA |
 | v1.14 | 2026-10-21 | 三列外键 `(tenant_id, company_id, x_id)` の子表側に同三列先頭の btree 索引が無かった 6 本分を追加（00-common/04 §6.2 項 2a FK 前導索引規則 v1.25、迁移 `sal/V202610211418`）：`idx_sal_delivery_serial_dn`・`idx_sal_invoice_application`・`idx_sal_pick_detail_dn`・`idx_sal_return_inspection_r`・`idx_sal_sales_order_quotation`・`idx_sal_sales_return_so` | DBA |
-| v1.15 | 2026-10-21 | `allowed_qty` NULL：超産申請登録時は NULL・負値とも 422／60101（06/91 §3.14 と整合）、5000 の対象から超産申請登録を除外（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.15 | 2026-10-21 | `allowed_qty` NULL：超産申請登録時は NULL・負値とも 422／60101（06/91 §3.14 と整合）、5000 の対象から超産申請登録を除外（蓝色大肥鱼 2026-10-21 決定）。追補：完工上報・超産承認・工单下达も NULL・負値は 422／60101 に統一（:521、:523） | 业务分析 |
