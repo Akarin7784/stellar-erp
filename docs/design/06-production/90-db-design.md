@@ -1105,7 +1105,7 @@ CREATE INDEX idx_prd_opa_wo
     WHERE work_order_id IS NOT NULL;
 ```
 
-**更新**：申請保存→`approval_status=20` で Flowable 起動。`request_qty` は申請超産増分 delta（総量ではない）。承認（30）時は増分方式 `allowed_qty = allowed_qty + delta` で更新する（ロック順：受注行→工单）。①工单級（`work_order_id` 有値）：受注行と当該工单の `allowed_qty` をそれぞれ +delta。同一受注行の他工单は自身の `allowed_qty` に拘束され、工单級承認で引き上げた受注行枠を占用できない。②受注行級（`work_order_id` IS NULL）：受注行の `allowed_qty` のみ +delta、配下工单は変更しない（按分しない）。工单でさらに必要な場合は当該工单の工单級承認を別途申請する。承認時に `approved_allowed_qty`（承認後の受注行新上限）をスナップショットとして記録する（参照のみ）。`request_qty` ≤ 0 または NULL は `MSG-PRD-103`/`60103`（ERROR）で拒否（`30022`/`MSG-SAL-056` は流用しない）。申請保存時に上限（受注行基本数量 × `prd.overproduction_max_rate`、累計なし）と基本単位精度も検証し、違反は同じく `60103`、パラメータ欠落は 5000（§G2-18 6.）。受注変更時の再計算はスナップショット率で再算出後、承認済（30）delta 合計を加算し戻す（承認済超産は消去しない。基準数量が減っても既存承認は有効）。却下（40）／取消（90）では `allowed_qty` を変更しない（再入庫は `MSG-PRD-101`）。
+**更新**：申請保存→`approval_status=10`、提出で 10→20（Flowable 接入後は提出を WF 起動に置換）、承認 20→30、却下 20→40、取消 10・20→90（API は [91 §3.14](91-api-design.md)、蓝色大肥鱼 2026-10-21 #66 決定）。工单級申請で工单が未下达または `allowed_qty` が NULL の場合は登録時に `60101`。`request_qty` は申請超産増分 delta（総量ではない）。承認（30）時は増分方式 `allowed_qty = allowed_qty + delta` で更新する（ロック順：受注行→工单）。①工单級（`work_order_id` 有値）：受注行と当該工单の `allowed_qty` をそれぞれ +delta。同一受注行の他工单は自身の `allowed_qty` に拘束され、工单級承認で引き上げた受注行枠を占用できない。②受注行級（`work_order_id` IS NULL）：受注行の `allowed_qty` のみ +delta、配下工单は変更しない（按分しない）。工单でさらに必要な場合は当該工单の工单級承認を別途申請する。承認時に `approved_allowed_qty`（承認後の受注行新上限）をスナップショットとして記録する（参照のみ）。`request_qty` ≤ 0 または NULL は `MSG-PRD-103`/`60103`（ERROR）で拒否（`30022`/`MSG-SAL-056` は流用しない）。申請保存時に上限（受注行基本数量 × `prd.overproduction_max_rate`、累計なし）と基本単位精度も検証し、違反は同じく `60103`、パラメータ欠落は 5000（§G2-18 6.）。受注変更時の再計算はスナップショット率で再算出後、承認済（30）delta 合計を加算し戻す（承認済超産は消去しない。基準数量が減っても既存承認は有効）。却下（40）／取消（90）では `allowed_qty` を変更しない（再入庫は `MSG-PRD-101`）。
 
 
 **更新仕様**
@@ -2661,3 +2661,4 @@ CREATE INDEX idx_prd_capacity_load_date ON prd_capacity_load (tenant_id, company
 | v1.12 | 2026-10-21 | G2-18 6.・§3.19.1：超産申請 1 件の `request_qty` 上限（受注行基本数量 × `prd.overproduction_max_rate`、既定 1.0000、累計上限なし）と基本単位精度チェックを追加、違反は 60103、パラメータ欠落は 5000（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.13 | 2026-10-21 | 同域親子 FK を `(tenant_id, company_id, x_id)` → `(tenant_id, company_id, id)` に変更（46 本、父表 22 張に `uk_<table>_tenant_company_id UNIQUE (tenant_id, company_id, id)` を追加。#43 迁移 `sys/V202610211401` と同一、原制約名・ON DELETE 維持。00-common/04 §6.2 項 2a） | 业务分析 |
 | v1.14 | 2026-10-21 | `prd_work_order_material` に `bom_uom_code`・`bom_qty`（換算前の BOM 単位・数量、追跡用）を追加、`uom_code`／数量列は物料基本単位と明記。換算元は `mdm_uom`／`mdm_uom_conversion`（CHK-PRD-002-10）（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.15 | 2026-10-21 | §3.19.1 更新：申請保存は 10、提出 10→20、承認 20→30、却下 20→40、取消 10・20→90。工单級申請の工单未下达・`allowed_qty` NULL は登録時 60101（蓝色大肥鱼 2026-10-21 #66 決定） | 业务分析 |
