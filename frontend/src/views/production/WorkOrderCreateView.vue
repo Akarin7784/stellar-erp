@@ -2,7 +2,7 @@
   <el-card shadow="never">
     <template #header>
       <div class="toolbar">
-        <span>生产订单登记（SCR-PRD-009）</span>
+        <span>工单登记（SCR-PRD-009）</span>
         <el-tag>{{ statusLabel }}</el-tag>
       </div>
     </template>

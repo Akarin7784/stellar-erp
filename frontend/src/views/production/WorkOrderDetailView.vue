@@ -2,7 +2,7 @@
   <el-card v-loading="loading" shadow="never">
     <template #header>
       <div class="toolbar">
-        <span>生产订单详细（SCR-PRD-010）</span>
+        <span>工单详细（SCR-PRD-010）</span>
         <span>
           <el-tag v-if="detail">{{ statusLabel }}</el-tag>
           <!-- 06/02 §4.7：order_status=25 时显示下达按钮 -->
