@@ -37,6 +37,7 @@
 | **L**（追記ログ） | ログ・履歴テーブル | `id BIGINT PK` / `tenant_id BIGINT NOT NULL DEFAULT current_setting('app.tenant_id')::bigint` / `created_at TIMESTAMPTZ NOT NULL DEFAULT now()` / `created_by BIGINT NOT NULL DEFAULT 0`（必要な場合のみ `company_id` を追加） |
 
 - 主キーは BIGINT 雪花 ID（MyBatis-Plus `ASSIGN_ID`）。API・画面では文字列で扱う。
+- 種データ（`sys_menu`・`SYSTEM_ADMIN` の `sys_role`・`sys_role_permission`）の主キーは雪花 ID ではなく、`sys_seed_id(key)`（キー文本の `hashtextextended` を正の BIGINT にしたもの、sys/V202610211405:44）で決定的に生成する。種 ID は 63 ビットのハッシュ空間に散らばるため、理論上アプリ層の雪花 ID と主キーが衝突しうる（確率は極小、衝突時は 23505）。将来発番器（`ASSIGN_ID` の実装・ワーカー ID 方式など）を変更する際は、この種 ID の空間との衝突を考慮すること。
 - マスタの有効/無効は `status SMALLINT NOT NULL DEFAULT 1`（`1`:有效 / `0`:无效）で表現する（[共通业务规则](../00-common/08-common-business-rules.md) 2.2「使用停止は status=0」）。伝票系の状態コード `10/20/25/30/35/40/90/95` は本域では使用しない（承認状態は WF が保持）。
 - 全テーブル・全カラムに `COMMENT ON` を付与する（実装時、本設計の中文論理名を使用）。本設計では DDL 内に `-- 中文名` の形式で列コメントを併記する。
 
@@ -1626,3 +1627,4 @@ COMMENT ON TABLE sys_data_maintenance_log IS '数据维护历史（初期化・�
 | v1.13 | 2026-10-21 | §3.9 `uk_sys_role_permission` の条件を実 DDL に合わせ削除（`deleted` 列なし）。§3.12 `route_path` を先頭スラッシュなしに統一し、`sys_menu` 種データ（`company_id=0`）を 94 §2.10 に参照。§3.1 会社登録時に `SYSTEM_ADMIN` ロール＋全権限付与、§3.3 `sys_init_tenant` で `sys_menu` 種データを投入（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.14 | 2026-10-21 | #58 決定反映：§3.12 `uk_sys_menu_permission` を普通索引 `idx_sys_menu_permission` に（`permission_code` 重複可）、§3.1/§3.3/§3.12 に `sys_init_tenant`（メニュー＋各社呼出し、provisioner のみ）／`sys_init_company(p_tenant_id, p_company_id)`（`sys_param`＋`SYSTEM_ADMIN` 未作成時のみ作成・全付与、`erp_app` にも EXECUTE、テナント・会社検査）を明記（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.15 | 2026-10-21 | §3.4 `sys_department.parent_id`・§3.12 `sys_menu.parent_id` は 0＝ルートのため自己参照 FK を付けず、アプリで検査（04 §6.2 項 2a 命名例外。蓝色大肥鱼 2026-10-21 決定、案 A） | 业务分析 |
+| v1.16 | 2026-10-21 | §1 に種データの主キーは `sys_seed_id` のハッシュで生成され、理論上アプリ層の雪花 ID と衝突しうること、発番器変更時に考慮することを追記（測試与評審 #64 指摘、蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
