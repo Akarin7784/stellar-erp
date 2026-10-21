@@ -373,14 +373,59 @@ class WorkOrderListApiIntegrationTest {
                 .andExpect(jsonPath("$.data.total").value(2));
         // 範囲外条件の検証より入力検証が先（400）
         get(SCOPED, CO, "factoryId", String.valueOf(F2), "pageSize", "201").andExpect(status().isBadRequest());
-        // ユーザ個別（全社）がロールより優先
+        // ユーザ個別が工場型ならロールより優先（ロールは見ない）：二厂のみ
         owner.update("""
-            INSERT INTO sys_user_data_scope (id, tenant_id, company_id, user_id, resource_code, scope_type, reason)
-            VALUES (989891, 316, 81, ?, 'production:work-order', 1, 'test')
+            INSERT INTO sys_user_data_scope (id, tenant_id, company_id, user_id, resource_code, scope_type, factory_ids, reason)
+            VALUES (989891, 316, 81, ?, 'production:work-order', 6, '["989022"]'::jsonb, 'test')
             """, SCOPED);
         get(SCOPED, CO, "factoryId", String.valueOf(F2)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(2));
+        get(SCOPED, CO, "factoryId", String.valueOf(F1)).andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value(3002));
+        // ロール側が全社（1）でもユーザ個別の工場で制限
+        owner.update("UPDATE sys_role_data_scope SET scope_type = 1, factory_ids = NULL WHERE id = 989890");
+        get(SCOPED, CO).andExpect(jsonPath("$.data.total").value(2));
+        get(SCOPED, CO, "factoryId", String.valueOf(F1)).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void nonFactoryUserScopeFallsBackToRoleFactoryScope() throws Exception {
+        // ユーザ個別が工場型でない（全社 1）→ 工場次元はロール（一厂のみ）にフォールバック、全開にしない
+        owner.update("""
+            INSERT INTO sys_user_data_scope (id, tenant_id, company_id, user_id, resource_code, scope_type, reason)
+            VALUES (989892, 316, 81, ?, 'production:work-order', 1, 'test')
+            """, SCOPED);
+        String json = get(SCOPED, CO).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertThat(JsonPath.<List<String>>read(json, "$.data.list[*].id")).containsExactly(s(W2, W1).toArray(String[]::new));
+        get(SCOPED, CO, "factoryId", String.valueOf(F2)).andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value(3002));
+        // 自定义（5）でも factoryIds なしなら工場型ではない → 同じくロールにフォールバック
+        owner.update("UPDATE sys_user_data_scope SET scope_type = 5, custom_rule = '{\"deptIds\":[989041]}'::jsonb WHERE id = 989892");
+        get(SCOPED, CO).andExpect(jsonPath("$.data.total").value(2));
+        get(SCOPED, CO, "factoryId", String.valueOf(F2)).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void nonFactoryUserScopeFallsBackToUnionOfRoles() throws Exception {
+        owner.update("""
+            INSERT INTO sys_user_data_scope (id, tenant_id, company_id, user_id, resource_code, scope_type, reason)
+            VALUES (989893, 316, 81, ?, '*', 4, 'test')
+            """, SCOPED);
+        // 2 つ目のロール（二厂）→ 一厂 ∪ 二厂
+        PermissionGrants.grant(owner, TENANT, CO, SCOPED, 989950, "production:work-order:view");
+        owner.update("""
+            INSERT INTO sys_role_data_scope (id, tenant_id, company_id, role_id, resource_code, scope_type, factory_ids, module_code)
+            VALUES (989991, 316, 81, 989950, 'production:work-order', 6, '["989022"]'::jsonb, 'production')
+            """);
         get(SCOPED, CO).andExpect(jsonPath("$.data.total").value(4));
+        get(SCOPED, CO, "factoryId", String.valueOf(F2)).andExpect(status().isOk());
+        // いずれかのロールが工場無制限（ロール既定 全社 1）なら無制限
+        owner.update("DELETE FROM sys_role_data_scope WHERE id = 989991");
+        owner.update("UPDATE sys_role SET data_scope_type = 1 WHERE id = 989950");
+        get(SCOPED, CO).andExpect(jsonPath("$.data.total").value(4));
+        // 無制限ロールが外れると一厂のみに戻る
+        owner.update("UPDATE sys_role SET data_scope_type = 6 WHERE id = 989950");
+        get(SCOPED, CO).andExpect(jsonPath("$.data.total").value(2));
     }
 
     @Test

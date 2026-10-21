@@ -385,7 +385,7 @@ class ProductionCoreIntegrationTest {
                 new OverproductionRequestCommand(SO_LINE, null, new BigDecimal("3"), null))))
                 .isInstanceOfSatisfying(BizException.class, e -> {
                     assertThat(e.getCode()).isEqualTo(60101);
-                    assertThat(e.getMsgId()).isEqualTo("MSG-PRD-101");
+                    assertThat(e.getMsgId()).isEqualTo("MSG-PRD-106");
                 });
         assertThat(approvalCount()).isZero();
         assertThat(owner.queryForObject("SELECT count(*) FROM sys_sequence WHERE tenant_id = 303", Long.class)).isZero();

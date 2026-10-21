@@ -242,8 +242,8 @@ class OverproductionApprovalApiIntegrationTest {
         owner.update("UPDATE sal_sales_order_line SET allowed_qty = NULL WHERE id = ?", LINE);
         create(CO, body(LINE, null, "1"))
                 .andExpect(status().isUnprocessableContent())
-                .andExpect(content().json("{\"code\":60101,\"message\":\"受注行の allowed_qty が未確定のため超産申請はできません。\","
-                        + "\"data\":null,\"msgId\":\"MSG-PRD-101\"}", JsonCompareMode.STRICT));
+                .andExpect(content().json("{\"code\":60101,\"message\":\"超产允许数量不可用或对应的销售订单行已不存在，无法执行此操作\","
+                        + "\"data\":null,\"msgId\":\"MSG-PRD-106\"}", JsonCompareMode.STRICT));
         assertThat(approvalCount()).isZero();
     }
 
@@ -253,8 +253,8 @@ class OverproductionApprovalApiIntegrationTest {
         owner.update("UPDATE sal_sales_order_line SET allowed_qty = NULL WHERE id = ?", LINE);
         postAs(APPROVER, CO, BASE + "/" + id + "/approve", "{\"version\": 1}")
                 .andExpect(status().isUnprocessableContent())
-                .andExpect(content().json("{\"code\":60101,\"message\":\"受注行の allowed_qty が未確定または不正のため承認できません。\","
-                        + "\"data\":null,\"msgId\":\"MSG-PRD-101\"}", JsonCompareMode.STRICT));
+                .andExpect(content().json("{\"code\":60101,\"message\":\"超产允许数量不可用或对应的销售订单行已不存在，无法执行此操作\","
+                        + "\"data\":null,\"msgId\":\"MSG-PRD-106\"}", JsonCompareMode.STRICT));
         assertThat(statusOf(id)).isEqualTo(20);
         assertThat(lineAllowed(LINE)).isNull();
     }
@@ -332,7 +332,7 @@ class OverproductionApprovalApiIntegrationTest {
                 .andExpect(jsonPath("$.code").value(60101)).andExpect(jsonPath("$.msgId").value("MSG-PRD-101"));
         owner.update("UPDATE prd_work_order SET order_status = 30, allowed_qty = NULL WHERE id = ?", WO);
         create(CO, body(LINE, WO, "1")).andExpect(status().isUnprocessableContent())
-                .andExpect(jsonPath("$.code").value(60101));
+                .andExpect(jsonPath("$.code").value(60101)).andExpect(jsonPath("$.msgId").value("MSG-PRD-106"));
         assertThat(approvalCount()).isZero();
     }
 
@@ -724,7 +724,7 @@ class OverproductionApprovalApiIntegrationTest {
         owner.update("UPDATE prd_overproduction_approval SET approval_status = ? WHERE id = ?", st, Long.parseLong(id));
         putAs(USER, id, "{\"version\": 0, \"requestQty\": 6}")
                 .andExpect(status().isUnprocessableContent())
-                .andExpect(content().json("{\"code\":60101,\"message\":\"超産承認が無効です（現在の状態ではこの操作はできません）。\",\"data\":null,\"msgId\":\"MSG-PRD-101\"}",
+                .andExpect(content().json("{\"code\":60101,\"message\":\"超产申请当前状态不允许此操作，请刷新后重试\",\"data\":null,\"msgId\":\"MSG-PRD-101\"}",
                         JsonCompareMode.STRICT));
         assertThat(statusOf(id)).isEqualTo(st);
         assertThat(owner.queryForObject("SELECT request_qty FROM prd_overproduction_approval WHERE id = ?", BigDecimal.class,

@@ -46,7 +46,7 @@ public class FactoryDataScope {
                         """.formatted(factoryArray("s")))
                 .param("user", userId).param("company", companyId).param("res", resource)
                 .query((rs, i) -> new Entry(rs.getShort(1), longs(rs.getArray(2)))).list();
-        List<Entry> roles = user.isEmpty() ? jdbc.sql("""
+        return resolve(user, () -> jdbc.sql("""
                         SELECT COALESCE(ds.scope_type, r.data_scope_type), %s
                           FROM sys_user_role ur
                           JOIN sys_role r
@@ -63,19 +63,34 @@ public class FactoryDataScope {
                            AND (ur.valid_to IS NULL OR ur.valid_to >= CURRENT_DATE)
                         """.formatted(factoryArray("ds")))
                 .param("user", userId).param("company", companyId).param("res", resource).param("module", module)
-                .query((rs, i) -> new Entry(rs.getShort(1), longs(rs.getArray(2)))).list() : user;
+                .query((rs, i) -> new Entry(rs.getShort(1), longs(rs.getArray(2)))).list());
+    }
+
+    /**
+     * 解決規則（DB 非依存）。ユーザ個別が工場型（6、または 5 で factoryIds あり）のときのみロールより優先し、ロールは見ない
+     * （ロールが全社でも個別の工場で制限）。工場型でない個別範囲（部門・本人、factoryIds なしの 5 等）は工場次元を規定しないため
+     * ロール側へフォールバックする（全開にしない）。ロールは和集合で、いずれかが工場無制限なら無制限。有効ロールなしは空集合。
+     */
+    static Optional<Set<Long>> resolve(List<Entry> user, java.util.function.Supplier<List<Entry>> roleLoader) {
+        if (!user.isEmpty() && isFactoryScope(user.get(0))) {
+            Long[] ids = user.get(0).factoryIds();
+            return Optional.of(ids == null ? new HashSet<>() : new HashSet<>(List.of(ids)));
+        }
         Set<Long> allowed = new HashSet<>();
-        for (Entry e : roles) {
-            if (e.scopeType() == SCOPE_FACTORY || (e.scopeType() == SCOPE_CUSTOM && e.factoryIds() != null)) {
-                if (e.factoryIds() != null) {
-                    allowed.addAll(List.of(e.factoryIds()));
-                }
-            } else {
+        for (Entry e : roleLoader.get()) {
+            if (!isFactoryScope(e)) {
                 return Optional.empty();
             }
+            if (e.factoryIds() != null) {
+                allowed.addAll(List.of(e.factoryIds()));
+            }
         }
-        // ロールなしは権限チェック（3001）で先に弾かれる。ここに来た場合は参照可能工場なし
+        // 有効ロールなし → 参照可能工場なし（空集合。無制限にはしない）
         return Optional.of(allowed);
+    }
+
+    private static boolean isFactoryScope(Entry e) {
+        return e.scopeType() == SCOPE_FACTORY || (e.scopeType() == SCOPE_CUSTOM && e.factoryIds() != null);
     }
 
     /** scope_type=6 は factory_ids、5 は custom_rule.factoryIds（文字列・数値の JSON 配列）を BIGINT[] に。 */

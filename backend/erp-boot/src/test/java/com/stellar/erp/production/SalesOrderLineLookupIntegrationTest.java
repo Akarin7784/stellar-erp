@@ -196,7 +196,7 @@ class SalesOrderLineLookupIntegrationTest {
         assertThatThrownBy(() -> asUser(() -> releases.release(WO_NULL, new WorkOrderReleaseCommand(0))))
                 .isInstanceOfSatisfying(BizException.class, e -> {
                     assertThat(e.getCode()).isEqualTo(60101);
-                    assertThat(e.getMsgId()).isEqualTo("MSG-PRD-101");
+                    assertThat(e.getMsgId()).isEqualTo("MSG-PRD-106");
                 });
         Map<String, Object> w = wo(WO_NULL);
         assertThat(w.get("order_status")).isEqualTo(25);
@@ -205,12 +205,12 @@ class SalesOrderLineLookupIntegrationTest {
 
     @Test
     void overproductionRequestOnUnsnapshottedLineIs60101() {
-        // allowed_qty 未スナップショットは業務データ未準備 → 60101 / MSG-PRD-101（lead 2026-10-21 決定、5000 は上限率欠落のみ）
+        // allowed_qty 未スナップショットは業務データ未準備 → 60101 / MSG-PRD-106（lead 2026-10-21 決定、5000 は上限率欠落のみ）
         assertThatThrownBy(() -> asUser(() -> approvals.request(
                 new OverproductionRequestCommand(LINE_NULL, null, new BigDecimal("5"), null))))
                 .isInstanceOfSatisfying(BizException.class, e -> {
                     assertThat(e.getCode()).isEqualTo(60101);
-                    assertThat(e.getMsgId()).isEqualTo("MSG-PRD-101");
+                    assertThat(e.getMsgId()).isEqualTo("MSG-PRD-106");
                 });
         assertThat(owner.queryForObject("SELECT count(*) FROM prd_overproduction_approval WHERE tenant_id = 305",
                 Integer.class)).isZero();
