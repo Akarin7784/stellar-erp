@@ -45,12 +45,17 @@ class OverproductionApprovalApiIntegrationTest {
     @Autowired WebApplicationContext wac;
     @Autowired OverproductionApprovalService approvals;
 
+    /** owner 接続はクラスで 1 本だけ（テストごとに開くと接続がリークし、CI で too many clients になる）。 */
+    static JdbcTemplate sharedOwner;
     JdbcTemplate owner;
     MockMvc mvc;
 
     @BeforeEach
     void seed() {
-        owner = OwnerJdbc.of(pg);
+        if (sharedOwner == null) {
+            sharedOwner = OwnerJdbc.of(pg);
+        }
+        owner = sharedOwner;
         mvc = MockMvcBuilders.webAppContextSetup(wac).build();
         cleanup();
         owner.execute("""
@@ -93,6 +98,14 @@ class OverproductionApprovalApiIntegrationTest {
             VALUES (?, 311, ?, ?, ?, 'M', 'O 成品', 'PCE', ?, 100, 105, DATE '2026-11-01', DATE '2026-11-30', 30, FALSE, 0.05,
                 ?, ?, 'SO-O', 30)
             """, id, company, "WO-O-" + id, material, factory, so, line);
+    }
+
+    @org.junit.jupiter.api.AfterAll
+    static void closeOwner() {
+        if (sharedOwner != null) {
+            ((org.springframework.jdbc.datasource.SingleConnectionDataSource) sharedOwner.getDataSource()).destroy();
+            sharedOwner = null;
+        }
     }
 
     @AfterEach
