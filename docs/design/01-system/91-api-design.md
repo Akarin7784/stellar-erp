@@ -48,7 +48,7 @@
 | 1 | GET | /api/system/auth/captchas | 公開 | 検証コード発行 | F-SYS-001 | 503 |
 | 2 | POST | /api/system/auth/login | 公開 | ログイン | F-SYS-001 | 2002/2003/10001 |
 | 3 | POST | /api/system/auth/logout | 認証済 | ログアウト | F-SYS-001 | 2001 |
-| 4 | GET | /api/system/auth/me | 認証済 | ログインユーザ・権限・メニュー | F-SYS-001/003/004 | 2001 |
+| 4 | GET | /api/system/auth/me | 認証済 | ログインユーザ・権限（コードで重複排除）・メニュー | F-SYS-001/003/004 | 2001 |
 | 5 | POST | /api/system/auth/password | 認証済 | パスワード変更 | F-SYS-001 | 10003 |
 | 6 | GET | /api/system/profile | 認証済 | プロフィール取得 | F-SYS-018 | 2001 |
 | 7 | PUT | /api/system/profile | `system:profile:update` | プロフィール更新 | F-SYS-018 | 1001/4003 |
@@ -92,7 +92,7 @@
 | 45 | PUT | /api/system/positions/{id} | `system:position:update` | 岗位更新 | F-SYS-006 | 4003 |
 | 46 | DELETE | /api/system/positions/{id} | `system:position:delete` | 岗位無効化 | F-SYS-006 | 10036 |
 | 47 | GET | /api/system/companies | `system:company:view` | 公司一覧 | F-SYS-014 | 3001 |
-| 47a | POST | /api/system/companies | `system:company:create` | 公司登録（同一 TX で `sys_param` 既定行と `SYSTEM_ADMIN` ロール＋全権限付与を投入、[90 §3.1](90-db-design.md)・[94 §2.10](94-sample-data.md)） | F-SYS-014 | 1001/10035 |
+| 47a | POST | /api/system/companies | `system:company:create` | 公司登録（同一 TX で `sys_init_company` を呼び `sys_param` 既定行と `SYSTEM_ADMIN` ロール＋全権限付与を投入、[90 §3.1](90-db-design.md)・[94 §2.10](94-sample-data.md)） | F-SYS-014 | 1001/10035 |
 | 48 | PUT | /api/system/companies/{id} | `system:company:update` | 公司更新 | F-SYS-014 | 4003 |
 | 49 | GET | /api/system/factories | `system:company:view` | 工厂组织設合一覧（MDM の `mdm_factory` を参照） | F-SYS-014 | 3001 |
 | 50 | POST | /api/system/factories | `system:company:update` | 工厂組織設定登録（有効化・既定割当） | F-SYS-014 | 10034 |
@@ -184,7 +184,7 @@
 | captcha | string | △ | 検証コード（4 桁英数） |
 | rememberMe | boolean | — | アカウント記憶 |
 
-レスポンス項目：`token` / `tokenName` / `expiresIn` / `passwordResetRequired` / `userInfo{id,userCode,realName,departmentName,avatarUrl}` / `roles[{roleCode,roleName}]` / `permissions[]` / `menus[]` / `dataScopes`。
+レスポンス項目：`token` / `tokenName` / `expiresIn` / `passwordResetRequired` / `userInfo{id,userCode,realName,departmentName,avatarUrl}` / `roles[{roleCode,roleName}]` / `permissions[]`（付与された権限コードを**コードで重複排除**した集合、[94 §2.10](94-sample-data.md)） / `menus[]` / `dataScopes`。
 
 ### 3.2 POST /api/system/users
 
@@ -246,3 +246,4 @@ Outbox 監視（`status`、`eventType`、`from`/`to`、ページング）。Payl
 | v1.2 | 2026-10-20 | 红队第 2 轮修复：データ範囲 API に工場/倉庫次元（`factoryIds`/`warehouseIds`、scopeType 1〜7）を追加。ユーザ再開 API の権限を `system:user:reopen` に変更 | system-workflow |
 | v1.3 | 2026-10-21 | API 47a `POST /api/system/companies`（公司登録）を追加：`sys_company` INSERT と同一トランザクションで 90 §3.15 業務パラメータの既定行を当該会社（`company_id` = 新 `sys_company.id`）に冪等投入、全 114 API。権限は新設 `system:company:create`（テナント開設級操作、`update` と分離）。1001 は汎用入力検証のみ、公司代码・信用代码重複は新設 `10035`／`MSG-SYS-093`（409）（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.4 | 2026-10-21 | API 47a：会社登録と同一トランザクションで `SYSTEM_ADMIN` ロール（会社ごと 1 件）と `permission_code` を持つ全 `sys_menu` 行の付与を冪等投入（94 §2.10）（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.5 | 2026-10-21 | API 1 の `permissions[]` はコードで重複排除。API 47a は同一 TX で `sys_init_company` を呼ぶ（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

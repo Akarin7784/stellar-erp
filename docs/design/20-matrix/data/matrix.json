@@ -22440,7 +22440,7 @@
     {
       "method": "GET",
       "path": "/api/system/auth/me",
-      "name": "ログインユーザ・権限・メニュー",
+      "name": "ログインユーザ・権限（コードで重複排除）・メニュー",
       "permission": "認証済",
       "domain": "SYS",
       "source": "01-system/91-api-design.md"
@@ -22552,7 +22552,7 @@
     {
       "method": "POST",
       "path": "/api/system/companies",
-      "name": "公司登録（同一 TX で sys_param 既定行と SYSTEM_ADMIN ロール＋全権限付与を投入、[90 §3.1](90-db-design.md)・[94 §2.10](94-sample-data.md)）",
+      "name": "公司登録（同一 TX で sys_init_company を呼び sys_param 既定行と SYSTEM_ADMIN ロール＋全権限付与を投入、[90 §3.1](90-db-design.md)・[94 §2.10](94-sample-data.md)）",
       "permission": "system:company:create",
       "domain": "SYS",
       "source": "01-system/91-api-design.md"

@@ -1530,7 +1530,7 @@ CREATE UNIQUE INDEX uk_mdm_data_scope_policy ON mdm_data_scope_policy (tenant_id
 - 業務一意索引は `(tenant_id, company_id, 業務キー)` で始める。`uk_mdm_exchange_rate` はテナント単位（会社間で共有）のため `(tenant_id, from_currency_code, to_currency_code, rate_type, effective_date)`。
 - `ON CONFLICT` の対象列は必ず `tenant_id` を含め、部分一意索引と同じ WHERE を繰り返す。
 - `company_id` は既定値なし・必須（`NOT NULL`）。
-- **例外**：例外は [00-common/04](../00-common/04-common-db-spec.md) §6.1 第 4 条（`company_id` を持たないテナント共有表、`(tenant_id, …)` 先頭）のみ：`uk_sys_company_code`、`uk_sys_company_credit`、`uk_sys_menu_code`、`uk_sys_menu_permission`、`uk_sys_dict_type_code`、`uk_sys_outbox_event_id`、`uk_sys_idempotency_key`、`uk_sys_user_username`（ログイン ID はテナント単位（蓝色大肥鱼 2026-10-21 決定））、`uk_mdm_exchange_rate`。親 ID・イベント ID 先頭の例外は廃止（蓝色大肥鱼 2026-10-21 決定、sys/V202610210708 と整合）。明細表（`uk_mdm_material_factory`、`uk_mdm_substitute`、`uk_mdm_warehouse_zone_code`、`uk_mdm_price_line_no`、`uk_mdm_quotation_line_no`、`uk_mdm_payment_term_line`、`uk_mdm_evaluation`、`uk_mdm_eval_item`、`uk_mdm_change_line_no`）も `(tenant_id, company_id, 親 ID, …)` 先頭。
+- **例外**：例外は [00-common/04](../00-common/04-common-db-spec.md) §6.1 第 4 条（`company_id` を持たないテナント共有表、`(tenant_id, …)` 先頭）のみ：`uk_sys_company_code`、`uk_sys_company_credit`、`uk_sys_menu_code`、`uk_sys_dict_type_code`、`uk_sys_outbox_event_id`、`uk_sys_idempotency_key`、`uk_sys_user_username`（ログイン ID はテナント単位（蓝色大肥鱼 2026-10-21 決定））、`uk_mdm_exchange_rate`。親 ID・イベント ID 先頭の例外は廃止（蓝色大肥鱼 2026-10-21 決定、sys/V202610210708 と整合）。明細表（`uk_mdm_material_factory`、`uk_mdm_substitute`、`uk_mdm_warehouse_zone_code`、`uk_mdm_price_line_no`、`uk_mdm_quotation_line_no`、`uk_mdm_payment_term_line`、`uk_mdm_evaluation`、`uk_mdm_eval_item`、`uk_mdm_change_line_no`）も `(tenant_id, company_id, 親 ID, …)` 先頭。
 
 ## 10. 改訂履歴
 
