@@ -248,6 +248,20 @@ Outbox 監視（`status`、`eventType`、`from`/`to`、ページング）。Payl
 | 並び順 | `sort_no`、`department_code` の昇順 |
 | ページング | なし（全件） |
 
+### 3.8 POST /api/system/companies
+
+公司登録（API #47a、PRC-SYS-014-03、バックエンド PR #89）。
+
+| 項目 | 内容 |
+|---|---|
+| 権限 | `system:company:create` |
+| リクエスト | `companyCode`、`companyName`、`unifiedSocialCreditCode` ほか。テナントはログインコンテキストから取得し、リクエスト本文の `companyId`／`tenantId`／`id` は指定されても無視する |
+| 処理 | `sys_company` を INSERT（`company_id` = 自行 `id`）し、同一トランザクションで `sys_init_company(p_tenant_id, p_company_id)` を呼ぶ。初期化失敗時は会社登録ごとロールバック |
+| 成功 | HTTP 201、`code=0`、`data = {id, companyCode, companyName, version}`（`id` は文字列で返す。`version` は新規行の値 0） |
+| 入力エラー | HTTP 400／`1001`、`data.fieldErrors[]`（[00-common/03](../00-common/03-common-api-spec.md) §5.3） |
+| 重複 | 一意索引 `uk_sys_company_code`・`uk_sys_company_credit` の違反（23505）**のみ** HTTP 422／`10035`／`MSG-SYS-093`。それ以外の一意違反は `10035` に変換しない |
+| 権限なし | HTTP 403／`3001` |
+
 ## 4. 内部 API（モジュール間公開 Service）
 
 | サービス（概念名） | メソッド | 提供内容 | 利用元 |
@@ -280,3 +294,4 @@ Outbox 監視（`status`、`eventType`、`from`/`to`、ページング）。Payl
 | v1.11 | 2026-10-21 | HTTP 409 を `version` 競合（4003）専用とし、状態不整合（4002）・二重処理/処理中（4005）・同時実行・確定済変更不可・二重実行等の 409 も 422 に統一し、409 は `version` 競合（4003）のみとする（蓝色大肥鱼 2026-10-21 決定）。対象：:37、:43 | 业务分析 |
 | v1.12 | 2026-10-21 | #2 login・`/auth/me` の `menus[]` に `menuName`（`sys_menu.menu_name`）を追加し 7 項目に（01-auth-login v1.9 と同期、蓝色大肥鱼 2026-10-21 決定）。対象：:199 | 业务分析 |
 | v1.13 | 2026-10-21 | #2 login・`/auth/me` の `menus[]` に `isVisible`（`sys_menu.is_visible`）を追加し 8 項目に。`is_visible` では絞り込まない。外部リンク（`menu_type=4`）も `menus[]` に含め、`routePath` に外部リンク URL を格納する。フロントはクリック時に新しいタブで開き、ルートは生成せず権限による遮断も行わない（専用 URL 項目は将来必要になった時点で別途追加）（01-auth-login v1.10 と同期、蓝色大肥鱼 2026-10-21 決定）。対象：:199 | 业务分析 |
+| v1.14 | 2026-10-21 | §3.8 を追加：#47a 公司登録の成功レスポンス（HTTP 201、`data = {id, companyCode, companyName, version}`）、`10035` は `uk_sys_company_code`／`uk_sys_company_credit` 違反のみ、重複は 422（v1.3 の 409 は v1.10 で 422 に変更済み）を明記（バックエンド PR #89 に整合） | 业务分析 |

@@ -8,7 +8,7 @@
 | 作成日 | 2026-10-20 |
 | 作成者 | Lead（生成工具 gen_matrix.py） |
 | 状態 | ドラフト（自动生成・最終レビュー前） |
-| 備考 | 全 1240 件。メソッド/パス/概要/権限/域/提取元 |
+| 備考 | 全 1241 件。メソッド/パス/概要/権限/域/提取元 |
 
 > 本文件由 `20-matrix/tools/gen_matrix.py` 从各域设计书中自动提取生成。修改设计书后重新运行即可更新。
 
@@ -675,6 +675,7 @@
 | POST | /api/production/outsourcing-settlements/{id}/approve | 結算承認 | production:outsourcing:approve | PRD | 06-production/91-api-design.md |
 | GET | /api/production/overproduction-approvals | 超産申請一覧（詳細 §3.14） | production:overproduction-approval:view | PRD | 06-production/91-api-design.md |
 | POST | /api/production/overproduction-approvals | 超産申請登録（→10、201。§3.14） | production:overproduction-approval:create | PRD | 06-production/91-api-design.md |
+| GET | /api/production/overproduction-approvals/sales-order-lines | 超産申請登録用の受注行選択（当前会社・受注状態 25/30/35・行状態 10/30/35・allowed_qty NOT NULL。§3.14）。権限は create を共用（蓝色大肥鱼 2026-10-21 決定） | production:overproduction-approval:create | PRD | 06-production/91-api-design.md |
 | GET | /api/production/overproduction-approvals/{id} | 超産申請詳細（§3.14） | 同上 | PRD | 06-production/91-api-design.md |
 | PUT | /api/production/overproduction-approvals/{id} | 草稿修正（10 のみ、allowed_qty 不変。§3.14）。権限は create を共用（蓝色大肥鱼 2026-10-21 決定） | production:overproduction-approval:create | PRD | 06-production/91-api-design.md |
 | POST | /api/production/overproduction-approvals/{id}/approve | 承認（20→30、allowed_qty +request_qty。§3.14） | production:overproduction-approval:approve | PRD | 06-production/91-api-design.md |
