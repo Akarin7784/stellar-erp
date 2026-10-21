@@ -248,6 +248,18 @@ class OverproductionApprovalApiIntegrationTest {
     }
 
     @Test
+    void approveWhenLineAllowedQtyNullIs422With60101AndNothingChanged() throws Exception {
+        String id = pendingApproval(null, "10");
+        owner.update("UPDATE sal_sales_order_line SET allowed_qty = NULL WHERE id = ?", LINE);
+        postAs(APPROVER, CO, BASE + "/" + id + "/approve", "{\"version\": 1}")
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(content().json("{\"code\":60101,\"message\":\"受注行の allowed_qty が未確定または不正のため承認できません。\","
+                        + "\"data\":null,\"msgId\":\"MSG-PRD-101\"}", JsonCompareMode.STRICT));
+        assertThat(statusOf(id)).isEqualTo(20);
+        assertThat(lineAllowed(LINE)).isNull();
+    }
+
+    @Test
     void missingParamIs5000() throws Exception {
         owner.update("DELETE FROM sys_param WHERE id = 997091");
         create(CO, body(LINE, null, "1"))
