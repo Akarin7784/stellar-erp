@@ -9,8 +9,12 @@ SELECT is((SELECT count(*)::int FROM pg_constraint k JOIN pg_class r ON r.oid = 
             JOIN pg_attribute a ON a.attrelid = k.conrelid AND a.attnum = k.conkey[1]
             JOIN pg_attribute b ON b.attrelid = k.confrelid AND b.attnum = k.confkey[1]
             WHERE k.contype = 'f' AND r.relname ~ '^(sys|mdm)_'
-              AND NOT (array_length(k.conkey, 1) = 2 AND a.attname = 'tenant_id' AND b.attname = 'tenant_id')),
-          0, '指向 sys_/mdm_ 的外键全部以 (tenant_id, …) → (tenant_id, id)');
+              AND NOT (array_length(k.conkey, 1) = 2 AND a.attname = 'tenant_id' AND b.attname = 'tenant_id')
+              -- 被引用表有 company_id 时为三列 (tenant_id, company_id, x_id) → (tenant_id, company_id, id)（蓝色大肥鱼 2026-10-21，跨域亦同；sys/V202610211408）
+              AND NOT (array_length(k.conkey, 1) = 3 AND a.attname = 'tenant_id' AND b.attname = 'tenant_id'
+                       AND (SELECT attname FROM pg_attribute WHERE attrelid = k.conrelid AND attnum = k.conkey[2]) = 'company_id'
+                       AND (SELECT attname FROM pg_attribute WHERE attrelid = k.confrelid AND attnum = k.confkey[2]) = 'company_id')),
+          0, '指向 sys_/mdm_ 的外键全部为 (tenant_id, x_id) 二列或 (tenant_id, company_id, x_id) 三列');
 SELECT ok(EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uk_mdm_material_tenant_id' AND contype = 'u'),
           'mdm_material 有 uk_mdm_material_tenant_id UNIQUE (tenant_id, id)');
 
@@ -34,7 +38,9 @@ SELECT is((SELECT count(*)::int FROM pg_index i
                     ('sys_company', 'uk_sys_company_code'), ('sys_company', 'uk_sys_company_credit'),
                     ('sys_menu', 'uk_sys_menu_code'),
                     ('sys_dict_type', 'uk_sys_dict_type_code'), ('sys_outbox_event', 'uk_sys_outbox_event_id'),
-                    ('sys_idempotency', 'uk_sys_idempotency_key'), ('mdm_exchange_rate', 'uk_mdm_exchange_rate'))
+                    ('sys_idempotency', 'uk_sys_idempotency_key'), ('mdm_exchange_rate', 'uk_mdm_exchange_rate'),
+                    ('sys_user', 'uk_sys_user_username'),
+                    ('sys_tenant', 'uk_sys_tenant_code'))  -- 04 §6.1 第 4 条 (c) 全体一意（tenant_id 不打头）
               AND NOT (i.indnatts = 2 AND a0.attname = 'tenant_id' AND a1.attname = 'id')
               AND (a0.attname IS DISTINCT FROM 'tenant_id'
                    OR (EXISTS (SELECT 1 FROM pg_attribute c WHERE c.attrelid = tc.oid AND c.attname = 'company_id' AND NOT c.attisdropped)
