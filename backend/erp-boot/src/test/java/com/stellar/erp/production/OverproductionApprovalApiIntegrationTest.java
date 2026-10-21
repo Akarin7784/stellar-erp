@@ -226,7 +226,7 @@ class OverproductionApprovalApiIntegrationTest {
         assertThat(owner.queryForObject("SELECT company_id FROM prd_overproduction_approval WHERE id = ?", Long.class,
                 Long.parseLong(createdId(r)))).isEqualTo(CO);
         // 他社の申請は承認できない
-        postAs(APPROVER, CO2, BASE + "/" + createdId(r) + "/approve", "{\"version\": 0}")
+        postAs(APPROVER, CO2, BASE + "/" + createdId(r) + "/cancel", "{\"version\": 0}")
                 .andExpect(status().isNotFound());
         assertThat(lineAllowed(LINE)).isEqualByComparingTo("105");
     }
@@ -240,10 +240,52 @@ class OverproductionApprovalApiIntegrationTest {
         assertThat(approvalCount()).isZero();
     }
 
+    String newApproval(Long wo, String qty) throws Exception {
+        return createdId(create(CO, body(LINE, wo, qty)).andExpect(status().isCreated()).andReturn());
+    }
+
+    ResultActions act(long user, String id, String op, int version) throws Exception {
+        return postAs(user, CO, BASE + "/" + id + "/" + op, "{\"version\": " + version + "}");
+    }
+
+    /** 新規（10）→ 提出（20、version 1）。 */
+    String pendingApproval(Long wo, String qty) throws Exception {
+        String id = newApproval(wo, qty);
+        act(USER, id, "submit", 0).andExpect(status().isOk()).andExpect(jsonPath("$.data.approvalStatus").value(20))
+                .andExpect(jsonPath("$.data.version").value(1));
+        return id;
+    }
+
+    int statusOf(String id) {
+        return owner.queryForObject("SELECT approval_status FROM prd_overproduction_approval WHERE id = ?", Integer.class,
+                Long.parseLong(id));
+    }
+
+    ResultActions getAs(long company, String path, String... params) throws Exception {
+        TenantContext.set(TENANT);
+        LoginContext.set(new LoginUser(USER, company));
+        var req = org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get(path);
+        for (int i = 0; i < params.length; i += 2) {
+            req.param(params[i], params[i + 1]);
+        }
+        return mvc.perform(req);
+    }
+
+    @Test
+    void workOrderNotReleasedOrAllowedNullIs60101OnCreate() throws Exception {
+        owner.update("UPDATE prd_work_order SET order_status = 25 WHERE id = ?", WO);
+        create(CO, body(LINE, WO, "1")).andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.code").value(60101)).andExpect(jsonPath("$.msgId").value("MSG-PRD-101"));
+        owner.update("UPDATE prd_work_order SET order_status = 30, allowed_qty = NULL WHERE id = ?", WO);
+        create(CO, body(LINE, WO, "1")).andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.code").value(60101));
+        assertThat(approvalCount()).isZero();
+    }
+
     @Test
     void approveWorkOrderLevelRaisesLineAndWorkOrderAllowedQty() throws Exception {
-        String id = createdId(create(CO, body(LINE, WO, "10")).andExpect(status().isCreated()).andReturn());
-        postAs(APPROVER, CO, BASE + "/" + id + "/approve", "{\"version\": 0}")
+        String id = pendingApproval(WO, "10");
+        act(APPROVER, id, "approve", 1)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.id").value(id))
@@ -256,28 +298,35 @@ class OverproductionApprovalApiIntegrationTest {
         assertThat(row.get("approval_status")).isEqualTo(30);
         assertThat((BigDecimal) row.get("approved_allowed_qty")).isEqualByComparingTo("115");
         assertThat(row.get("approved_by")).isEqualTo(APPROVER);
-
-        // 2 回目は状態競合（4002）、allowed_qty は再加算されない
-        postAs(APPROVER, CO, BASE + "/" + id + "/approve", "{\"version\": 1}")
-                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value(4002));
+        // 承認済への再承認は 60101、allowed_qty は再加算されない
+        act(APPROVER, id, "approve", 2)
+                .andExpect(status().isUnprocessableContent()).andExpect(jsonPath("$.code").value(60101));
         assertThat(lineAllowed(LINE)).isEqualByComparingTo("115");
         assertThat(woAllowed(WO)).isEqualByComparingTo("115");
     }
 
     @Test
     void approveLineLevelRaisesOnlyLine() throws Exception {
-        String id = createdId(create(CO, body(LINE, null, "7")).andExpect(status().isCreated()).andReturn());
-        postAs(APPROVER, CO, BASE + "/" + id + "/approve", "{\"version\": 0}").andExpect(status().isOk());
+        String id = pendingApproval(null, "7");
+        act(APPROVER, id, "approve", 1).andExpect(status().isOk());
         assertThat(lineAllowed(LINE)).isEqualByComparingTo("112");
         assertThat(woAllowed(WO)).isEqualByComparingTo("105");
     }
 
+    @Test
+    void approveDraftIs4002() throws Exception {
+        String id = newApproval(WO, "10");
+        act(APPROVER, id, "approve", 0).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value(4002));
+        assertThat(lineAllowed(LINE)).isEqualByComparingTo("105");
+        assertThat(statusOf(id)).isEqualTo(10);
+    }
+
     @ParameterizedTest
-    @ValueSource(ints = {40, 90})
-    void approvingRejectedOrCancelledIs60101(int st) throws Exception {
-        String id = createdId(create(CO, body(LINE, WO, "10")).andExpect(status().isCreated()).andReturn());
+    @ValueSource(ints = {30, 40, 90})
+    void approvingApprovedRejectedOrCancelledIs60101(int st) throws Exception {
+        String id = pendingApproval(WO, "10");
         owner.update("UPDATE prd_overproduction_approval SET approval_status = ? WHERE id = ?", st, Long.parseLong(id));
-        postAs(APPROVER, CO, BASE + "/" + id + "/approve", "{\"version\": 0}")
+        act(APPROVER, id, "approve", 1)
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.code").value(60101))
                 .andExpect(jsonPath("$.msgId").value("MSG-PRD-101"));
@@ -286,35 +335,34 @@ class OverproductionApprovalApiIntegrationTest {
     }
 
     @Test
-    void workOrderUpdateZeroRowsIs5000AndRollsBack() throws Exception {
-        String id = createdId(create(CO, body(LINE, WO, "10")).andExpect(status().isCreated()).andReturn());
-        owner.update("UPDATE prd_work_order SET allowed_qty = NULL WHERE id = ?", WO);
-        postAs(APPROVER, CO, BASE + "/" + id + "/approve", "{\"version\": 0}")
-                .andExpect(status().isInternalServerError()).andExpect(jsonPath("$.code").value(5000));
-        assertThat(lineAllowed(LINE)).isEqualByComparingTo("105");   // 受注行の +delta もロールバック
-        assertThat(owner.queryForObject("SELECT approval_status FROM prd_overproduction_approval WHERE id = ?",
-                Integer.class, Long.parseLong(id))).isEqualTo(10);
+    void selfApprovalIs60005() throws Exception {
+        String id = pendingApproval(WO, "10");
+        act(USER, id, "approve", 1)
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.code").value(60005))
+                .andExpect(jsonPath("$.msgId").value("MSG-PRD-005"));
+        assertThat(lineAllowed(LINE)).isEqualByComparingTo("105");
+        assertThat(woAllowed(WO)).isEqualByComparingTo("105");
+        assertThat(statusOf(id)).isEqualTo(20);
     }
 
     @Test
     void staleVersionIs4003AndAllowedQtyUnchanged() throws Exception {
-        String id = createdId(create(CO, body(LINE, WO, "10")).andExpect(status().isCreated()).andReturn());
-        owner.update("UPDATE prd_overproduction_approval SET version = version + 1 WHERE id = ?", Long.parseLong(id));
-        postAs(APPROVER, CO, BASE + "/" + id + "/approve", "{\"version\": 0}")
+        String id = pendingApproval(WO, "10");   // version 1
+        act(APPROVER, id, "approve", 0)
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value(4003))
                 .andExpect(jsonPath("$.msgId").value("MSG-COM-033"));
         assertThat(lineAllowed(LINE)).isEqualByComparingTo("105");
         assertThat(woAllowed(WO)).isEqualByComparingTo("105");
-        assertThat(owner.queryForObject("SELECT approval_status FROM prd_overproduction_approval WHERE id = ?",
-                Integer.class, Long.parseLong(id))).isEqualTo(10);
+        assertThat(statusOf(id)).isEqualTo(20);
     }
 
     /** 同一受注行の 2 件を別スレッド・別トランザクションで同時承認：両方成功し、受注行は増分の合計（ロストアップデートなし）。 */
     @Test
     void concurrentApprovalsOnSameLineBothApplied() throws Exception {
-        long a = Long.parseLong(createdId(create(CO, body(LINE, WO, "10")).andExpect(status().isCreated()).andReturn()));
-        long b = Long.parseLong(createdId(create(CO, body(LINE, null, "7")).andExpect(status().isCreated()).andReturn()));
+        long a = Long.parseLong(pendingApproval(WO, "10"));
+        long b = Long.parseLong(pendingApproval(null, "7"));
         LoginContext.clear();
         TenantContext.clear();
         java.util.concurrent.CyclicBarrier barrier = new java.util.concurrent.CyclicBarrier(2);
@@ -324,7 +372,7 @@ class OverproductionApprovalApiIntegrationTest {
                     .map(id -> pool.submit(() -> {
                         barrier.await(10, java.util.concurrent.TimeUnit.SECONDS);
                         return TenantContext.callAs(TENANT, () -> LoginContext.callAs(new LoginUser(APPROVER, CO),
-                                () -> approvals.approve(id, 0)));
+                                () -> approvals.approve(id, 1)));
                     })).toList();
             for (var f : fs) {
                 assertThat(f.get(30, java.util.concurrent.TimeUnit.SECONDS).approvalStatus()).isEqualTo((short) 30);
@@ -337,5 +385,66 @@ class OverproductionApprovalApiIntegrationTest {
         assertThat(owner.queryForObject("""
                 SELECT count(*) FROM prd_overproduction_approval WHERE tenant_id = 311 AND approval_status = 30""",
                 Long.class)).isEqualTo(2);
+    }
+
+    @Test
+    void submitOnlyFromDraft() throws Exception {
+        String id = pendingApproval(WO, "10");
+        act(USER, id, "submit", 1).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value(4002));
+    }
+
+    @Test
+    void rejectFromPendingKeepsAllowedQty() throws Exception {
+        String id = pendingApproval(WO, "10");
+        postAs(APPROVER, CO, BASE + "/" + id + "/reject", "{\"version\": 1, \"comment\": \"数量过多\"}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.approvalStatus").value(40))
+                .andExpect(jsonPath("$.data.rejectReason").value("数量过多"))
+                .andExpect(jsonPath("$.data.approvedBy").value(String.valueOf(APPROVER)));
+        assertThat(lineAllowed(LINE)).isEqualByComparingTo("105");
+        assertThat(woAllowed(WO)).isEqualByComparingTo("105");
+        act(APPROVER, id, "reject", 2).andExpect(status().isUnprocessableContent()).andExpect(jsonPath("$.code").value(60101));
+        act(USER, id, "cancel", 2).andExpect(status().isUnprocessableContent()).andExpect(jsonPath("$.code").value(60101));
+        String draft = newApproval(null, "1");
+        act(APPROVER, draft, "reject", 0).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value(4002));
+    }
+
+    @Test
+    void cancelFromDraftOrPendingAndNotAfterApproval() throws Exception {
+        String draft = newApproval(null, "1");
+        act(USER, draft, "cancel", 0).andExpect(status().isOk()).andExpect(jsonPath("$.data.approvalStatus").value(90));
+        String pending = pendingApproval(null, "1");
+        act(USER, pending, "cancel", 1).andExpect(status().isOk()).andExpect(jsonPath("$.data.approvalStatus").value(90));
+        String approved = pendingApproval(WO, "10");
+        act(APPROVER, approved, "approve", 1).andExpect(status().isOk());
+        act(USER, approved, "cancel", 2).andExpect(status().isUnprocessableContent()).andExpect(jsonPath("$.code").value(60101));
+        assertThat(lineAllowed(LINE)).isEqualByComparingTo("115");
+        assertThat(statusOf(approved)).isEqualTo(30);
+        act(USER, draft, "submit", 1).andExpect(status().isUnprocessableContent()).andExpect(jsonPath("$.code").value(60101));
+    }
+
+    @Test
+    void getDetailAndListAreCompanyScoped() throws Exception {
+        String a = newApproval(WO, "10");
+        String b = pendingApproval(null, "3");
+        getAs(CO, BASE + "/" + a)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(a))
+                .andExpect(jsonPath("$.data.salesOrderLineId").value(String.valueOf(LINE)))
+                .andExpect(jsonPath("$.data.workOrderId").value(String.valueOf(WO)))
+                .andExpect(jsonPath("$.data.approvalStatus").value(10))
+                .andExpect(jsonPath("$.data.requestedBy").value(String.valueOf(USER)));
+        getAs(CO, BASE, "salesOrderLineId", String.valueOf(LINE))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(2))
+                .andExpect(jsonPath("$.data.list.length()").value(2));
+        getAs(CO, BASE, "approvalStatus", "20")
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.list[0].id").value(b));
+        getAs(CO, BASE, "workOrderId", String.valueOf(WO))
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.list[0].id").value(a));
+        getAs(CO2, BASE + "/" + a).andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value(4001));
+        getAs(CO2, BASE).andExpect(status().isOk()).andExpect(jsonPath("$.data.total").value(0));
     }
 }
