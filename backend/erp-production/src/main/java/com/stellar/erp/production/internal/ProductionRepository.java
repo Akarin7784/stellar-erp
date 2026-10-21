@@ -181,16 +181,48 @@ public class ProductionRepository {
     public record MaterialLineInsert(long id, long companyId, long userId, long workOrderId, int lineNo, long bomLineId,
                                      Integer operationSeq, long materialId, String materialCode, String materialName,
                                      String uomCode, BigDecimal requiredQty, BigDecimal lossRate, BigDecimal lossQty,
-                                     BigDecimal totalRequiredQty, boolean keyPart, String substituteGroup) {
+                                     BigDecimal totalRequiredQty, boolean keyPart, String substituteGroup,
+                                     String bomUomCode, BigDecimal bomQty) {
+    }
+
+    /** 物料の基本単位（当前公司、未删除）。 */
+    public Optional<String> findBaseUom(long companyId, long materialId) {
+        return jdbc.sql("SELECT base_uom_code FROM mdm_material WHERE id = :id AND company_id = :c AND deleted = FALSE")
+                .param("id", materialId).param("c", companyId).query(String.class).optional();
+    }
+
+    /** 単位整合の再チェック用：材料行と物料基本単位（物料が見つからない行は baseUom=NULL）。 */
+    public record MaterialLineUom(long id, int lineNo, long materialId, String uomCode, String bomUomCode,
+                                  String baseUom) {
+    }
+
+    public List<MaterialLineUom> listMaterialLineUoms(long companyId, long workOrderId) {
+        return jdbc.sql("""
+                        SELECT l.id, l.line_no, l.material_id, l.uom_code, l.bom_uom_code, m.base_uom_code
+                          FROM prd_work_order_material l
+                          LEFT JOIN mdm_material m ON m.id = l.material_id AND m.company_id = l.company_id AND m.deleted = FALSE
+                         WHERE l.company_id = :c AND l.work_order_id = :wo
+                         ORDER BY l.line_no, l.id
+                        """)
+                .param("c", companyId).param("wo", workOrderId)
+                .query((rs, i) -> new MaterialLineUom(rs.getLong(1), rs.getInt(2), rs.getLong(3), rs.getString(4),
+                        rs.getString(5), rs.getString(6)))
+                .list();
+    }
+
+    public Optional<LocalDate> findPlannedStartDate(long companyId, long workOrderId) {
+        return jdbc.sql("SELECT planned_start_date FROM prd_work_order WHERE id = :id AND company_id = :c")
+                .param("id", workOrderId).param("c", companyId).query(LocalDate.class).optional();
     }
 
     public void insertMaterialLine(MaterialLineInsert m) {
         jdbc.sql("""
                         INSERT INTO prd_work_order_material (id, company_id, created_by, updated_by, work_order_id, line_no,
                             bom_line_id, operation_seq, material_id, material_code, material_name, uom_code, required_qty,
-                            loss_rate, loss_qty, total_required_qty, remaining_qty, is_key_part, substitute_group)
+                            loss_rate, loss_qty, total_required_qty, remaining_qty, is_key_part, substitute_group,
+                            bom_uom_code, bom_qty)
                         VALUES (:id, :company, :user, :user, :wo, :lineNo, :bomLine, :opSeq, :material, :code, :name, :uom,
-                            :req, :lossRate, :lossQty, :total, :total, :key, :sub)
+                            :req, :lossRate, :lossQty, :total, :total, :key, :sub, :bomUom, :bomQty)
                         """)
                 .param("id", m.id()).param("company", m.companyId()).param("user", m.userId())
                 .param("wo", m.workOrderId()).param("lineNo", m.lineNo()).param("bomLine", m.bomLineId())
@@ -198,6 +230,7 @@ public class ProductionRepository {
                 .param("name", m.materialName()).param("uom", m.uomCode()).param("req", m.requiredQty())
                 .param("lossRate", m.lossRate()).param("lossQty", m.lossQty()).param("total", m.totalRequiredQty())
                 .param("key", m.keyPart()).param("sub", m.substituteGroup())
+                .param("bomUom", m.bomUomCode()).param("bomQty", m.bomQty())
                 .update();
     }
 

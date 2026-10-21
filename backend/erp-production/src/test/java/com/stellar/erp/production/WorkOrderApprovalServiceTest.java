@@ -26,7 +26,8 @@ class WorkOrderApprovalServiceTest {
 
     ProductionRepository repo = mock(ProductionRepository.class);
     WorkOrderQueryService query = mock(WorkOrderQueryService.class);
-    WorkOrderApprovalService service = new WorkOrderApprovalService(repo, query);
+    com.stellar.erp.production.internal.UomConverter uoms = mock(com.stellar.erp.production.internal.UomConverter.class);
+    WorkOrderApprovalService service = new WorkOrderApprovalService(repo, query, new WorkOrderMaterials(repo, uoms));
 
     @BeforeEach
     void login() {
@@ -140,5 +141,18 @@ class WorkOrderApprovalServiceTest {
                     assertThat(e.getMsgId()).isEqualTo("MSG-PRD-021");
                 });
         verify(repo, never()).markApproved(anyLong(), anyLong(), anyInt(), anyLong());
+    }
+
+    @Test
+    void submitChecksAllMaterialLineUnits() {
+        stub(10, 0, CREATOR);
+        when(repo.findPlannedStartDate(CO, WO)).thenReturn(Optional.of(java.time.LocalDate.of(2026, 11, 2)));
+        when(repo.listMaterialLineUoms(CO, WO)).thenReturn(java.util.List.of(
+                new ProductionRepository.MaterialLineUom(1, 10, 900, "PCE", "BOX", "PCE")));
+        org.mockito.Mockito.doThrow(new BizException(60022, "MSG-PRD-022", "x"))
+                .when(uoms).check(CO, "BOX", "PCE", java.time.LocalDate.of(2026, 11, 2));
+        assertThatThrownBy(() -> service.submit(WO, new WorkOrderStateCommand(0, null)))
+                .isInstanceOfSatisfying(BizException.class, e -> assertThat(e.getCode()).isEqualTo(60022));
+        verify(repo, never()).markSubmitted(anyLong(), anyLong(), anyInt(), anyLong());
     }
 }
