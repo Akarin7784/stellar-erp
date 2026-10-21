@@ -6,6 +6,7 @@ vi.mock('element-plus', () => ({
 
 import http, { ApiError } from '../http'
 import {
+  toReleaseErrorView,
   buildCreateRequest,
   createWorkOrder,
   formatRatePercent,
@@ -193,5 +194,45 @@ describe('60021 / 60022', () => {
     expect(toCreateErrorView(bizErr(60021, 'MSG-PRD-021', '工序明細 0 件')).message).toBe(
       '[MSG-PRD-021] 工序明細 0 件',
     )
+  })
+})
+
+describe('toReleaseErrorView', () => {
+  const e = (status: number, code: number, message: string, msgId?: string) =>
+    new ApiError('fallback', {
+      status,
+      code,
+      msgId,
+      data: { code, message, data: null, msgId: msgId ?? null },
+    })
+
+  it('4003 → conflict（刷新提示）', () => {
+    expect(toReleaseErrorView(e(409, 4003, 'x', 'MSG-COM-033'))).toMatchObject({
+      kind: 'conflict',
+      reload: true,
+    })
+  })
+  it('4002（422）→ business，后端 message，需重读', () => {
+    expect(toReleaseErrorView(e(422, 4002, '状态不允许', 'MSG-COM-034'))).toEqual({
+      kind: 'business',
+      message: '[MSG-COM-034] 状态不允许',
+      reload: true,
+    })
+  })
+  it('4002 缺 msgId/message 时用 MSG-COM-034 默认', () => {
+    expect(toReleaseErrorView(e(422, 4002, '')).message).toBe(
+      '[MSG-COM-034] 该记录当前状态不允许此操作。',
+    )
+  })
+  it('60020 → business，缺 msgId 时补 MSG-PRD-020，不重读', () => {
+    expect(toReleaseErrorView(e(422, 60020, '无 BOM'))).toEqual({
+      kind: 'business',
+      message: '[MSG-PRD-020] 无 BOM',
+      reload: false,
+    })
+  })
+  it('5000 / 非 ApiError → generic', () => {
+    expect(toReleaseErrorView(e(500, 5000, 'x')).kind).toBe('generic')
+    expect(toReleaseErrorView(new Error('x')).kind).toBe('generic')
   })
 })

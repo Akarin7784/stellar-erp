@@ -11,7 +11,10 @@ export interface DeptOption {
   departmentName: string
 }
 
-export async function listDeptOptions(): Promise<DeptOption[]> {
-  const res = await http.get<ApiResult<DeptOption[]>>('/system/departments/options')
+/** silent：失败时不弹全局提示，由画面自行显示（工单登録画面用页内警告）。 */
+export async function listDeptOptions(opts: { silent?: boolean } = {}): Promise<DeptOption[]> {
+  const res = await http.get<ApiResult<DeptOption[]>>('/system/departments/options', {
+    silent: opts.silent,
+  })
   return res.data.data
 }

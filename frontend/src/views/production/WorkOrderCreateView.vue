@@ -129,6 +129,14 @@
         </el-col>
         <el-col :span="8">
           <el-form-item label="部門" prop="departmentId">
+            <el-alert
+              v-if="deptLoadFailed"
+              data-test="dept-load-warning"
+              :title="MSG_DEPT_LOAD_FAILED"
+              type="warning"
+              show-icon
+              :closable="false"
+            />
             <el-select
               v-model="form.departmentId"
               data-test="department"
@@ -285,6 +293,9 @@ const isBackflush = computed({
 const factories = ref<FactoryOption[]>([])
 const warehouses = ref<WarehouseOption[]>([])
 const departments = ref<DeptOption[]>([])
+/** 部门下拉加载失败：页内警告，不阻塞登録（部门为任意项） */
+const deptLoadFailed = ref(false)
+const MSG_DEPT_LOAD_FAILED = '部门列表加载失败，可暂不选择部门继续登记，或刷新页面重试。'
 const materials = ref<MaterialOption[]>([])
 const materialLoading = ref(false)
 /** 已选品目的快照：即使不在当前检索结果里也照样显示 code/name 和 unitName */
@@ -380,9 +391,11 @@ function todayShanghai(): string {
 
 async function loadDepartments() {
   try {
-    departments.value = await listDeptOptions()
+    departments.value = await listDeptOptions({ silent: true })
+    deptLoadFailed.value = false
   } catch {
     departments.value = []
+    deptLoadFailed.value = true
   }
 }
 
