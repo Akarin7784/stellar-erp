@@ -61,6 +61,7 @@
 |---|---|---|---|
 | CALC-01 | 有効ロール数 | `COUNT(sys_user_role WHERE user_id=? AND status=1 AND (valid_to IS NULL OR valid_to >= today))` | 3 |
 | CALC-02 | データ範囲の実効値 | ユーザ個別 > ロールのリソース別 > ロール既定（`data_scope_type`）の順で解決。`scope_type=6（工場）` は `factory_ids`、`7（倉庫）` は `warehouse_ids`、`5（自定义）` は `custom_rule.factoryIds/warehouseIds/departmentIds/userIds` を AND 条件で適用 | — |
+| CALC-02a | 工場データ範囲（v1 最小実装、蓝色大肥鱼 2026-10-21 决定） | 実装：`erp-production` の `internal/FactoryDataScope`（PR #131、工单一覧 06/91 §3.15 で使用）。**工場次元のみ**を扱い、部門・本人・倉庫次元は対象外。① ユーザ個別（`sys_user_data_scope`、有効期間内、リソース完全一致 > `'*'`）が 1 件でもあればそれを採用し、ロールは見ない（ユーザ個別がロールより優先）。② なければ有効ロール（`sys_user_role`・`sys_role` とも `status=1`、有効期間内）ごとに、リソース別（`sys_role_data_scope`、`resource_code`・`module_code` 完全一致 > `'*'`）> ロール既定（`data_scope_type`）で実効値を決め、**複数ロールは和集合**。③ 工場制限になるのは `scope_type=6`（`factory_ids`）と `5`（`custom_rule.factoryIds` がある場合）のみ。いずれか 1 ロールでもそれ以外（全社・部門・本人等＝工場無制限）なら**工場無制限**。④ `factoryId` 指定が範囲外なら 403／`3002`（`MSG-COM-031`）。⑤ `factoryId` 未指定なら範囲内の工場の行のみ返す（範囲が空集合なら 0 件）。**v1 の最小実装**であり、システム域の正式設計時はこの規則を土台に部門・倉庫等の次元を拡張する（置き換えない） | ロール A=工場 {1}、ロール B=工場 {2} → {1,2}。B が全社なら無制限 |
 | CALC-03 | SoD チェック | 付与予定ロール集合が `sys_param: sod.conflict-pairs` のいずれかと一致した場合に警告 | `PURCHASE_CREATE`×`PURCHASE_APPROVE` |
 
 ### 2.4 状態遷移
@@ -490,3 +491,4 @@ stateDiagram-v2
 | v1.3 | 2026-10-21 | §9 岗位無効メッセージを MSG-SYS-021 から MSG-SYS-094 に変更（MSG-SYS-021 は 04/93 でメニュー階層違反に使用済みのため重複解消。蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.4 | 2026-10-21 | §6.3 #1 ユーザ重複を 409 → 422、`code=10001`／MSG-SYS-095 に変更（409 は楽観排他競合のみ）（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.5 | 2026-10-21 | §6.3 #1 のメッセージを MSG-SYS-095 → MSG-COM-050 に戻す（095 は撤回）。HTTP 422 は維持（蓝色大肥鱼 2026-10-21 16:24 決定） | 业务分析 |
+| v1.6 | 2026-10-21 | §2.3 に CALC-02a を追加：工場データ範囲の v1 最小実装（PR #131 `FactoryDataScope`）。ユーザ個別 > ロール、複数ロールは和集合、1 ロールでも工場無制限なら無制限、範囲外 `factoryId` は 403／3002、未指定は範囲内工場に自動限定。正式設計時は拡張し置き換えない（蓝色大肥鱼 2026-10-21 决定） | 业务分析 |
