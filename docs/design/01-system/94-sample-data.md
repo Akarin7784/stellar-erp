@@ -4,7 +4,7 @@
 |---|---|
 | 文書名 | 系统管理 样例数据说明（系统管理 サンプルデータ説明） |
 | 文書番号 | DSN-SYS-094 |
-| 版数 | v1.6 |
+| 版数 | v1.9 |
 | 作成日 | 2026-10-20 |
 | 作成者 | system-workflow（域設計担当） |
 | 承認者 | 未承認（レビュー待ち） |
@@ -249,6 +249,7 @@
 | G-9 | 系统管理员以外のロール（`ROLE-*` 17 件）は示例値 | 解決：本種マイグレーションの対象外 |
 | G-10 | `component_path`・`icon` の値は設計書に定義がない | 解決：`NULL` で投入、フロント実装時に設定 |
 | G-11 | 超産承認 API（[06/91](../06-production/91-api-design.md)、#66・#68）の権限コード `production:overproduction-approval:{view,create,submit,approve,cancel}`（reject は approve と共用）が V202610211405 の種にない | 解決（蓝色大肥鱼 2026-10-21 決定）：06 画面一覧に `SCR-PRD-034` 超产申请一覧を登録し（[06/00 §5](../06-production/00-overview.md)）、付録 A #397〜#401 に菜单 1 行（`production/overproduction-approvals`、`is_visible=TRUE`、view）と按钮 4 行（新規 create／提出 submit／承認・却下 approve／取消 cancel）を追加。DBA が**後続の増分迁移**（新バージョン。V202610211405 は変更しない）で投入する。増分迁移の要件：① `sys_menu` 5 行を全テナントに冪等投入（§2.10 (6) と同じ `ON CONFLICT DO NOTHING`）。② 既存会社の `SYSTEM_ADMIN`（`deleted = FALSE`）に**新しい 5 行（permission_code 付き）だけ**を一度だけ付与する（`ON CONFLICT DO NOTHING`）。既存の付与は変更せず、過去に撤销された付与も戻さない（既存 579 行分を再付与しない）。③ 以後に登録される会社は `sys_init_company` で 584 行全件（5 コードを含む）が付与される。pgTAP で次を断言する：既存会社の `SYSTEM_ADMIN` が 5 コードを得る／増分迁移前に撤销した既存付与が戻らない／増分迁移後の新規会社の `SYSTEM_ADMIN` が 5 コードを含む 584 行を持つ／再実行で行数が変わらない |
+| G-12 | 一度だけ実行する回填用関数（例：V202610211406 の `sys_apply_overproduction_menu()`、sys/V202610211406:637）が迁移後も DB に残ると、owner 等が手動で再実行した際に、管理員が撤销した付与（`sys_role_permission` は `deleted` 列を持たず撤销＝行削除、G-6）が `ON CONFLICT DO NOTHING` でも再付与されてしまう | 解決（蓝色大肥鱼 2026-10-21 決定）：**一度だけの回填に使う関数は、定義した同じ迁移の中で実行後に `DROP FUNCTION` し、DB に残さない**（以後の全迁移に適用）。繰り返し呼ぶ前提の関数（`sys_init_tenant`・`sys_init_company`）は対象外。既に main にある V202610211406 の `sys_apply_overproduction_menu()` は、V202610211406 を変更せず、**次の sys 迁移**で `DROP FUNCTION IF EXISTS sys_apply_overproduction_menu()` する（DBA 担当） |
 
 ## 3. 仮定値の一覧
 
@@ -894,3 +895,4 @@
 | v1.6 | 2026-10-21 | §2.10 (4)：複数伝票種別を扱う画面の `route_path` は種別コードを 09 §7.1 の順にハイフン連結（`mii-mir`、`osi-osr`）と明記 | 业务分析 |
 | v1.7 | 2026-10-21 | §2.10 (7) G-7 を改訂：`sys_menu.parent_id` に自己参照 FK を付けないことを明記（0＝ルート、親子はアプリ `MSG-SYS-021` と pgTAP で検査。#65、蓝色大肥鱼 2026-10-21 決定、案 A） | 业务分析 |
 | v1.8 | 2026-10-21 | G-11 を追加：超産承認の菜单 `SCR-PRD-034` と按钮 4 行（`production:overproduction-approval:*`、reject は approve と共用）を付録 A #397〜#401 に追加し後続行を繰下げ（画面は 06 §5 SCR-PRD-034）。増分迁移の要件（既存 SYSTEM_ADMIN へ新 5 コードのみ一度付与・撤销済み付与は戻さない・新規会社は sys_init_company で取得、pgTAP で両方を断言）を明記。件数を 594 行／付与 584／異なるコード 518 に更新（V202610211405 は 589／579／513 のまま、5 行は後続の増分迁移で投入。蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.9 | 2026-10-21 | §2.10 (7) G-12 を追加：一度だけの回填用関数は定義した同じ迁移で実行後に `DROP FUNCTION` する規則（手動再実行で撤销済み付与が戻るのを防ぐ）。V202610211406 の `sys_apply_overproduction_menu()` は次の sys 迁移で DROP（#70、蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
