@@ -53,7 +53,7 @@
       "folder": "05-inventory",
       "functions": 23,
       "screens": 26,
-      "tables": 23,
+      "tables": 24,
       "reports": 17,
       "batches": 9,
       "interfaces": 0,
@@ -6639,6 +6639,12 @@
     {
       "name": "inv_event_wait",
       "logical": "品質イベント保留",
+      "domain": "INV",
+      "source": "05-inventory/90-db-design.md"
+    },
+    {
+      "name": "inv_stock_txn_key",
+      "logical": "在庫事務一意キー台帳",
       "domain": "INV",
       "source": "05-inventory/90-db-design.md"
     },
@@ -23978,7 +23984,7 @@
     {
       "method": "POST/PUT",
       "path": "/api/mdm/uom-conversions[/{id}]",
-      "name": "換算 CRUD",
+      "name": "換算 CRUD（20077 は SQLSTATE 23P01 のうち制約名が ex_mdm_uom_conversion_period の場合のみ 20077 に変換（23P01 を一律 20077 にしない。標準原価公開の排他制約の 23P01 は 70134／MSG-FIN-134））",
       "permission": "mdm:uom:update",
       "domain": "MDM",
       "source": "02-mdm/91-api-design.md"

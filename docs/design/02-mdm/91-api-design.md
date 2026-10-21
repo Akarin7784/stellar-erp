@@ -103,7 +103,7 @@
 | 57 | GET | `/api/mdm/uoms/{code}` | `mdm:uom:view` | 単位照会 | 4001 | F-MDM-007 |
 | 58 | POST/PUT | `/api/mdm/uoms[/{id}]` | `mdm:uom:update` | 単位 CRUD | 20029/20030 | F-MDM-007 |
 | 59 | GET | `/api/mdm/uom-conversions` | `mdm:uom:view` | 換算一覧 | — | F-MDM-007 |
-| 60 | POST/PUT | `/api/mdm/uom-conversions[/{id}]` | `mdm:uom:update` | 換算 CRUD | 20031／20077 | F-MDM-007 |
+| 60 | POST/PUT | `/api/mdm/uom-conversions[/{id}]` | `mdm:uom:update` | 換算 CRUD（20077 は SQLSTATE 23P01 のうち制約名が `ex_mdm_uom_conversion_period` の場合のみ 20077 に変換（23P01 を一律 20077 にしない。標準原価公開の排他制約の 23P01 は 70134／MSG-FIN-134）） | 20031／20077 | F-MDM-007 |
 | 61 | POST | `/api/mdm/uoms/convert` | `mdm:uom:view` | 数量換算 | 20031 | F-MDM-007 |
 | 62 | GET | `/api/mdm/currencies` | `mdm:currency:view` | 通貨一覧 | — | F-MDM-008 |
 | 63 | GET | `/api/mdm/currencies/{code}` | `mdm:currency:view` | 通貨照会 | 4001 | F-MDM-008 |
@@ -380,7 +380,7 @@
 | 20058 | 400 | MSG-MDM-119 | 税込/税抜の不整合 |
 | 20059 | 400 | MSG-MDM-121 | 固定支払日不正 |
 | 20060 | 400 | MSG-MDM-123/061 | 口座名義不一致（警告） |
-| 20077 | 422 | MSG-MDM-178 | 換算率の有効期間重複（登録・更新・再有効化時の DB 23P01 `ex_mdm_uom_conversion_period` を変換）（蓝色大肥鱼 2026-10-21 決定） |
+| 20077 | 422 | MSG-MDM-178 | 換算率の有効期間重複（登録・更新・再有効化時。SQLSTATE 23P01 のうち制約名が `ex_mdm_uom_conversion_period` の場合のみ 20077 に変換（23P01 を一律 20077 にしない。標準原価公開の排他制約の 23P01 は 70134／MSG-FIN-134））（蓝色大肥鱼 2026-10-21 決定） |
 
 ### 4.2 エラーレスポンス形式
 
@@ -448,3 +448,4 @@
 | v1.0 | 2026-10-20 | 初版：API 140 件一覧、代表 7 件詳細、エラーコード対応表、他域参照契約。同日追記：Lead 裁定により工厂主数据（F-MDM-025）API 3 件（#138〜140）を追加、物料詳細レスポンスの `finance` に `costMethod` を追加。第 2 次追記（红队第 2 轮 REV-004/REV-003）：销售取价 API のレスポンス契約を `materialId/customerId/currencyCode/unitPriceNet/unitPriceGross/taxCode/isTaxIncluded/discountRate/validFrom/validTo` に統一（無価格は 404＋20036）、与信判定結果コード（BR-CRD-13）を明記 | mdm-designer |
 | v1.1 | 2026-10-21 | §3.8 選択用 API（factories／warehouses/options／materials）の返却項目を追加（蓝色大肥鱼 2026-10-21 PR #32 決定） | 业务分析 |
 | v1.2 | 2026-10-21 | #60 換算 CRUD のエラーに 20077 を追加、§4.1 に 20077／MSG-MDM-178（換算率の有効期間重複）を追加（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.3 | 2026-10-21 | 20077 の変換条件を制約名 `ex_mdm_uom_conversion_period` の 23P01 に限定（標準原価公開は 70134）（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

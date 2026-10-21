@@ -32,12 +32,12 @@
 
 | 項目 | 決定 | 根拠 |
 |---|---|---|
-| 计价方法 | 移动加权平均法（第一版 唯一） | [08 §6.1](../00-common/08-common-business-rules.md) |
+| 计价方法 | `mdm_material.valuation_method` で物料別：`10` 移动加权平均（MTO 产品・外购料）／`20` 标准成本（MTS 自制品）。20 は入出庫とも `fin_standard_cost` 有効版の `total_unit_cost` で計上し、入庫時の実際原価との差は明細 `variance_amount` として E18 で FIN へ（在庫金額に含めない）。成本核算は BC-01（MTS 品种法／MTO 分批法、MTO は `work_order_id` 単位） | [08 §6](../00-common/08-common-business-rules.md) 计价方法（已決 2026-10-20）、[07 §BC-01](../07-finance/06-auto-voucher-costing.md) |
 | **原価計算単位（cost group）** | **倉庫 × 物料 × 批次**（非批次管理物料は 倉庫 × 物料、`batch_id=0`） | [08 §6.1](../00-common/08-common-business-rules.md) の「`inv_stock_balance`（倉庫×物料×批次）に残高・金額・平均単価を保持」に従う。E19 の `batchNo` 項目とも整合 |
 | 数量精度 | `NUMERIC(18,4)`（基本単位） | [01 §6.1](../00-common/01-common-item-definitions.md) |
 | 金額精度 | `NUMERIC(18,2)`（CNY） | 同上 |
 | 平均単価精度 | `NUMERIC(18,6)`（四捨五入 HALF_UP） | 同上 |
-| 標準原価 | 第一版（標準原価法・差異分析）。当面は移動平均のみ | [README](../README.md) 2.3 |
+| 標準原価 | 第一版で適用（上行）。唯一の来源は `fin_standard_cost`（`status=40`、適用期間に `txn_date` を含む版）。未発行の物料は `valuation_method=20` の過账を拒否 | [07 90 §6.12](../07-finance/90-db-design.md) |
 | 外貨 | 当面は CNY のみ。外貨は 第一版（レートは登録時スナップショット） | [06-code-list §3](../00-common/06-code-list.md) |
 
 > **設計判断の記録**：原価計算単位を「倉庫×物料×批次」としたため、同一物料でも倉庫・批次が異なれば平均単価は独立する。これは ①批次別の原価把握（ロット原価）が製造業の要求であること、②E19 が `batchNo` を運ぶこと、③[08 §6.1] の残高定義と一致することを根拠とする。倉庫間・批次間の原価は移動平均の対象外であり、調撥は `TR_IN` で単価を引き継ぐ（[03](03-transfer-count.md) BR-TR-04）。
@@ -613,7 +613,7 @@ stateDiagram-v2
 | 1 | （**已裁决**：倉庫×物料×批次）原価計算単位 | Lead 裁決（2026-10-20）：08 §6.1 と本設計どおり **倉庫×物料×批次** を維持。批次級原価が追溯・採購批価差異を支え、FIN 自動仕訳は E18 の `unitCost/amount` を受けるため再定義不要 | 実施済：05 §1.2 のとおり。FIN へは Lead が同期 | Lead / finance-designer / inventory-designer | 完了 2026-10-20 |
 | 2 | （**已追補 08 §8.1**）成本調整の承認閾値 | [08 §8.1](../00-common/08-common-business-rules.md) に 2026-10-20 追補済（差異 < 1,000 元：財務经理（或签）／≥ 1,000 元：財務经理 → 財務総監（順送）） | 本表 2.5・画面 SCR-INV-023 の承認判定に反映済（50,000 元の暫定値は廃止） | Lead / finance-designer | 完了 2026-10-20 |
 | 3 | 期間再計算の許容範囲 | 再計算を許可する状況（暫估確定・按分基準変更）をどこまで認めるか | ①暫估→確定、②運費・関税の按分基準変更、③入力誤りの訂正（冲销後の再計算）に限定 | inventory-designer / finance-designer | 2026-11-15 |
-| 4 | 標準原価法・差異分析 | 第一版 で標準原価を導入する場合、コスト層の構造を拡張する必要がある | 当面は移動平均のみ。第一版 で `inv_cost_layer` に標準単価・差異列を追加する案を保留 | inventory-designer / finance-designer | 2027-06-30 |
+| 4 | （**一部決定**）標準原価計価 | 08 §6 で MTS 自制品は標準原価計価に決定（2026-10-20） | 明細に `valuation_method`/`std_unit_cost`/`variance_amount` を追加（[90](90-db-design.md) 4.3）。差異科目と版切替時の再評価は [90](90-db-design.md) 未決 #8 | 蓝色大肥鱼 / FIN | 迁移着手前 |
 | 5 | 外貨建て入庫の原価換算 | 第一版 の多通貨対応時に、入庫時レートと支払時レートの差額処理が必要 | 当面は CNY のみ。第一版 で `exchange_rate` と為替差損益の連携を設計 | inventory-designer / finance-designer | 2027-03-31 |
 
 ---
@@ -626,3 +626,4 @@ stateDiagram-v2
 | v1.1 | 2026-10-20 | 90-data 実データ（参考単価）を例示に反映し、MSG-INV-061（差異 0）を追加してメッセージ整合 | inventory-designer |
 | v1.2 | 2026-10-20 | Lead 裁决を反映：未決 #1 を「已裁决：倉庫×物料×批次」、#2 を「已追補 08 §8.1（成本調整 1,000 元閾値）」に更新 | inventory-designer |
 | v1.3 | 2026-10-20 | 红队第 2 轮：E18 契約に追加項目（`stockDocId/stockDocNo/totalQty/totalAmount/sourceEventAt`）を反映し、在庫状態コード（10=待検/20=可用）に追従 | inventory-designer |
+| v1.4 | 2026-10-21 | 08 §6 の计价方法（MTS 自制品＝标准成本、MTO・外购料＝移动平均、已決）に合わせ §1.2 と未決 #4 を修正。「移動平均のみ」表記を削除 | 业务分析 |
