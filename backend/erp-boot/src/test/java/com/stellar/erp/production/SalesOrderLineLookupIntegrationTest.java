@@ -55,10 +55,12 @@ class SalesOrderLineLookupIntegrationTest {
         owner.execute("""
             INSERT INTO mdm_material_category (id, tenant_id, company_id, category_code, category_name, category_path, category_level, is_leaf)
               VALUES (995001, 305, 51, 'L1', 'L', '/L1/', 1, TRUE),
-                     (995002, 306, 51, 'L1', 'L T306', '/L1/', 1, TRUE);   -- 复合 FK (tenant_id, x_id)：租户 306 要有自己的主数据
+                     (995002, 306, 51, 'L1', 'L T306', '/L1/', 1, TRUE),   -- 复合 FK (tenant_id, x_id)：租户 306 要有自己的主数据
+                     (995003, 305, 52, 'L1', 'L C52', '/L1/', 1, TRUE);    -- 三列 FK (sal/V202610211412)：公司 52 的受注行要引用公司 52 的物料
             INSERT INTO mdm_material (id, tenant_id, company_id, material_code, material_name, material_type, category_id, spec, base_uom_code, valuation_method, status)
               VALUES (995011, 305, 51, '9950000011', 'L 成品', 10, 995001, 's', 'PCE', 20, 1),
-                     (995012, 306, 51, '9950000012', 'L 成品 T306', 10, 995002, 's', 'PCE', 20, 1);
+                     (995012, 306, 51, '9950000012', 'L 成品 T306', 10, 995002, 's', 'PCE', 20, 1),
+                     (995013, 305, 52, '9950000013', 'L 成品 C52', 10, 995003, 's', 'PCE', 20, 1);
             INSERT INTO mdm_factory (id, tenant_id, company_id, factory_code, factory_name) VALUES (995021, 305, 51, 'F51', '工厂51');
             INSERT INTO mdm_uom (id, tenant_id, company_id, uom_code, uom_name, conversion_group, decimal_places) VALUES (995071, 305, 51, 'PCE', '个', 'PCS', 0);
             INSERT INTO mdm_customer (id, tenant_id, company_id, customer_code, customer_name, customer_type, tax_no, owner_user_id, payment_term_code, settlement_method_code) VALUES
@@ -75,7 +77,7 @@ class SalesOrderLineLookupIntegrationTest {
                                               completion_over_rate, allowed_qty, completed_qty) VALUES
               (995041, 305, 51, 995031, 10, 995011, '9950000011', 'L', 100, 'PCE', 'PCE', 100, 1, 'VAT13-OUT', 13, DATE '2026-11-30', 1, 0.05, 105, 0),
               (995042, 305, 51, 995031, 20, 995011, '9950000011', 'L', 100, 'PCE', 'PCE', 100, 1, 'VAT13-OUT', 13, DATE '2026-11-30', 1, NULL, NULL, 0),
-              (995043, 305, 52, 995032, 10, 995011, '9950000011', 'L', 100, 'PCE', 'PCE', 100, 1, 'VAT13-OUT', 13, DATE '2026-11-30', 1, 0.05, 105, 0),
+              (995043, 305, 52, 995032, 10, 995013, '9950000013', 'L', 100, 'PCE', 'PCE', 100, 1, 'VAT13-OUT', 13, DATE '2026-11-30', 1, 0.05, 105, 0),
               (995044, 306, 51, 995033, 10, 995012, '9950000012', 'L', 100, 'PCE', 'PCE', 100, 1, 'VAT13-OUT', 13, DATE '2026-11-30', 1, 0.05, 105, 0);
             """);
         insertMtoWorkOrder(WO, LINE);
