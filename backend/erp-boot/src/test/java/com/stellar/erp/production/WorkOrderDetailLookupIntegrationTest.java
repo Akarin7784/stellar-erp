@@ -37,6 +37,7 @@ import com.stellar.erp.common.LoginContext.LoginUser;
 import com.stellar.erp.common.TenantContext;
 import com.stellar.erp.support.DbIntegrationTest;
 import com.stellar.erp.support.OwnerJdbc;
+import com.stellar.erp.support.PermissionGrants;
 
 /** 提出→承認→下达の一連、詳細 GET、boms/effective、mdm 選択 API（erp_app + RLS、会社境界）。 */
 @DbIntegrationTest
@@ -91,7 +92,11 @@ class WorkOrderDetailLookupIntegrationTest {
         TenantContext.clear();
     }
 
+    static final String APPROVE = "production:work-order:approve";
+    static final long NOPERM = 7399L;
+
     void cleanup() {
+        PermissionGrants.cleanup(owner, TENANT);
         owner.execute("""
             DELETE FROM prd_work_order_material WHERE tenant_id = 305;
             DELETE FROM prd_work_order_operation WHERE tenant_id = 305;
@@ -295,6 +300,8 @@ class WorkOrderDetailLookupIntegrationTest {
     void apiApproveAndSelfApprovalIs60005() throws Exception {
         long id = createDraft(true);
         as(CREATOR, CO, () -> approvals.submit(id, new WorkOrderStateCommand(0, null)));
+        PermissionGrants.grant(owner, TENANT, CO, CREATOR, 996100, APPROVE);
+        PermissionGrants.grant(owner, TENANT, CO, APPROVER, 996200, APPROVE);
         MockMvc mvc = MockMvcBuilders.webAppContextSetup(wac).build();
         TenantContext.set(TENANT);
         LoginContext.set(new LoginUser(CREATOR, CO));
@@ -316,6 +323,23 @@ class WorkOrderDetailLookupIntegrationTest {
                 .andExpect(jsonPath("$.data.orderStatus").value(25))
                 .andExpect(jsonPath("$.data.approvedBy").value(String.valueOf(APPROVER)))
                 .andExpect(jsonPath("$.data.version").value(2));
+    }
+
+    /** 承認権限（production:work-order:approve）なし → 403 / 3001 / MSG-COM-030、状態は 20 のまま。 */
+    @Test
+    void approveWithoutApproveIs403() throws Exception {
+        long id = createDraft(true);
+        as(CREATOR, CO, () -> approvals.submit(id, new WorkOrderStateCommand(0, null)));
+        PermissionGrants.grant(owner, TENANT, CO, NOPERM, 996300, "production:work-order:view");
+        MockMvc mvc = MockMvcBuilders.webAppContextSetup(wac).build();
+        TenantContext.set(TENANT);
+        LoginContext.set(new LoginUser(NOPERM, CO));
+        mvc.perform(post("/api/production/work-orders/" + id + "/approve").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"version\": 1}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value(3001))
+                .andExpect(jsonPath("$.msgId").value("MSG-COM-030"));
+        assertThat(owner.queryForObject("SELECT order_status FROM prd_work_order WHERE id = ?", Integer.class, id)).isEqualTo(20);
     }
 
     /** 2 スレッド同時実行：1 件のみ成功、他方は 4002/4003、version は +1 のみ（#25 と同じ方式）。 */
