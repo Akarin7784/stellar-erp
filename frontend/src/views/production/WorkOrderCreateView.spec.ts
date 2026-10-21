@@ -250,7 +250,8 @@ describe('WorkOrderCreateView', () => {
   it('部门：挂载时调用部门下拉，按后端顺序显示「编码 名称」', async () => {
     listDeptOptions.mockResolvedValue(DEPTS)
     const w = await mountView()
-    expect(listDeptOptions).toHaveBeenCalledWith()
+    expect(listDeptOptions).toHaveBeenCalledWith({ silent: true })
+    expect(w.find('[data-test="dept-load-warning"]').exists()).toBe(false)
     const depts = (w.vm as unknown as { departments: typeof DEPTS }).departments
     expect(depts.map((d) => d.departmentCode)).toEqual(['D002', 'D003', 'D001'])
     expect(w.find('[data-test="department"]').exists()).toBe(true)
@@ -281,6 +282,8 @@ describe('WorkOrderCreateView', () => {
     listDeptOptions.mockRejectedValue(new Error('net'))
     const w = await mountView()
     expect((w.vm as unknown as { departments: unknown[] }).departments).toEqual([])
+    expect(listDeptOptions).toHaveBeenCalledWith({ silent: true })
+    expect(w.find('[data-test="dept-load-warning"]').text()).toContain('部门列表加载失败')
     await fillAll(w)
     expect(saveBtn(w).disabled).toBe(false)
   })

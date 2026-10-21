@@ -1,4 +1,4 @@
-import http, { ApiError, type ApiResult } from '../http'
+import http, { ApiError, MSG_CONFLICT, type ApiResult } from '../http'
 
 /**
  * 工单登録 API（docs/design/06-production/02-work-order.md §7 No.3 / 91-api-design #26）。
@@ -208,4 +208,75 @@ export interface WorkOrderDetail {
 export async function getWorkOrder(id: string): Promise<WorkOrderDetail> {
   const res = await http.get<ApiResult<WorkOrderDetail>>(`/production/work-orders/${id}`)
   return res.data.data
+}
+
+/** 下达请求（backend WorkOrderReleaseCommand：version 必填，releaseDate 任意，省略＝上海当日）。 */
+export interface WorkOrderReleaseRequest {
+  version: number
+  releaseDate?: string
+}
+
+/** 下达结果（backend WorkOrderReleased，91 §3.2）。 */
+export interface WorkOrderReleased {
+  id: string | number
+  workOrderNo: string
+  orderStatus: number
+  releaseDate: string
+  standardCost: string | number | null
+  version: number
+  warnings: WorkOrderWarning[] | null
+}
+
+/** POST /api/production/work-orders/{id}/release（91 §3.2）。silent：错误由画面显示。 */
+export async function releaseWorkOrder(
+  id: string,
+  body: WorkOrderReleaseRequest,
+): Promise<WorkOrderReleased> {
+  const res = await http.post<ApiResult<WorkOrderReleased>>(
+    `/production/work-orders/${id}/release`,
+    body,
+    { silent: true },
+  )
+  return res.data.data
+}
+
+/** 下达时后端未给 msgId / message 时的默认值（06/93、00-common 05）。 */
+const RELEASE_MSG_ID: Partial<Record<number, string>> = {
+  4002: 'MSG-COM-034',
+  60020: 'MSG-PRD-020',
+  60022: 'MSG-PRD-022',
+  60047: 'MSG-PRD-047',
+  60056: 'MSG-PRD-056',
+  60104: 'MSG-PRD-104',
+}
+const RELEASE_DEFAULT_MESSAGE: Partial<Record<number, string>> = {
+  /** 00-common/05 MSG-COM-034 */
+  4002: '该记录当前状态不允许此操作。',
+  /** 06/93 MSG-PRD-020（文档原文） */
+  60020: '有効な BOM がありません。BOM を登録・承認してください。',
+}
+
+export interface ReleaseErrorView {
+  message: string
+  /** conflict：4003 版本冲突（HTTP 409），提示刷新；business：422 业务错误；generic：其他 */
+  kind: 'conflict' | 'business' | 'generic'
+  /** 是否需要重新读取详细（状态或版本已变化） */
+  reload: boolean
+}
+
+/**
+ * 下达错误 → 画面显示。只有 4003 走刷新提示；4002（重复下达等状态不整合，HTTP 422）、60020（无有效 BOM）
+ * 等 422 业务错误显示 `[msgId] 后端 message`。
+ */
+export function toReleaseErrorView(err: unknown): ReleaseErrorView {
+  if (err instanceof ApiError && err.code !== undefined) {
+    const code = err.code
+    if (code === 4003) return { kind: 'conflict', message: MSG_CONFLICT, reload: true }
+    if (code === 4002 || (code >= 10000 && code <= 99999)) {
+      const id = err.msgId ?? RELEASE_MSG_ID[code] ?? String(code)
+      const text = backendMessage(err) ?? RELEASE_DEFAULT_MESSAGE[code] ?? err.message
+      return { kind: 'business', message: `[${id}] ${text}`, reload: code === 4002 }
+    }
+  }
+  return { kind: 'generic', message: MSG_GENERIC_ERROR, reload: false }
 }

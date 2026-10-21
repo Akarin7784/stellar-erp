@@ -3,10 +3,27 @@ import { flushPromises, mount } from '@vue/test-utils'
 import ElementPlus from 'element-plus'
 
 const getWorkOrder = vi.fn()
+const releaseWorkOrder = vi.fn()
 vi.mock('@/api/production/workOrder', async (orig) => ({
   ...(await orig<typeof import('@/api/production/workOrder')>()),
   getWorkOrder: (...a: unknown[]) => getWorkOrder(...a),
+  releaseWorkOrder: (...a: unknown[]) => releaseWorkOrder(...a),
 }))
+
+const confirm = vi.fn()
+const success = vi.fn()
+vi.mock('element-plus', async (orig) => {
+  const m = await orig<typeof import('element-plus')>()
+  return {
+    ...m,
+    ElMessageBox: { ...m.ElMessageBox, confirm: (...a: unknown[]) => confirm(...a) },
+    ElMessage: Object.assign((...a: unknown[]) => m.ElMessage(...(a as [never])), m.ElMessage, {
+      success: (...a: unknown[]) => success(...a),
+    }),
+  }
+})
+
+import { ApiError, MSG_CONFLICT } from '@/api/http'
 
 import WorkOrderDetailView from './WorkOrderDetailView.vue'
 
@@ -53,5 +70,97 @@ describe('WorkOrderDetailView warnings', () => {
     getWorkOrder.mockResolvedValue(DETAIL)
     const w = await mountView()
     expect(w.findAll('[data-test="warning"]')).toHaveLength(0)
+  })
+})
+
+describe('WorkOrderDetailView 下达', () => {
+  const APPROVED = { ...DETAIL, orderStatus: 25, version: 3 }
+  const RELEASED = { ...DETAIL, orderStatus: 30, version: 4 }
+  const bizErr = (status: number, code: number, message: string, msgId: string | null) =>
+    new ApiError('x', {
+      status,
+      code,
+      msgId: msgId ?? undefined,
+      data: { code, message, data: null, msgId },
+    })
+
+  afterEach(() => {
+    vi.clearAllMocks()
+    window.history.replaceState(null, '')
+  })
+
+  it('状态 25 才显示下达按钮', async () => {
+    getWorkOrder.mockResolvedValue(DETAIL)
+    expect((await mountView()).find('[data-test="release"]').exists()).toBe(false)
+    getWorkOrder.mockResolvedValue(APPROVED)
+    expect((await mountView()).find('[data-test="release"]').exists()).toBe(true)
+  })
+
+  it('取消确认时不调用 API', async () => {
+    getWorkOrder.mockResolvedValue(APPROVED)
+    confirm.mockRejectedValue('cancel')
+    const w = await mountView()
+    await w.find('[data-test="release"]').trigger('click')
+    await flushPromises()
+    expect(releaseWorkOrder).not.toHaveBeenCalled()
+  })
+
+  it('成功：传 version，显示 warnings 并重新读取', async () => {
+    getWorkOrder.mockResolvedValueOnce(APPROVED).mockResolvedValueOnce(RELEASED)
+    confirm.mockResolvedValue('confirm')
+    releaseWorkOrder.mockResolvedValue({
+      id: '42',
+      workOrderNo: 'WO-1',
+      orderStatus: 30,
+      version: 4,
+      warnings: [{ code: 70117, msgId: 'MSG-FIN-117', message: '未设定标准成本' }],
+    })
+    const w = await mountView()
+    await w.find('[data-test="release"]').trigger('click')
+    await flushPromises()
+    expect(releaseWorkOrder).toHaveBeenCalledWith('42', { version: 3 })
+    expect(success).toHaveBeenCalled()
+    expect(getWorkOrder).toHaveBeenCalledTimes(2)
+    expect(w.find('[data-test="warning"]').text()).toContain('[MSG-FIN-117] 未设定标准成本')
+    expect(w.find('[data-test="release"]').exists()).toBe(false)
+  })
+
+  it('60020（422）：显示 [MSG-PRD-020] 后端 message，不重读', async () => {
+    getWorkOrder.mockResolvedValue(APPROVED)
+    confirm.mockResolvedValue('confirm')
+    releaseWorkOrder.mockRejectedValue(bizErr(422, 60020, '没有有效 BOM', 'MSG-PRD-020'))
+    const w = await mountView()
+    await w.find('[data-test="release"]').trigger('click')
+    await flushPromises()
+    expect(w.find('[data-test="error"]').text()).toBe('[MSG-PRD-020] 没有有效 BOM')
+    expect(w.find('[data-test="error"]').text()).not.toContain('刷新')
+    expect(getWorkOrder).toHaveBeenCalledTimes(1)
+  })
+
+  it('重复下达 4002（422）：显示后端 message、无刷新提示，并重读最新状态', async () => {
+    getWorkOrder.mockResolvedValueOnce(APPROVED).mockResolvedValueOnce(RELEASED)
+    confirm.mockResolvedValue('confirm')
+    releaseWorkOrder.mockRejectedValue(
+      bizErr(422, 4002, '该记录当前状态不允许此操作。', 'MSG-COM-034'),
+    )
+    const w = await mountView()
+    await w.find('[data-test="release"]').trigger('click')
+    await flushPromises()
+    const text = w.find('[data-test="error"]').text()
+    expect(text).toBe('[MSG-COM-034] 该记录当前状态不允许此操作。')
+    expect(text).not.toContain(MSG_CONFLICT)
+    expect(getWorkOrder).toHaveBeenCalledTimes(2)
+    expect(w.find('[data-test="release"]').exists()).toBe(false)
+  })
+
+  it('4003（409）：刷新提示并重读', async () => {
+    getWorkOrder.mockResolvedValue(APPROVED)
+    confirm.mockResolvedValue('confirm')
+    releaseWorkOrder.mockRejectedValue(bizErr(409, 4003, '版本冲突', 'MSG-COM-033'))
+    const w = await mountView()
+    await w.find('[data-test="release"]').trigger('click')
+    await flushPromises()
+    expect(w.find('[data-test="error"]').text()).toBe(MSG_CONFLICT)
+    expect(getWorkOrder).toHaveBeenCalledTimes(2)
   })
 })
