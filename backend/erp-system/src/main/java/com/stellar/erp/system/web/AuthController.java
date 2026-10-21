@@ -1,5 +1,8 @@
 package com.stellar.erp.system.web;
 
+import java.util.Comparator;
+import java.util.Optional;
+
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -13,7 +16,8 @@ import com.stellar.erp.system.auth.AuthMeService;
 import com.stellar.erp.system.auth.LoginService;
 
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.validation.Valid;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Validator;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -29,10 +33,12 @@ public class AuthController {
 
     private final AuthMeService me;
     private final LoginService login;
+    private final Validator validator;
 
-    public AuthController(AuthMeService me, LoginService login) {
+    public AuthController(AuthMeService me, LoginService login, Validator validator) {
         this.me = me;
         this.login = login;
+        this.validator = validator;
     }
 
     public record LoginRequest(
@@ -44,12 +50,20 @@ public class AuthController {
     }
 
     /**
-     * ログイン（#2）：ログイン不要。業務エラー（2002 / 2003 / 账号停用 ACCOUNT_DISABLED /
+     * ログイン（#2）：ログイン不要。パラメータ検証エラー（1001）・業務エラー（2002 / 2003 / 账号停用 ACCOUNT_DISABLED /
      * 楽観排他 1 回リトライ後の 4003 等）は本エンドポイントに限りすべて HTTP 200 + body の code で返す（#71 決定）。
      * 他 API の同コードは共通規則どおり（業務エラー 422、4003 は 409）。
      */
     @PostMapping("/login")
-    public Result<LoginService.LoginResult> login(@Valid @RequestBody LoginRequest req, HttpServletRequest http) {
+    public Result<LoginService.LoginResult> login(@RequestBody LoginRequest req, HttpServletRequest http) {
+        // パラメータ検証もログイン API に限り HTTP 200 + 1001（@Valid だと共通ハンドラで 400 になるため手動検証）
+        Optional<String> invalid = validator.validate(req).stream()
+                .sorted(Comparator.comparing((ConstraintViolation<LoginRequest> v) -> v.getPropertyPath().toString()))
+                .map(v -> v.getPropertyPath() + " " + v.getMessage())
+                .findFirst();
+        if (invalid.isPresent()) {
+            return Result.fail(1001, invalid.get());
+        }
         try {
             return Result.ok(login.login(new LoginService.LoginCommand(req.tenantCode(), req.username(),
                     req.password(), http.getRemoteAddr(), http.getHeader("User-Agent"))));

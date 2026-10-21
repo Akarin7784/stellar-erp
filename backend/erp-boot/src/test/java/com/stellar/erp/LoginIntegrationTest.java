@@ -215,4 +215,22 @@ class LoginIntegrationTest {
         assertThat(owner.queryForObject("SELECT count(*) FROM sys_login_log WHERE tenant_id = ? AND fail_reason = 'MSG-COM-033'",
                 Integer.class, TENANT)).isEqualTo(1);
     }
+
+    @Test
+    void validationFailuresAreHttp200With1001() throws Exception {
+        String longCode = "A".repeat(33);
+        for (String body : new String[] {
+                "{\"username\":\"u7501\",\"password\":\"x\"}",                        // tenantCode 欠落
+                "{\"tenantCode\":\"" + longCode + "\",\"username\":\"u7501\",\"password\":\"x\"}", // 33 字
+                "{\"tenantCode\":\"LOGINT\",\"password\":\"x\"}",                      // username 欠落
+                "{\"tenantCode\":\"LOGINT\",\"username\":\"" + "u".repeat(65) + "\",\"password\":\"x\"}",
+                "{\"tenantCode\":\"LOGINT\",\"username\":\"u7501\"}",                   // password 欠落
+                "{\"tenantCode\":\"LOGINT\",\"username\":\"u7501\",\"password\":\"" + "p".repeat(65) + "\"}"}) {
+            mvc.perform(post("/api/system/auth/login").contentType(MediaType.APPLICATION_JSON).content(body))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.code").value(1001))
+                    .andExpect(jsonPath("$.data").doesNotExist());
+        }
+        assertThat(owner.queryForObject("SELECT login_fail_count FROM sys_user WHERE id = ?", Integer.class, USER)).isZero();
+    }
 }
