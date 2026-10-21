@@ -29,7 +29,7 @@ import com.stellar.erp.support.OwnerJdbc;
 
 /**
  * 受注行端口的正式实现（sal/V202610210705 正式表，erp_app + RLS）。
- * 覆盖：租户 / 公司过滤、FOR UPDATE 实际加锁、allowed_qty 未快照 → 5000（下达 / 超产申请）、
+ * 覆盖：租户 / 公司过滤、FOR UPDATE 实际加锁、allowed_qty 未快照 → 60101（下达 / 超产申请）、
  * MTO 下达经真实受注行快照 allowed_qty、ck_sal_sol_completed_qty（23514）→ 60040。
  */
 @DbIntegrationTest
@@ -192,9 +192,12 @@ class SalesOrderLineLookupIntegrationTest {
     }
 
     @Test
-    void mtoReleaseWithUnsnapshottedLineIs5000AndUnchanged() {
+    void mtoReleaseWithUnsnapshottedLineIs60101AndUnchanged() {
         assertThatThrownBy(() -> asUser(() -> releases.release(WO_NULL, new WorkOrderReleaseCommand(0))))
-                .isInstanceOfSatisfying(BizException.class, e -> assertThat(e.getCode()).isEqualTo(5000));
+                .isInstanceOfSatisfying(BizException.class, e -> {
+                    assertThat(e.getCode()).isEqualTo(60101);
+                    assertThat(e.getMsgId()).isEqualTo("MSG-PRD-101");
+                });
         Map<String, Object> w = wo(WO_NULL);
         assertThat(w.get("order_status")).isEqualTo(25);
         assertThat(w.get("allowed_qty")).isNull();

@@ -178,11 +178,27 @@ class WorkOrderReleaseServiceTest {
     }
 
     @Test
-    void mtoAllowedQtyNullIs5000BeforeWorkOrderLock() {
+    void mtoAllowedQtyNullIs60101BeforeWorkOrderLock() {
         when(repo.findWorkOrderForRelease(CO, WO)).thenReturn(Optional.of(wo(LINE, (short) 25, false, 0)));
         when(lines.lockForUpdate(CO, LINE)).thenReturn(Optional.of(new SalesOrderLine(LINE, 1L, "SO1", MAT, null, null)));
         assertThatThrownBy(() -> service.release(WO, new WorkOrderReleaseCommand(0)))
-                .isInstanceOfSatisfying(BizException.class, e -> assertThat(e.getCode()).isEqualTo(5000));
+                .isInstanceOfSatisfying(BizException.class, e -> {
+                    assertThat(e.getCode()).isEqualTo(60101);
+                    assertThat(e.getMsgId()).isEqualTo("MSG-PRD-101");
+                });
+        verify(repo, never()).lockWorkOrderForRelease(anyLong(), anyLong());
+    }
+
+    @Test
+    void mtoNegativeAllowedQtyIs60101BeforeWorkOrderLock() {
+        when(repo.findWorkOrderForRelease(CO, WO)).thenReturn(Optional.of(wo(LINE, (short) 25, false, 0)));
+        when(lines.lockForUpdate(CO, LINE)).thenReturn(Optional.of(
+                new SalesOrderLine(LINE, 1L, "SO1", MAT, null, new BigDecimal("-1"))));
+        assertThatThrownBy(() -> service.release(WO, new WorkOrderReleaseCommand(0)))
+                .isInstanceOfSatisfying(BizException.class, e -> {
+                    assertThat(e.getCode()).isEqualTo(60101);
+                    assertThat(e.getMsgId()).isEqualTo("MSG-PRD-101");
+                });
         verify(repo, never()).lockWorkOrderForRelease(anyLong(), anyLong());
     }
 
@@ -261,12 +277,15 @@ class WorkOrderReleaseServiceTest {
     }
 
     @Test
-    void mtoLineWithoutAllowedQtySnapshotIs5000() {
+    void mtoLineWithoutAllowedQtySnapshotIs60101() {
         stubWo(wo(LINE, (short) 25, false, 0));
         when(lines.lockForUpdate(CO, LINE)).thenReturn(Optional.of(
                 new SalesOrderLine(LINE, 1L, "SO1", MAT, null, null)));
         assertThatThrownBy(() -> service.release(WO, new WorkOrderReleaseCommand(0)))
-                .isInstanceOfSatisfying(BizException.class, e -> assertThat(e.getCode()).isEqualTo(5000));
+                .isInstanceOfSatisfying(BizException.class, e -> {
+                    assertThat(e.getCode()).isEqualTo(60101);
+                    assertThat(e.getMsgId()).isEqualTo("MSG-PRD-101");
+                });
         verify(repo, never()).lockWorkOrderForRelease(anyLong(), anyLong());
         verify(repo, never()).markReleased(anyLong(), anyLong(), anyInt(), anyLong(), any(), any(), anyBoolean());
     }

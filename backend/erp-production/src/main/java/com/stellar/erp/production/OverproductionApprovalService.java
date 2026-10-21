@@ -69,8 +69,8 @@ public class OverproductionApprovalService {
             throw invalidApproval("受注行の allowed_qty が未確定のため超産申請はできません。");
         }
         if (line.allowedQty().signum() < 0) {
-            // current_allowed_qty 是受注行快照，负值属于数据不整合，不是申请数量错误 → 5000（不是 60103）
-            throw new BizException(ProductionErrorCode.CONFIG_MISSING, "受注行 allowed_qty 为负值，数据不整合");
+            // 負値も NULL と同じく業務データ未準備 → 422 / 60101（lead 2026-10-21 決定。60103 にはしない）
+            throw invalidApproval("受注行の allowed_qty が不正（負値）のため超産申請はできません。");
         }
 
         checkLimit(company, line.id(), cmd.requestQty());
@@ -123,7 +123,7 @@ public class OverproductionApprovalService {
             throw invalidQty();
         }
         SalesOrderLine line = salesOrderLines.find(company, a.salesOrderLineId())
-                .orElseThrow(() -> new BizException(ProductionErrorCode.CONFIG_MISSING, "超产申请的受注行不存在，数据不整合"));
+                .orElseThrow(() -> invalidApproval("超产申请的受注行不存在，无法继续操作。"));
         checkTargetWorkOrder(company, line, cmd.workOrderId());
         checkLimit(company, line.id(), cmd.requestQty());
         int n;
@@ -171,7 +171,7 @@ public class OverproductionApprovalService {
         ProductionRepository.ApprovalRow peek = repo.findApproval(company, approvalId, false)
                 .orElseThrow(() -> new BizException(ProductionErrorCode.NOT_FOUND, "超产申请不存在"));
         SalesOrderLine line = salesOrderLines.lockForUpdate(company, peek.salesOrderLineId())
-                .orElseThrow(() -> new BizException(ProductionErrorCode.CONFIG_MISSING, "超产申请的受注行不存在，数据不整合"));
+                .orElseThrow(() -> invalidApproval("超产申请的受注行不存在，无法继续操作。"));
         if (peek.workOrderId() != null) {
             ProductionRepository.WorkOrderRef wo = repo.lockWorkOrderRef(company, peek.workOrderId())
                     .orElseThrow(OverproductionApprovalService::woMismatch);
@@ -185,15 +185,26 @@ public class OverproductionApprovalService {
             throw new BizException(ProductionErrorCode.WO_SELF_APPROVAL, ProductionErrorCode.MSG_WO_SELF_APPROVAL,
                     "申請者と承認者が同一のため承認できません。");
         }
+        // 受注行（工单級なら工单も）の allowed_qty が NULL／負値 → 業務データ未準備 422 / 60101（lead 2026-10-21 決定）
+        if (line.allowedQty() == null || line.allowedQty().signum() < 0) {
+            throw invalidApproval("受注行の allowed_qty が未確定または不正のため承認できません。");
+        }
+        if (a.workOrderId() != null) {
+            BigDecimal woAllowed = repo.findWorkOrderLimitState(company, a.workOrderId())
+                    .map(ProductionRepository.WorkOrderLimitState::allowedQty).orElse(null);
+            if (woAllowed == null) {
+                throw invalidApproval("工单の allowed_qty が未確定のため承認できません。");
+            }
+        }
         BigDecimal lineAllowed = repo.addSalesOrderLineAllowedQty(company, line.id(), a.requestQty(), login.userId())
-                .orElseThrow(() -> new BizException(ProductionErrorCode.CONFIG_MISSING,
-                        "受注行 allowed_qty 更新 0 行（未快照或已不存在）"));
+                .orElseThrow(() -> invalidApproval("受注行の allowed_qty が未確定のため承認できません。"));
         if (a.workOrderId() != null
                 && repo.addWorkOrderAllowedQty(company, a.workOrderId(), a.requestQty(), login.userId()) != 1) {
-            throw new BizException(ProductionErrorCode.CONFIG_MISSING, "工单 allowed_qty 更新 0 行（未快照或已不存在）");
+            throw invalidApproval("工单の allowed_qty が未確定のため承認できません。");
         }
         if (repo.markOverproductionApproved(company, a.id(), a.version(), login.userId(), lineAllowed) != 1) {
-            throw new BizException(ProductionErrorCode.CONFIG_MISSING, "超产申请状态更新 0 行");
+            // WHERE は approval_status = 20 AND version = :version。0 行＝同時更新 → 409 / 4003
+            throw versionConflict();
         }
         return new OverproductionApproved(a.id(), a.approvalNo(), STATUS_APPROVED, a.requestQty(), lineAllowed,
                 a.workOrderId(), a.version() + 1);
