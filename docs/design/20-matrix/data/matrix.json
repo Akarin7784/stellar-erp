@@ -69,7 +69,7 @@
       "reports": 16,
       "batches": 11,
       "interfaces": 4,
-      "messages": 101,
+      "messages": 102,
       "apis": 123
     },
     "FIN": {
@@ -16020,6 +16020,15 @@
       "body": "下达日不能早于今天。",
       "condition": "releaseDate が Asia/Shanghai 当日より前（60104）",
       "action": "下达日を当日以降に修正",
+      "domain": "PRD",
+      "source": "06-production/93-messages.md"
+    },
+    {
+      "id": "MSG-PRD-105",
+      "type": "W",
+      "body": "部門一覧の読み込みに失敗しました。部門を選択せずに登録を続けるか、画面を再読み込みしてください。",
+      "condition": "工单登録画面で部門プルダウン取得 API が失敗（画面内警告、登録は継続可、部門は任意項目。API エラーコードなし、フロント表示専用）",
+      "action": "部門未選択で登録継続、または再読み込み",
       "domain": "PRD",
       "source": "06-production/93-messages.md"
     },

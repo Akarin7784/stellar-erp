@@ -8,7 +8,7 @@
 | 作成日 | 2026-10-20 |
 | 作成者 | Lead（生成工具 gen_matrix.py） |
 | 状態 | ドラフト（自动生成・最終レビュー前） |
-| 備考 | 全 1016 件。メッセージID/種別/本文/発生条件/対処/域/提取元 |
+| 備考 | 全 1017 件。メッセージID/種別/本文/発生条件/対処/域/提取元 |
 
 > 本文件由 `20-matrix/tools/gen_matrix.py` 从各域设计书中自动提取生成。修改设计书后重新运行即可更新。
 
@@ -569,6 +569,7 @@
 | MSG-PRD-102 | E | 冲销数量が已完工数量を超えています。 | 冲销 qty > completed_qty | 数量修正 | PRD | 06-production/93-messages.md |
 | MSG-PRD-103 | E | 超産申請数量が不正です。申請超産数量は 0 より大きく、受注行基本数量 × 超産上限率（{0}）以下、かつ基本単位の小数桁数（{1} 桁）以内で指定してください。 | request_qty ≤ 0 または NULL、上限（受注行基本数量 × prd.overproduction_max_rate、1 件単位・累計なし）超過、小数桁数 > 基本単位 decimal_places（いずれも 60103） | 申請超産数量を修正して再申請 | PRD | 06-production/93-messages.md |
 | MSG-PRD-104 | E | 下达日不能早于今天。 | releaseDate が Asia/Shanghai 当日より前（60104） | 下达日を当日以降に修正 | PRD | 06-production/93-messages.md |
+| MSG-PRD-105 | W | 部門一覧の読み込みに失敗しました。部門を選択せずに登録を続けるか、画面を再読み込みしてください。 | 工单登録画面で部門プルダウン取得 API が失敗（画面内警告、登録は継続可、部門は任意項目。API エラーコードなし、フロント表示専用） | 部門未選択で登録継続、または再読み込み | PRD | 06-production/93-messages.md |
 | MSG-PUR-001 | E | 希望交期不能早于今天。 | 希望交期 < サーバ当日 | 正しい日付を入力 | PUR | 04-purchase/93-messages.md |
 | MSG-PUR-002 | E | 所选物料不存在、已停用或不可采购，请重新选择。 | 物料無効/非采购品 | 物料を選び直す | PUR | 04-purchase/93-messages.md |
 | MSG-PUR-003 | E | 所选供应商未通过准入或不在供货范围内，不能转单。 | 供应商未承認/範囲外 | 承認済供应商を選択、または MDM で准入 | PUR | 04-purchase/93-messages.md |
