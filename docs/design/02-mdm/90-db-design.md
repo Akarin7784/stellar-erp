@@ -299,7 +299,7 @@ CREATE TABLE mdm_material (
     quality_grade         VARCHAR(8)   NULL,           -- 质量等级
     -- 状态
     status                SMALLINT     NOT NULL DEFAULT 0, -- 1有效/0使用停止
-    approval_status       SMALLINT     NOT NULL DEFAULT 10, -- 10草稿/20审批中/25批准/95驳回/90废止
+    approval_status       SMALLINT     NOT NULL DEFAULT 10, -- 10草稿/20待审批/25批准/95驳回/90废止
     submitted_at          TIMESTAMPTZ  NULL,
     approved_at           TIMESTAMPTZ  NULL,
     approved_by           BIGINT       NULL,
@@ -708,7 +708,7 @@ CREATE TABLE mdm_supplier (
     advance_payment_allowed BOOLEAN NOT NULL DEFAULT FALSE, -- 允许预付款
     vmi_flag BOOLEAN NOT NULL DEFAULT FALSE,           -- VMI对象
     status SMALLINT NOT NULL DEFAULT 0,                -- 1有效/0停止
-    approval_status SMALLINT NOT NULL DEFAULT 10,       -- 10草稿/20审批中/25批准/95驳回/90废止
+    approval_status SMALLINT NOT NULL DEFAULT 10,       -- 10草稿/20待审批/25批准/95驳回/90废止
     submitted_at TIMESTAMPTZ NULL, approved_at TIMESTAMPTZ NULL, approved_by BIGINT NULL,
     -- 共通列セットA
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(), created_by BIGINT NOT NULL DEFAULT 0,
@@ -1281,7 +1281,7 @@ CREATE TABLE mdm_credit_limit (
     credit_status SMALLINT NOT NULL DEFAULT 10,        -- 10正常/20超限/30冻结/40关闭
     valid_from DATE NOT NULL, valid_to DATE NULL,
     credit_remark VARCHAR(500) NULL, last_review_date DATE NULL,
-    approval_status SMALLINT NOT NULL DEFAULT 10,       -- 10草稿/20审批中/25批准/95驳回/90废止
+    approval_status SMALLINT NOT NULL DEFAULT 10,       -- 10草稿/20待审批/25批准/95驳回/90废止
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(), created_by BIGINT NOT NULL DEFAULT 0,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by BIGINT NOT NULL DEFAULT 0,
     version INT NOT NULL DEFAULT 0, deleted BOOLEAN NOT NULL DEFAULT FALSE, remark VARCHAR(500) NULL,

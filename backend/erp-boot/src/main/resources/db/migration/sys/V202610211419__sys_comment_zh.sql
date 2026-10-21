@@ -623,5 +623,6 @@ COMMENT ON FUNCTION inv_stock_txn_line_head_check() IS 'trg_inv_stock_txn_line_h
 
 -- ===== #108 §5 第 2、9 条：状态取值补全／订正 =====
 COMMENT ON COLUMN sal_quotation.quotation_status IS '状态（10创建中/20待审批/25已批准/30有效/35已转订单/90失效/95驳回）';
-COMMENT ON COLUMN mdm_supplier.approval_status IS '10草稿/20审批中/25批准/95驳回/90废止';
-COMMENT ON COLUMN mdm_credit_limit.approval_status IS '10草稿/20审批中/25批准/95驳回/90废止';
+COMMENT ON COLUMN mdm_supplier.approval_status IS '10草稿/20待审批/25批准/95驳回/90废止';
+COMMENT ON COLUMN mdm_credit_limit.approval_status IS '10草稿/20待审批/25批准/95驳回/90废止';
+COMMENT ON COLUMN mdm_material.approval_status IS '10草稿/20待审批/25批准/95驳回/90废止';
