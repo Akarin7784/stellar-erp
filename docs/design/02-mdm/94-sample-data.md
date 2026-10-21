@@ -23,7 +23,7 @@
 | 公開情報ベース | `【公開情報】` | 上場企業名（顧客・供應商の公開情報）、製品系列（YE3/YVF）、銀行名・行別コード |
 | 仮定値 | `【示例値】` | 单价、安全在庫、信用限度、与信占用、評価点、倉庫面積、口座番号、聯行号（虚構） |
 
-> 90-data のうち MDM が直接参照するファイル：`material-master.csv`、`material-category.csv`、`customer-master.csv`、`supplier-master.csv`、`demo-company.md`、`accounting-subjects.csv`、`approval-matrix.md`、`sources.md`、`code-lists/`（currency・uom・tax・**mdm-tax-code**・payment-terms・bank・region・country・warehouse-location・batch-number-rule・hs-code）。全件は各ファイルを正とする。90-data 実測（2026-10-20）：**24 ファイル／CSV 483 行／物料 54・科目 108・税碼 24・単位 21・分類 28／出典 109 項**。
+> 90-data のうち MDM が直接参照するファイル：`material-master.csv`、`material-category.csv`、`customer-master.csv`、`supplier-master.csv`、`demo-company.md`、`accounting-subjects.csv`、`approval-matrix.md`、`sources.md`、`code-lists/`（currency・uom・tax・**mdm-tax-code**・payment-terms・bank・region・country・warehouse-location・batch-number-rule・hs-code）。全件は各ファイルを正とする。90-data 実測（2026-10-20）：**24 ファイル／CSV 485 行／物料 54・科目 110・税碼 24・単位 21・分類 28／出典 109 項**。
 
 ## 2. 物料サンプル（実データ主体）
 
@@ -354,3 +354,4 @@
 | v1.0 | 2026-10-20 | 初版：90-data 実データ（物料 54 件・分類 28・客户 12・供應商 22・単位・通貨・税・決済・銀行・倉庫）の引用、価格・与信・評価・科目マッピングのサンプル、仮定値一覧、整合ルール。同日追記：风扇行修正確認（4005000001/4005）、CSV→MDM 碼値対応表（3.5）、1411 周转材料の 06 追記、cooperation_level 運用確定（未決解消）、`cost_method`（品種法/分批法）サンプルを反映。第 2 次追記（红队第 2 轮 REV-FIN-003/004・REV-PURDES-010）：物料件数を 54 件に修正、税码头に VAT05/STAMP03/STAMP10/STAMP025/TARIFF/EXCISE の例を追加し全件 24 件は `mdm-tax-code.csv` を正とする旨を明記、決済・付款条件を全 18 件（SETTLEMENT 10＋PAYMENT_TERM 8、`settlement_type`/`settlement_basis`/`payment_day_type` 付き）に拡充、科目数 108 件を明記 | mdm-designer |
 | v1.1 | 2026-10-20 | 06-code-list **v1.4** と 90-data 最終実測（24 ファイル・CSV 483 行・科目 108・出典 109）に追従。参照ファイル一覧に `mdm-tax-code.csv` を追加し、冒頭に実測件数を明記 | mdm-designer |
 | v1.2 | 2026-10-21 | §7 科目数を CSV 実測 110 科目に更新（2202.01/2202.02 追加後） | 业务分析 |
+| v1.3 | 2026-10-21 | §2 90-data 実測の科目数を 108 → 110、CSV 行数を 483 → 485 に修正（#47 で `2202.01`/`2202.02` 追加後の `accounting-subjects.csv` 実測） | 业务分析 |

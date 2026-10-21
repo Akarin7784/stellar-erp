@@ -8,7 +8,7 @@
 | 作成日 | 2026-10-20 |
 | 作成者 | Lead（生成工具 gen_matrix.py） |
 | 状態 | ドラフト（自动生成・最終レビュー前） |
-| 備考 | 全 911 件。メッセージID/種別/本文/発生条件/対処/域/提取元 |
+| 備考 | 全 912 件。メッセージID/種別/本文/発生条件/対処/域/提取元 |
 
 > 本文件由 `20-matrix/tools/gen_matrix.py` 从各域设计书中自动提取生成。修改设计书后重新运行即可更新。
 
@@ -883,6 +883,7 @@
 | MSG-SYS-088 |  |  |  |  | SYS | 01-system/07-scheduled-job-print-monitor.md |
 | MSG-SYS-091 |  |  |  |  | SYS | 01-system/05-audit-attachment-notify.md |
 | MSG-SYS-092 | W | 审计日志写入延迟，已转存本地待补录，请通知运维人员处理。 | ローカルファイル退避発生 | 運用担当へ連絡 | SYS | 01-system/05-audit-attachment-notify.md |
+| MSG-SYS-093 |  |  |  |  | SYS | 01-system/03-org-position.md |
 | MSG-WF-001 | 形式・サイズ |  |  |  | WF | 08-workflow/01-process-model.md |
 | MSG-WF-002 | 構造 |  |  |  | WF | 08-workflow/01-process-model.md |
 | MSG-WF-003 | 存在 |  |  |  | WF | 08-workflow/01-process-model.md |

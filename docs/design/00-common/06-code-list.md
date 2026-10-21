@@ -362,7 +362,7 @@
 | `90-data/routing-demo.md` | YE3-100L1-4 工順・工作中心・設備 | 173 行 | 完成 |
 | `90-data/customer-master.csv` | 顧客マスタ（公開情報ベース示例） | 12 件 | 完成 |
 | `90-data/supplier-master.csv` | 仕入先マスタ（公開情報ベース示例） | 22 件 | 完成 |
-| `90-data/accounting-subjects.csv` | 会計科目（CAS、明細・補助核算含む。2221 は 3 級明細 30 行） | 108 件 | 完成 |
+| `90-data/accounting-subjects.csv` | 会計科目（CAS、明細・補助核算含む。2221 は 3 級明細 30 行） | 110 件 | 完成 |
 | `90-data/sources.md` | 全出典（URL・参照日） | 109 項 | 完成（10 項【要確認】） |
 | `90-data/code-lists/currency.csv` | 通貨（ISO 4217） | 20 | 完成 |
 | `90-data/code-lists/country.csv` | 国・地域（ISO 3166-1） | 20 | 完成 |
@@ -398,3 +398,4 @@
 | v1.2 | 2026-10-20 | §7 に「7.4 其他税码」を追加（VAT05・STAMP03/10/025・TARIFF・EXCISE。90-data/tax.csv を正とする設計参照用）、§12 に `1411 周转材料` を追加、§11 の中分類例を material-category.csv に一致（1002 名称修正、1006/1007/2005 削除、5001 名称修正） | Lead / mdm-designer（data-consistency） |
 | v1.3 | 2026-10-20 | §10 工作中心を `WC001〜WC012`（12 名称：下料/冲片/叠压/绕线/嵌线/浸漆/机加工/总装/试验/包装/转子铸铝/喷漆）に更新し、routing-demo.md・demo-company.md・production 域の 12 工作中心と一致させた | mdm-designer（data-consistency） |
 | v1.4 | 2026-10-20 | 紅隊レビュー第 2 輪修正：§6 体積基本単位を MTQ に修正（LTR 0.001 MTQ／MLT 0.000001 MTQ）、§7 税の法的根拠を《增值税法》（2026-01-01 施行）・《关税法》（2024-12-01 施行）に更新、VAT1 の遷移根拠（2023 年第 19 号＋2026 年第 10 号）と EDU2（財綜〔2010〕98 号）を明記、§7.4 に業務税碼 24 件（mdm-tax-code.csv）を追記、§14 の件数を実測値（24 ファイル/約 191KB、科目 108、出典 109 項、承認 25 行）に修正、§15 を 10 項＋2 項に整理 | data-researcher |
+| v1.5 | 2026-10-21 | §14 `accounting-subjects.csv` の件数を 108 → 110 件に修正（#47 で `2202.01`/`2202.02` 追加後の CSV 実測） | 业务分析 |
