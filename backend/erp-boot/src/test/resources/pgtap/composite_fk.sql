@@ -1,52 +1,18 @@
--- pgTAP：复合外键（sys/V202610210707、inv/V202610211409・V202610211410、prd/V202610211411、sal/V202610211412、fin/V202610211413）。指向有 company_id 的 sys_/mdm_ 表的 FK 须为三列 (tenant_id, company_id, x)（2 列须登记：已定例外或待改存量），跨租户引用被拒。
+-- pgTAP：复合外键（sys/V202610210707、inv/V202610211409・V202610211410、prd/V202610211411、sal/V202610211412、fin/V202610211413、mdm/V202610211414）。指向有 company_id 的 sys_/mdm_ 表的 FK 须为三列 (tenant_id, company_id, x)（2 列须登记：已定例外或待改存量），跨租户引用被拒。
 BEGIN;
-SELECT plan(17);
+SELECT plan(21);
 
 SELECT is((SELECT count(*)::int FROM pg_constraint k JOIN pg_class r ON r.oid = k.confrelid
             WHERE k.contype = 'f' AND array_length(k.conkey, 1) = 1 AND r.relname ~ '^(sys|mdm)_'),
           0, '指向 sys_/mdm_ 的单列外键为 0');
 -- 断言 2（收紧）：被引用表有 company_id 时只允许三列 (tenant_id, company_id, x) → (tenant_id, company_id, id)；
 -- 被引用表无 company_id 时为 (tenant_id, x) → (tenant_id, id)。被引用侧末列必须是 id。
--- 2 列 (tenant_id, x) → (tenant_id, id) 登记表：〔A〕已定例外 1 条、〔B〕待改为三列（存量，按域分批）32 条（inv 27 条已由 inv/V202610211410、prd 29 条已由 prd/V202610211411、sal 14 条已由 sal/V202610211412、fin 1 条已由 fin/V202610211413 改为三列）。新增 FK 不得默认走 2 列。
+-- 2 列 (tenant_id, x) → (tenant_id, id) 登记表：仅〔A〕已定例外 1 条；〔B〕待改为三列存量已清零（inv 27 条已由 inv/V202610211410、prd 29 条已由 prd/V202610211411、sal 14 条已由 sal/V202610211412、fin 1 条已由 fin/V202610211413、mdm 32 条已由 mdm/V202610211414 改为三列）。新增 FK 不得默认走 2 列。
 CREATE TEMP TABLE t_cfk_2col_exception (conname name PRIMARY KEY) ON COMMIT DROP;
 INSERT INTO t_cfk_2col_exception VALUES
         -- 〔A〕已定例外 1 条（04 §6.2 2a 命名例外）
         -- 指向 sys_menu（company_id=0 的租户级表）1 条
-        ('fk_sys_role_permission_menu'),
-        -- 〔B〕待改为三列（存量，按域分批）32 条：mdm 32（inv 27 条已于 inv/V202610211410、prd 29 条已于 prd/V202610211411、sal 14 条已于 sal/V202610211412、fin 1 条已于 fin/V202610211413 改为三列）
-        -- mdm 域内部 32 条
-        ('fk_mdm_admission_supplier'),
-        ('fk_mdm_bank_account_bank'),
-        ('fk_mdm_barcode_material'),
-        ('fk_mdm_change_line_request'),
-        ('fk_mdm_credit_limit_customer'),
-        ('fk_mdm_credit_limit_rule'),
-        ('fk_mdm_customer_address_customer'),
-        ('fk_mdm_customer_contact_customer'),
-        ('fk_mdm_dq_issue_rule'),
-        ('fk_mdm_eval_item_evaluation'),
-        ('fk_mdm_evaluation_supplier'),
-        ('fk_mdm_material_category'),
-        ('fk_mdm_material_category_parent'),
-        ('fk_mdm_material_factory_material'),
-        ('fk_mdm_payment_term_line_term'),
-        ('fk_mdm_price_line_list'),
-        ('fk_mdm_purchase_price_material'),
-        ('fk_mdm_purchase_price_supplier'),
-        ('fk_mdm_quotation_line_material'),
-        ('fk_mdm_quotation_line_quotation'),
-        ('fk_mdm_quotation_supplier'),
-        ('fk_mdm_substitute_material'),
-        ('fk_mdm_substitute_target'),
-        ('fk_mdm_supplier_address_supplier'),
-        ('fk_mdm_supplier_contact_supplier'),
-        ('fk_mdm_supplier_material_supplier'),
-        ('fk_mdm_supplier_qualification_supplier'),
-        ('fk_mdm_tax_rate_code'),
-        ('fk_mdm_warehouse_bin_warehouse'),
-        ('fk_mdm_warehouse_bin_zone'),
-        ('fk_mdm_warehouse_factory'),
-        ('fk_mdm_warehouse_zone_warehouse');
+        ('fk_sys_role_permission_menu');
 CREATE TEMP TABLE t_cfk ON COMMIT DROP AS
 SELECT k.conname, r.relname AS parent,
        EXISTS (SELECT 1 FROM pg_attribute x WHERE x.attrelid = r.oid AND x.attname = 'company_id' AND NOT x.attisdropped) AS parent_has_co,
@@ -63,10 +29,10 @@ SELECT is((SELECT count(*)::int FROM t_cfk
                      AND refcols = ARRAY['tenant_id', 'company_id', 'id']::name[]
               ELSE array_length(cols, 1) = 2 AND cols[1] = 'tenant_id' AND refcols = ARRAY['tenant_id', 'id']::name[]
             END),
-          0, '指向 sys_/mdm_ 的外键：被引用表有 company_id → (tenant_id, company_id, x) → (tenant_id, company_id, id)（登记表〔A〕已定例外／〔B〕待改为三列存量为 (tenant_id, x) → (tenant_id, id)）；无 company_id → (tenant_id, x) → (tenant_id, id)');
+          0, '指向 sys_/mdm_ 的外键：被引用表有 company_id → (tenant_id, company_id, x) → (tenant_id, company_id, id)（登记表〔A〕已定例外为 (tenant_id, x) → (tenant_id, id)）；无 company_id → (tenant_id, x) → (tenant_id, id)');
 SELECT is((SELECT count(*)::int FROM t_cfk_2col_exception e
             WHERE NOT EXISTS (SELECT 1 FROM t_cfk f WHERE f.conname = e.conname AND f.parent_has_co)),
-          0, '2 列登记表（〔A〕+〔B〕）全部真实存在且被引用表有 company_id（防止例外表陈旧）');
+          0, '2 列登记表（〔A〕）全部真实存在且被引用表有 company_id（防止例外表陈旧）');
 SELECT ok(EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uk_mdm_material_tenant_id' AND contype = 'u'),
           'mdm_material 有 uk_mdm_material_tenant_id UNIQUE (tenant_id, id)');
 SELECT is((SELECT count(*)::int FROM t_cfk WHERE conname ~ '^fk_inv_'
@@ -78,6 +44,18 @@ SELECT is((SELECT count(*)::int FROM t_cfk WHERE conname ~ '^fk_prd_'
 SELECT is((SELECT count(*)::int FROM t_cfk WHERE conname ~ '^fk_sal_'
             AND NOT (cols[1:2] = ARRAY['tenant_id', 'company_id']::name[] AND refcols = ARRAY['tenant_id', 'company_id', 'id']::name[])),
           0, 'sal → mdm/sys FK 14 条全部为 04 §6.2 2a 标准三列形（sal/V202610211412），登记表无 fk_sal_*');
+SELECT is((SELECT count(*)::int FROM t_cfk_2col_exception), 1, '2 列登记表仅剩〔A〕已定例外 1 条（fk_sys_role_permission_menu），〔B〕已清零');
+SELECT is((SELECT count(*)::int FROM pg_constraint k JOIN pg_class c ON c.oid = k.conrelid JOIN pg_class p ON p.oid = k.confrelid
+            WHERE k.contype = 'f' AND c.relname ~ '^mdm_' AND p.relname ~ '^mdm_'
+              AND pg_get_constraintdef(k.oid) ~ '^FOREIGN KEY \(tenant_id, company_id, [a-z_]+\) REFERENCES mdm_[a-z_]+\(tenant_id, company_id, id\)$'
+              AND k.confdeltype = 'a' AND k.confupdtype = 'a'),
+          32, 'mdm 域内部 FK 32 条全部为 04 §6.2 2a 标准三列形，NO ACTION（mdm/V202610211414），登记表无 fk_mdm_*');
+SELECT is((SELECT count(*)::int FROM pg_constraint k JOIN pg_class c ON c.oid = k.conrelid JOIN pg_class p ON p.oid = k.confrelid
+            WHERE k.contype = 'f' AND c.relname ~ '^mdm_' AND p.relname ~ '^mdm_'
+              AND NOT EXISTS (SELECT 1 FROM pg_index i JOIN pg_class ic ON ic.oid = i.indexrelid JOIN pg_am am ON am.oid = ic.relam
+                               WHERE i.indrelid = k.conrelid AND am.amname = 'btree' AND i.indnatts >= 3
+                                 AND i.indkey[0] = k.conkey[1] AND i.indkey[1] = k.conkey[2] AND i.indkey[2] = k.conkey[3])),
+          0, 'mdm 域内部 FK 32 条子表均有以 (tenant_id, company_id, x_id) 打头的 btree 索引');
 SELECT is((SELECT pg_get_constraintdef(k.oid) || ' / ' || k.confdeltype::text || k.confupdtype::text FROM pg_constraint k WHERE k.conname = 'fk_fin_standard_cost_material'),
           'FOREIGN KEY (tenant_id, company_id, material_id) REFERENCES mdm_material(tenant_id, company_id, id) / aa',
           'fk_fin_standard_cost_material 为 04 §6.2 2a 标准三列形，NO ACTION（fin/V202610211413），登记表无 fk_fin_*');
@@ -145,6 +123,9 @@ SELECT lives_ok($$INSERT INTO fin_standard_cost (id, company_id, material_id, ma
 SELECT throws_ok($$INSERT INTO fin_standard_cost (id, company_id, material_id, material_code, cost_version, period_from, cost_method, material_unit_cost, total_unit_cost)
                    VALUES (8010103, 1, 8010003, '9CFK000003', '2026A', DATE '2026-01-01', 2, 1, 1)$$,
                  '23503', NULL, 'fk_fin_standard_cost_material：公司 1 引用同租户公司 2 的物料 → 23503');
+SELECT throws_ok($$INSERT INTO mdm_material (id, company_id, material_code, material_name, material_type, category_id, spec, base_uom_code, valuation_method, status)
+                   VALUES (8010004, 1, '9CFK000004', 'cfk x', 10, 8010003, 's', 'PCE', 20, 1)$$,
+                 '23503', NULL, 'fk_mdm_material_category：公司 1 的物料引用同租户公司 2 的物料分类 → 23503');
 RESET ROLE;
 
 SELECT * FROM finish();

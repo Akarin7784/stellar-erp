@@ -64,10 +64,10 @@ class OverproductionApprovalApiIntegrationTest {
         cleanup();
         owner.execute("""
             INSERT INTO mdm_material_category (id, tenant_id, company_id, category_code, category_name, category_path, category_level, is_leaf)
-              VALUES (997001, 311, 71, 'O1', 'O', '/O1/', 1, TRUE);
+              VALUES (997001, 311, 71, 'O1', 'O', '/O1/', 1, TRUE), (997002, 311, 72, 'O1', 'O 72', '/O1/', 1, TRUE);
             INSERT INTO mdm_material (id, tenant_id, company_id, material_code, material_name, material_type, category_id, spec, base_uom_code, valuation_method, status)
               VALUES (997011, 311, 71, '9970000011', 'O 成品', 10, 997001, 's', 'PCE', 20, 1),
-                     (997012, 311, 72, '9970000012', 'O 成品 72', 10, 997001, 's', 'PCE', 20, 1);
+                     (997012, 311, 72, '9970000012', 'O 成品 72', 10, 997002, 's', 'PCE', 20, 1);
             INSERT INTO mdm_factory (id, tenant_id, company_id, factory_code, factory_name) VALUES
               (997021, 311, 71, 'F71', '工厂71'), (997022, 311, 72, 'F72', '工厂72');
             INSERT INTO mdm_uom (id, tenant_id, company_id, uom_code, uom_name, conversion_group, decimal_places) VALUES
