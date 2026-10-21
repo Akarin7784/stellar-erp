@@ -34,7 +34,8 @@ SELECT is((SELECT count(*)::int FROM pg_index i
                     ('sys_company', 'uk_sys_company_code'), ('sys_company', 'uk_sys_company_credit'),
                     ('sys_menu', 'uk_sys_menu_code'),
                     ('sys_dict_type', 'uk_sys_dict_type_code'), ('sys_outbox_event', 'uk_sys_outbox_event_id'),
-                    ('sys_idempotency', 'uk_sys_idempotency_key'), ('mdm_exchange_rate', 'uk_mdm_exchange_rate'))
+                    ('sys_idempotency', 'uk_sys_idempotency_key'), ('mdm_exchange_rate', 'uk_mdm_exchange_rate'),
+                    ('sys_user', 'uk_sys_user_username'))
               AND NOT (i.indnatts = 2 AND a0.attname = 'tenant_id' AND a1.attname = 'id')
               AND (a0.attname IS DISTINCT FROM 'tenant_id'
                    OR (EXISTS (SELECT 1 FROM pg_attribute c WHERE c.attrelid = tc.oid AND c.attname = 'company_id' AND NOT c.attisdropped)
