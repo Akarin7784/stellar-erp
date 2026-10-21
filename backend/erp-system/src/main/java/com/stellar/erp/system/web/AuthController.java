@@ -37,8 +37,15 @@ public class AuthController {
                                String captchaKey, String captcha, Boolean rememberMe) {
     }
 
-    /** 1001 の data：最初に不正だった項目名（フォーム順 tenantCode → username → password）。 */
-    public record InvalidField(String field) {
+    /** 1001 の項目エラー（03 §5.3 {@code data.fieldErrors[]}）。 */
+    public record FieldError(String field, String message) {
+    }
+
+    /** 1001 の data：違反した全項目（フォーム順 tenantCode → username → password、各項目は最初の違反のみ）。 */
+    public record FieldErrors(java.util.List<FieldError> fieldErrors) {
+    }
+
+    record Violation(String field, String message, String msgId) {
     }
 
     static final String MSG_REQUIRED = "MSG-COM-040";
@@ -47,43 +54,48 @@ public class AuthController {
     static final String MSG_FORMAT = null;
     private static final java.util.regex.Pattern ALNUM = java.util.regex.Pattern.compile("[A-Za-z0-9]+");
 
-    /** CHK-SYS-001-12 / 01〜03。フォーム順で最初の違反のみ返す。 */
-    static Optional<Result<InvalidField>> validate(LoginRequest r) {
+    /**
+     * CHK-SYS-001-12 / 01〜03（BR-15）。違反があれば 1001：トップレベルの message / msgId は最初の違反、
+     * {@code data.fieldErrors} に全違反。
+     */
+    static Optional<Result<FieldErrors>> validate(LoginRequest r) {
         if (r == null) {
             r = new LoginRequest(null, null, null, null, null, null);
         }
-        Optional<Result<InvalidField>> v = check("tenantCode", "企业代码", r.tenantCode(), 32);
-        if (v.isEmpty() && !ALNUM.matcher(r.tenantCode()).matches()) {
-            v = Optional.of(new Result<>(1001, "「企业代码」只能为半角英数。", new InvalidField("tenantCode"), MSG_FORMAT));
+        java.util.List<Violation> vs = new java.util.ArrayList<>();
+        Optional<Violation> t = check("tenantCode", "企业代码", r.tenantCode(), 32);
+        if (t.isEmpty() && !ALNUM.matcher(r.tenantCode()).matches()) {
+            t = Optional.of(new Violation("tenantCode", "「企业代码」只能为半角英数。", MSG_FORMAT));
         }
-        if (v.isEmpty()) {
-            v = check("username", "账号", r.username(), 64);
+        t.ifPresent(vs::add);
+        check("username", "账号", r.username(), 64).ifPresent(vs::add);
+        check("password", "密码", r.password(), 64).ifPresent(vs::add);
+        if (vs.isEmpty()) {
+            return Optional.empty();
         }
-        if (v.isEmpty()) {
-            v = check("password", "密码", r.password(), 64);
-        }
-        return v;
+        Violation first = vs.get(0);
+        return Optional.of(new Result<>(1001, first.message(),
+                new FieldErrors(vs.stream().map(v -> new FieldError(v.field(), v.message())).toList()), first.msgId()));
     }
 
-    private static Optional<Result<InvalidField>> check(String field, String label, String value, int max) {
+    private static Optional<Violation> check(String field, String label, String value, int max) {
         if (value == null || value.isBlank()) {
-            return Optional.of(new Result<>(1001, "请输入必填项「" + label + "」。", new InvalidField(field), MSG_REQUIRED));
+            return Optional.of(new Violation(field, "请输入必填项「" + label + "」。", MSG_REQUIRED));
         }
         if (value.length() > max) {
-            return Optional.of(new Result<>(1001, "「" + label + "」不能超过 " + max + " 个字符。", new InvalidField(field),
-                    MSG_TOO_LONG));
+            return Optional.of(new Violation(field, "「" + label + "」不能超过 " + max + " 个字符。", MSG_TOO_LONG));
         }
         return Optional.empty();
     }
 
     /**
-     * ログイン（#2）：ログイン不要。パラメータ検証エラー（1001、data.field に最初の不正項目）・業務エラー（2002 / 2003 /
+     * ログイン（#2）：ログイン不要。パラメータ検証エラー（1001、data.fieldErrors に全違反項目）・業務エラー（2002 / 2003 /
      * 账号停用 ACCOUNT_DISABLED / 楽観排他 1 回リトライ後の 4003 等）は本エンドポイントに限りすべて HTTP 200 + body の code
      * で返す（#71 決定）。他 API の同コードは共通規則どおり（業務エラー 422、4003 は 409）。
      */
     @PostMapping("/login")
     public Result<?> login(@RequestBody(required = false) LoginRequest req, HttpServletRequest http) {
-        Optional<Result<InvalidField>> invalid = validate(req);
+        Optional<Result<FieldErrors>> invalid = validate(req);
         if (invalid.isPresent()) {
             return invalid.get();
         }

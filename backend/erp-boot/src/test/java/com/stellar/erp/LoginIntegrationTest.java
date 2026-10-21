@@ -232,40 +232,53 @@ class LoginIntegrationTest {
                 Integer.class, TENANT)).isEqualTo(1);
     }
 
-    void expectInvalid(String body, String field, String message, String msgId) throws Exception {
-        String expected = "{\"code\":1001,\"message\":\"%s\",\"data\":{\"field\":\"%s\"},\"msgId\":%s,\"success\":false}"
-                .formatted(message, field, msgId == null ? "null" : "\"" + msgId + "\"");
+    /** 1001 の body 全体：message/msgId は最初の違反、fieldErrors に全違反（[field, message] の組）。 */
+    void expectInvalid(String body, String msgId, String[]... errors) throws Exception {
+        StringBuilder fe = new StringBuilder();
+        for (String[] e : errors) {
+            if (fe.length() > 0) fe.append(',');
+            fe.append("{\"field\":\"").append(e[0]).append("\",\"message\":\"").append(e[1]).append("\"}");
+        }
+        String expected = "{\"code\":1001,\"message\":\"%s\",\"data\":{\"fieldErrors\":[%s]},\"msgId\":%s,\"success\":false}"
+                .formatted(errors[0][1], fe, msgId == null ? "null" : "\"" + msgId + "\"");
         mvc.perform(post("/api/system/auth/login").contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isOk())
                 .andExpect(content().json(expected, JsonCompareMode.STRICT));
     }
 
+    static String[] fe(String field, String message) {
+        return new String[] {field, message};
+    }
+
+    static final String REQ_T = "请输入必填项「企业代码」。", REQ_U = "请输入必填项「账号」。", REQ_P = "请输入必填项「密码」。";
+    static final String FMT_T = "「企业代码」只能为半角英数。";
+
     static String body(String tenantCode, String username, String password) {
-        StringBuilder b = new StringBuilder("{");
         java.util.List<String> parts = new java.util.ArrayList<>();
         if (tenantCode != null) parts.add("\"tenantCode\":\"" + tenantCode + "\"");
         if (username != null) parts.add("\"username\":\"" + username + "\"");
         if (password != null) parts.add("\"password\":\"" + password + "\"");
-        return b.append(String.join(",", parts)).append("}").toString();
+        return "{" + String.join(",", parts) + "}";
     }
 
     @Test
     void validationFailuresAreHttp200With1001() throws Exception {
-        expectInvalid(body(null, "u7501", "x"), "tenantCode", "请输入必填项「企业代码」。", "MSG-COM-040");
-        expectInvalid(body("A".repeat(33), "u7501", "x"), "tenantCode", "「企业代码」不能超过 32 个字符。", "MSG-COM-041");
-        expectInvalid(body("LOG-INT", "u7501", "x"), "tenantCode", "「企业代码」只能为半角英数。", null);
-        expectInvalid(body("ＬＯＧＩＮＴ", "u7501", "x"), "tenantCode", "「企业代码」只能为半角英数。", null);
-        expectInvalid(body(CODE, null, "x"), "username", "请输入必填项「账号」。", "MSG-COM-040");
-        expectInvalid(body(CODE, "u".repeat(65), "x"), "username", "「账号」不能超过 64 个字符。", "MSG-COM-041");
-        expectInvalid(body(CODE, "u7501", null), "password", "请输入必填项「密码」。", "MSG-COM-040");
-        expectInvalid(body(CODE, "u7501", "p".repeat(65)), "password", "「密码」不能超过 64 个字符。", "MSG-COM-041");
+        expectInvalid(body(null, "u7501", "x"), "MSG-COM-040", fe("tenantCode", REQ_T));
+        expectInvalid(body("A".repeat(33), "u7501", "x"), "MSG-COM-041", fe("tenantCode", "「企业代码」不能超过 32 个字符。"));
+        expectInvalid(body("LOG-INT", "u7501", "x"), null, fe("tenantCode", FMT_T));
+        expectInvalid(body("ＬＯＧＩＮＴ", "u7501", "x"), null, fe("tenantCode", FMT_T));
+        expectInvalid(body(CODE, null, "x"), "MSG-COM-040", fe("username", REQ_U));
+        expectInvalid(body(CODE, "u".repeat(65), "x"), "MSG-COM-041", fe("username", "「账号」不能超过 64 个字符。"));
+        expectInvalid(body(CODE, "u7501", null), "MSG-COM-040", fe("password", REQ_P));
+        expectInvalid(body(CODE, "u7501", "p".repeat(65)), "MSG-COM-041", fe("password", "「密码」不能超过 64 个字符。"));
         assertThat(owner.queryForObject("SELECT login_fail_count FROM sys_user WHERE id = ?", Integer.class, USER)).isZero();
     }
 
     @Test
-    void multipleInvalidFieldsReportFirstInFormOrder() throws Exception {
-        expectInvalid("{}", "tenantCode", "请输入必填项「企业代码」。", "MSG-COM-040");
-        expectInvalid(body(CODE, null, null), "username", "请输入必填项「账号」。", "MSG-COM-040");
-        expectInvalid(body("bad-code", "u".repeat(65), null), "tenantCode", "「企业代码」只能为半角英数。", null);
+    void multipleInvalidFieldsAreAllReturnedInFormOrder() throws Exception {
+        expectInvalid("{}", "MSG-COM-040", fe("tenantCode", REQ_T), fe("username", REQ_U), fe("password", REQ_P));
+        expectInvalid(body(CODE, null, null), "MSG-COM-040", fe("username", REQ_U), fe("password", REQ_P));
+        expectInvalid(body("bad-code", "u".repeat(65), null), null,
+                fe("tenantCode", FMT_T), fe("username", "「账号」不能超过 64 个字符。"), fe("password", REQ_P));
     }
 }
