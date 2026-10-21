@@ -42,7 +42,7 @@ public final class ProductionErrorCode {
     public static final int WO_ON_HOLD = 60047;
     public static final String MSG_WO_ON_HOLD = "MSG-PRD-047";
 
-    /** 状態不整合（共通 4002 / HTTP 409 / MSG-COM-034）。 */
+    /** 状態不整合（共通 4002 / HTTP 422 / MSG-COM-034）。 */
     public static final int STATE_CONFLICT = 4002;
     public static final String MSG_STATE_CONFLICT = "MSG-COM-034";
 
