@@ -63,12 +63,14 @@ describe('http 错误处理', () => {
 
   it('HTTP 409 无 code 时显示后端 message', async () => {
     await catchError(respond(409, { message: '单据已审核' }))
-    expect(ElMessage.warning).toHaveBeenCalledWith('单据已审核')
+    expect(ElMessage.error).toHaveBeenCalledWith('单据已审核')
+    expect(ElMessage.warning).not.toHaveBeenCalled()
   })
 
   it('HTTP 409 无响应体时显示通用状态冲突提示', async () => {
     await catchError(respond(409, ''))
-    expect(ElMessage.warning).toHaveBeenCalledWith(MSG_STATE_CONFLICT)
+    expect(ElMessage.error).toHaveBeenCalledWith(MSG_STATE_CONFLICT)
+    expect(MSG_STATE_CONFLICT).not.toContain('刷新')
   })
 
   it('422 显示 MSG 编号和文案', async () => {
@@ -86,12 +88,21 @@ describe('http 错误处理', () => {
 
   it.each([4002, 4005])('code=%i 显示后端 message', async (code) => {
     await catchError(respond(409, { code, message: '处理中，请稍后再试', data: null }))
-    expect(ElMessage.warning).toHaveBeenCalledWith('处理中，请稍后再试')
+    expect(ElMessage.error).toHaveBeenCalledWith('处理中，请稍后再试')
+    expect(ElMessage.warning).not.toHaveBeenCalled()
+  })
+
+  it('HTTP 409 + 领域码（如 70127）只显示 message，不弹刷新提示', async () => {
+    const err = await catchError(respond(409, { code: 70127, message: '损益转记已执行', data: null }))
+    expect(err.status).toBe(409)
+    expect(err.code).toBe(70127)
+    expect(ElMessage.error).toHaveBeenCalledWith('损益转记已执行')
+    expect(ElMessage.warning).not.toHaveBeenCalled()
   })
 
   it.each([4002, 4005])('code=%i 无 message 时显示通用文案', async (code) => {
     await catchError(respond(200, { code, message: '', data: null }))
-    expect(ElMessage.warning).toHaveBeenCalledWith(MSG_STATE_CONFLICT)
+    expect(ElMessage.error).toHaveBeenCalledWith(MSG_STATE_CONFLICT)
   })
 
   it('422 有 msgId 时显示 [msgId] message 并带入 ApiError', async () => {

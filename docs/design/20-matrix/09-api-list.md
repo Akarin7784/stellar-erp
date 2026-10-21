@@ -676,7 +676,7 @@
 | GET | /api/production/overproduction-approvals | 超産申請一覧（詳細 §3.14） | production:overproduction-approval:view | PRD | 06-production/91-api-design.md |
 | POST | /api/production/overproduction-approvals | 超産申請登録（→10、201。§3.14） | production:overproduction-approval:create | PRD | 06-production/91-api-design.md |
 | GET | /api/production/overproduction-approvals/{id} | 超産申請詳細（§3.14） | 同上 | PRD | 06-production/91-api-design.md |
-| POST | /api/production/overproduction-approvals/{id}/approve | 承認（20→30、allowed_qty +request_qty。§3.14）。TODO：権限チェック未実装、Flowable 接入後に閉鎖 | production:overproduction-approval:approve | PRD | 06-production/91-api-design.md |
+| POST | /api/production/overproduction-approvals/{id}/approve | 承認（20→30、allowed_qty +request_qty。§3.14） | production:overproduction-approval:approve | PRD | 06-production/91-api-design.md |
 | POST | /api/production/overproduction-approvals/{id}/cancel | 取消（10/20→90。§3.14） | production:overproduction-approval:cancel | PRD | 06-production/91-api-design.md |
 | POST | /api/production/overproduction-approvals/{id}/reject | 却下（20→40。§3.14） | production:overproduction-approval:approve | PRD | 06-production/91-api-design.md |
 | POST | /api/production/overproduction-approvals/{id}/submit | 申請提出（10→20。Flowable 接入後は WF 起動に置換。§3.14） | production:overproduction-approval:submit | PRD | 06-production/91-api-design.md |

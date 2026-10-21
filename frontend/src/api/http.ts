@@ -19,7 +19,7 @@ export interface ApiResult<T> {
 export const TOKEN_KEY = 'erp_token'
 
 export const MSG_CONFLICT = '数据已被他人修改，请刷新后重试'
-export const MSG_STATE_CONFLICT = '数据状态已变化，请刷新后重试'
+export const MSG_STATE_CONFLICT = '操作未能完成，数据状态不允许此操作'
 export const MSG_FORBIDDEN = '没有权限执行此操作'
 export const MSG_UNAUTHORIZED = '登录已失效，请重新登录'
 export const MSG_SERVER_ERROR = '服务器异常，请稍后重试'
@@ -111,9 +111,12 @@ type ErrorKind =
 /** 先按 code 判断，再按 HTTP 状态兜底（当前 GlobalExceptionHandler 对 BizException 返回 HTTP 200 + code）。 */
 export function classifyError(status: number | undefined, code: number | undefined): ErrorKind {
   if (code !== undefined && code !== 0) {
+    if (code === ERROR_CODES.OPTIMISTIC_LOCK) return 'optimisticLock'
+    // HTTP 409 只有 4003（MSG-COM-033 版本冲突）弹刷新提示，其余 409 一律显示后端 message
+    if (status === 409 && code !== ERROR_CODES.UNAUTHENTICATED && !(code >= 3000 && code <= 3999))
+      return 'stateConflict'
     if (code === ERROR_CODES.UNAUTHENTICATED) return 'unauthorized'
     if (code >= 3000 && code <= 3999) return 'forbidden'
-    if (code === ERROR_CODES.OPTIMISTIC_LOCK) return 'optimisticLock'
     if (STATE_CONFLICT_CODES.includes(code)) return 'stateConflict'
     if (isDomainCode(code)) return 'business'
     if (code >= 5000 && code <= 5999) return 'server'
@@ -149,8 +152,8 @@ function notify(
       level = 'warning'
       break
     case 'stateConflict':
+      // 非版本冲突：不弹刷新提示，直接显示后端 message
       msg = message || MSG_STATE_CONFLICT
-      level = 'warning'
       break
     case 'business': {
       const text = message || MSG_REQUEST_FAILED
