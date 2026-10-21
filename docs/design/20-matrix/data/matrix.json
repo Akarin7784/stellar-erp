@@ -9,7 +9,7 @@
       "reports": 9,
       "batches": 12,
       "interfaces": 7,
-      "messages": 101,
+      "messages": 102,
       "apis": 146
     },
     "MDM": {
@@ -11000,6 +11000,15 @@
       "action": "",
       "domain": "SYS",
       "source": "01-system/07-scheduled-job-print-monitor.md"
+    },
+    {
+      "id": "MSG-SYS-095",
+      "type": "",
+      "body": "",
+      "condition": "",
+      "action": "",
+      "domain": "SYS",
+      "source": "01-system/91-api-design.md"
     },
     {
       "id": "MSG-COM-001",
