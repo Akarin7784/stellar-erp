@@ -44,22 +44,26 @@ public class MdmLookupService {
     }
 
     /**
-     * 工厂下拉（当前公司的有效工厂）。{@code resource}（资源编码 {@code <module>:<resource>}、例 {@code production:work-order}）
+     * 工厂下拉（当前公司的有效工厂）。{@code resource}（例 {@code work-order} → production 模块・{@code production:work-order}）
      * 指定時は CALC-02a（{@link FactoryDataScope}）で絞る：ユーザ個別が工厂型なら優先、そうでなければロール和集合
-     * （いずれか無制限なら無制限）、有効ロールなしは空。module は resource の {@code :} より前。未指定は絞らない（负责人决定）。
+     * （いずれか無制限なら無制限）、有効ロールなしは空。未知の値は 400。未指定は絞らない（负责人决定）。
      */
+    /** {@code resource} 参数值 → {module, resource_code}（01-system 文档 #135）。 */
+    static final java.util.Map<String, String[]> FACTORY_SCOPE_RESOURCES = java.util.Map.of(
+            "work-order", new String[] {"production", "production:work-order"});
+
     @Transactional(readOnly = true)
     public List<FactoryDto> factories(String resource) {
         LoginContext.LoginUser login = LoginContext.require();
         long company = login.companyId();
         Optional<Set<Long>> allowed = Optional.empty();
-        if (resource != null && !resource.isBlank()) {
-            String res = resource.trim();
-            int colon = res.indexOf(':');
-            if (colon <= 0 || colon == res.length() - 1) {
-                throw new BizException(1001, "resource 格式应为 <module>:<resource>");
+        if (resource != null) {
+            String[] mr = FACTORY_SCOPE_RESOURCES.get(resource.trim());
+            if (mr == null) {
+                // 未知の resource（暫定：400 / 1001 / MSG-COM-049。正式な扱いは负责人确认待ち）
+                throw new BizException(1001, "MSG-COM-049", "resource 取值不正确");
             }
-            allowed = scope.allowedFactories(login.userId(), company, res.substring(0, colon), res);
+            allowed = scope.allowedFactories(login.userId(), company, mr[0], mr[1]);
         }
         Optional<Set<Long>> scoped = allowed;
         if (scoped.isPresent() && scoped.get().isEmpty()) {

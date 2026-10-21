@@ -462,23 +462,23 @@ class WorkOrderListApiIntegrationTest {
     @Test
     void factoryLookupIsFilteredByFactoryDataScope() throws Exception {
         // 工場無制限ロール → 当前公司の全工場（他社工場は出ない）
-        assertThat(factoryCodes(USER, "resource", "production:work-order")).containsExactly("F81A", "F81B");
+        assertThat(factoryCodes(USER, "resource", "work-order")).containsExactly("F81A", "F81B");
         // resource 指定なし → 絞らない（当前公司の全工場）
         assertThat(factoryCodes(SCOPED)).containsExactly("F81A", "F81B");
         // ロールが工場（一厂）に限定 → 一厂のみ
-        assertThat(factoryCodes(SCOPED, "resource", "production:work-order")).containsExactly("F81A");
+        assertThat(factoryCodes(SCOPED, "resource", "work-order")).containsExactly("F81A");
         // ユーザ個別が工場型でない → ロールへフォールバック（全開にしない）
         owner.update("""
             INSERT INTO sys_user_data_scope (id, tenant_id, company_id, user_id, resource_code, scope_type, reason)
             VALUES (989894, 316, 81, ?, 'production:work-order', 1, 'test')
             """, SCOPED);
-        assertThat(factoryCodes(SCOPED, "resource", "production:work-order")).containsExactly("F81A");
+        assertThat(factoryCodes(SCOPED, "resource", "work-order")).containsExactly("F81A");
         // ユーザ個別が工場型 → 優先（ロールは見ない）：二厂のみ
         owner.update("UPDATE sys_user_data_scope SET scope_type = 6, factory_ids = '[\"989022\"]'::jsonb WHERE id = 989894");
-        assertThat(factoryCodes(SCOPED, "resource", "production:work-order")).containsExactly("F81B");
+        assertThat(factoryCodes(SCOPED, "resource", "work-order")).containsExactly("F81B");
         // ユーザ個別の工場範囲が空 → 空
         owner.update("UPDATE sys_user_data_scope SET factory_ids = '[]'::jsonb WHERE id = 989894");
-        assertThat(factoryCodes(SCOPED, "resource", "production:work-order")).isEmpty();
+        assertThat(factoryCodes(SCOPED, "resource", "work-order")).isEmpty();
         assertThat(factoryCodes(SCOPED)).containsExactly("F81A", "F81B");
     }
 
@@ -486,7 +486,10 @@ class WorkOrderListApiIntegrationTest {
     void factoryLookupRejectsMalformedResource() throws Exception {
         TenantContext.set(TENANT);
         LoginContext.set(new LoginUser(SCOPED, CO));
-        mvc.perform(MockMvcRequestBuilders.get("/api/mdm/factories").param("resource", "work-order"))
+        mvc.perform(MockMvcRequestBuilders.get("/api/mdm/factories").param("resource", "production:work-order"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value(1001))
+                .andExpect(jsonPath("$.msgId").value("MSG-COM-049"));
+        mvc.perform(MockMvcRequestBuilders.get("/api/mdm/factories").param("resource", ""))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value(1001));
     }
 
@@ -498,9 +501,9 @@ class WorkOrderListApiIntegrationTest {
             INSERT INTO sys_role_data_scope (id, tenant_id, company_id, role_id, resource_code, scope_type, factory_ids, module_code)
             VALUES (989992, 316, 81, 989950, 'production:work-order', 6, '["989022"]'::jsonb, 'production')
             """);
-        assertThat(factoryCodes(SCOPED, "resource", "production:work-order")).containsExactly("F81A", "F81B");
+        assertThat(factoryCodes(SCOPED, "resource", "work-order")).containsExactly("F81A", "F81B");
         // 有効ロールなし → 空（単一工場の自動選択も起きない）。resource なしなら全工場
-        assertThat(factoryCodes(7809L, "resource", "production:work-order")).isEmpty();
+        assertThat(factoryCodes(7809L, "resource", "work-order")).isEmpty();
         assertThat(factoryCodes(7809L)).containsExactly("F81A", "F81B");
     }
 }
