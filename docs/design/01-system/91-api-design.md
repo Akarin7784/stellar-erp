@@ -41,6 +41,13 @@
 | 10080 | MSG-SYS-080 | 帳票生成失敗 | 500 |
 | 10090 | MSG-SYS-086 | 初期化二重実行 | 409 |
 
+### 1.2 選択用（`/options`）API の共通規則（蓝色大肥鱼 2026-10-21 決定）
+
+- 本域のすべての `/options`（ドロップダウン用選択一覧）API は**ログインのみ**を要件とし、権限コード（`@SaCheckPermission`）を付けない。
+- 未ログインは 401（認証インターセプタ導入後に有効）。
+- データ範囲は当前会社（ログインセッション `LoginContext`、`companyId` パラメータは無視）と RLS（テナント）で限定する。
+- 対象：#36a `/api/system/departments/options`、#108 `/api/system/maintenance/options`。
+
 ## 2. API 一覧
 
 | # | メソッド | パス | 権限 | 概要 | 関連機能 | 主なエラー |
@@ -81,7 +88,7 @@
 | 34 | PUT | /api/system/menus/{id} | `system:menu:update` | メニュー更新 | F-SYS-004 | 10022/4003 |
 | 35 | DELETE | /api/system/menus/{id} | `system:menu:delete` | メニュー無効化 | F-SYS-004 | 10023 |
 | 36 | GET | /api/system/departments/tree | `system:department:view` | 部門ツリー | F-SYS-005 | 3001 |
-| 36a | GET | /api/system/departments/options | `system:department:view` | 部門選択用一覧（ドロップダウン、§3.7） | F-SYS-005 | 3001 |
+| 36a | GET | /api/system/departments/options | 認証済（§1.2） | 部門選択用一覧（ドロップダウン、§3.7） | F-SYS-005 | 3001 |
 | 37 | GET | /api/system/departments/{id} | `system:department:view` | 部門詳細 | F-SYS-005 | 4001 |
 | 38 | POST | /api/system/departments | `system:department:create` | 部門登録 | F-SYS-005 | 10030/10033 |
 | 39 | PUT | /api/system/departments/{id} | `system:department:update` | 部門更新 | F-SYS-005 | 4003/10030 |
@@ -154,7 +161,7 @@
 | 105 | GET | /api/system/scheduled-jobs/{id}/logs | `system:job-monitor:view` | 実行履歴 | F-SYS-016 | 4001 |
 | 106 | POST | /api/system/scheduled-jobs/{id}/run | `system:job-monitor:run` | 手動実行 | F-SYS-016 | 10084 |
 | 107 | PUT | /api/system/scheduled-jobs/{id}/status | `system:job-monitor:run` | 停止/再開 | F-SYS-016 | 4003 |
-| 108 | GET | /api/system/maintenance/options | `system:maintenance:view` | 维护種別 | F-SYS-020 | 3001 |
+| 108 | GET | /api/system/maintenance/options | 認証済（§1.2） | 维护種別 | F-SYS-020 | 3001 |
 | 109 | POST | /api/system/maintenance/dry-run | `system:maintenance:execute` | ドライラン | F-SYS-020 | — |
 | 110 | POST | /api/system/maintenance/execute | `system:maintenance:execute` | 维护実行 | F-SYS-020 | 10085/10086/10087 |
 | 111 | GET | /api/system/maintenance/logs | `system:maintenance:view` | 维护履歴 | F-SYS-020 | 3001 |
@@ -230,7 +237,7 @@ Outbox 監視（`status`、`eventType`、`from`/`to`、ページング）。Payl
 
 | 項目 | 内容 |
 |---|---|
-| 権限 | `system:department:view`（他の選択用 API と同じく対象リソースの `view` 権限、例：`/api/mdm/warehouses/options` は `mdm:warehouse:view`、#108 は `system:maintenance:view`） |
+| 権限 | ログインのみ（権限コードなし、§1.2 選択用 API 共通規則）。データ範囲は当前会社 + RLS で限定 |
 | リクエスト | パラメータなし。会社はログインセッション（`LoginContext`）の当前会社を使用し、`companyId` パラメータは指定されても無視する |
 | 絞り込み | `company_id = 当前会社`、`deleted = FALSE`、`status = 1`。テナントは RLS（`app.tenant_id`）で分離 |
 | 返却項目 | `id`（文字列）、`departmentCode`、`departmentName`（[02/91 §3.8](../02-mdm/91-api-design.md) 選択用 API 規則：ID・コード・名称が必須） |
@@ -259,4 +266,4 @@ Outbox 監視（`status`、`eventType`、`from`/`to`、ページング）。Payl
 | v1.1 | 2026-10-20 | Lead 裁决反映：工厂主データを MDM へ移管したため、`/api/system/factories` 3 API を「工厂組織設定（MDM 参照）」に変更 | system-workflow |
 | v1.2 | 2026-10-20 | 红队第 2 轮修复：データ範囲 API に工場/倉庫次元（`factoryIds`/`warehouseIds`、scopeType 1〜7）を追加。ユーザ再開 API の権限を `system:user:reopen` に変更 | system-workflow |
 | v1.3 | 2026-10-21 | API 47a `POST /api/system/companies`（公司登録）を追加：`sys_company` INSERT と同一トランザクションで 90 §3.15 業務パラメータの既定行を当該会社（`company_id` = 新 `sys_company.id`）に冪等投入、全 114 API。権限は新設 `system:company:create`（テナント開設級操作、`update` と分離）。1001 は汎用入力検証のみ、公司代码・信用代码重複は新設 `10035`／`MSG-SYS-093`（409）（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
-| v1.4 | 2026-10-21 | API #36a `GET /api/system/departments/options`（部門選択用一覧、§3.7）を追加：当前会社は LoginContext（`companyId` 無視）、有効・未削除のみ、`id`（文字列）/`departmentCode`/`departmentName`、`sort_no`→`department_code` 順、権限 `system:department:view`（バックエンド PR #61、蓝色大肥鱼 2026-10-21 決定：パスは `/api/system/**` 配下） | 业务分析 |
+| v1.4 | 2026-10-21 | API #36a `GET /api/system/departments/options`（部門選択用一覧、§3.7）を追加：当前会社は LoginContext（`companyId` 無視）、有効・未削除のみ、`id`（文字列）/`departmentCode`/`departmentName`、`sort_no`→`department_code` 順、権限はログインのみ（§1.2 `/options` 共通規則を新設、#108 にも適用）（バックエンド PR #61、蓝色大肥鱼 2026-10-21 決定：パスは `/api/system/**` 配下） | 业务分析 |

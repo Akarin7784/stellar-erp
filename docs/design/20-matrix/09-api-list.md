@@ -1053,7 +1053,7 @@
 | POST | /api/system/companies | 公司登録（同一 TX で sys_param 既定行を投入、90 §3.1） | system:company:create | SYS | 01-system/91-api-design.md |
 | PUT | /api/system/companies/{id} | 公司更新 | system:company:update | SYS | 01-system/91-api-design.md |
 | POST | /api/system/departments | 部門登録 | system:department:create | SYS | 01-system/91-api-design.md |
-| GET | /api/system/departments/options | 部門選択用一覧（ドロップダウン、§3.7） | system:department:view | SYS | 01-system/91-api-design.md |
+| GET | /api/system/departments/options | 部門選択用一覧（ドロップダウン、§3.7） | 認証済（§1.2） | SYS | 01-system/91-api-design.md |
 | GET | /api/system/departments/tree | 部門ツリー（有効のみ/全部） | system:department:view | SYS | 01-system/03-org-position.md |
 | GET | /api/system/departments/tree | 部門ツリー | system:department:view | SYS | 01-system/91-api-design.md |
 | DELETE | /api/system/departments/{id} | 部門無効化 | system:department:delete | SYS | 01-system/91-api-design.md |
@@ -1094,7 +1094,7 @@
 | POST | /api/system/maintenance/execute | 维护実行 | system:maintenance:execute | SYS | 01-system/91-api-design.md |
 | GET | /api/system/maintenance/logs | 维护履歴 | system:maintenance:view | SYS | 01-system/91-api-design.md |
 | GET | /api/system/maintenance/options | 维护種別一覧 | system:maintenance:view | SYS | 01-system/07-scheduled-job-print-monitor.md |
-| GET | /api/system/maintenance/options | 维护種別 | system:maintenance:view | SYS | 01-system/91-api-design.md |
+| GET | /api/system/maintenance/options | 维护種別 | 認証済（§1.2） | SYS | 01-system/91-api-design.md |
 | POST | /api/system/menus | メニュー登録 | system:menu:create | SYS | 01-system/91-api-design.md |
 | GET | /api/system/menus/routes | ログインユーザのルート（フロント生成用） | 認証済 | SYS | 01-system/04-menu-dict-param.md |
 | GET | /api/system/menus/routes | ログインユーザのルート | 認証済 | SYS | 01-system/91-api-design.md |

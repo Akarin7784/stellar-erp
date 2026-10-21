@@ -22537,7 +22537,7 @@
       "method": "GET",
       "path": "/api/system/departments/options",
       "name": "部門選択用一覧（ドロップダウン、§3.7）",
-      "permission": "system:department:view",
+      "permission": "認証済（§1.2）",
       "domain": "SYS",
       "source": "01-system/91-api-design.md"
     },
@@ -22697,7 +22697,7 @@
       "method": "GET",
       "path": "/api/system/maintenance/options",
       "name": "维护種別",
-      "permission": "system:maintenance:view",
+      "permission": "認証済（§1.2）",
       "domain": "SYS",
       "source": "01-system/91-api-design.md"
     },
