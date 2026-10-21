@@ -38,7 +38,7 @@ public class UomConverter {
 
     /**
      * 停用単位（status != 1）は論理削除と同じ扱いで 60022（蓝色大肥鱼 2026-10-21）。
-     * 既存行の再チェック（submit/release）でも適用するか（案 a）は未確定のため、この条件を一箇所に分離している。
+     * 既存行の再チェック（submit/release）でも適用する（案 a、蓝色大肥鱼 2026-10-21 決定）。条件はこの一箇所に集約している。
      */
     static final String ACTIVE_UOM_FILTER = " AND status = 1";
 
