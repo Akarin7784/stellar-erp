@@ -1681,7 +1681,7 @@ COMMENT ON COLUMN inv_event_wait.waiting_for IS 'PI=入荷待ち、FGI=完工入
 ### 6.3 FK 一覧（2026-10-21 改訂：全て複合 FK）
 
 - **同域親子（#1〜6）**：`FOREIGN KEY (tenant_id, company_id, x_id) REFERENCES 親 (tenant_id, company_id, id)`、被参照は `uk_<親>_tenant_company_id`（PR #43）。
-- **跨域 mdm（#7〜11）**：`FOREIGN KEY (tenant_id, x_id) REFERENCES mdm_x (tenant_id, id)`（`uk_mdm_x_tenant_id`、sys/V202610210707）。例外：`fk_inv_stock_balance_material` は三列 `(tenant_id, company_id, material_id)` → `mdm_material (tenant_id, company_id, id)`（`uk_mdm_material_tenant_company_id`、inv/V202610211409、04 §6.2 項 2a）。
+- **跨域 mdm（#7〜11）**：`FOREIGN KEY (tenant_id, company_id, x_id) REFERENCES mdm_x (tenant_id, company_id, id)`（`uk_mdm_x_tenant_company_id`、04 §6.2 項 2a の標準形）。`fk_inv_stock_balance_material` は inv/V202610211409、残り 27 本は inv/V202610211410 で三列化。
 - いずれも制約名は本表どおり、`ON DELETE` 指定なし（NO ACTION）、CASCADE 禁止。`x_id` 単独の FK は禁止。
 
 | # | 参照元（列） | 被参照 | 制約名 |

@@ -3,7 +3,7 @@
 | 項目 | 内容 |
 |---|---|
 | 文書名 | 库存域 验收标准 |
-| 版数 | v1.0 |
+| 版数 | v1.7 |
 | 作成日 | 2026-10-21 |
 | 作成者 | 业务分析 |
 | 状態 | ドラフト（ローカル準備・未 push） |
@@ -63,7 +63,7 @@
 
 - W：`inv/` 迁移適用後に `pg_class.relrowsecurity/relforcerowsecurity` を確認。T：90 §2 の 24 表すべて true、ポリシー `tenant_isolation` が `USING`/`WITH CHECK` の両方を持つ（`inv_stock_txn` は親表）。
 - G：`app.tenant_id=1` の接続。W：tenant 2 の `inv_stock_balance` を SELECT。T：0 件。W：`tenant_id=2` で INSERT。T：RLS 違反で失敗。
-- W：`pg_constraint` の `inv_*` 外部キー。T：同域親子 6 本は `(tenant_id, company_id, x_id)` → 親 `(tenant_id, company_id, id)`（制約名は 90 §6.3 どおり）、被参照の 6 表に `uk_<table>_tenant_company_id UNIQUE (tenant_id, company_id, id)`。mdm 向け跨域 FK は `(tenant_id, x_id)` → `(tenant_id, id)`。単列 FK 0 件。`inv_*` に `uk_<table>_tenant_id` は 0 件（跨域被参照なし）。
+- W：`pg_constraint` の `inv_*` 外部キー。T：同域親子 6 本は `(tenant_id, company_id, x_id)` → 親 `(tenant_id, company_id, id)`（制約名は 90 §6.3 どおり）、被参照の 6 表に `uk_<table>_tenant_company_id UNIQUE (tenant_id, company_id, id)`。mdm 向け跨域 FK 28 本も三列 `(tenant_id, company_id, x_id)` → `mdm_x (tenant_id, company_id, id)`（04 §6.2 項 2a、被参照 mdm 5 表に `uk_mdm_<table>_tenant_company_id`、inv/V202610211409・V202610211410）。単列 FK 0 件。`inv_*` に `uk_<table>_tenant_id` は 0 件（跨域被参照なし）。
 - W：`scripts/check-tenant-default.sh`。T：合格（`tenant_id` 既定値は `current_setting('app.tenant_id')::bigint` のみ）。
 
 ## AC-INV-10 迁移番号
@@ -117,3 +117,4 @@
 | v1.4 | 2026-10-21 | AC-INV-09/15：同域親子 FK を `(tenant_id, company_id, x_id)`・被参照キー `uk_<table>_tenant_company_id` に変更（PR #43） | 业务分析 |
 | v1.5 | 2026-10-21 | AC-INV-16 追加（MTO 批次引当・OSR 保留・J31・月初版切替再評価）（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.6 | 2026-10-21 | AC-INV-10 から具体版数を削除 | 业务分析 |
+| v1.7 | 2026-10-21 | AC-INV-09：mdm 向け跨域 FK を三列 `(tenant_id, company_id, x_id)` → `(tenant_id, company_id, id)` に変更（PR #79、inv/V202610211410）。表頭版数を修订表に合わせ v1.7 に | DBA |
