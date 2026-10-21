@@ -10,7 +10,7 @@
       "batches": 12,
       "interfaces": 7,
       "messages": 100,
-      "apis": 145
+      "apis": 146
     },
     "MDM": {
       "name": "主数据管理",
@@ -22529,6 +22529,14 @@
       "method": "GET",
       "path": "/api/system/departments/tree",
       "name": "部門ツリー",
+      "permission": "system:department:view",
+      "domain": "SYS",
+      "source": "01-system/91-api-design.md"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/departments/options",
+      "name": "部門選択用一覧（ドロップダウン、§3.7）",
       "permission": "system:department:view",
       "domain": "SYS",
       "source": "01-system/91-api-design.md"
