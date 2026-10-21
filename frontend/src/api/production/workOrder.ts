@@ -252,8 +252,8 @@ const RELEASE_MSG_ID: Partial<Record<number, string>> = {
 const RELEASE_DEFAULT_MESSAGE: Partial<Record<number, string>> = {
   /** 00-common/05 MSG-COM-034 */
   4002: '该记录当前状态不允许此操作。',
-  /** 06/93 MSG-PRD-020（文档原文） */
-  60020: '有効な BOM がありません。BOM を登録・承認してください。',
+  /** MSG-PRD-020（BA 提供中文文案，2026-10-21） */
+  60020: '没有有效的 BOM，请先登记并审批 BOM。',
 }
 
 export interface ReleaseErrorView {
