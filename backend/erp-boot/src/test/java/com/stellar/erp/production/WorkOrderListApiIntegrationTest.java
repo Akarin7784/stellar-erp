@@ -382,6 +382,10 @@ class WorkOrderListApiIntegrationTest {
                 .andExpect(jsonPath("$.data.total").value(2));
         get(SCOPED, CO, "factoryId", String.valueOf(F1)).andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value(3002));
+        // ロール側が全社（1）でもユーザ個別の工場で制限
+        owner.update("UPDATE sys_role_data_scope SET scope_type = 1, factory_ids = NULL WHERE id = 989890");
+        get(SCOPED, CO).andExpect(jsonPath("$.data.total").value(2));
+        get(SCOPED, CO, "factoryId", String.valueOf(F1)).andExpect(status().isForbidden());
     }
 
     @Test
