@@ -43,6 +43,7 @@ class OverproductionApprovalApiIntegrationTest {
 
     @Autowired PostgreSQLContainer pg;
     @Autowired WebApplicationContext wac;
+    @Autowired OverproductionApprovalService approvals;
 
     JdbcTemplate owner;
     MockMvc mvc;
@@ -293,5 +294,48 @@ class OverproductionApprovalApiIntegrationTest {
         assertThat(lineAllowed(LINE)).isEqualByComparingTo("105");   // 受注行の +delta もロールバック
         assertThat(owner.queryForObject("SELECT approval_status FROM prd_overproduction_approval WHERE id = ?",
                 Integer.class, Long.parseLong(id))).isEqualTo(10);
+    }
+
+    @Test
+    void staleVersionIs4003AndAllowedQtyUnchanged() throws Exception {
+        String id = createdId(create(CO, body(LINE, WO, "10")).andExpect(status().isCreated()).andReturn());
+        owner.update("UPDATE prd_overproduction_approval SET version = version + 1 WHERE id = ?", Long.parseLong(id));
+        postAs(APPROVER, CO, BASE + "/" + id + "/approve", "{\"version\": 0}")
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value(4003))
+                .andExpect(jsonPath("$.msgId").value("MSG-COM-033"));
+        assertThat(lineAllowed(LINE)).isEqualByComparingTo("105");
+        assertThat(woAllowed(WO)).isEqualByComparingTo("105");
+        assertThat(owner.queryForObject("SELECT approval_status FROM prd_overproduction_approval WHERE id = ?",
+                Integer.class, Long.parseLong(id))).isEqualTo(10);
+    }
+
+    /** 同一受注行の 2 件を別スレッド・別トランザクションで同時承認：両方成功し、受注行は増分の合計（ロストアップデートなし）。 */
+    @Test
+    void concurrentApprovalsOnSameLineBothApplied() throws Exception {
+        long a = Long.parseLong(createdId(create(CO, body(LINE, WO, "10")).andExpect(status().isCreated()).andReturn()));
+        long b = Long.parseLong(createdId(create(CO, body(LINE, null, "7")).andExpect(status().isCreated()).andReturn()));
+        LoginContext.clear();
+        TenantContext.clear();
+        java.util.concurrent.CyclicBarrier barrier = new java.util.concurrent.CyclicBarrier(2);
+        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            java.util.List<java.util.concurrent.Future<OverproductionApproved>> fs = java.util.stream.Stream.of(a, b)
+                    .map(id -> pool.submit(() -> {
+                        barrier.await(10, java.util.concurrent.TimeUnit.SECONDS);
+                        return TenantContext.callAs(TENANT, () -> LoginContext.callAs(new LoginUser(APPROVER, CO),
+                                () -> approvals.approve(id, 0)));
+                    })).toList();
+            for (var f : fs) {
+                assertThat(f.get(30, java.util.concurrent.TimeUnit.SECONDS).approvalStatus()).isEqualTo((short) 30);
+            }
+        } finally {
+            pool.shutdownNow();
+        }
+        assertThat(lineAllowed(LINE)).isEqualByComparingTo("122");   // 105 + 10 + 7
+        assertThat(woAllowed(WO)).isEqualByComparingTo("115");       // 工单級の 10 のみ
+        assertThat(owner.queryForObject("""
+                SELECT count(*) FROM prd_overproduction_approval WHERE tenant_id = 311 AND approval_status = 30""",
+                Long.class)).isEqualTo(2);
     }
 }
