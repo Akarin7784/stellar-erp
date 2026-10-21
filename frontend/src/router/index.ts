@@ -1,7 +1,49 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import {
+  createRouter,
+  createWebHistory,
+  type RouteComponent,
+  type RouteRecordRaw,
+} from 'vue-router'
 
 import { setUnauthorizedHandler } from '@/api/http'
 import { useAuthStore } from '@/stores/auth'
+import { MENU_ROUTES } from './menuRoutes'
+
+/** 已实现的画面：route_path → 路由名与组件（保留既有路由名，代码中按名跳转）。 */
+const BUILT_VIEWS: Record<string, { name: string; component: RouteComponent }> = {
+  'system/users': {
+    name: 'system-users',
+    component: () => import('@/views/system/UserListView.vue'),
+  },
+  'production/work-orders/new': {
+    name: 'production-work-order-create',
+    component: () => import('@/views/production/WorkOrderCreateView.vue'),
+  },
+  'production/work-orders/:id': {
+    name: 'production-work-order-detail',
+    component: () => import('@/views/production/WorkOrderDetailView.vue'),
+  },
+}
+
+const Placeholder = () => import('@/views/PlaceholderView.vue')
+
+/** 94 付録 A 的全部菜单行；未实现画面指向 PlaceholderView，路由名用画面 ID。 */
+export const menuChildren: RouteRecordRaw[] = MENU_ROUTES.map((m) => {
+  const built = BUILT_VIEWS[m.path]
+  return {
+    path: m.path,
+    name: built?.name ?? m.screenId,
+    component: built?.component ?? Placeholder,
+    props: !!built && m.path.includes(':'),
+    meta: {
+      title: m.title,
+      screenId: m.screenId,
+      permission: m.permission,
+      hidden: m.hidden,
+      placeholder: !built,
+    },
+  }
+})
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -28,25 +70,7 @@ const router = createRouter({
           component: () => import('@/views/DashboardView.vue'),
           meta: { title: '工作台' },
         },
-        {
-          path: 'system/users',
-          name: 'system-users',
-          component: () => import('@/views/system/UserListView.vue'),
-          meta: { title: '用户管理' },
-        },
-        {
-          path: 'production/work-orders/new',
-          name: 'production-work-order-create',
-          component: () => import('@/views/production/WorkOrderCreateView.vue'),
-          meta: { title: '生产订单登録' },
-        },
-        {
-          path: 'production/work-orders/:id',
-          name: 'production-work-order-detail',
-          component: () => import('@/views/production/WorkOrderDetailView.vue'),
-          props: true,
-          meta: { title: '生产订单詳細' },
-        },
+        ...menuChildren,
       ],
     },
   ],

@@ -120,6 +120,23 @@ describe('LoginView', () => {
     expect(replace).toHaveBeenCalledWith('/')
   })
 
+  it('登录成功但 /auth/me 失败：清除 token，留在登录页并显示 message', async () => {
+    login.mockResolvedValue({ token: 'tok' })
+    getMe.mockRejectedValue(
+      new ApiError('x', {
+        status: 500,
+        code: 5000,
+        data: { code: 5000, message: '系统异常', data: null, msgId: null },
+      }),
+    )
+    const w = mountView()
+    await fill(w, 'HDJM', 'admin', 'secret')
+    await submit(w)
+    expect(localStorage.getItem(TOKEN_KEY)).toBeNull()
+    expect(replace).not.toHaveBeenCalled()
+    expect(w.find('[data-test="form-error"]').text()).toBe('系统异常')
+  })
+
   it('menus=[] 跳转到暂无权限页', async () => {
     login.mockResolvedValue({ token: 'tok' })
     getMe.mockResolvedValue({ ...ME, menus: [] })
