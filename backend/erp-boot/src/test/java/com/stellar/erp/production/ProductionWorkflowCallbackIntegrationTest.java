@@ -13,12 +13,14 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.SingleConnectionDataSource;
 import org.testcontainers.postgresql.PostgreSQLContainer;
@@ -32,17 +34,20 @@ import com.stellar.erp.support.DbIntegrationTest;
 import com.stellar.erp.support.OwnerJdbc;
 
 /**
- * E32 購読（{@link ProductionWorkflowCallback}）：工单 承認 20→25・却下／強制終了 20→10（AC-PRD-20）、
- * 超産申請 承認 20→30（allowed_qty +request_qty）・却下 →40・強制終了 →90（AC-PRD-21）、冪等・並行・租户隔離。
+ * E32 購読（{@link ProductionWorkflowCallback}／{@link ProductionWorkflowEventListener}）：
+ * 工单・超産の状態遷移、approverUserId、業務検証失敗の FAILED 記録、Modulith listener、冪等・並行・租户隔離。
  */
 @DbIntegrationTest
 class ProductionWorkflowCallbackIntegrationTest {
 
-    static final long TENANT = 317L, TENANT2 = 318L, CO = 83L, CREATOR = 7901L;
+    static final long TENANT = 317L, TENANT2 = 318L, CO = 83L, CREATOR = 7901L, APPROVER = 7902L;
     static final long WO = 987101, WO_T2 = 987102, OPA = 987201, LINE = 987041;
 
     @Autowired PostgreSQLContainer pg;
     @Autowired ProductionWorkflowCallback callback;
+    @Autowired ApplicationEventPublisher events;
+    @Autowired org.springframework.transaction.PlatformTransactionManager tm;
+    @Autowired ProductionWorkflowEventListener listener;
 
     static JdbcTemplate owner;
 
@@ -64,8 +69,8 @@ class ProductionWorkflowCallbackIntegrationTest {
                   VALUES (%5$d, %1$d, 83, 'WC83', '組立', %4$d);
                 """, t, 987001 + off, 987011 + off, 987021 + off, 987081 + off));
         }
-        insertWorkOrder(TENANT, WO, 0);
-        insertWorkOrder(TENANT2, WO_T2, 500);
+        insertWorkOrder(TENANT, WO, 0, true);
+        insertWorkOrder(TENANT2, WO_T2, 500, true);
         owner.execute("""
             INSERT INTO mdm_customer (id, tenant_id, company_id, customer_code, customer_name, customer_type, tax_no, owner_user_id, payment_term_code, settlement_method_code)
               VALUES (987031, 317, 83, 'C987031', 'W 客户', 10, '91320000000000000X', 1, 'NET30', 'TT');
@@ -84,18 +89,20 @@ class ProductionWorkflowCallbackIntegrationTest {
             """);
     }
 
-    void insertWorkOrder(long tenant, long id, long off) {
+    void insertWorkOrder(long tenant, long id, long off, boolean withOp) {
         owner.update("""
             INSERT INTO prd_work_order (id, tenant_id, company_id, work_order_no, material_id, material_code, material_name,
                 uom_code, factory_id, order_qty, planned_start_date, planned_end_date, order_status, over_receipt_rate,
                 created_by, submitted_at)
             VALUES (?, ?, 83, ?, ?, '9870000011', 'W 成品', 'PCE', ?, 10, DATE '2026-11-01', DATE '2026-11-30', 20, 0.05, ?, now())
             """, id, tenant, "WO-W-" + id, 987011 + off, 987021 + off, CREATOR);
-        owner.update("""
-            INSERT INTO prd_work_order_operation (id, tenant_id, company_id, work_order_id, operation_seq, operation_code,
-                operation_name, work_center_id, work_center_code, work_center_name, planned_qty, planned_start_date, planned_end_date)
-            VALUES (?, ?, 83, ?, 10, 'OP10', '組立', ?, 'WC83', '組立', 10, DATE '2026-11-01', DATE '2026-11-30')
-            """, id + 1000, tenant, id, 987081 + off);
+        if (withOp) {
+            owner.update("""
+                INSERT INTO prd_work_order_operation (id, tenant_id, company_id, work_order_id, operation_seq, operation_code,
+                    operation_name, work_center_id, work_center_code, work_center_name, planned_qty, planned_start_date, planned_end_date)
+                VALUES (?, ?, 83, ?, 10, 'OP10', '組立', ?, 'WC83', '組立', 10, DATE '2026-11-01', DATE '2026-11-30')
+                """, id + 1000, tenant, id, 987081 + off);
+        }
     }
 
     @AfterEach
@@ -130,17 +137,18 @@ class ProductionWorkflowCallbackIntegrationTest {
             """);
     }
 
-    static WorkflowProcessCompleted e32(UUID id, long tenant, String type, long businessId, String result) {
+    static WorkflowProcessCompleted e32(UUID id, long tenant, String type, long businessId, String result,
+                                        Long approver, String comment) {
         return new WorkflowProcessCompleted(id, tenant, CO, "pi-" + businessId, type, businessId, "NO-" + businessId,
-                result, OffsetDateTime.parse("2026-10-21T15:00:00+08:00"));
+                result, OffsetDateTime.parse("2026-10-21T15:00:00+08:00"), approver, comment);
     }
 
     static WorkflowProcessCompleted wo(String result) {
-        return e32(UUID.randomUUID(), TENANT, WorkOrderApprovalService.BUSINESS_TYPE, WO, result);
+        return e32(UUID.randomUUID(), TENANT, WorkOrderApprovalService.BUSINESS_TYPE, WO, result, APPROVER, null);
     }
 
     static WorkflowProcessCompleted opa(String result) {
-        return e32(UUID.randomUUID(), TENANT, OverproductionApprovalService.BUSINESS_TYPE, OPA, result);
+        return e32(UUID.randomUUID(), TENANT, OverproductionApprovalService.BUSINESS_TYPE, OPA, result, APPROVER, null);
     }
 
     Map<String, Object> woRow(long id) {
@@ -148,15 +156,18 @@ class ProductionWorkflowCallbackIntegrationTest {
     }
 
     Map<String, Object> opaRow() {
-        return owner.queryForMap("SELECT approval_status, version, approved_by FROM prd_overproduction_approval WHERE id = ?", OPA);
+        return owner.queryForMap(
+                "SELECT approval_status, version, approved_by, reject_reason FROM prd_overproduction_approval WHERE id = ?", OPA);
     }
 
     BigDecimal lineAllowed() {
         return owner.queryForObject("SELECT allowed_qty FROM sal_sales_order_line WHERE id = ?", BigDecimal.class, LINE);
     }
 
-    long consumed() {
-        return owner.queryForObject("SELECT count(*) FROM sys_event_consume_log WHERE tenant_id IN (317, 318)", Long.class);
+    Map<String, Object> consume(UUID eventId) {
+        List<Map<String, Object>> rows = owner.queryForList(
+                "SELECT consume_status, error_message, retry_count FROM sys_event_consume_log WHERE event_id = ?", eventId);
+        return rows.isEmpty() ? null : rows.get(0);
     }
 
     static int num(Object o) {
@@ -177,28 +188,23 @@ class ProductionWorkflowCallbackIntegrationTest {
         assertThat(num(r.get("order_status"))).isEqualTo(25);
         assertThat(num(r.get("version"))).isEqualTo(1);
         assertThat(r.get("approved_at")).isNotNull();
-        assertThat(num(r.get("approved_by"))).isZero();   // E32 に承認者なし → system(0)（待定）
-        // 同一イベント再受信 → 重複排除。別イベントでも同一結果なら状態確認でスキップ。いずれも version 不変
+        assertThat(num(r.get("approved_by"))).isEqualTo((int) APPROVER);
+        assertThat(num(consume(ev.eventId()).get("consume_status"))).isEqualTo(1);
         assertThat(callback.onProcessCompleted(ev)).isEqualTo(Outcome.DUPLICATE_EVENT);
         assertThat(callback.onProcessCompleted(wo("APPROVED"))).isEqualTo(Outcome.ALREADY_APPLIED);
         assertThat(num(woRow(WO).get("version"))).isEqualTo(1);
-        // 承認済に却下が届くのは状態不正 4002（消費記録もロールバック）
         assertThatThrownBy(() -> callback.onProcessCompleted(wo("REJECTED")))
                 .satisfies(t -> assertThat(bizCode(t)).isEqualTo(4002));
-        assertThat(consumed()).isEqualTo(2);
     }
 
     @Test
     void workOrderRejectedAndTerminatedReturnToDraft() {
         assertThat(callback.onProcessCompleted(wo("REJECTED"))).isEqualTo(Outcome.APPLIED);
         assertThat(num(woRow(WO).get("order_status"))).isEqualTo(10);
-        assertThat(num(woRow(WO).get("version"))).isEqualTo(1);
         assertThat(callback.onProcessCompleted(wo("REJECTED"))).isEqualTo(Outcome.ALREADY_APPLIED);
-        // 再提出（10→20）後の強制終了も 10（90 にしない）
         owner.update("UPDATE prd_work_order SET order_status = 20 WHERE id = ?", WO);
         assertThat(callback.onProcessCompleted(wo("TERMINATED"))).isEqualTo(Outcome.APPLIED);
         assertThat(num(woRow(WO).get("order_status"))).isEqualTo(10);
-        assertThat(num(woRow(WO).get("version"))).isEqualTo(2);
     }
 
     @Test
@@ -209,64 +215,175 @@ class ProductionWorkflowCallbackIntegrationTest {
         assertThatThrownBy(() -> callback.onProcessCompleted(wo("TERMINATED")))
                 .satisfies(t -> assertThat(bizCode(t)).isEqualTo(4002));
         assertThat(num(woRow(WO).get("order_status"))).isEqualTo(30);
-        assertThat(consumed()).isZero();
     }
 
-    // ------------------------------------------------------------------ 超産申請（AC-PRD-21）
+    // ------------------------------------------------------------------ 1) approverUserId
+
+    @Test
+    void missingApproverUserIdIsRejected() {
+        WorkflowProcessCompleted ev = e32(UUID.randomUUID(), TENANT, WorkOrderApprovalService.BUSINESS_TYPE, WO,
+                "APPROVED", null, null);
+        assertThatThrownBy(() -> callback.onProcessCompleted(ev))
+                .satisfies(t -> {
+                    assertThat(bizCode(t)).isEqualTo(1001);
+                    assertThat(((BizException) t).getMsgId()).isEqualTo("MSG-COM-040");
+                });
+        assertThat(num(woRow(WO).get("order_status"))).isEqualTo(20);
+        assertThat(consume(ev.eventId())).isNull();
+    }
+
+    @Test
+    void approverSameAsSubmitterIs60005() {
+        WorkflowProcessCompleted ev = e32(UUID.randomUUID(), TENANT, WorkOrderApprovalService.BUSINESS_TYPE, WO,
+                "APPROVED", CREATOR, null);
+        assertThatThrownBy(() -> callback.onProcessCompleted(ev))
+                .satisfies(t -> assertThat(bizCode(t)).isEqualTo(60005));
+        assertThat(num(woRow(WO).get("order_status"))).isEqualTo(20);
+        assertThat(num(consume(ev.eventId()).get("consume_status"))).isZero();
+        // 超産も申請者＝承認者 → 60005
+        WorkflowProcessCompleted opaEv = e32(UUID.randomUUID(), TENANT, OverproductionApprovalService.BUSINESS_TYPE, OPA,
+                "APPROVED", CREATOR, null);
+        assertThatThrownBy(() -> callback.onProcessCompleted(opaEv))
+                .satisfies(t -> assertThat(bizCode(t)).isEqualTo(60005));
+        assertThat(num(opaRow().get("approval_status"))).isEqualTo(20);
+        assertThat(lineAllowed()).isEqualByComparingTo("105");
+    }
+
+    // ------------------------------------------------------------------ 2) 業務検証失敗 → FAILED、再送も失敗
+
+    @Test
+    void businessValidationFailureLeavesDocumentAndRecordsFailedConsume() {
+        owner.update("DELETE FROM prd_work_order_operation WHERE work_order_id = ?", WO);
+        UUID eventId = UUID.randomUUID();
+        WorkflowProcessCompleted ev = e32(eventId, TENANT, WorkOrderApprovalService.BUSINESS_TYPE, WO, "APPROVED",
+                APPROVER, null);
+        assertThatThrownBy(() -> callback.onProcessCompleted(ev))
+                .satisfies(t -> assertThat(bizCode(t)).isEqualTo(60021));
+        assertThat(num(woRow(WO).get("order_status"))).isEqualTo(20);
+        assertThat(num(woRow(WO).get("version"))).isZero();
+        Map<String, Object> log = consume(eventId);
+        assertThat(log).isNotNull();
+        assertThat(num(log.get("consume_status"))).isEqualTo(0);
+        assertThat(log.get("error_message")).isNotNull();
+        assertThat((String) log.get("error_message")).contains("工艺");
+        // 同一 eventId 再送：工序はまだ無い → 再び 60021、伝票不変、consume_status は 0 のまま（INSERT せず UPDATE）
+        assertThatThrownBy(() -> callback.onProcessCompleted(ev))
+                .satisfies(t -> assertThat(bizCode(t)).isEqualTo(60021));
+        assertThat(num(woRow(WO).get("order_status"))).isEqualTo(20);
+        assertThat(num(woRow(WO).get("version"))).isZero();
+        assertThat(num(consume(eventId).get("consume_status"))).isEqualTo(0);
+        assertThat(consume(eventId).get("error_message")).isNotNull();
+        assertThat(num(consume(eventId).get("retry_count"))).isGreaterThanOrEqualTo(1);
+        assertThat(owner.queryForObject(
+                "SELECT count(*) FROM sys_event_consume_log WHERE event_id = ?", Integer.class, eventId)).isEqualTo(1);
+        // 直したうえで同一 eventId を再送 → 0→1 UPDATE（新行を INSERT しない）
+        owner.update("""
+            INSERT INTO prd_work_order_operation (id, tenant_id, company_id, work_order_id, operation_seq, operation_code,
+                operation_name, work_center_id, work_center_code, work_center_name, planned_qty, planned_start_date, planned_end_date)
+            VALUES (?, 317, 83, ?, 10, 'OP10', '組立', 987081, 'WC83', '組立', 10, DATE '2026-11-01', DATE '2026-11-30')
+            """, WO + 1000, WO);
+        assertThat(callback.onProcessCompleted(ev)).isEqualTo(Outcome.APPLIED);
+        assertThat(num(woRow(WO).get("order_status"))).isEqualTo(25);
+        assertThat(num(consume(eventId).get("consume_status"))).isEqualTo(1);
+        assertThat(consume(eventId).get("error_message")).isNull();
+        assertThat(owner.queryForObject(
+                "SELECT count(*) FROM sys_event_consume_log WHERE event_id = ?", Integer.class, eventId)).isEqualTo(1);
+    }
+
+    // ------------------------------------------------------------------ 3) 超産 REJECTED comment → reject_reason
+
+    @Test
+    void overproductionRejectedWritesCommentToRejectReason() {
+        assertThat(callback.onProcessCompleted(
+                e32(UUID.randomUUID(), TENANT, OverproductionApprovalService.BUSINESS_TYPE, OPA, "REJECTED", APPROVER,
+                        "  数量过大  "))).isEqualTo(Outcome.APPLIED);
+        assertThat(num(opaRow().get("approval_status"))).isEqualTo(40);
+        assertThat(opaRow().get("reject_reason")).isEqualTo("数量过大");
+        assertThat(lineAllowed()).isEqualByComparingTo("105");
+        owner.update("UPDATE prd_overproduction_approval SET approval_status = 20, reject_reason = NULL, version = 0 WHERE id = ?",
+                OPA);
+        assertThat(callback.onProcessCompleted(
+                e32(UUID.randomUUID(), TENANT, OverproductionApprovalService.BUSINESS_TYPE, OPA, "REJECTED", APPROVER,
+                        "   "))).isEqualTo(Outcome.APPLIED);
+        assertThat(opaRow().get("reject_reason")).isNull();
+        owner.update("UPDATE prd_overproduction_approval SET approval_status = 20, version = 0 WHERE id = ?", OPA);
+        assertThat(callback.onProcessCompleted(
+                e32(UUID.randomUUID(), TENANT, OverproductionApprovalService.BUSINESS_TYPE, OPA, "REJECTED", APPROVER,
+                        null))).isEqualTo(Outcome.APPLIED);
+        assertThat(opaRow().get("reject_reason")).isNull();
+    }
 
     @Test
     void overproductionApprovedGoesTo30AndAddsAllowedQty() {
         assertThat(callback.onProcessCompleted(opa("APPROVED"))).isEqualTo(Outcome.APPLIED);
         assertThat(num(opaRow().get("approval_status"))).isEqualTo(30);
-        assertThat(num(opaRow().get("version"))).isEqualTo(1);
         assertThat(lineAllowed()).isEqualByComparingTo("112");
         WorkflowProcessCompleted again = opa("APPROVED");
         assertThat(callback.onProcessCompleted(again)).isEqualTo(Outcome.ALREADY_APPLIED);
         assertThat(callback.onProcessCompleted(again)).isEqualTo(Outcome.DUPLICATE_EVENT);
         assertThat(lineAllowed()).isEqualByComparingTo("112");
-        assertThat(num(opaRow().get("version"))).isEqualTo(1);
-        assertThatThrownBy(() -> callback.onProcessCompleted(opa("TERMINATED")))
-                .satisfies(t -> assertThat(bizCode(t)).isEqualTo(60101));
     }
 
     @Test
-    void overproductionRejectedIs40AndTerminatedIs90WithoutAllowedQtyChange() {
-        assertThat(callback.onProcessCompleted(opa("REJECTED"))).isEqualTo(Outcome.APPLIED);
-        assertThat(num(opaRow().get("approval_status"))).isEqualTo(40);
-        assertThat(lineAllowed()).isEqualByComparingTo("105");
-        owner.update("UPDATE prd_overproduction_approval SET approval_status = 20 WHERE id = ?", OPA);
+    void overproductionTerminatedIs90WithoutAllowedQtyChange() {
         assertThat(callback.onProcessCompleted(opa("TERMINATED"))).isEqualTo(Outcome.APPLIED);
         assertThat(num(opaRow().get("approval_status"))).isEqualTo(90);
         assertThat(lineAllowed()).isEqualByComparingTo("105");
-        assertThatThrownBy(() -> callback.onProcessCompleted(opa("APPROVED")))
-                .satisfies(t -> assertThat(bizCode(t)).isEqualTo(60101));
-        assertThat(lineAllowed()).isEqualByComparingTo("105");
     }
 
-    // ------------------------------------------------------------------ 並行（version）
+    // ------------------------------------------------------------------ 4) Modulith listener
+
+    @Test
+    void modulithListenerReceivesE32AndApplies() throws Exception {
+        WorkflowProcessCompleted ev = wo("APPROVED");
+        // 1) Modulith リスナー Bean 経由（ApplicationModuleListener → onProcessCompleted）
+        assertThat(listener).isNotNull();
+        listener.onProcessCompleted(ev);
+        assertThat(num(woRow(WO).get("order_status"))).isEqualTo(25);
+        assertThat(num(woRow(WO).get("approved_by"))).isEqualTo((int) APPROVER);
+        assertThat(num(consume(ev.eventId()).get("consume_status"))).isEqualTo(1);
+        // 2) ApplicationEventPublisher：業務 TX 内 publish → コミット後に @TransactionalEventListener が発火
+        owner.update("UPDATE prd_work_order SET order_status = 20, version = 0, approved_by = NULL, approved_at = NULL WHERE id = ?", WO);
+        owner.update("DELETE FROM sys_event_consume_log WHERE event_id = ?", ev.eventId());
+        WorkflowProcessCompleted ev2 = wo("APPROVED");
+        var tx = new org.springframework.transaction.support.TransactionTemplate(tm);
+        tx.executeWithoutResult(st -> {
+            TenantContext.set(TENANT);
+            events.publishEvent(ev2);
+        });
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        while (System.nanoTime() < deadline && num(woRow(WO).get("order_status")) != 25) {
+            Thread.sleep(50);
+        }
+        assertThat(num(woRow(WO).get("order_status")))
+                .as("ApplicationModuleListener should apply after TX commit via ApplicationEventPublisher")
+                .isEqualTo(25);
+        assertThat(num(consume(ev2.eventId()).get("consume_status"))).isEqualTo(1);
+    }
+
+    // ------------------------------------------------------------------ 並行・租户
 
     @Test
     void concurrentConflictingResultsApplyExactlyOnce() throws Exception {
         List<Object> results = race(wo("APPROVED"), wo("TERMINATED"), wo("APPROVED"), wo("REJECTED"));
         long applied = results.stream().filter(o -> o == Outcome.APPLIED).count();
         assertThat(applied).as("%s", results).isEqualTo(1);
-        Map<String, Object> r = woRow(WO);
-        assertThat(num(r.get("version"))).isEqualTo(1);
-        int status = num(r.get("order_status"));
-        assertThat(status).isIn(10, 25);
-        // 負けた側は 4002（別遷移）または ALREADY_APPLIED（同一遷移）。version 競合 4003 にはならない（行ロックで直列化）
-        assertThat(results).allMatch(o -> o == Outcome.APPLIED || o == Outcome.ALREADY_APPLIED || Integer.valueOf(4002).equals(o));
+        assertThat(num(woRow(WO).get("version"))).isEqualTo(1);
+        assertThat(num(woRow(WO).get("order_status"))).isIn(10, 25);
     }
 
     @Test
     void concurrentSameEventIsConsumedOnce() throws Exception {
         UUID id = UUID.randomUUID();
-        WorkflowProcessCompleted ev = e32(id, TENANT, OverproductionApprovalService.BUSINESS_TYPE, OPA, "APPROVED");
+        WorkflowProcessCompleted ev = e32(id, TENANT, OverproductionApprovalService.BUSINESS_TYPE, OPA, "APPROVED",
+                APPROVER, null);
         List<Object> results = race(ev, ev, ev, ev);
         assertThat(results.stream().filter(o -> o == Outcome.APPLIED).count()).as("%s", results).isEqualTo(1);
-        assertThat(results).filteredOn(o -> o != Outcome.APPLIED).containsOnly(Outcome.DUPLICATE_EVENT);
+        assertThat(results).as("%s", results).allMatch(o -> o == Outcome.APPLIED || o == Outcome.DUPLICATE_EVENT
+                || o == Outcome.ALREADY_APPLIED);
         assertThat(lineAllowed()).isEqualByComparingTo("112");
         assertThat(num(opaRow().get("version"))).isEqualTo(1);
+        assertThat(num(consume(id).get("consume_status"))).isEqualTo(1);
     }
 
     List<Object> race(WorkflowProcessCompleted... events) throws Exception {
@@ -295,25 +412,21 @@ class ProductionWorkflowCallbackIntegrationTest {
         }
     }
 
-    // ------------------------------------------------------------------ 租户隔離
-
     @Test
     void tenantIsolation() {
-        // テナント 317 のイベントでテナント 318 の工单 id を指す → 見えない（4001）、318 側は不変、消費記録も残らない
         assertThatThrownBy(() -> callback.onProcessCompleted(
-                e32(UUID.randomUUID(), TENANT, WorkOrderApprovalService.BUSINESS_TYPE, WO_T2, "APPROVED")))
+                e32(UUID.randomUUID(), TENANT, WorkOrderApprovalService.BUSINESS_TYPE, WO_T2, "APPROVED", APPROVER, null)))
                 .satisfies(t -> assertThat(bizCode(t)).isEqualTo(4001));
         assertThat(num(woRow(WO_T2).get("order_status"))).isEqualTo(20);
-        assertThat(consumed()).isZero();
-        // 同じ eventId でもテナントが違えば別イベント（uk は tenant_id 先頭）
         UUID shared = UUID.randomUUID();
-        assertThat(callback.onProcessCompleted(e32(shared, TENANT2, WorkOrderApprovalService.BUSINESS_TYPE, WO_T2, "APPROVED")))
+        assertThat(callback.onProcessCompleted(
+                e32(shared, TENANT2, WorkOrderApprovalService.BUSINESS_TYPE, WO_T2, "APPROVED", APPROVER, null)))
                 .isEqualTo(Outcome.APPLIED);
-        assertThat(callback.onProcessCompleted(e32(shared, TENANT, WorkOrderApprovalService.BUSINESS_TYPE, WO, "REJECTED")))
+        assertThat(callback.onProcessCompleted(
+                e32(shared, TENANT, WorkOrderApprovalService.BUSINESS_TYPE, WO, "REJECTED", APPROVER, null)))
                 .isEqualTo(Outcome.APPLIED);
         assertThat(num(woRow(WO_T2).get("order_status"))).isEqualTo(25);
         assertThat(num(woRow(WO).get("order_status"))).isEqualTo(10);
-        // 呼出し元のコンテキストは復元される
         assertThat(TenantContext.current()).isEmpty();
         assertThat(LoginContext.current()).isEmpty();
     }

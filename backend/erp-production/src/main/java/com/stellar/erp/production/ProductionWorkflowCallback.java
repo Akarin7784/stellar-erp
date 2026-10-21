@@ -5,6 +5,7 @@ import java.util.OptionalLong;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.stellar.erp.common.BizException;
@@ -15,28 +16,25 @@ import com.stellar.erp.production.internal.ProductionRepository;
 
 /**
  * E32 {@code workflow.process.completed} の PRD 購読側（00-common 09 §9.1・§10.1、08-workflow 02 §6.2、
- * 06/91 §3.11 備考・§3.14、AC-PRD-20／21）。業務ステータスの更新責任は業務域（08/02 BR-14）。
+ * 06/91 §3.11 備考・§3.14、AC-PRD-20／21）。
  *
- * <table>
- *   <tr><th>businessType</th><th>APPROVED</th><th>REJECTED</th><th>TERMINATED</th><th>状態不正</th></tr>
- *   <tr><td>{@code WORK_ORDER}</td><td>20→25</td><td>20→10</td><td>20→10</td><td>4002</td></tr>
- *   <tr><td>{@code OVERPRODUCTION_APPROVAL}</td><td>20→30（allowed_qty +request_qty）</td><td>20→40</td><td>20→90</td><td>60101</td></tr>
- * </table>
+ * <p>{@code sys_event_consume_log.consume_status}：1=成功／0=失敗（V202610210104）。失敗理由は
+ * {@code error_message}。一意キー {@code (tenant_id, event_id, consumer_name)} で1行のみ。</p>
  *
  * <ul>
- *   <li>租户・会社はイベントのエンベロープ（tenantId・companyId）から取り、1 トランザクションで処理する。</li>
- *   <li>冪等：{@code sys_event_consume_log (tenant_id, event_id, consumer_name)} で重複排除（09 §10.1）。さらに
- *   業務側の現在状態を確認し、既に遷移先なら更新しない（08/02 §6.2）。失敗時は消費記録ごとロールバック。</li>
- *   <li>状態遷移は API と同一のサービスメソッド（{@link WorkOrderApprovalService#approve}、
- *   {@link OverproductionApprovalService#approve} 等）を現在の version で呼ぶ（06/91 §3.11 呼出元）。</li>
- *   <li>E32 に承認者が無いため、操作者は system（userId 0）とする（待定：E31 の approverId を使うか）。</li>
+ *   <li>{@code approverUserId} 必須（欠落 → 1001）。提出者本人なら 60005。</li>
+ *   <li>成功時に初めて status=1 を書く（新規 INSERT、または失敗行の 0→1 UPDATE＋error_message クリア）。</li>
+ *   <li>業務検証失敗：REQUIRES_NEW で status=0 を<strong>先にコミット</strong>してから業務 TX をロールバックする
+ *   （同一 TX だと失敗記録も消える）。同一 eventId 再送は業務を再実行し、直っていなければ再び 0 のまま。</li>
+ *   <li>超産 REJECTED：{@code comment} → {@code reject_reason}（空／空白は NULL）。</li>
  * </ul>
  */
 @Service
 public class ProductionWorkflowCallback {
 
     static final String CONSUMER = "production.ProductionWorkflowCallback";
-    static final long SYSTEM_USER = 0L;
+    public static final int MISSING_APPROVER = 1001;
+    public static final String MSG_MISSING_APPROVER = "MSG-COM-040";
 
     public enum Outcome { APPLIED, ALREADY_APPLIED, DUPLICATE_EVENT }
 
@@ -53,6 +51,7 @@ public class ProductionWorkflowCallback {
     private final WorkOrderApprovalService workOrders;
     private final OverproductionApprovalService overproduction;
     private final TransactionTemplate tx;
+    private final TransactionTemplate txNew;
 
     public ProductionWorkflowCallback(ProductionRepository repo, WorkOrderApprovalService workOrders,
                                       OverproductionApprovalService overproduction, PlatformTransactionManager tm) {
@@ -60,23 +59,48 @@ public class ProductionWorkflowCallback {
         this.workOrders = workOrders;
         this.overproduction = overproduction;
         this.tx = new TransactionTemplate(tm);
+        this.txNew = new TransactionTemplate(tm);
+        this.txNew.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
     public Outcome onProcessCompleted(WorkflowProcessCompleted e) {
+        if (e.approverUserId() == null) {
+            throw new BizException(MISSING_APPROVER, MSG_MISSING_APPROVER, "请输入必填项「approverUserId」。");
+        }
         OptionalLong prevTenant = TenantContext.current();
         LoginContext.LoginUser prevLogin = LoginContext.current().orElse(null);
         TenantContext.set(e.tenantId());
-        LoginContext.set(new LoginContext.LoginUser(SYSTEM_USER, e.companyId()));
+        LoginContext.set(new LoginContext.LoginUser(e.approverUserId(), e.companyId()));
         try {
             return tx.execute(s -> {
-                if (!repo.markEventConsumed(e.tenantId(), e.eventId(), WorkflowProcessCompleted.EVENT_TYPE, CONSUMER)) {
+                Short prior = repo.findConsumeStatus(e.tenantId(), e.eventId(), CONSUMER);
+                if (prior != null && prior == ProductionRepository.CONSUME_OK) {
                     return Outcome.DUPLICATE_EVENT;
                 }
-                return switch (e.businessType()) {
-                    case WorkOrderApprovalService.BUSINESS_TYPE -> workOrder(e);
-                    case OverproductionApprovalService.BUSINESS_TYPE -> overproduction(e);
-                    default -> throw new IllegalArgumentException("unsupported businessType: " + e.businessType());
-                };
+                try {
+                    Outcome out = switch (e.businessType()) {
+                        case WorkOrderApprovalService.BUSINESS_TYPE -> workOrder(e);
+                        case OverproductionApprovalService.BUSINESS_TYPE -> overproduction(e);
+                        default -> throw new IllegalArgumentException("unsupported businessType: " + e.businessType());
+                    };
+                    // 成功後に初めて status=1。失敗行の再送は INSERT せず 0→1 UPDATE（error_message クリア）
+                    if (prior != null && prior == ProductionRepository.CONSUME_FAILED) {
+                        repo.reclaimFailedEvent(e.tenantId(), e.eventId(), CONSUMER);
+                    } else if (prior == null) {
+                        repo.tryClaimEvent(e.tenantId(), e.eventId(), WorkflowProcessCompleted.EVENT_TYPE, CONSUMER);
+                    }
+                    return out;
+                } catch (BizException ex) {
+                    String err = ex.getMessage() == null ? String.valueOf(ex.getCode()) : ex.getMessage();
+                    if (err.length() > 1000) {
+                        err = err.substring(0, 1000);
+                    }
+                    String finalErr = err;
+                    // 失敗ログを独立 TX で先にコミットしてから、業務 TX をロールバックする
+                    txNew.executeWithoutResult(st -> repo.markEventFailed(e.tenantId(), e.eventId(),
+                            WorkflowProcessCompleted.EVENT_TYPE, CONSUMER, finalErr));
+                    throw ex;
+                }
             });
         } finally {
             if (prevTenant.isPresent()) {
@@ -103,7 +127,7 @@ public class ProductionWorkflowCallback {
             throw new BizException(ProductionErrorCode.STATE_CONFLICT, ProductionErrorCode.MSG_STATE_CONFLICT,
                     "该记录当前状态不允许此操作。");
         }
-        WorkOrderStateCommand cmd = new WorkOrderStateCommand(wo.version(), null);
+        WorkOrderStateCommand cmd = new WorkOrderStateCommand(wo.version(), e.comment());
         if (target == WorkOrderApprovalService.APPROVED) {
             workOrders.approve(wo.id(), cmd);
         } else {
@@ -114,8 +138,8 @@ public class ProductionWorkflowCallback {
 
     private Outcome overproduction(WorkflowProcessCompleted e) {
         Short target = OPA_TARGET.get(e.finalResult());
-        // ロック順（受注行→工单→申請）を崩さないよう、ここでは読むだけ。各サービスメソッドがロック後に再検査する
-        var a = repo.findApproval(e.companyId(), e.businessId(), false)
+        // ロックして並行時に ALREADY_APPLIED を正しく返す（未ロックだと後着が 60101 になる）
+        var a = repo.findApproval(e.companyId(), e.businessId(), true)
                 .orElseThrow(() -> new BizException(ProductionErrorCode.NOT_FOUND, "超产申请不存在"));
         if (target != null && a.approvalStatus() == target) {
             return Outcome.ALREADY_APPLIED;
@@ -126,9 +150,13 @@ public class ProductionWorkflowCallback {
         }
         switch (e.finalResult()) {
             case WorkflowProcessCompleted.APPROVED -> overproduction.approve(a.id(), a.version());
-            case WorkflowProcessCompleted.REJECTED -> overproduction.reject(a.id(), a.version(), null);
+            case WorkflowProcessCompleted.REJECTED -> overproduction.reject(a.id(), a.version(), blankToNull(e.comment()));
             default -> overproduction.cancel(a.id(), a.version());
         }
         return Outcome.APPLIED;
+    }
+
+    private static String blankToNull(String s) {
+        return s == null || s.isBlank() ? null : s.strip();
     }
 }
