@@ -262,7 +262,7 @@
 | 目的 | 工单を 25→30 に遷移し、材料引当 E21 を発行する |
 | 権限 | `production:work-order:release` |
 | 事前条件 | `order_status=25`、`is_hold=false`、材料明細 0 行の場合のみ有効 BOM が必要（基準日＝`planned_start_date`、未入力時は下达処理日の会社タイムゾーン当日（現時点 Asia/Shanghai。登録時と同一規則））。なしは 422／`60020`／`MSG-PRD-020`（蓝色大肥鱼 2026-10-21 #36 決定） |
-| チェック順序 | `60104`（下达日過去日）→ 受注行 `allowed_qty` NULL・負値は 422／`60101`（工单ロック前）→ 工单 `FOR UPDATE` → 状態・保留・引当チェック → 材料明細 0 行時の有効 BOM 解決（なしは `60020`）または展開 → 状態変更（蓝色大肥鱼 2026-10-21 PR #37 決定） |
+| チェック順序 | `60104`（下达日過去日）→ 受注行 `allowed_qty` NULL・負値・受注行不存在は 422／`60101`／`MSG-PRD-106`（工单ロック前）→ 工单 `FOR UPDATE` → 状態・保留・引当チェック → 材料明細 0 行時の有効 BOM 解決（なしは `60020`）または展開 → 状態変更（蓝色大肥鱼 2026-10-21 PR #37 決定） |
 | BOM 展開 | 工单 `FOR UPDATE` 後、同一トランザクションで材料明細 0 行なら有効 BOM を展開して INSERT し、その後に状態変更。BOM なしは全体ロールバック（`order_status=25`・`version` 不変、明細なし、E21 なし）。既存明細があれば再展開しない。同一工单の同時下达は後続は 422／`4002`（状態 30 を検知）または 409／`4003`（version が古い）（後続リクエストは `FOR UPDATE` で待機し、取得後に状態 30 を検知して `4002`、`version` が古ければ `4003`。ロック待ちタイムアウトは既存の `lock_timeout` 処理に従い、新コードは設けない）（蓝色大肥鱼 2026-10-21 PR #37 決定） |
 | 単位整合 | 展開行・既存行のすべてで CHK-PRD-002-10（同一単位または同一換算グループで換算可能）を検査する。本下达で展開した行は CALC-WO-10 で基本単位へ換算・切上げて格納（`bomUomCode`・`bomQty` 保持）、既存行は検査のみで回写しない（行数・数量・ID 不変、AC-PRD-13）。1 行でも換算不可なら 422／`60022`／`MSG-PRD-022`、`60020` と同様に全体ロールバック（`order_status=25`・`version` 不変、明細なし、E21 なし）（蓝色大肥鱼 2026-10-21 決定） |
 | イベント | `production.workorder.released`（E21）を Outbox に記録 |
@@ -297,7 +297,7 @@
 
 **エラー例（状態不整合）**：HTTP 422、`{"code":4002,"message":"該当データは現在の状態ではこの操作を実行できません。"}`
 
-**受注行 `allowed_qty` 未スナップショット（2026-10-21 蓝色大肥鱼 決定）**：MTO 工单の下达では、工单をロックする**前に**紐づく受注行の `allowed_qty` を判定し、NULL（未スナップショット）または負値なら **422／`60101`** を返して中断する（0 とみなさない。超産申請・超産承認・完工と同じ扱い。5000 は欠落したサーバー側システムパラメータ（`prd.overproduction_max_rate`・`prd.completion_over_rate` 等）のみ、[03/90](../03-sales/90-db-design.md) `allowed_qty` の NULL）。
+**受注行 `allowed_qty` 未スナップショット（2026-10-21 蓝色大肥鱼 決定）**：MTO 工单の下达では、工单をロックする**前に**紐づく受注行の `allowed_qty` を判定し、NULL（未スナップショット）・負値、または受注行が存在しない場合は **422／`60101`／`MSG-PRD-106`** を返して中断する（0 とみなさない。超産申請・超産承認・完工と同じ扱い。5000 は欠落したサーバー側システムパラメータ（`prd.overproduction_max_rate`・`prd.completion_over_rate` 等）のみ、[03/90](../03-sales/90-db-design.md) `allowed_qty` の NULL）。
 
 **エラー例（材料単位の換算不可）**：HTTP 422、`{"code":60022,"message":"BOM の単位と物料の基本単位が整合しません（換算不可）。"}`（MSG-PRD-022）
 
@@ -585,8 +585,8 @@
 
 | 操作 | リクエスト | 正常 | 状態条件・エラー |
 |---|---|---|---|
-| 登録 `POST /api/production/overproduction-approvals` | `salesOrderLineId`、`workOrderId`（任意、NULL＝受注行級）、`requestQty`（基本単位の増分） | **201** + 申請 DTO（`approvalStatus=10`） | `60103`（`requestQty` NULL・≤ 0・1 件 > 受注行基本数量 × `prd.overproduction_max_rate`（累計しない）・小数桁数 > 基本単位 `decimal_places`）／`60056`（工单が当該受注行または当前会社に属さない）／`60101`（工单級で工单が未下达、または工单 `allowed_qty` が NULL。受注行の `allowed_qty` が NULL または負値の場合も 422／`60101`。登録時に拒否）／`salesOrderLineId` 未指定は 400／`1001`／`MSG-COM-040`＋`fieldErrors`／`5000`（欠落したサーバー側システムパラメータのみ。`prd.overproduction_max_rate`・`prd.completion_over_rate` 等） |
-| 草稿修正 `PUT /api/production/overproduction-approvals/{id}` | `{ "version": n, "requestQty": …, "workOrderId": …（任意、NULL＝受注行級）, "remark": "…"（任意） }`（可変項目は `requestQty`・`workOrderId`・`remark` のみ。`remark` は共通カラム VARCHAR(500)（[90 §1.2](90-db-design.md)）。`salesOrderLineId` は変更不可） | 200 + 申請 DTO（`approvalStatus=10` のまま、`version` +1） | 状態 10 以外（承認待ち 20・承認済 30・却下 40・取消 90）は 422／`60101`（`MSG-PRD-101`、G2-18、同節他 API と同一）／`version` 不一致は 409／`4003`／`version` 未指定・null は 400／`1001`／`MSG-COM-040`＋`fieldErrors`（409 にしない）／入力検証は登録と同一（`60103`・`60056`・`60101`・`5000`。ここでの `60101` は工单級（`workOrderId` 指定時）で工单が未下达（`order_status` < 30）または工单 `allowed_qty` が NULL の場合のみ。上記の状態不正の `60101` とは別の検査）。`allowed_qty` は変更しない（承認時のみ +delta、[02-work-order.md:70](02-work-order.md) BR-WO-15）。承認済の調整は新規申請、未承認の撤回は取消 |
+| 登録 `POST /api/production/overproduction-approvals` | `salesOrderLineId`、`workOrderId`（任意、NULL＝受注行級）、`requestQty`（基本単位の増分） | **201** + 申請 DTO（`approvalStatus=10`） | `60103`（`requestQty` NULL・≤ 0・1 件 > 受注行基本数量 × `prd.overproduction_max_rate`（累計しない）・小数桁数 > 基本単位 `decimal_places`）／`60056`（工单が当該受注行または当前会社に属さない）／`60101`（工单級で工单が未下达は `MSG-PRD-101`（状態不一致）。工单 `allowed_qty` が NULL、受注行の `allowed_qty` が NULL・負値、または受注行不存在は `MSG-PRD-106`。いずれも 422、登録時に拒否）／`salesOrderLineId` 未指定は 400／`1001`／`MSG-COM-040`＋`fieldErrors`／`5000`（欠落したサーバー側システムパラメータのみ。`prd.overproduction_max_rate`・`prd.completion_over_rate` 等） |
+| 草稿修正 `PUT /api/production/overproduction-approvals/{id}` | `{ "version": n, "requestQty": …, "workOrderId": …（任意、NULL＝受注行級）, "remark": "…"（任意） }`（可変項目は `requestQty`・`workOrderId`・`remark` のみ。`remark` は共通カラム VARCHAR(500)（[90 §1.2](90-db-design.md)）。`salesOrderLineId` は変更不可） | 200 + 申請 DTO（`approvalStatus=10` のまま、`version` +1） | 状態 10 以外（承認待ち 20・承認済 30・却下 40・取消 90）は 422／`60101`（`MSG-PRD-101`、G2-18、同節他 API と同一）／`version` 不一致は 409／`4003`／`version` 未指定・null は 400／`1001`／`MSG-COM-040`＋`fieldErrors`（409 にしない）／入力検証は登録と同一（`60103`・`60056`・`60101`・`5000`。ここでの `60101` は工单級（`workOrderId` 指定時）で工单が未下达（`order_status` < 30、`MSG-PRD-101`）、または工单 `allowed_qty` が NULL・受注行不存在（`MSG-PRD-106`）の場合のみ。上記の状態不正の `60101` とは別の検査）。`allowed_qty` は変更しない（承認時のみ +delta、[02-work-order.md:70](02-work-order.md) BR-WO-15）。承認済の調整は新規申請、未承認の撤回は取消 |
 | 提出 `POST /api/production/overproduction-approvals/{id}/submit` | `{ "version": n }` | 200（10→20） | 10 以外は `60101`／`4003` |
 | 承認 `POST /api/production/overproduction-approvals/{id}/approve` | `{ "version": n }` | 200（20→30） | 20 以外（10・承認済 30・却下 40・取消 90）は `60101`／申請者本人の承認は `60005`／`4003` |
 | 却下 `POST /api/production/overproduction-approvals/{id}/reject` | `{ "version": n, "rejectReason": "…" }`（`rejectReason` **必須**・≤ 500 文字、DB `reject_reason VARCHAR(500)`。共通 [03 §284](../00-common/03-common-api-spec.md) 却下理由必須） | 200（20→40） | `rejectReason` 未入力・空白のみは 400／`1001`（`MSG-COM-040`）、500 文字超過は 400／`1001`（`MSG-COM-041`）（[03 §6.2](../00-common/03-common-api-spec.md)）／20 以外は `60101`／`4003` |
@@ -598,7 +598,7 @@
 - 申請 DTO の `requestedByName`（申請者名）は `sys_user` を `tenant_id` と `id` のみで結合する（ユーザは複数会社に所属し得るため `company_id` では絞らない。蓝色大肥鱼 2026-10-21 決定）。
 
 - **WF 接入後**：流程 key `prd_overproduction_approval`、一級（生产主管）。表の状態値は 30／40 のまま、E32 受信側で承認→30、却下→40、強制終了→90 にマッピングする（蓝色大肥鱼 2026-10-21 決定）。
-- **承認時の更新（案 B）**：受注行→工单の順に `FOR UPDATE`。工单級は受注行と当該工单の `allowed_qty` をそれぞれ +`request_qty`、受注行級は受注行のみ +`request_qty`。更新 0 行は全体ロールバック。却下・取消では `allowed_qty` を変更しない。
+- **承認時の更新（案 B）**：受注行→工单の順に `FOR UPDATE`。工单級は受注行と当該工单の `allowed_qty` をそれぞれ +`request_qty`、受注行級は受注行のみ +`request_qty`。`allowed_qty` が NULL・負値・受注行不存在、または更新 0 行は 422／`60101`／`MSG-PRD-106` で全体ロールバック。却下・取消では `allowed_qty` を変更しない。
 - **version**：承認により受注行と工单の `version` が +1 される（想定どおり）。前端は編集画面の保存で 409／`4003` を受けた場合、「データが更新されました」と表示して再読込する（自動上書きしない）。
 
 ### 3.15 GET `/api/production/work-orders`（工单一覧、§2.2 #23、蓝色大肥鱼 2026-10-21 决定）
@@ -689,7 +689,8 @@
 | 60048 | 422 | `MSG-PRD-048` | 拆分合計不一致 |
 | 60056 | 422 | `MSG-PRD-056` | 工单品目 ≠ 受注行品目（G2-18）。超産申請で工单が当該受注行・会社に属さない場合も同じ（§3.14） |
 | 60100 | 422 | `MSG-PRD-100` | 超産承認が必要 |
-| 60101 | 422 | `MSG-PRD-101` | 超産承認無効（却下・取消済の申請での入庫、§3.14 の状態不正操作、工单級申請で工单未下达・`allowed_qty` NULL） |
+| 60101 | 422 | `MSG-PRD-101` | 超産申請の状態不一致（§3.14 の草稿修正・提出・承認・却下・取消の状態不正操作、工单級申請で工单未下达） |
+| 60101 | 422 | `MSG-PRD-106` | 超産允許数量が利用不可（`allowed_qty` NULL・負値・未スナップショット、受注行不存在、`allowed_qty` 更新 0 行）。超産申請登録・草稿修正・承認・工单下达 |
 | 60102 | 422 | `MSG-PRD-102` | 冲销数量 > completed_qty |
 | 60103 | 422 | `MSG-PRD-103` | 超産申請数量不正（`request_qty` ≤ 0 または NULL、1 件の `request_qty` > 受注行基本数量 × `prd.overproduction_max_rate`、小数桁数 > 基本単位 `decimal_places`）。パラメータ欠落は 5000 |
 | 60104 | 422 | `MSG-PRD-104` | 下达日不能早于今天（上海时间）（`releaseDate` が Asia/Shanghai 当日より前） |
@@ -758,4 +759,5 @@
 | v1.29 | 2026-10-21 | §3.14 登録：受注行 `allowed_qty` NULL・負値は 422／60101、`salesOrderLineId` 未指定は 400／1001／MSG-COM-040＋fieldErrors、5000 は `prd.overproduction_max_rate` 欠落のみ。草稿修正：`version` 未指定・null は 400／1001／MSG-COM-040。§2.2 見出し・関連文書の「生产订单」を「工单」に（蓝色大肥鱼 2026-10-21 決定）。追補：工单下达（§チェック順序・受注行 allowed_qty 未スナップショット）も受注行 `allowed_qty` NULL・負値は 422／60101（5000 は `prd.overproduction_max_rate` 欠落のみ）。追補：5000 の対象を「欠落したサーバー側システムパラメータのみ」に改める（§3.14 登録・受注行 allowed_qty 未スナップショット）（蓝色大肥鱼 2026-10-21 決定：サーバー側システムパラメータ欠落はすべて 5000、BR-WO-15 は変更なし） | 业务分析 |
 | v1.30 | 2026-10-21 | §3.15 工单一覧 `GET /api/production/work-orders` を新設（§2.2 #23 に詳細参照を追記）：検索条件 13 項目（02 §4.6 のうち `prd_work_order` に列があるもの、欠品フラグは対象外）、`pageNum`／`pageSize`（1〜200、超過 400／1001／MSG-COM-045、< 1 は 400／1001／MSG-COM-044）、既定ソート（計画完成日→優先度→工单号）、`PageResult<WorkOrderListDto>` 行項目と結合条件、権限 403／3001・データ範囲 403／3002（蓝色大肥鱼 2026-10-21 決定）（追補：§3.14 受注行選択・超産申請一覧のページングを `page`／`size` から `pageNum`／`pageSize`（03 §7.1）に統一、エラー文言（044／045）も同様。後端・前端は追随する。§3.15 欠品フラグは保留（MRP 欠品計算実装後に追加）。既定検索条件は前端送信、`material` 単一パラメータ・`salesOrderNo` 部分一致、`sort` 許可キー、状態名称は前端辞書・品目はスナップショットを確定（蓝色大肥鱼 2026-10-21 決定）。追補：§3.15 の前方一致・部分一致はスナップショット列で照合（結合なし）、入力の `%`・`_`・`\` はエスケープし `LIKE … ESCAPE '\'`（蓝色大肥鱼 2026-10-21 決定）） | 业务分析 |
 | v1.31 | 2026-10-21 | §3.15 本文の「決定」を「决定」に統一（用語のみ、仕様変更なし。修订记录の既存行は不変）（蓝色大肥鱼 2026-10-21 决定） | 业务分析 |
-| v1.32 | 2026-10-21 | §3.15 にパラメータ不正の msgId（049／089／043／088）と大文字小文字の扱い（`material`・`salesOrderNo` は区別しない、`workOrderNo` は区別する）を追記。データ範囲の参照先を 01-system 02 CALC-02a に変更（蓝色大肥鱼 2026-10-21 决定） | 业务分析 |
+| v1.32 | 2026-10-21 | 60101 を MSG-PRD-101（超産申請の状態不一致）と MSG-PRD-106（`allowed_qty` NULL・負値・未スナップショット、受注行不存在、更新 0 行）に分割：§2.4 チェック順序、下达の未スナップショット、§3.14 登録・草稿修正・承認時の更新、§4 エラーコード表（蓝色大肥鱼 2026-10-21 决定） | 业务分析 |
+| v1.33 | 2026-10-21 | §3.15 にパラメータ不正の msgId（049／089／043／088）と大文字小文字の扱い（`material`・`salesOrderNo` は区別しない、`workOrderNo` は区別する）を追記。データ範囲の参照先を 01-system 02 CALC-02a に変更（蓝色大肥鱼 2026-10-21 决定） | 业务分析 |
