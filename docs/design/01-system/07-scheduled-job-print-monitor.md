@@ -399,4 +399,5 @@ stateDiagram-v2
 | 版数 | 日付 | 変更内容 | 変更者 |
 |---|---|---|---|
 | v1.0 | 2026-10-20 | 初版：F-SYS-015/016/020 の業務ルール 11、画面 4、画面項目定義、処理 9 件、API 15 件、メッセージ 9 件、テスト観点 13 件 | system-workflow |
-| v1.1 | 2026-10-20 | 红队 REV-017 対応：監視画面サンプルのバッチ ID を `BAT-INV-001 库存月结` に修正し、Cron を 6 桁（秒 分 時 日 月 週）に統一 | system-workflow || v1.2 | 2026-10-21 | API #12 `GET /api/system/maintenance/options` の権限を認証済（ログインのみ）に変更（[91 §1.2](91-api-design.md) `/options` 共通規則、蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.1 | 2026-10-20 | 红队 REV-017 対応：監視画面サンプルのバッチ ID を `BAT-INV-001 库存月结` に修正し、Cron を 6 桁（秒 分 時 日 月 週）に統一 | system-workflow |
+| v1.2 | 2026-10-21 | API #12 `GET /api/system/maintenance/options` の権限を認証済（ログインのみ）に変更（[91 §1.2](91-api-design.md) `/options` 共通規則、蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
