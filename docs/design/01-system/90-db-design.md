@@ -590,7 +590,8 @@ CREATE TABLE sys_menu (
     is_affix           BOOLEAN       NOT NULL DEFAULT FALSE, -- 固定タブ
     sort_no             INT           NOT NULL DEFAULT 0, -- 表示顺
     status              SMALLINT      NOT NULL DEFAULT 1, -- 状态：1 有效 / 0 无效
-    description         VARCHAR(500)                      -- 说明
+    description         VARCHAR(500),                     -- 说明
+    CONSTRAINT ck_sys_menu_menu_name_not_blank CHECK (btrim(menu_name) <> '')  -- 空串・纯空白不可（sys/V202610211423）
 );
 COMMENT ON TABLE sys_menu IS '菜单/权限（メニューツリー＋ボタン権限）';
 ```
@@ -1648,3 +1649,4 @@ COMMENT ON TABLE sys_data_maintenance_log IS '数据维护历史（初期化・�
 | v1.19 | 2026-10-21 | §3.6 `factory_id` FK の列数根拠を 04 §6.2 項 2a の新規則（参照先に `company_id` があれば三列）に変更（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.20 | 2026-10-21 | §3.19 `sys_login_log.session_id`：トークンの SHA-256 16 進完全値（64 桁）を保存し平文トークンは保存しない、Redis セッションとの対応付け用で認証情報として使用不可（現行 VARCHAR(100) で 64 桁は収まる。列 COMMENT は #79 の迁移で更新する）（蓝色大肥鱼 2026-10-21 16:29 決定） | 业务分析 |
 | v1.21 | 2026-10-21 | HTTP 409 を `version` 競合（4003）専用とし、状態不整合（4002）・二重処理/処理中（4005）・同時実行・確定済変更不可・二重実行等の 409 も 422 に統一し、409 は `version` 競合（4003）のみとする（蓝色大肥鱼 2026-10-21 決定）。対象：:1510 | 业务分析 |
+| v1.22 | 2026-10-21 | `sys_menu` に `ck_sys_menu_menu_name_not_blank CHECK (btrim(menu_name) <> '')` を追加（空串・纯空白の菜单名を拒否。既存种子・`sys_menu_seed_rows()` に該当なしのため即时校验。migration `sys/V202610211423`）（蓝色大肥鱼 2026-10-21 決定） | DBA |

@@ -1,7 +1,7 @@
 -- pgTAP：菜单/权限/SYSTEM_ADMIN 种子（sys/V202610211405＋V202610211406 G-11 增量；01-system/94 §2.10、付录 A）
 -- owner 连接执行（superuser，绕过 RLS，须显式写 tenant_id），最后 ROLLBACK。
 BEGIN;
-SELECT plan(38);
+SELECT plan(41);
 
 -- 0. 迁移回填：种租户 0 已有付录 A 的全部菜单
 SELECT is((SELECT count(*)::int FROM sys_menu WHERE tenant_id = 0 AND deleted = FALSE), 594, '回填：租户 0 的 sys_menu = 594 行');
@@ -122,6 +122,19 @@ SELECT results_eq($$SELECT menu_code::text, menu_name::text FROM sys_menu
                   $$VALUES ('SCR-PRD-008', '工单一览'), ('SCR-PRD-009', '工单登记编辑'),
                            ('SCR-PRD-010', '工单详细（工序/用料/报工/入库标签）'), ('SCR-PRD-011', '工单下达・拆分・合并')$$,
                   '工单 4 菜单名 = 付录 A（租户 0 回填）');
+
+-- 菜单名非空（sys/V202610211423）：空串、纯空白 → 23514，正常名可写入
+SELECT throws_ok($$INSERT INTO sys_menu (id, tenant_id, company_id, menu_code, menu_name, menu_type, module_code)
+                   VALUES (92019001, 9201, 1, 'TEST-BLANK-1', '', 2, 'test')$$, '23514',
+                 'new row for relation "sys_menu" violates check constraint "ck_sys_menu_menu_name_not_blank"',
+                 'ck_sys_menu_menu_name_not_blank 拒绝空串菜单名');
+SELECT throws_ok($$INSERT INTO sys_menu (id, tenant_id, company_id, menu_code, menu_name, menu_type, module_code)
+                   VALUES (92019002, 9201, 1, 'TEST-BLANK-2', '  ', 2, 'test')$$, '23514',
+                 'new row for relation "sys_menu" violates check constraint "ck_sys_menu_menu_name_not_blank"',
+                 'ck_sys_menu_menu_name_not_blank 拒绝纯空白菜单名');
+SELECT lives_ok($$INSERT INTO sys_menu (id, tenant_id, company_id, menu_code, menu_name, menu_type, module_code)
+                   VALUES (92019003, 9201, 1, 'TEST-BLANK-3', '测试菜单', 2, 'test')$$,
+                'ck_sys_menu_menu_name_not_blank 允许正常菜单名');
 
 SELECT * FROM finish();
 ROLLBACK;
