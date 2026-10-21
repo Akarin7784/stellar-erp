@@ -21601,8 +21601,8 @@
     {
       "method": "POST",
       "path": "/api/system/auth/logout",
-      "name": "ログアウト",
-      "permission": "認証済",
+      "name": "ログアウト（冪等。トークン無効・期限切れでも 200）",
+      "permission": "公開",
       "domain": "SYS",
       "source": "01-system/91-api-design.md"
     },
