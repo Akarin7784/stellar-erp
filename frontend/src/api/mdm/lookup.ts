@@ -40,11 +40,19 @@ export interface PageResult<T> {
 }
 
 /** GET /api/mdm/factories */
-/** silent：失败时不弹全局提示，由画面自行显示（工单一览用下拉旁警告）。 */
-export async function listFactories(opts: { silent?: boolean } = {}): Promise<FactoryOption[]> {
+/**
+ * silent：失败时不弹全局提示，由画面自行显示（工单一览用下拉旁警告）。
+ * resource：按业务资源取数据范围内工厂（如 'work-order'）；后端支持前忽略此参数。
+ */
+export async function listFactories(
+  opts: { silent?: boolean; resource?: string } = {},
+): Promise<FactoryOption[]> {
+  const cfg: { silent?: boolean; params?: { resource: string } } = {}
+  if (opts.silent) cfg.silent = true
+  if (opts.resource) cfg.params = { resource: opts.resource }
   const res = await http.get<ApiResult<FactoryOption[]>>(
     '/mdm/factories',
-    opts.silent ? { silent: true } : undefined,
+    Object.keys(cfg).length ? cfg : undefined,
   )
   return res.data.data
 }

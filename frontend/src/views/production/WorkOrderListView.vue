@@ -305,8 +305,8 @@ const defaultFactoryId = computed(() =>
 )
 /** 工厂下拉加载失败：下拉旁警告，不弹全局提示，一览仍可查询（同工单登记的部门下拉） */
 const factoryLoadFailed = ref(false)
-// TODO: 待 BA 在 06/93 登记 msgId 后替换为正式文案（参照 MSG-PRD-105 部门加载失败的处理）
-const MSG_FACTORY_LOAD_FAILED = '工厂列表加载失败，可暂不选择工厂继续查询，或刷新页面重试。'
+/** MSG-PRD-107（W，仅前端；06/93） */
+const MSG_FACTORY_LOAD_FAILED = '工厂列表加载失败，可不选工厂继续查询。'
 const form = reactive<FilterForm>(defaults())
 const sort = ref<WorkOrderListQuery['sort']>()
 const pageNum = ref(1)
@@ -391,7 +391,7 @@ function goDetail(r: WorkOrderListRow) {
 
 async function loadFactories() {
   try {
-    factories.value = await listFactories({ silent: true })
+    factories.value = await listFactories({ silent: true, resource: 'work-order' })
     factoryLoadFailed.value = false
   } catch {
     factories.value = []

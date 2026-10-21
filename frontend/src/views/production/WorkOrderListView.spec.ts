@@ -94,7 +94,7 @@ describe('WorkOrderListView（SCR-PRD-008）', () => {
     expect(q.sort).toBeUndefined()
     expect(q.factoryId).toBeUndefined()
     expect(q).not.toHaveProperty('customerId')
-    expect(listFactories).toHaveBeenCalledWith({ silent: true })
+    expect(listFactories).toHaveBeenCalledWith({ silent: true, resource: 'work-order' })
   })
 
   const F = (id: string) => ({
@@ -125,7 +125,9 @@ describe('WorkOrderListView（SCR-PRD-008）', () => {
     listFactories.mockRejectedValue(new Error('x'))
     listWorkOrders.mockResolvedValue(page([row('1')]))
     const w = await mountView()
-    expect(w.find('[data-test="factory-load-warning"]').text()).toContain('工厂列表加载失败')
+    expect(w.find('[data-test="factory-load-warning"]').text()).toBe(
+      '工厂列表加载失败，可不选工厂继续查询。',
+    )
     expect(listWorkOrders).toHaveBeenCalledTimes(1)
     expect(listWorkOrders.mock.calls[0]![0].factoryId).toBeUndefined()
     expect(w.find('[data-test="table"]').text()).toContain('WO-1')
