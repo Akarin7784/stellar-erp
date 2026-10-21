@@ -10651,6 +10651,24 @@
       "source": "00-common/05-common-message-list.md"
     },
     {
+      "id": "MSG-COM-088",
+      "type": "E",
+      "body": "「{0}」的格式不正确。",
+      "condition": "形式エラー（数値・日付以外の書式、例：统一社会信用代码・通貨コード）",
+      "action": "code=1001",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-089",
+      "type": "E",
+      "body": "「{0}」必须在 {1} 到 {2} 之间。",
+      "condition": "値域エラー（上下限）",
+      "action": "code=1001",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
       "id": "MSG-SYS-001",
       "type": "E",
       "body": "该账号已停用或已离职，请联系管理员。",
