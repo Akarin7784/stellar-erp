@@ -88,6 +88,14 @@ describe('toOpaErrorView', () => {
       reload: false,
     })
   })
+  it('4002（422）→ business，需重读', () => {
+    expect(toOpaErrorView(e(422, 4002, '状态不允许', 'MSG-COM-034'))).toEqual({
+      kind: 'business',
+      message: '[MSG-COM-034] 状态不允许',
+      reload: true,
+    })
+    expect(toOpaErrorView(e(422, 4002, '状态不允许')).message).toBe('[MSG-COM-034] 状态不允许')
+  })
   it('1001 显示后端 msgId', () => {
     expect(toOpaErrorView(e(200, 1001, '受注行必须指定。', 'MSG-COM-040')).message).toBe(
       '[MSG-COM-040] 受注行必须指定。',

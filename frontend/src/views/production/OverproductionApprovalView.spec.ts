@@ -201,6 +201,46 @@ describe('OverproductionApprovalView（SCR-PRD-034）', () => {
     expect(t).not.toContain(MSG_CONFLICT)
   })
 
+  it('审批成功后关闭对话框', async () => {
+    api.list.mockResolvedValue(page([row('2', 20)]))
+    api.approve.mockResolvedValue({})
+    const w = await mountView()
+    await w.find('[data-test="approve"]').trigger('click')
+    await flushPromises()
+    ;(body().querySelector('[data-test="do-approve"]') as HTMLElement).click()
+    await flushPromises()
+    const vm = w.vm as unknown as { approveVisible: boolean }
+    expect(vm.approveVisible).toBe(false)
+  })
+
+  it('驳回失败（4002）：对话框保持打开、理由保留、显示错误并重读', async () => {
+    api.list
+      .mockResolvedValueOnce(page([row('2', 20)]))
+      .mockResolvedValueOnce(page([row('2', 30, { version: 3 })]))
+    api.reject.mockRejectedValue(bizErr(422, 4002, '该记录当前状态不允许此操作。', 'MSG-COM-034'))
+    const w = await mountView()
+    await w.find('[data-test="approve"]').trigger('click')
+    await flushPromises()
+    const ta = field('reject-reason')
+    ta.value = '超出过多'
+    ta.dispatchEvent(new Event('input'))
+    ;(body().querySelector('[data-test="do-reject"]') as HTMLElement).click()
+    await flushPromises()
+    const vm = w.vm as unknown as {
+      approveVisible: boolean
+      rejectReason: string
+      target: { version: number }
+    }
+    expect(vm.approveVisible).toBe(true)
+    expect(vm.rejectReason).toBe('超出过多')
+    expect(field('reject-reason').value).toBe('超出过多')
+    expect(api.list).toHaveBeenCalledTimes(2)
+    expect(vm.target.version).toBe(3)
+    expect(body().querySelector('[data-test="approve-error"]')!.textContent).toContain(
+      '[MSG-COM-034] 该记录当前状态不允许此操作。',
+    )
+  })
+
   it('4003（409）：刷新提示并重读一览', async () => {
     api.list.mockResolvedValue(page([row('1', 10)]))
     api.submit.mockRejectedValue(bizErr(409, 4003, '版本冲突', 'MSG-COM-033'))

@@ -198,7 +198,7 @@ function backendMessage(err: ApiError): string | undefined {
   return d && typeof d.message === 'string' && d.message ? d.message : undefined
 }
 
-/** 只有 4003 走刷新提示；其他业务错误显示 `[msgId] 后端 message`。 */
+/** 只有 4003 走刷新提示；其他业务错误显示 `[msgId] 后端 message`（4003・4002 需重读）。 */
 export function toOpaErrorView(err: unknown): OpaErrorView {
   if (err instanceof ApiError && err.code !== undefined) {
     const code = err.code
@@ -212,7 +212,8 @@ export function toOpaErrorView(err: unknown): OpaErrorView {
       return {
         kind: 'business',
         message: `[${id}] ${backendMessage(err) ?? err.message}`,
-        reload: false,
+        // 4002 状态不整合：数据已变化，重读一览（同 workOrder.ts 下达）
+        reload: code === 4002,
       }
     }
     if (code >= 3000 && code <= 3999) {

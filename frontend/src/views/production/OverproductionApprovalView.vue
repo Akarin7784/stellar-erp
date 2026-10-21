@@ -50,7 +50,7 @@
     <el-table v-loading="loading" :data="rows" border data-test="table">
       <el-table-column label="申请号" min-width="140">
         <template #default="{ row }">
-          <el-link type="primary" data-test="detail" @click="openDetail(row)">{{
+          <el-link type="primary" data-test="detail" @click="openDetail(asRow(row))">{{
             row.approvalNo
           }}</el-link>
         </template>
@@ -82,7 +82,7 @@
             link
             type="primary"
             data-test="submit"
-            @click="onSubmit(row)"
+            @click="onSubmit(asRow(row))"
             >提交</el-button
           >
           <el-button
@@ -90,7 +90,7 @@
             link
             type="primary"
             data-test="approve"
-            @click="openApprove(row)"
+            @click="openApprove(asRow(row))"
             >审批</el-button
           >
           <el-button
@@ -102,7 +102,7 @@
             link
             type="danger"
             data-test="cancel"
-            @click="onCancel(row)"
+            @click="onCancel(asRow(row))"
             >取消</el-button
           >
         </template>
@@ -166,6 +166,15 @@
 
     <!-- 审批（批准 / 驳回） -->
     <el-dialog v-model="approveVisible" title="超产审批" width="480px" data-test="approve-dialog">
+      <el-alert
+        v-if="errorText"
+        data-test="approve-error"
+        :title="errorText"
+        :type="errorKind === 'conflict' ? 'warning' : 'error'"
+        show-icon
+        :closable="false"
+        class="mb"
+      />
       <el-descriptions v-if="target" :column="1" border class="mb">
         <el-descriptions-item label="申请号">{{ target.approvalNo }}</el-descriptions-item>
         <el-descriptions-item label="申请超产数量">{{ target.requestQty }}</el-descriptions-item>
@@ -249,6 +258,9 @@ import {
 } from '@/api/production/overproduction'
 import { useAuthStore } from '@/stores/auth'
 import { formatDateTime } from '@/utils/format'
+
+/** el-table 插槽的 row 类型为 DefaultRow，转回 API 类型 */
+const asRow = (r: unknown) => r as OverproductionApproval
 
 const auth = useAuthStore()
 const has = (code: string) => auth.me?.permissions.includes(code) ?? false
@@ -391,21 +403,31 @@ const approveVisible = ref(false)
 const target = ref<OverproductionApproval | null>(null)
 const rejectReason = ref('')
 function openApprove(row: OverproductionApproval) {
+  errorText.value = ''
   target.value = row
   rejectReason.value = ''
   approveVisible.value = true
 }
+/** 失败时保留对话框与驳回理由；若一览已重读，用最新行（version）更新对象 */
+function afterDialogAction(ok: boolean) {
+  if (ok) {
+    approveVisible.value = false
+    return
+  }
+  const latest = rows.value.find((r) => r.id === target.value?.id)
+  if (latest) target.value = latest
+}
 async function onApprove() {
   const t = target.value
   if (!t) return
-  await run(() => approveOverproductionApproval(t.id, t.version), '已批准')
-  approveVisible.value = false
+  afterDialogAction(await run(() => approveOverproductionApproval(t.id, t.version), '已批准'))
 }
 async function onReject() {
   const t = target.value
   if (!t) return
-  await run(() => rejectOverproductionApproval(t.id, t.version, rejectReason.value), '已驳回')
-  approveVisible.value = false
+  afterDialogAction(
+    await run(() => rejectOverproductionApproval(t.id, t.version, rejectReason.value), '已驳回'),
+  )
 }
 
 // 详细
