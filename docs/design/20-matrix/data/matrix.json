@@ -22409,7 +22409,7 @@
       "method": "GET",
       "path": "/api/system/maintenance/options",
       "name": "维护種別一覧",
-      "permission": "system:maintenance:view",
+      "permission": "認証済（[91 §1.2](91-api-design.md)）",
       "domain": "SYS",
       "source": "01-system/07-scheduled-job-print-monitor.md"
     },
