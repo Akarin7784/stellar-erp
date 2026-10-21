@@ -4,7 +4,7 @@
 |---|---|
 | 文書名 | 系统管理 DB 设计书（系统管理 DB 設計書） |
 | 文書番号 | DSN-SYS-090 |
-| 版数 | v1.20 |
+| 版数 | v1.21 |
 | 作成日 | 2026-10-20 |
 | 作成者 | system-workflow（域設計担当） |
 | 承認者 | 未承認（レビュー待ち） |
@@ -1507,7 +1507,7 @@ COMMENT ON TABLE sys_idempotency IS '幂等键（Idempotency-Key 管理）';
 | uk_sys_idempotency_key | UNIQUE | (tenant_id, idempotency_key) | — | キー一意 |
 | idx_sys_idempotency_expire | B-Tree | (tenant_id, company_id, expires_at) | — | 期限切れ削除 |
 
-**制約**：同一キーで `process_status=0`（処理中）は `409 + code=4005`。`request_hash` が異なる同一キーは `400` で拒否（キー使い回し検出）。
+**制約**：同一キーで `process_status=0`（処理中）は `422 + code=4005`。`request_hash` が異なる同一キーは `400` で拒否（キー使い回し検出）。
 
 ### 3.37 sys_user_preference 用户画面设置
 
@@ -1647,3 +1647,4 @@ COMMENT ON TABLE sys_data_maintenance_log IS '数据维护历史（初期化・�
 | v1.18 | 2026-10-21 | §3.3 `tenant_code` は大文字小文字を区別せず大文字で保存、`CHECK (tenant_code = upper(tenant_code))`、照合前に `upper()`。§3.6 `username` は完全一致（区別あり）のまま、`gender` に `CHECK IN (0,1,2)`、`employee_type` に `CHECK IN (1,2,3,4)`、`department_id`/`position_id`/`factory_id`/`manager_user_id` に三列複合 FK `(tenant_id, company_id, x)`（NULL 可、例外なし、factory は跨域硬 FK）、`company_id`=`sys_company.id` を追記（蓝色大肥鱼 2026-10-21 #75 決定） | 业务分析 |
 | v1.19 | 2026-10-21 | §3.6 `factory_id` FK の列数根拠を 04 §6.2 項 2a の新規則（参照先に `company_id` があれば三列）に変更（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.20 | 2026-10-21 | §3.19 `sys_login_log.session_id`：トークンの SHA-256 16 進完全値（64 桁）を保存し平文トークンは保存しない、Redis セッションとの対応付け用で認証情報として使用不可（現行 VARCHAR(100) で 64 桁は収まる。列 COMMENT は #79 の迁移で更新する）（蓝色大肥鱼 2026-10-21 16:29 決定） | 业务分析 |
+| v1.21 | 2026-10-21 | HTTP 409 を `version` 競合（4003）専用とし、状態不整合（4002）・二重処理/処理中（4005）・同時実行・確定済変更不可・二重実行等の 409 も 422 に統一し、409 は `version` 競合（4003）のみとする（蓝色大肥鱼 2026-10-21 決定）。対象：:1510 | 业务分析 |
