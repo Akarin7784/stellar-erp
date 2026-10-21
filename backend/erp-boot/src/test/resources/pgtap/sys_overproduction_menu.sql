@@ -1,7 +1,7 @@
--- pgTAP：超产审批菜单/权限增量（sys/V202610211406；01-system/94 G-11、付录 A #397〜#401）
+-- pgTAP：超产审批菜单/权限增量（sys/V202610211406、V202610211407；01-system/94 G-11、付录 A #397〜#401）
 -- owner 连接执行（superuser，绕过 RLS），最后 ROLLBACK。
 BEGIN;
-SELECT plan(19);
+SELECT plan(21);
 
 CREATE TEMP TABLE t_codes(code text) ON COMMIT DROP;
 INSERT INTO t_codes VALUES ('production:overproduction-approval:view'), ('production:overproduction-approval:create'),
@@ -25,39 +25,45 @@ SELECT results_eq($$SELECT permission_code::text, sort_no::int FROM sys_menu m
 SELECT is((SELECT id FROM sys_menu WHERE tenant_id = 0 AND menu_code = 'SCR-PRD-034'), sys_seed_id('sys_menu:0:SCR-PRD-034'), 'ID = sys_seed_id');
 SELECT is((SELECT count(*)::int FROM sys_menu_seed_rows()), 594, 'sys_menu_seed_rows() = 594 行');
 
--- 1. 模拟迁移前的现有公司：租户 9301 / 公司 930101 按 V1405 状态（无 5 行菜单与授权），且撤销过一条旧授权
+-- 1. 一次性回填函数已由 V202610211407 删除
+SELECT hasnt_function('public', 'sys_apply_overproduction_menu', ARRAY[]::name[], 'sys_apply_overproduction_menu() 已删除（V202610211407）');
+
+-- 2. 迁移后的现有状态：所有现有 SYSTEM_ADMIN 都持有 5 个新码（状态检查，代替调用已删除的回填函数）
+SELECT is((SELECT count(*)::int FROM sys_role r WHERE r.role_code = 'SYSTEM_ADMIN' AND r.deleted = FALSE
+            AND (SELECT count(*) FROM sys_role_permission rp WHERE rp.tenant_id = r.tenant_id AND rp.role_id = r.id
+                  AND rp.permission_code IN (SELECT code FROM t_codes)) <> 5), 0,
+          '回填后：现有 SYSTEM_ADMIN 无一缺少 5 个新码');
+SELECT is((SELECT count(DISTINCT tenant_id)::int FROM sys_menu WHERE menu_code = 'DIR-PRD' AND deleted = FALSE),
+          (SELECT count(DISTINCT tenant_id)::int FROM sys_menu WHERE menu_code = 'SCR-PRD-034' AND deleted = FALSE),
+          '回填后：有付录 A 菜单的租户都有 SCR-PRD-034');
+
+-- 3. 迁移后新建租户 9301 / 公司 930101：sys_init_tenant 得到 594 菜单、584 授权
 INSERT INTO sys_tenant (id, tenant_id, tenant_code, tenant_name, max_user_count, status) VALUES (9301, 9301, 'TAP9301', 'tap 9301', 0, 1);
 INSERT INTO sys_company (id, tenant_id, company_id, company_code, company_name, deleted) VALUES (930101, 9301, 930101, 'A', 'A', FALSE);
 SET ROLE erp_tenant_provisioner;
-SELECT sys_init_tenant(9301);
+SELECT lives_ok($$SELECT sys_init_tenant(9301)$$, 'sys_init_tenant(9301) 成功');
 RESET ROLE;
-DELETE FROM sys_role_permission WHERE tenant_id = 9301
-   AND menu_id IN (SELECT id FROM sys_menu WHERE tenant_id = 9301 AND permission_code IN (SELECT code FROM t_codes));
-DELETE FROM sys_menu WHERE tenant_id = 9301 AND menu_code = 'SCR-PRD-034' OR (tenant_id = 9301 AND permission_code IN (SELECT code FROM t_codes));
-DELETE FROM sys_role_permission WHERE tenant_id = 9301 AND company_id = 930101 AND permission_code = 'system:company:create';
 SELECT results_eq($$SELECT (SELECT count(*)::int FROM sys_menu WHERE tenant_id = 9301),
                            (SELECT count(*)::int FROM sys_role_permission WHERE tenant_id = 9301 AND company_id = 930101)$$,
-                  $$VALUES (589, 578)$$, '准备：迁移前状态 菜单 589 / 授权 578（撤销 1 条）');
+                  $$VALUES (594, 584)$$, '新租户：菜单 594 / 公司 A 授权 584');
+SELECT set_eq($$SELECT permission_code::text FROM sys_role_permission WHERE tenant_id = 9301 AND company_id = 930101
+                 AND permission_code LIKE 'production:overproduction-approval:%'$$,
+              $$SELECT code FROM t_codes$$, '新租户公司 A 的 SYSTEM_ADMIN 含 5 个新码');
 
--- 2. 增量回填
-SELECT lives_ok($$SELECT sys_apply_overproduction_menu()$$, 'sys_apply_overproduction_menu() 成功');
-SELECT is((SELECT count(*)::int FROM sys_menu WHERE tenant_id = 9301), 594, '现有租户补入 5 行菜单 → 594');
-SELECT set_eq($$SELECT rp.permission_code::text FROM sys_role_permission rp JOIN sys_role r ON r.id = rp.role_id
-                 WHERE rp.tenant_id = 9301 AND rp.company_id = 930101 AND r.role_code = 'SYSTEM_ADMIN'
-                   AND rp.permission_code LIKE 'production:overproduction-approval:%'$$,
-              $$SELECT code FROM t_codes$$, '现有公司 SYSTEM_ADMIN 得到 5 个新码');
-SELECT is((SELECT count(*)::int FROM sys_role_permission WHERE tenant_id = 9301 AND company_id = 930101), 583, '现有公司授权 578 + 5 = 583');
-SELECT ok(NOT EXISTS (SELECT 1 FROM sys_role_permission WHERE tenant_id = 9301 AND company_id = 930101 AND permission_code = 'system:company:create'),
-          '撤销过的 system:company:create 未被补回');
-SELECT is((SELECT count(*)::int FROM sys_role_permission rp WHERE rp.tenant_id = 9301 AND rp.menu_id <> ALL (
-             SELECT id FROM sys_menu WHERE tenant_id = 9301 AND permission_code IN (SELECT code FROM t_codes)) ), 578, '旧授权 578 条不变');
-
--- 3. 重跑冪等
+-- 撤销一条旧授权与一条新码授权后重跑：行数不变、撤销保持
+DELETE FROM sys_role_permission WHERE tenant_id = 9301 AND company_id = 930101
+   AND permission_code IN ('system:company:create', 'production:overproduction-approval:cancel');
 CREATE TEMP VIEW v_cnt AS SELECT (SELECT count(*) FROM sys_menu) AS menus, (SELECT count(*) FROM sys_role_permission) AS grants,
                                  (SELECT count(*) FROM sys_role) AS roles;
 CREATE TEMP TABLE t_before AS SELECT * FROM v_cnt;
-SELECT sys_apply_overproduction_menu();
+SET ROLE erp_tenant_provisioner;
+SELECT lives_ok($$SELECT sys_init_tenant(9301)$$, 'sys_init_tenant(9301) 重跑成功');
+RESET ROLE;
 SELECT results_eq($$SELECT * FROM v_cnt$$, $$SELECT * FROM t_before$$, '重跑：sys_menu / sys_role_permission / sys_role 行数不变');
+SELECT is((SELECT count(*)::int FROM sys_role_permission WHERE tenant_id = 9301 AND company_id = 930101), 582, '撤销保持：授权 582');
+SELECT ok(NOT EXISTS (SELECT 1 FROM sys_role_permission WHERE tenant_id = 9301 AND company_id = 930101
+                       AND permission_code IN ('system:company:create', 'production:overproduction-approval:cancel')),
+          '撤销的旧码与新码均未被补回');
 
 -- 4. 迁移后新建公司：sys_init_company 授予全部有 permission_code 的菜单（584）
 INSERT INTO sys_company (id, tenant_id, company_id, company_code, company_name, deleted) VALUES (930102, 9301, 930102, 'B', 'B', FALSE);
