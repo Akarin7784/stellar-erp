@@ -346,7 +346,7 @@ stateDiagram-v2
     "userInfo": { "id": "1845000000000000123", "userCode": "E000123", "realName": "张建国", "departmentName": "信息部", "avatarUrl": null },
     "roles": [{ "roleCode": "SYSTEM_ADMIN", "roleName": "系统管理员" }],
     "permissions": ["system:user:view", "system:user:create"],
-    "menus": [{ "id": "1", "parentId": "0", "menuType": 1, "menuCode": "system", "routePath": "system", "sortNo": 10 }]
+    "menus": [{ "id": "1", "parentId": "0", "menuType": 1, "menuCode": "system", "menuName": "系统管理", "routePath": "system", "sortNo": 10 }]
   }
 }
 // レスポンス（失敗：入力チェック 1001、HTTP 200。message は標準文案のみ、項目名は data.fieldErrors、BR-15）
@@ -369,7 +369,7 @@ stateDiagram-v2
 
 **POST /api/system/auth/logout**：免ログイン。ヘッダ `Authorization` のトークンを失効。トークンなし・無効・期限切れでも 200 `{code:0}`（冪等、繰り返し可）（蓝色大肥鱼 2026-10-21 #71 決定）。
 
-**GET /api/system/auth/me**：`userInfo`、`roles`、`permissions`（コードで重複排除）、`menus`、`passwordExpireDays` を返す。`menus[]` はフラット配列で、項目は `id`、`parentId`（DB `parent_id`、0＝ルート）、`menuType`（`menu_type`）、`menuCode`（`menu_code`）、`routePath`（`route_path`、先頭スラッシュなし。按钮行は null）、`sortNo`（`sort_no`）。対象は**当前会社で権限のあるメニュー**（`sys_user_role.company_id = セッション company_id` のロールに付与されたもの）と、その**祖先の目录**（親を辿って補完、付与対象外の目录も含む）。ツリー化はフロントで行う。`id`/`parentId` は文字列（03 §8）。`dataScopes` は別 PR で追加する（本 PR 時点では返さない）（蓝色大肥鱼 2026-10-21 #71 決定）。ロールを 1 つも持たないユーザもログインは成功し、`menus` は空配列 `[]` を返す。フロントは「暂无权限，请联系管理员」を表示する（蓝色大肥鱼 2026-10-21 決定）。
+**GET /api/system/auth/me**：`userInfo`、`roles`、`permissions`（コードで重複排除）、`menus`、`passwordExpireDays` を返す。`menus[]` はフラット配列で、項目は `id`、`parentId`（DB `parent_id`、0＝ルート）、`menuType`（`menu_type`）、`menuCode`（`menu_code`）、`menuName`（`menu_name`、菜单显示名）、`routePath`（`route_path`、先頭スラッシュなし。按钮行は null）、`sortNo`（`sort_no`）。対象は**当前会社で権限のあるメニュー**（`sys_user_role.company_id = セッション company_id` のロールに付与されたもの）と、その**祖先の目录**（親を辿って補完、付与対象外の目录も含む）。ツリー化はフロントで行う。`id`/`parentId` は文字列（03 §8）。`dataScopes` は別 PR で追加する（本 PR 時点では返さない）（蓝色大肥鱼 2026-10-21 #71 決定）。ロールを 1 つも持たないユーザもログインは成功し、`menus` は空配列 `[]` を返す。フロントは「暂无权限，请联系管理员」を表示する（蓝色大肥鱼 2026-10-21 決定）。
 
 ## 8. データ更新仕様
 
@@ -450,7 +450,7 @@ stateDiagram-v2
 | 10c | TST-F-SYS-001-16 | 異常系 | 企業代码未入力 | MSG-COM-040、API は呼ばない |
 | 10d | TST-F-SYS-001-17 | セキュリティ | `sys_auth_find_login_user` の権限・戻り値 | `erp_app` 以外（`PUBLIC` 等）は EXECUTE 不可、戻り値に照合用の最小項目以外（氏名・携帯等）を含まない |
 | 10e | TST-F-SYS-001-18 | 権限 | 会社 A で権限コードあり・会社 B でなし、会社 B のセッションで当該 API／`/auth/me` | 403（code=3001）、`/auth/me` の `permissions`・`menus` に当該コード・メニューを含まない |
-| 10f | TST-F-SYS-001-19 | 正常系 | `/auth/me` の `menus` | 権限のあるメニュー＋その祖先目录のみ、項目は id/parentId/menuType/menuCode/routePath/sortNo |
+| 10f | TST-F-SYS-001-19 | 正常系 | `/auth/me` の `menus` | 権限のあるメニュー＋その祖先目录のみ、項目は id/parentId/menuType/menuCode/menuName/routePath/sortNo（7 項目） |
 | 10g | TST-F-SYS-001-20 | 正常系 | 期限切れトークン・トークンなしでログアウトを 2 回 | 2 回とも 200 |
 | 11 | TST-F-SYS-001-11 | セキュリティ | 検証コードを使い回す | 2 回目は MSG-COM-022 |
 | 12 | TST-F-SYS-001-12 | 権限 | 管理者がユーザをロック解除 | `account_status=1`、ログイン可 |

@@ -293,7 +293,12 @@ class AuthInterceptorIntegrationTest {
                 .andExpect(jsonPath("$.data.menus[2].menuType").value(2))
                 .andExpect(jsonPath("$.data.menus[2].menuCode").value("M" + m1))
                 .andExpect(jsonPath("$.data.menus[2].routePath").value("/r/" + m1))
-                .andExpect(jsonPath("$.data.menus[2].sortNo").value(3));
+                .andExpect(jsonPath("$.data.menus[2].sortNo").value(3))
+                .andExpect(jsonPath("$.data.menus[2].menuName").value("m" + m1))
+                .andExpect(jsonPath("$.data.menus[0].menuName").value("m" + d1))
+                .andExpect(jsonPath("$.data.menus[2].length()").value(7))
+                .andExpect(jsonPath("$.data.menus[2].keys()").value(org.hamcrest.Matchers.containsInAnyOrder(
+                        "id", "parentId", "menuType", "menuCode", "menuName", "routePath", "sortNo")));
         // 会社切替（CO2）：m2 とその親 d1 のみ
         withToken(token(USER, TENANT, CO2), get("/api/system/auth/me"))
                 .andExpect(jsonPath("$.data.menus.length()").value(2))
