@@ -142,12 +142,17 @@ public class LoginService {
             if (o != Outcome.CONFLICT) {
                 return o;
             }
-            cur = reread(cur);
+            Optional<Found> again = reread(cur);
+            if (again.isEmpty()) {
+                // 競合中にユーザが削除された：存在しないユーザと同じ 2002（BR-14）
+                return new Outcome(badCredentials(), "MSG-COM-021");
+            }
+            cur = again.get();
         }
         return new Outcome(staleVersion(), "MSG-COM-033");
     }
 
-    private Found reread(Found u) {
+    private Optional<Found> reread(Found u) {
         return jdbc.sql("""
                         SELECT tenant_id, id, company_id, password_hash, status, account_status, lock_until,
                                login_fail_count, password_reset_required, password_expire_at, version
@@ -157,7 +162,7 @@ public class LoginService {
                 .query((rs, i) -> new Found(rs.getLong(1), rs.getLong(2), rs.getLong(3), rs.getString(4), rs.getInt(5),
                         rs.getInt(6), rs.getObject(7, OffsetDateTime.class), rs.getInt(8), rs.getBoolean(9),
                         rs.getObject(10, OffsetDateTime.class), rs.getInt(11)))
-                .single();
+                .optional();
     }
 
     private Outcome attempt(Found u, LoginCommand cmd) {
@@ -201,6 +206,17 @@ public class LoginService {
         return ok ? Outcome.OK : new Outcome(badCredentials(), "MSG-COM-021");
     }
 
+    /** sys_login_log.session_id：トークン（資格情報）は保存せず、SHA-256 の 16 進全体（64 字、切り詰めなし）を保存。 */
+    static String sessionDigest(String token) {
+        try {
+            byte[] d = java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(token.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            return java.util.HexFormat.of().formatHex(d);
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
     static BizException locked(OffsetDateTime until, OffsetDateTime now) {
         String minutes = until == null ? "-" : Long.toString(Math.max(1, (Duration.between(now, until).toSeconds() + 59) / 60));
         return new BizException(2003, "MSG-COM-023", "账号已被锁定，请于 " + minutes + " 分钟后重试或联系管理员。");
@@ -216,7 +232,7 @@ public class LoginService {
                 .param("username", cmd.username()).param("result", ok ? 1 : 0).param("reason", reason)
                 .param("ip", cmd.ip())
                 .param("ua", cmd.userAgent() == null ? null : cmd.userAgent().substring(0, Math.min(500, cmd.userAgent().length())))
-                .param("sid", token == null ? null : token.substring(0, Math.min(100, token.length())))
+                .param("sid", token == null ? null : sessionDigest(token))
                 .update();
     }
 }

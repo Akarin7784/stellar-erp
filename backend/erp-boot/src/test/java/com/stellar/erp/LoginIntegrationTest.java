@@ -3,6 +3,7 @@ package com.stellar.erp;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -12,6 +13,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.test.json.JsonCompareMode;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.SingleConnectionDataSource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -89,8 +91,13 @@ class LoginIntegrationTest {
         return mvc.perform(post("/api/system/auth/login").contentType(MediaType.APPLICATION_JSON).content(body));
     }
 
+    /** 2002 の応答 body 全体（既存 Result は isSuccess() により "success" も出力される）（列挙防止：どの原因でも完全一致）。 */
+    static final String BAD_CREDENTIALS_BODY =
+            "{\"code\":2002,\"message\":\"企业代码、用户名或密码错误。\",\"data\":null,\"msgId\":\"MSG-COM-021\",\"success\":false}";
+
     static void isBadCredentials(ResultActions r) throws Exception {
         r.andExpect(status().isOk())
+                .andExpect(content().json(BAD_CREDENTIALS_BODY, JsonCompareMode.STRICT))
                 .andExpect(jsonPath("$.code").value(2002))
                 .andExpect(jsonPath("$.msgId").value("MSG-COM-021"))
                 .andExpect(jsonPath("$.message").value("企业代码、用户名或密码错误。"));
@@ -108,6 +115,12 @@ class LoginIntegrationTest {
                 .andExpect(jsonPath("$.data.permissions[0]").value("test:login:view"))
                 .andReturn().getResponse().getContentAsString();
         String token = JsonPath.read(json, "$.data.token");
+        // sys_login_log.session_id はトークンではなく SHA-256 16 進全体（64 字）
+        String sid = owner.queryForObject("SELECT session_id FROM sys_login_log WHERE tenant_id = ? AND login_result = 1",
+                String.class, TENANT);
+        assertThat(sid).isNotEqualTo(token).doesNotContain(token).matches("[0-9a-f]{64}");
+        assertThat(sid).isEqualTo(java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                .digest(token.getBytes(java.nio.charset.StandardCharsets.UTF_8))));
         mvc.perform(get("/api/system/auth/me").header("Authorization", token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.companyId").value(String.valueOf(CO)));
@@ -124,6 +137,9 @@ class LoginIntegrationTest {
         isBadCredentials(login(CODE, "U7501", PW)); // username は大文字小文字を区別
         isBadCredentials(login(CODE, "u7501", "wrong"));
         owner.update("UPDATE sys_tenant SET status = 0 WHERE id = ?", TENANT_ROW);
+        isBadCredentials(login(CODE, "u7501", PW));
+        // 租户期限切れ（expire_date < current_date）も同一の 2002（01-auth-login 前提条件 5・BR-14）
+        owner.update("UPDATE sys_tenant SET status = 1, expire_date = current_date - 1 WHERE id = ?", TENANT_ROW);
         isBadCredentials(login(CODE, "u7501", PW));
     }
 
@@ -216,21 +232,40 @@ class LoginIntegrationTest {
                 Integer.class, TENANT)).isEqualTo(1);
     }
 
+    void expectInvalid(String body, String field, String message, String msgId) throws Exception {
+        String expected = "{\"code\":1001,\"message\":\"%s\",\"data\":{\"field\":\"%s\"},\"msgId\":%s,\"success\":false}"
+                .formatted(message, field, msgId == null ? "null" : "\"" + msgId + "\"");
+        mvc.perform(post("/api/system/auth/login").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk())
+                .andExpect(content().json(expected, JsonCompareMode.STRICT));
+    }
+
+    static String body(String tenantCode, String username, String password) {
+        StringBuilder b = new StringBuilder("{");
+        java.util.List<String> parts = new java.util.ArrayList<>();
+        if (tenantCode != null) parts.add("\"tenantCode\":\"" + tenantCode + "\"");
+        if (username != null) parts.add("\"username\":\"" + username + "\"");
+        if (password != null) parts.add("\"password\":\"" + password + "\"");
+        return b.append(String.join(",", parts)).append("}").toString();
+    }
+
     @Test
     void validationFailuresAreHttp200With1001() throws Exception {
-        String longCode = "A".repeat(33);
-        for (String body : new String[] {
-                "{\"username\":\"u7501\",\"password\":\"x\"}",                        // tenantCode 欠落
-                "{\"tenantCode\":\"" + longCode + "\",\"username\":\"u7501\",\"password\":\"x\"}", // 33 字
-                "{\"tenantCode\":\"LOGINT\",\"password\":\"x\"}",                      // username 欠落
-                "{\"tenantCode\":\"LOGINT\",\"username\":\"" + "u".repeat(65) + "\",\"password\":\"x\"}",
-                "{\"tenantCode\":\"LOGINT\",\"username\":\"u7501\"}",                   // password 欠落
-                "{\"tenantCode\":\"LOGINT\",\"username\":\"u7501\",\"password\":\"" + "p".repeat(65) + "\"}"}) {
-            mvc.perform(post("/api/system/auth/login").contentType(MediaType.APPLICATION_JSON).content(body))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.code").value(1001))
-                    .andExpect(jsonPath("$.data").doesNotExist());
-        }
+        expectInvalid(body(null, "u7501", "x"), "tenantCode", "请输入必填项「企业代码」。", "MSG-COM-040");
+        expectInvalid(body("A".repeat(33), "u7501", "x"), "tenantCode", "「企业代码」不能超过 32 个字符。", "MSG-COM-041");
+        expectInvalid(body("LOG-INT", "u7501", "x"), "tenantCode", "「企业代码」只能为半角英数。", null);
+        expectInvalid(body("ＬＯＧＩＮＴ", "u7501", "x"), "tenantCode", "「企业代码」只能为半角英数。", null);
+        expectInvalid(body(CODE, null, "x"), "username", "请输入必填项「账号」。", "MSG-COM-040");
+        expectInvalid(body(CODE, "u".repeat(65), "x"), "username", "「账号」不能超过 64 个字符。", "MSG-COM-041");
+        expectInvalid(body(CODE, "u7501", null), "password", "请输入必填项「密码」。", "MSG-COM-040");
+        expectInvalid(body(CODE, "u7501", "p".repeat(65)), "password", "「密码」不能超过 64 个字符。", "MSG-COM-041");
         assertThat(owner.queryForObject("SELECT login_fail_count FROM sys_user WHERE id = ?", Integer.class, USER)).isZero();
+    }
+
+    @Test
+    void multipleInvalidFieldsReportFirstInFormOrder() throws Exception {
+        expectInvalid("{}", "tenantCode", "请输入必填项「企业代码」。", "MSG-COM-040");
+        expectInvalid(body(CODE, null, null), "username", "请输入必填项「账号」。", "MSG-COM-040");
+        expectInvalid(body("bad-code", "u".repeat(65), null), "tenantCode", "「企业代码」只能为半角英数。", null);
     }
 }
