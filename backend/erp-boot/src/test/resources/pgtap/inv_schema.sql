@@ -1,6 +1,6 @@
 -- pgTAP：05 库存域（inv/V202610211404）。结构（24 表 / RLS / 分区 / FK）、关键 CHECK、表头触发器、inv_stock_txn_key 防重（90-db-design.md:458-489）、跨公司隔离。
 BEGIN;
-SELECT plan(47);
+SELECT plan(59);
 
 -- ===== 结构 =====
 SELECT is((SELECT count(*)::int FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -35,10 +35,23 @@ SELECT ok(NOT has_table_privilege('erp_app', 'inv_stock_txn_y2026m10', 'SELECT')
           'erp_app 不能直接访问分区子表');
 SELECT ok(has_table_privilege('erp_app', 'inv_stock_txn', 'INSERT') AND has_table_privilege('erp_app', 'inv_stock_txn_key', 'DELETE'),
           'erp_app 对父表/台账有 DML（ALTER DEFAULT PRIVILEGES）');
+-- 月分区函数
+SELECT lives_ok($$SELECT public.inv_create_stock_txn_partition(DATE '2028-03-17')$$, 'inv_create_stock_txn_partition 新建 2028-03 分区');
+SELECT ok((SELECT relrowsecurity AND relforcerowsecurity FROM pg_class WHERE relname = 'inv_stock_txn_y2028m03'),
+          '新分区 ENABLE + FORCE RLS');
+SELECT ok(EXISTS (SELECT 1 FROM pg_policy WHERE polrelid = 'inv_stock_txn_y2028m03'::regclass AND polname = 'tenant_isolation'),
+          '新分区有 tenant_isolation 策略');
+SELECT ok(NOT has_table_privilege('erp_app', 'inv_stock_txn_y2028m03', 'SELECT')
+          AND NOT has_table_privilege('erp_app', 'inv_stock_txn_y2028m03', 'INSERT'), '新分区 erp_app 无权限');
+SELECT lives_ok($$SELECT public.inv_create_stock_txn_partition(DATE '2028-03-01')$$, '重复调用不报错（幂等）');
+SELECT is((SELECT count(*)::int FROM pg_inherits WHERE inhparent = 'inv_stock_txn'::regclass), 26, '重复调用不多建分区');
+SELECT ok(NOT has_function_privilege('erp_app', 'public.inv_create_stock_txn_partition(date)', 'EXECUTE')
+          AND (SELECT prosecdef FROM pg_proc WHERE proname = 'inv_create_stock_txn_partition'),
+          '函数为 SECURITY DEFINER，erp_app 无 EXECUTE');
 SELECT is((SELECT count(*)::int FROM pg_constraint WHERE contype = 'f' AND confrelid = 'inv_stock_txn'::regclass), 0,
           '没有 FK 引用分区表 inv_stock_txn');
 SELECT is((SELECT count(*)::int FROM pg_constraint k JOIN pg_class c ON c.oid = k.conrelid JOIN pg_class p ON p.oid = k.confrelid
-            WHERE k.contype = 'f' AND c.relname ~ '^inv_' AND p.relname ~ '^mdm_'), 27, 'inv → mdm 跨域 FK 27 条（§6.3 #7〜11）');
+            WHERE k.contype = 'f' AND c.relname ~ '^inv_' AND p.relname ~ '^mdm_'), 28, 'inv → mdm 跨域 FK 28 条（§6.3 #7〜11 + inv_stock_balance.material_id）');
 SELECT is((SELECT count(*)::int FROM pg_constraint k JOIN pg_class c ON c.oid = k.conrelid JOIN pg_class p ON p.oid = k.confrelid
             WHERE k.contype = 'f' AND c.relname ~ '^inv_' AND p.relname ~ '^mdm_'
               AND pg_get_constraintdef(k.oid) !~ '^FOREIGN KEY \(tenant_id, \w+\) REFERENCES mdm_\w+\(tenant_id, id\)$'),
@@ -73,7 +86,21 @@ SELECT throws_ok($$INSERT INTO inv_stock_txn (id, company_id, txn_no, txn_type, 
                  '23514', NULL, 'ck_inv_stock_txn_type：19 種以外 → 23514');
 SELECT throws_ok($$INSERT INTO inv_stock_txn (id, company_id, txn_no, txn_type, txn_date, factory_id, warehouse_id, source_type, accounting_period, reason_type)
                    VALUES (11, 1, 'X2', 'PI', DATE '2026-10-15', 8040001, 8040001, 'PURCHASE_RECEIPT', '2026-10', 10)$$,
-                 '23514', NULL, 'ck_inv_stock_txn_reason：PI に reason_type → 23514（注：AOI で NULL は CHECK を通る＝設計書 CHECK の三値論理、PR 描述で指摘）');
+                 '23514', NULL, 'ck_inv_stock_txn_reason：PI に reason_type → 23514');
+SELECT throws_ok($$INSERT INTO inv_stock_txn (id, company_id, txn_no, txn_type, txn_date, factory_id, warehouse_id, source_type, accounting_period)
+                   VALUES (14, 1, 'X5', 'AOI', DATE '2026-10-15', 8040001, 8040001, 'MANUAL', '2026-10')$$,
+                 '23514', NULL, 'ck_inv_stock_txn_reason：AOI で reason_type 未入力 → 23514');
+SELECT throws_ok($$INSERT INTO inv_stock_txn (id, company_id, txn_no, txn_type, txn_date, factory_id, warehouse_id, source_type, accounting_period, reason_type)
+                   VALUES (15, 1, 'X6', 'SC_OUT', DATE '2026-10-15', 8040001, 8040001, 'MANUAL', '2026-10', 60)$$,
+                 '23514', NULL, 'ck_inv_stock_txn_reason：SC_OUT で reason_type=60 → 23514（02 §2.6.7 は 10〜50）');
+SELECT lives_ok($$INSERT INTO inv_stock_txn (id, company_id, txn_no, txn_type, txn_date, factory_id, warehouse_id, source_type, accounting_period, reason_type)
+                  VALUES (16, 1, 'X7', 'SC_OUT', DATE '2026-10-15', 8040001, 8040001, 'MANUAL', '2026-10', 50)$$,
+                'SC_OUT で reason_type=50 は可');
+SELECT lives_ok($$INSERT INTO inv_batch_genealogy (id, company_id, parent_batch_id, child_batch_id, source_txn_id, qty_consumed)
+                  VALUES (40, 1, 1, 2, 100, 1)$$, '系谱 source_txn_line_id=NULL 首次写入');
+SELECT throws_ok($$INSERT INTO inv_batch_genealogy (id, company_id, parent_batch_id, child_batch_id, source_txn_id, qty_consumed)
+                   VALUES (41, 1, 1, 2, 100, 1)$$,
+                 '23505', NULL, 'uk_inv_batch_genealogy_key NULLS NOT DISTINCT：source_txn_line_id=NULL 重复 → 23505');
 SELECT throws_ok($$INSERT INTO inv_stock_txn (id, company_id, txn_no, txn_type, txn_date, factory_id, warehouse_id, source_type, accounting_period, is_reversal)
                    VALUES (12, 1, 'X3', 'PI', DATE '2026-10-15', 8040001, 8040001, 'PURCHASE_RECEIPT', '2026-10', TRUE)$$,
                  '23514', NULL, 'ck_inv_stock_txn_reversal：沖销元なし → 23514');

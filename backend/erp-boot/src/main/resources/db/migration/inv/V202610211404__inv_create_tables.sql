@@ -6,8 +6,8 @@
 --       指向 mdm 的跨域 FK (tenant_id, x_id) → mdm_x (tenant_id, id)，在文件末尾统一 ALTER TABLE 追加（§6.3 #7〜11）；
 --       inv_stock_txn 为月次分区表，不被任何 FK 引用（04 §8.1），表头↔明细由触发器 trg_inv_stock_txn_line_head 校验。
 -- 分区（§4.2.2 / §9）：inv_stock_txn_y2026m01〜y2027m12 + inv_stock_txn_default。分区子表同样 ENABLE + FORCE RLS + 策略
---       （RlsCoverageTest 覆盖 relkind='r' 的子表），并 REVOKE erp_app 的直接访问（§3.4「子パーティションへの直接アクセスは erp_app に許可しない」）。
--- 依赖：mdm/V202610210201〜0203、sys/V202610210707（uk_mdm_*_tenant_id）、sys/V202610211401。
+--       （RlsCoverageTest 覆盖 relkind='r' 的子表），并 REVOKE erp_app 的直接访问（§3.4）。月分区统一由 inv_create_stock_txn_partition(date) 建（幂等，同步 RLS/策略/REVOKE），月次作业也调用它。
+-- 依赖：mdm/V202610210201〜0203、sys/V202610210707（uk_mdm_*_tenant_id）、sys/V202610211401、sys/V202610211403。
 
 -- inv_stock_balance（90-db-design.md:209）
 CREATE TABLE inv_stock_balance (
@@ -110,7 +110,9 @@ CREATE TABLE inv_stock_txn (
          'WORK_ORDER','TRANSFER','STOCKTAKE','SALES_RETURN','PURCHASE_RETURN','MANUAL')),
     CONSTRAINT ck_inv_stock_txn_partner CHECK (partner_type IN (0,1,2,3,4)),
     CONSTRAINT ck_inv_stock_txn_reason CHECK (
-        (txn_type IN ('AOI','AOO','SC_OUT') AND reason_type IN (10,20,30,40,50,60)) OR
+        -- CK-05（90-db-design.md:441「AOI/AOO/SC_OUT のみ必須」）：三者必填；SC_OUT 为 10〜50（02 §2.6.7），AOI/AOO 为 10〜60（02 §2.6.6/2.6.7）
+        (txn_type IN ('AOI','AOO') AND reason_type IS NOT NULL AND reason_type IN (10,20,30,40,50,60)) OR
+        (txn_type = 'SC_OUT' AND reason_type IS NOT NULL AND reason_type IN (10,20,30,40,50)) OR
         (txn_type NOT IN ('AOI','AOO','SC_OUT') AND reason_type IS NULL)),
     CONSTRAINT ck_inv_stock_txn_amount CHECK (total_qty >= 0 AND total_amount >= 0),
     CONSTRAINT ck_inv_stock_txn_type CHECK (txn_type IN
@@ -126,41 +128,71 @@ ALTER TABLE inv_stock_txn FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON inv_stock_txn
     USING (tenant_id = current_setting('app.tenant_id')::bigint)
     WITH CHECK (tenant_id = current_setting('app.tenant_id')::bigint);
-CREATE TABLE inv_stock_txn_y2026m01 PARTITION OF inv_stock_txn FOR VALUES FROM ('2026-01-01') TO ('2026-02-01');
-CREATE TABLE inv_stock_txn_y2026m02 PARTITION OF inv_stock_txn FOR VALUES FROM ('2026-02-01') TO ('2026-03-01');
-CREATE TABLE inv_stock_txn_y2026m03 PARTITION OF inv_stock_txn FOR VALUES FROM ('2026-03-01') TO ('2026-04-01');
-CREATE TABLE inv_stock_txn_y2026m04 PARTITION OF inv_stock_txn FOR VALUES FROM ('2026-04-01') TO ('2026-05-01');
-CREATE TABLE inv_stock_txn_y2026m05 PARTITION OF inv_stock_txn FOR VALUES FROM ('2026-05-01') TO ('2026-06-01');
-CREATE TABLE inv_stock_txn_y2026m06 PARTITION OF inv_stock_txn FOR VALUES FROM ('2026-06-01') TO ('2026-07-01');
-CREATE TABLE inv_stock_txn_y2026m07 PARTITION OF inv_stock_txn FOR VALUES FROM ('2026-07-01') TO ('2026-08-01');
-CREATE TABLE inv_stock_txn_y2026m08 PARTITION OF inv_stock_txn FOR VALUES FROM ('2026-08-01') TO ('2026-09-01');
-CREATE TABLE inv_stock_txn_y2026m09 PARTITION OF inv_stock_txn FOR VALUES FROM ('2026-09-01') TO ('2026-10-01');
-CREATE TABLE inv_stock_txn_y2026m10 PARTITION OF inv_stock_txn FOR VALUES FROM ('2026-10-01') TO ('2026-11-01');
-CREATE TABLE inv_stock_txn_y2026m11 PARTITION OF inv_stock_txn FOR VALUES FROM ('2026-11-01') TO ('2026-12-01');
-CREATE TABLE inv_stock_txn_y2026m12 PARTITION OF inv_stock_txn FOR VALUES FROM ('2026-12-01') TO ('2027-01-01');
-CREATE TABLE inv_stock_txn_y2027m01 PARTITION OF inv_stock_txn FOR VALUES FROM ('2027-01-01') TO ('2027-02-01');
-CREATE TABLE inv_stock_txn_y2027m02 PARTITION OF inv_stock_txn FOR VALUES FROM ('2027-02-01') TO ('2027-03-01');
-CREATE TABLE inv_stock_txn_y2027m03 PARTITION OF inv_stock_txn FOR VALUES FROM ('2027-03-01') TO ('2027-04-01');
-CREATE TABLE inv_stock_txn_y2027m04 PARTITION OF inv_stock_txn FOR VALUES FROM ('2027-04-01') TO ('2027-05-01');
-CREATE TABLE inv_stock_txn_y2027m05 PARTITION OF inv_stock_txn FOR VALUES FROM ('2027-05-01') TO ('2027-06-01');
-CREATE TABLE inv_stock_txn_y2027m06 PARTITION OF inv_stock_txn FOR VALUES FROM ('2027-06-01') TO ('2027-07-01');
-CREATE TABLE inv_stock_txn_y2027m07 PARTITION OF inv_stock_txn FOR VALUES FROM ('2027-07-01') TO ('2027-08-01');
-CREATE TABLE inv_stock_txn_y2027m08 PARTITION OF inv_stock_txn FOR VALUES FROM ('2027-08-01') TO ('2027-09-01');
-CREATE TABLE inv_stock_txn_y2027m09 PARTITION OF inv_stock_txn FOR VALUES FROM ('2027-09-01') TO ('2027-10-01');
-CREATE TABLE inv_stock_txn_y2027m10 PARTITION OF inv_stock_txn FOR VALUES FROM ('2027-10-01') TO ('2027-11-01');
-CREATE TABLE inv_stock_txn_y2027m11 PARTITION OF inv_stock_txn FOR VALUES FROM ('2027-11-01') TO ('2027-12-01');
-CREATE TABLE inv_stock_txn_y2027m12 PARTITION OF inv_stock_txn FOR VALUES FROM ('2027-12-01') TO ('2028-01-01');
-CREATE TABLE inv_stock_txn_default PARTITION OF inv_stock_txn DEFAULT;
-DO $$
-DECLARE p regclass;
+-- 月分区建表函数（蓝色大肥鱼 2026-10-21 决定，#55）。幂等：已存在则只补 RLS/策略/REVOKE。
+-- SECURITY DEFINER + 固定 search_path（同 sys/V202610211403 写法）；REVOKE PUBLIC，不授予 erp_app（只有 owner/迁移账号可执行）。
+-- 注：若 DEFAULT 分区里已有该月数据，CREATE ... PARTITION OF 会失败（需先搬迁），应在月份到来前预建（§4.2.2 3 か月先）。
+CREATE FUNCTION public.inv_create_stock_txn_partition(p_month DATE)
+RETURNS regclass
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $$
+DECLARE
+    v_from DATE := date_trunc('month', p_month)::date;
+    v_to   DATE := (date_trunc('month', p_month) + INTERVAL '1 month')::date;
+    v_name TEXT := format('inv_stock_txn_y%sm%s', to_char(p_month, 'YYYY'), to_char(p_month, 'MM'));
+    v_rel  regclass;
 BEGIN
-    FOR p IN SELECT inhrelid::regclass FROM pg_inherits WHERE inhparent = 'inv_stock_txn'::regclass LOOP
-        EXECUTE format('ALTER TABLE %s ENABLE ROW LEVEL SECURITY', p);
-        EXECUTE format('ALTER TABLE %s FORCE ROW LEVEL SECURITY', p);
-        EXECUTE format('CREATE POLICY tenant_isolation ON %s USING (tenant_id = current_setting(''app.tenant_id'')::bigint) WITH CHECK (tenant_id = current_setting(''app.tenant_id'')::bigint)', p);
-        EXECUTE format('REVOKE ALL ON %s FROM erp_app', p);
-    END LOOP;
+    IF p_month IS NULL THEN
+        RAISE EXCEPTION 'p_month 不能为空' USING ERRCODE = '22004';
+    END IF;
+    v_rel := to_regclass('public.' || v_name);
+    IF v_rel IS NULL THEN
+        EXECUTE format('CREATE TABLE public.%I PARTITION OF public.inv_stock_txn FOR VALUES FROM (%L) TO (%L)', v_name, v_from, v_to);
+        v_rel := to_regclass('public.' || v_name);
+    END IF;
+    EXECUTE format('ALTER TABLE %s ENABLE ROW LEVEL SECURITY', v_rel);
+    EXECUTE format('ALTER TABLE %s FORCE ROW LEVEL SECURITY', v_rel);
+    IF NOT EXISTS (SELECT 1 FROM pg_policy WHERE polrelid = v_rel AND polname = 'tenant_isolation') THEN
+        EXECUTE format('CREATE POLICY tenant_isolation ON %s USING (tenant_id = current_setting(''app.tenant_id'')::bigint) WITH CHECK (tenant_id = current_setting(''app.tenant_id'')::bigint)', v_rel);
+    END IF;
+    EXECUTE format('REVOKE ALL ON %s FROM erp_app', v_rel);
+    RETURN v_rel;
 END $$;
+REVOKE ALL ON FUNCTION public.inv_create_stock_txn_partition(DATE) FROM PUBLIC;
+COMMENT ON FUNCTION public.inv_create_stock_txn_partition(DATE) IS
+    '建 inv_stock_txn 月分区 inv_stock_txn_yYYYYmMM（幂等），同步 ENABLE+FORCE RLS、tenant_isolation 策略、REVOKE erp_app；SECURITY DEFINER，不授予 erp_app';
+SELECT public.inv_create_stock_txn_partition(DATE '2026-01-01');
+SELECT public.inv_create_stock_txn_partition(DATE '2026-02-01');
+SELECT public.inv_create_stock_txn_partition(DATE '2026-03-01');
+SELECT public.inv_create_stock_txn_partition(DATE '2026-04-01');
+SELECT public.inv_create_stock_txn_partition(DATE '2026-05-01');
+SELECT public.inv_create_stock_txn_partition(DATE '2026-06-01');
+SELECT public.inv_create_stock_txn_partition(DATE '2026-07-01');
+SELECT public.inv_create_stock_txn_partition(DATE '2026-08-01');
+SELECT public.inv_create_stock_txn_partition(DATE '2026-09-01');
+SELECT public.inv_create_stock_txn_partition(DATE '2026-10-01');
+SELECT public.inv_create_stock_txn_partition(DATE '2026-11-01');
+SELECT public.inv_create_stock_txn_partition(DATE '2026-12-01');
+SELECT public.inv_create_stock_txn_partition(DATE '2027-01-01');
+SELECT public.inv_create_stock_txn_partition(DATE '2027-02-01');
+SELECT public.inv_create_stock_txn_partition(DATE '2027-03-01');
+SELECT public.inv_create_stock_txn_partition(DATE '2027-04-01');
+SELECT public.inv_create_stock_txn_partition(DATE '2027-05-01');
+SELECT public.inv_create_stock_txn_partition(DATE '2027-06-01');
+SELECT public.inv_create_stock_txn_partition(DATE '2027-07-01');
+SELECT public.inv_create_stock_txn_partition(DATE '2027-08-01');
+SELECT public.inv_create_stock_txn_partition(DATE '2027-09-01');
+SELECT public.inv_create_stock_txn_partition(DATE '2027-10-01');
+SELECT public.inv_create_stock_txn_partition(DATE '2027-11-01');
+SELECT public.inv_create_stock_txn_partition(DATE '2027-12-01');
+CREATE TABLE inv_stock_txn_default PARTITION OF inv_stock_txn DEFAULT;
+ALTER TABLE inv_stock_txn_default ENABLE ROW LEVEL SECURITY;
+ALTER TABLE inv_stock_txn_default FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON inv_stock_txn_default
+    USING (tenant_id = current_setting('app.tenant_id')::bigint)
+    WITH CHECK (tenant_id = current_setting('app.tenant_id')::bigint);
+REVOKE ALL ON inv_stock_txn_default FROM erp_app;
 -- 月次パーティション：inv_stock_txn_yYYYYmMM（例 inv_stock_txn_y2026m10）。初回迁移で 2026-01〜2027-12 と DEFAULT パーティションを作成し、
 -- 以降は月次ジョブ（sys_scheduled_job）が 3 か月先まで事前作成する（第 10 章 #7）。
 
@@ -618,8 +650,9 @@ ALTER TABLE inv_batch_genealogy FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON inv_batch_genealogy
     USING (tenant_id = current_setting('app.tenant_id')::bigint)
     WITH CHECK (tenant_id = current_setting('app.tenant_id')::bigint);
+-- NULLS NOT DISTINCT：source_txn_line_id 为 NULL 的系谱也去重（蓝色大肥鱼 2026-10-21 决定，#55）
 CREATE UNIQUE INDEX uk_inv_batch_genealogy_key
-    ON inv_batch_genealogy (tenant_id, company_id, parent_batch_id, child_batch_id, source_txn_line_id);
+    ON inv_batch_genealogy (tenant_id, company_id, parent_batch_id, child_batch_id, source_txn_line_id) NULLS NOT DISTINCT;
 CREATE INDEX idx_inv_batch_genealogy_child ON inv_batch_genealogy (tenant_id, company_id, child_batch_id);
 CREATE INDEX idx_inv_batch_genealogy_parent ON inv_batch_genealogy (tenant_id, company_id, parent_batch_id);
 CREATE INDEX idx_inv_batch_genealogy_wo ON inv_batch_genealogy (tenant_id, company_id, work_order_id)
@@ -1170,7 +1203,9 @@ COMMENT ON TABLE inv_event_wait IS '品質イベント保留（E15 先着時の�
 COMMENT ON COLUMN inv_event_wait.waiting_for IS 'PI=入荷待ち、FGI=完工入庫待ち、OSR=委外受入待ち';
 
 -- 跨域 mdm 复合 FK（§6.3 #7〜11）：(tenant_id, x_id) → mdm_x (tenant_id, id)（uk_mdm_x_tenant_id，sys/V202610210707）。ON DELETE 不指定（NO ACTION）。
+-- #7 另加 inv_stock_balance.material_id（蓝色大肥鱼 2026-10-21 决定，#55）。
 -- #8 warehouse_id：除 §6.3 软引用表所列 inv_stock_txn.warehouse_id、inv_stock_balance.warehouse_id 外，凡含 warehouse_id 的表都加。
+ALTER TABLE inv_stock_balance ADD CONSTRAINT fk_inv_stock_balance_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id);
 ALTER TABLE inv_transfer_line ADD CONSTRAINT fk_inv_transfer_line_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id);
 ALTER TABLE inv_stocktake_line ADD CONSTRAINT fk_inv_stocktake_line_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id);
 ALTER TABLE inv_batch ADD CONSTRAINT fk_inv_batch_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id);
