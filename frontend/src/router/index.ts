@@ -2,6 +2,8 @@ import {
   createRouter,
   createWebHistory,
   type RouteComponent,
+  type RouteLocationNormalized,
+  type RouteLocationRaw,
   type RouteRecordRaw,
 } from 'vue-router'
 
@@ -80,7 +82,19 @@ const router = createRouter({
   ],
 })
 
-router.beforeEach(async (to) => {
+/**
+ * 路由权限：meta.permission（94 付録 A permission_code）不在 /auth/me permissions 中时 → /no-permission。
+ * 非表示（hidden）路由同样有路由并做同样的检查；无 permission 的路由（工作台等）不检查。
+ */
+export function hasRoutePermission(
+  meta: Record<string | number | symbol, unknown>,
+  permissions: readonly string[],
+): boolean {
+  const perm = meta.permission
+  return typeof perm !== 'string' || perm === '' || permissions.includes(perm)
+}
+
+export async function authGuard(to: RouteLocationNormalized): Promise<RouteLocationRaw | boolean> {
   if (to.meta.public) return true
   const auth = useAuthStore()
   if (!auth.token) return { name: 'login', query: { redirect: to.fullPath } }
@@ -92,9 +106,13 @@ router.beforeEach(async (to) => {
       return auth.token ? false : { name: 'login', query: { redirect: to.fullPath } }
     }
   }
-  if (auth.hasNoPermission && to.name !== 'no-permission') return { name: 'no-permission' }
+  if (to.name === 'no-permission') return true
+  if (auth.hasNoPermission) return { name: 'no-permission' }
+  if (!hasRoutePermission(to.meta, auth.me?.permissions ?? [])) return { name: 'no-permission' }
   return true
-})
+}
+
+router.beforeEach(authGuard)
 
 // 2001（HTTP 401）：清除登录状态并回到登录页
 setUnauthorizedHandler(() => {

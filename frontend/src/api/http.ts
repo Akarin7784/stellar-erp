@@ -91,14 +91,14 @@ export const MSG_ID_BY_CODE: Partial<Record<number, string>> = {
 }
 
 /**
- * 后端未给 message 时的默认文案（文案原样取自 93-messages.md）。
+ * 后端未给 message 时的默认文案（中文，译自 93-messages.md）。
  * 10035 的文案含占位符「{0}」（公司代码），前端无法补全，故不设默认，依赖后端 message。
  */
 export const DEFAULT_MESSAGE_BY_CODE: Partial<Record<number, string>> = {
-  [ERROR_CODES.UOM_CONVERSION_PERIOD_OVERLAP]: '有効期間が既存の換算率と重複しています。',
+  [ERROR_CODES.UOM_CONVERSION_PERIOD_OVERLAP]: '有效期与已有换算率重叠，请调整有效期。',
 }
 
-/** 状态冲突类错误码（HTTP 409，非乐观锁）：显示后端 message。 */
+/** 状态冲突类错误码（HTTP 422，非乐观锁；409 只用于 4003 版本冲突）：显示后端 message。 */
 export const STATE_CONFLICT_CODES: readonly number[] = [
   ERROR_CODES.STATE_CONFLICT,
   ERROR_CODES.DUPLICATE_PROCESSING,
