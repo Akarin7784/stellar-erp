@@ -1,6 +1,6 @@
--- pgTAP：复合外键（sys/V202610210707、inv/V202610211409・V202610211410、prd/V202610211411、sal/V202610211412、fin/V202610211413、mdm/V202610211414）。指向有 company_id 的 sys_/mdm_ 表的 FK 须为三列 (tenant_id, company_id, x)（2 列须登记：已定例外或待改存量），跨租户引用被拒。
+-- pgTAP：复合外键（sys/V202610210707、inv/V202610211409・V202610211410、prd/V202610211411、sal/V202610211412、fin/V202610211413、mdm/V202610211414；FK 前导索引 inv/V202610211415・mdm/V202610211416・prd/V202610211417・sal/V202610211418）。指向有 company_id 的 sys_/mdm_ 表的 FK 须为三列 (tenant_id, company_id, x)（2 列须登记：已定例外或待改存量），跨租户引用被拒。
 BEGIN;
-SELECT plan(21);
+SELECT plan(22);
 
 SELECT is((SELECT count(*)::int FROM pg_constraint k JOIN pg_class r ON r.oid = k.confrelid
             WHERE k.contype = 'f' AND array_length(k.conkey, 1) = 1 AND r.relname ~ '^(sys|mdm)_'),
@@ -56,6 +56,21 @@ SELECT is((SELECT count(*)::int FROM pg_constraint k JOIN pg_class c ON c.oid = 
                                WHERE i.indrelid = k.conrelid AND am.amname = 'btree' AND i.indnatts >= 3
                                  AND i.indkey[0] = k.conkey[1] AND i.indkey[1] = k.conkey[2] AND i.indkey[2] = k.conkey[3])),
           0, 'mdm 域内部 FK 32 条子表均有以 (tenant_id, company_id, x_id) 打头的 btree 索引');
+-- 04 §6.2 项 2a 索引规则（v1.25，inv/V202610211415・mdm/V202610211416・prd/V202610211417・sal/V202610211418）：
+-- public 下全部子列为 (tenant_id, company_id, x) 的三列 FK（全域，新域自动覆盖），子表须有以这三列依次打头的 btree 索引。
+-- 部分索引只认谓词恰为「x IS NOT NULL」的（RI 检查 x = $1 可推出该谓词）；WHERE deleted = false 等不覆盖软删除行，不计入。失败时列出缺索引的约束名。
+SELECT is((SELECT string_agg(c.relname || '.' || k.conname, ', ' ORDER BY k.conname)
+             FROM pg_constraint k JOIN pg_class c ON c.oid = k.conrelid JOIN pg_namespace n ON n.oid = c.relnamespace
+             JOIN pg_attribute a1 ON a1.attrelid = k.conrelid AND a1.attnum = k.conkey[1]
+             JOIN pg_attribute a2 ON a2.attrelid = k.conrelid AND a2.attnum = k.conkey[2]
+             JOIN pg_attribute a3 ON a3.attrelid = k.conrelid AND a3.attnum = k.conkey[3]
+            WHERE k.contype = 'f' AND n.nspname = 'public' AND array_length(k.conkey, 1) = 3
+              AND a1.attname = 'tenant_id' AND a2.attname = 'company_id'
+              AND NOT EXISTS (SELECT 1 FROM pg_index i JOIN pg_class ic ON ic.oid = i.indexrelid JOIN pg_am am ON am.oid = ic.relam
+                               WHERE i.indrelid = k.conrelid AND am.amname = 'btree' AND i.indnatts >= 3
+                                 AND i.indkey[0] = k.conkey[1] AND i.indkey[1] = k.conkey[2] AND i.indkey[2] = k.conkey[3]
+                                 AND (i.indpred IS NULL OR pg_get_expr(i.indpred, i.indrelid) = '(' || a3.attname || ' IS NOT NULL)'))),
+          NULL, '全域三列 FK (tenant_id, company_id, x) 子表均有以这三列依次打头的 btree 索引（部分索引仅认 x IS NOT NULL）');
 SELECT is((SELECT pg_get_constraintdef(k.oid) || ' / ' || k.confdeltype::text || k.confupdtype::text FROM pg_constraint k WHERE k.conname = 'fk_fin_standard_cost_material'),
           'FOREIGN KEY (tenant_id, company_id, material_id) REFERENCES mdm_material(tenant_id, company_id, id) / aa',
           'fk_fin_standard_cost_material 为 04 §6.2 2a 标准三列形，NO ACTION（fin/V202610211413），登记表无 fk_fin_*');
