@@ -21,7 +21,7 @@
       "reports": 15,
       "batches": 10,
       "interfaces": 7,
-      "messages": 104,
+      "messages": 105,
       "apis": 192
     },
     "SAL": {
@@ -11578,6 +11578,15 @@
       "source": "02-mdm/04-uom-currency-tax.md"
     },
     {
+      "id": "MSG-MDM-178",
+      "type": "",
+      "body": "",
+      "condition": "",
+      "action": "",
+      "domain": "MDM",
+      "source": "02-mdm/04-uom-currency-tax.md"
+    },
+    {
       "id": "MSG-MDM-090",
       "type": "I",
       "body": "登録しました。",
@@ -14937,9 +14946,9 @@
     {
       "id": "MSG-PRD-022",
       "type": "E",
-      "body": "BOM の単位と物料の基本単位が一致しません。",
-      "condition": "単位不整合",
-      "action": "BOM 修正",
+      "body": "BOM の単位と物料の基本単位が整合しません（換算不可）。",
+      "condition": "単位不整合（同一単位でも同一換算グループでもない、または有効な換算率が 0 件・複数件）。BOM 保存（CHK-PRD-001-09、BOM API 実装時に接続）、工单登録（BOM 展開行）、材料明細の保存（新規追加・単位／数量変更行）、承認提出（全行）、工单下达（全行）（CHK-PRD-002-10）で 422／60022",
+      "action": "BOM・単位換算マスタを修正",
       "domain": "PRD",
       "source": "06-production/93-messages.md"
     },
@@ -23975,7 +23984,7 @@
     {
       "method": "POST/PUT",
       "path": "/api/mdm/uom-conversions[/{id}]",
-      "name": "換算 CRUD",
+      "name": "換算 CRUD（20077 は SQLSTATE 23P01 のうち制約名が ex_mdm_uom_conversion_period の場合のみ 20077 に変換（23P01 を一律 20077 にしない。標準原価公開の排他制約の 23P01 は 70134／MSG-FIN-134））",
       "permission": "mdm:uom:update",
       "domain": "MDM",
       "source": "02-mdm/91-api-design.md"

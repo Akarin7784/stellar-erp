@@ -574,7 +574,7 @@
 | POST/PUT | /api/mdm/tax-codes[/{id}] | 税码 CRUD | mdm:tax-code:update | MDM | 02-mdm/91-api-design.md |
 | GET | /api/mdm/uom-conversions | 換算一覧 | mdm:uom:view | MDM | 02-mdm/91-api-design.md |
 | POST | /api/mdm/uom-conversions | 換算登録 | mdm:uom:update | MDM | 02-mdm/04-uom-currency-tax.md |
-| POST/PUT | /api/mdm/uom-conversions[/{id}] | 換算 CRUD | mdm:uom:update | MDM | 02-mdm/91-api-design.md |
+| POST/PUT | /api/mdm/uom-conversions[/{id}] | 換算 CRUD（20077 は SQLSTATE 23P01 のうち制約名が ex_mdm_uom_conversion_period の場合のみ 20077 に変換（23P01 を一律 20077 にしない。標準原価公開の排他制約の 23P01 は 70134／MSG-FIN-134）） | mdm:uom:update | MDM | 02-mdm/91-api-design.md |
 | GET | /api/mdm/uoms | 単位一覧 | mdm:uom:view | MDM | 02-mdm/91-api-design.md |
 | POST | /api/mdm/uoms/convert | 数量換算（他域共用） | mdm:uom:view | MDM | 02-mdm/04-uom-currency-tax.md |
 | POST | /api/mdm/uoms/convert | 数量換算 | mdm:uom:view | MDM | 02-mdm/91-api-design.md |
