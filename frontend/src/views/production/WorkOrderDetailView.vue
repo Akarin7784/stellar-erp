@@ -74,7 +74,9 @@ import {
   type ReleaseErrorView,
   type WorkOrderDetail,
   type WorkOrderWarning,
+  WO_PERMISSIONS,
 } from '@/api/production/workOrder'
+import { useAuthStore } from '@/stores/auth'
 
 const props = defineProps<{ id: string }>()
 const loading = ref(false)
@@ -83,9 +85,15 @@ const errorText = ref('')
 const errorKind = ref<ReleaseErrorView['kind'] | null>(null)
 const releasing = ref(false)
 
-/** 已承认（25）可下达 */
+const auth = useAuthStore()
+/** 按 /auth/me permissions 控制按钮（同 OverproductionApprovalView） */
+const has = (code: string) => auth.me?.permissions.includes(code) ?? false
+
+/** 已批准（25）且有下达权限时可下达 */
 const STATUS_APPROVED = 25
-const canRelease = computed(() => detail.value?.orderStatus === STATUS_APPROVED)
+const canRelease = computed(
+  () => detail.value?.orderStatus === STATUS_APPROVED && has(WO_PERMISSIONS.release),
+)
 const warnings = ref<WorkOrderWarning[]>(takeWarnings())
 
 /** 从 history.state 取建单时的 warnings，取完即清掉，刷新/返回不再显示 */
