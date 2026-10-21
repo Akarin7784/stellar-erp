@@ -243,7 +243,7 @@ CREATE TABLE sal_quotation (
     price_list_id       BIGINT,                                -- 価格表（mdm_price_list.id）
     payment_term_code   VARCHAR(20)  NOT NULL,                 -- 付款条件（mdm_payment_term.payment_term_code）
     settlement_method_code VARCHAR(20),                        -- 決済方法
-    quotation_status    SMALLINT     NOT NULL DEFAULT 10,      -- 状態（10作成中/25承認待ち/30有効/35已转订单/90失效/95却下）
+    quotation_status    SMALLINT     NOT NULL DEFAULT 10,      -- 状态（10创建中/20待审批/25已批准/30有效/35已转订单/90失效/95驳回）
     approval_status     SMALLINT     NOT NULL DEFAULT 10,      -- 承認状態（10不要/20承認待ち/25承認済）
     approval_required   BOOLEAN      NOT NULL DEFAULT FALSE,   -- 承認要否
     approved_at         TIMESTAMPTZ,                            -- 承認日時
