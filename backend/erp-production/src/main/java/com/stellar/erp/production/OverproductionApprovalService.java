@@ -188,17 +188,11 @@ public class OverproductionApprovalService {
         return get(approvalId);
     }
 
-    /** 30／40／90（承認済・却下・取消）への操作は 60101、その他の想定外状態は 4002。 */
+    /** 想定外の状態（10・30・40・90 を含む）への操作はすべて 60101（91 §3.14）。 */
     private static void checkStatus(ProductionRepository.ApprovalRow a, short expected) {
-        short s = a.approvalStatus();
-        if (s == expected) {
-            return;
+        if (a.approvalStatus() != expected) {
+            throw invalidApproval("超産承認が無効です（現在の状態ではこの操作はできません）。");
         }
-        if (s == STATUS_APPROVED || s == STATUS_REJECTED || s == STATUS_CANCELLED) {
-            throw invalidApproval("超産承認が無効です（承認済・却下・取消済み）。");
-        }
-        throw new BizException(ProductionErrorCode.STATE_CONFLICT, ProductionErrorCode.MSG_STATE_CONFLICT,
-                "该记录当前状态不允许此操作。");
     }
 
     private static void checkVersion(ProductionRepository.ApprovalRow a, Integer version) {

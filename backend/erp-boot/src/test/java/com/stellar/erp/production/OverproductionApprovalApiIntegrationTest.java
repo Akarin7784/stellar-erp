@@ -327,9 +327,9 @@ class OverproductionApprovalApiIntegrationTest {
     }
 
     @Test
-    void approveDraftIs4002() throws Exception {
+    void approveDraftIs60101() throws Exception {
         String id = newApproval(WO, "10");
-        act(APPROVER, id, "approve", 0).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value(4002));
+        act(APPROVER, id, "approve", 0).andExpect(status().isUnprocessableContent()).andExpect(jsonPath("$.code").value(60101));
         assertThat(lineAllowed(LINE)).isEqualByComparingTo("105");
         assertThat(statusOf(id)).isEqualTo(10);
     }
@@ -403,13 +403,13 @@ class OverproductionApprovalApiIntegrationTest {
     @Test
     void submitOnlyFromDraft() throws Exception {
         String id = pendingApproval(WO, "10");
-        act(USER, id, "submit", 1).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value(4002));
+        act(USER, id, "submit", 1).andExpect(status().isUnprocessableContent()).andExpect(jsonPath("$.code").value(60101));
     }
 
     @Test
     void rejectFromPendingKeepsAllowedQty() throws Exception {
         String id = pendingApproval(WO, "10");
-        postAs(APPROVER, CO, BASE + "/" + id + "/reject", "{\"version\": 1, \"comment\": \"数量过多\"}")
+        postAs(APPROVER, CO, BASE + "/" + id + "/reject", "{\"version\": 1, \"rejectReason\": \"数量过多\"}")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.approvalStatus").value(40))
                 .andExpect(jsonPath("$.data.rejectReason").value("数量过多"))
@@ -419,7 +419,7 @@ class OverproductionApprovalApiIntegrationTest {
         act(APPROVER, id, "reject", 2).andExpect(status().isUnprocessableContent()).andExpect(jsonPath("$.code").value(60101));
         act(USER, id, "cancel", 2).andExpect(status().isUnprocessableContent()).andExpect(jsonPath("$.code").value(60101));
         String draft = newApproval(null, "1");
-        act(APPROVER, draft, "reject", 0).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value(4002));
+        act(APPROVER, draft, "reject", 0).andExpect(status().isUnprocessableContent()).andExpect(jsonPath("$.code").value(60101));
     }
 
     @Test

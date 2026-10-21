@@ -15,6 +15,7 @@ import com.stellar.erp.common.Result;
 import com.stellar.erp.production.OverproductionApprovalService;
 import com.stellar.erp.production.OverproductionApprovalView;
 import com.stellar.erp.production.OverproductionApproved;
+import com.stellar.erp.production.OverproductionRejectCommand;
 import com.stellar.erp.production.OverproductionRequestCommand;
 import com.stellar.erp.production.OverproductionRequested;
 import com.stellar.erp.production.WorkOrderStateCommand;
@@ -24,8 +25,7 @@ import jakarta.validation.Valid;
 /**
  * 超产申请 / 承認 API（90 §3.19.1、G2-18 6.）。
  *
- * <p>91 の API 一覧にパスが未定義のため、91 の命名慣例（{@code /api/production/<複数形リソース>}、状態操作は
- * {@code POST /{id}/<動詞>}）に合わせた暫定パス。会社・租户は LoginContext から取り、body の {@code companyId} は無視する。
+ * <p>91 #39a〜39g・§3.14。会社・租户は LoginContext から取り、body の {@code companyId} は無視する。
  * TODO 権限チェックは認証落地後に接入。</p>
  */
 @RestController
@@ -50,12 +50,12 @@ public class OverproductionApprovalController {
         return Result.ok(service.get(id));
     }
 
-    /** 一覧（当前公司のみ。salesOrderLineId / workOrderId / approvalStatus で絞込、pageNum/pageSize は 03 §7.1）。 */
+    /** 一覧（当前公司のみ。salesOrderLineId / workOrderId / approvalStatus で絞込、page/size は 91 §3.14）。 */
     @GetMapping
     public Result<PageResult<OverproductionApprovalView>> list(@RequestParam(required = false) Long salesOrderLineId,
             @RequestParam(required = false) Long workOrderId, @RequestParam(required = false) Short approvalStatus,
-            @RequestParam(defaultValue = "1") int pageNum, @RequestParam(defaultValue = "20") int pageSize) {
-        return Result.ok(service.list(salesOrderLineId, workOrderId, approvalStatus, pageNum, pageSize));
+            @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int size) {
+        return Result.ok(service.list(salesOrderLineId, workOrderId, approvalStatus, page, size));
     }
 
     /** 提出 10→20。body は {@code {"version": n}}。 */
@@ -64,10 +64,10 @@ public class OverproductionApprovalController {
         return Result.ok(service.submit(id, body.version()));
     }
 
-    /** 却下 20→40。body は {@code {"version": n, "comment": "理由"}}（comment → reject_reason）。 */
+    /** 却下 20→40。body は {@code {"version": n, "rejectReason": "理由"}}。 */
     @PostMapping("/{id}/reject")
-    public Result<OverproductionApprovalView> reject(@PathVariable long id, @Valid @RequestBody WorkOrderStateCommand body) {
-        return Result.ok(service.reject(id, body.version(), body.comment()));
+    public Result<OverproductionApprovalView> reject(@PathVariable long id, @Valid @RequestBody OverproductionRejectCommand body) {
+        return Result.ok(service.reject(id, body.version(), body.rejectReason()));
     }
 
     /** 取消 10/20→90。 */
