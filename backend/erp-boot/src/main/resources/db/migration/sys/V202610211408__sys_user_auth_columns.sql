@@ -100,10 +100,10 @@ CREATE INDEX idx_sys_user_mobile ON sys_user (tenant_id, company_id, mobile);
 ALTER TABLE sys_user ADD CONSTRAINT uk_sys_user_tenant_id UNIQUE (tenant_id, id);
 
 -- 5a. 外键（蓝色大肥鱼 2026-10-21 #75 决定；列均可空，MATCH SIMPLE 下 x_id 为 NULL 时不检查）
---     同域（sys→sys）：04 §6.2 2a（04-common-db-spec.md:208）三列 (tenant_id, company_id, x_id) → (tenant_id, company_id, id)，拒绝跨公司引用：
---       department_id → sys_department、position_id → sys_position、manager_user_id → sys_user（自引用）。
---     跨域（sys→mdm）：04 §6.2 项 2 / 2a 第 1 子项（04-common-db-spec.md:207、209）二列 (tenant_id, x_id) → (tenant_id, id)：
---       factory_id → mdm_factory（与 0707 中全部指向 mdm_factory 的外键一致，主数据可跨公司共享）。
+--     被引用表均有 company_id → 一律三列 (tenant_id, company_id, x_id) → (tenant_id, company_id, id)，拒绝跨公司引用
+--     （蓝色大肥鱼 2026-10-21：公司隔离优先于旧先例，跨域亦同）：
+--       department_id → sys_department、position_id → sys_position、manager_user_id → sys_user（自引用）、
+--       factory_id → mdm_factory（跨域 sys→mdm）。
 --     0 视为“未设置”，先置 NULL。
 UPDATE sys_user SET department_id = NULLIF(department_id, 0), position_id = NULLIF(position_id, 0),
                     factory_id = NULLIF(factory_id, 0), manager_user_id = NULLIF(manager_user_id, 0)
@@ -111,11 +111,12 @@ UPDATE sys_user SET department_id = NULLIF(department_id, 0), position_id = NULL
 ALTER TABLE sys_department ADD CONSTRAINT uk_sys_department_tenant_company_id UNIQUE (tenant_id, company_id, id);
 ALTER TABLE sys_position   ADD CONSTRAINT uk_sys_position_tenant_company_id   UNIQUE (tenant_id, company_id, id);
 ALTER TABLE sys_user       ADD CONSTRAINT uk_sys_user_tenant_company_id       UNIQUE (tenant_id, company_id, id);
+ALTER TABLE mdm_factory    ADD CONSTRAINT uk_mdm_factory_tenant_company_id    UNIQUE (tenant_id, company_id, id);
 ALTER TABLE sys_user
     ADD CONSTRAINT fk_sys_user_department FOREIGN KEY (tenant_id, company_id, department_id)   REFERENCES sys_department (tenant_id, company_id, id),
     ADD CONSTRAINT fk_sys_user_position   FOREIGN KEY (tenant_id, company_id, position_id)     REFERENCES sys_position (tenant_id, company_id, id),
     ADD CONSTRAINT fk_sys_user_manager    FOREIGN KEY (tenant_id, company_id, manager_user_id) REFERENCES sys_user (tenant_id, company_id, id),
-    ADD CONSTRAINT fk_sys_user_factory    FOREIGN KEY (tenant_id, factory_id)                  REFERENCES mdm_factory (tenant_id, id);
+    ADD CONSTRAINT fk_sys_user_factory    FOREIGN KEY (tenant_id, company_id, factory_id)      REFERENCES mdm_factory (tenant_id, company_id, id);
 -- 04 §7：FK 列加索引（department_id 由 idx_sys_user_dept_status 覆盖）
 CREATE INDEX idx_sys_user_position ON sys_user (tenant_id, company_id, position_id);
 CREATE INDEX idx_sys_user_manager  ON sys_user (tenant_id, company_id, manager_user_id);

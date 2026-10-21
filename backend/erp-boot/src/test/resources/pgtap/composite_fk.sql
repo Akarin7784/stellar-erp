@@ -10,10 +10,11 @@ SELECT is((SELECT count(*)::int FROM pg_constraint k JOIN pg_class r ON r.oid = 
             JOIN pg_attribute b ON b.attrelid = k.confrelid AND b.attnum = k.confkey[1]
             WHERE k.contype = 'f' AND r.relname ~ '^(sys|mdm)_'
               AND NOT (array_length(k.conkey, 1) = 2 AND a.attname = 'tenant_id' AND b.attname = 'tenant_id')
-              -- sys 同域外键为三列 (tenant_id, company_id, x_id)（04 §6.2 2a，sys/V202610211408），形态由 same_domain_parent_fk.sql 检查
+              -- 被引用表有 company_id 时为三列 (tenant_id, company_id, x_id) → (tenant_id, company_id, id)（蓝色大肥鱼 2026-10-21，跨域亦同；sys/V202610211408）
               AND NOT (array_length(k.conkey, 1) = 3 AND a.attname = 'tenant_id' AND b.attname = 'tenant_id'
-                       AND split_part((SELECT relname FROM pg_class WHERE oid = k.conrelid), '_', 1) = split_part(r.relname, '_', 1))),
-          0, '指向 sys_/mdm_ 的外键全部以 (tenant_id, …) → (tenant_id, id)（同域三列除外）');
+                       AND (SELECT attname FROM pg_attribute WHERE attrelid = k.conrelid AND attnum = k.conkey[2]) = 'company_id'
+                       AND (SELECT attname FROM pg_attribute WHERE attrelid = k.confrelid AND attnum = k.confkey[2]) = 'company_id')),
+          0, '指向 sys_/mdm_ 的外键全部为 (tenant_id, x_id) 二列或 (tenant_id, company_id, x_id) 三列');
 SELECT ok(EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uk_mdm_material_tenant_id' AND contype = 'u'),
           'mdm_material 有 uk_mdm_material_tenant_id UNIQUE (tenant_id, id)');
 
