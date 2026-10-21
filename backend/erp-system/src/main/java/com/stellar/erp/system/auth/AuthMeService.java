@@ -30,7 +30,7 @@ public class AuthMeService {
     public record RoleInfo(String roleCode, String roleName) {
     }
 
-    public record MenuInfo(Long id, Long parentId, int menuType, String menuCode, String menuName, String routePath, int sortNo) {
+    public record MenuInfo(Long id, Long parentId, int menuType, String menuCode, String menuName, String routePath, int sortNo, boolean isVisible) {
     }
 
     public record Me(UserInfo userInfo, long companyId, List<RoleInfo> roles, List<String> permissions,
@@ -86,14 +86,14 @@ public class AuthMeService {
                               FROM tree t
                               JOIN sys_menu p ON p.id = t.parent_id AND p.deleted = FALSE AND p.menu_type = 1
                         )
-                        SELECT m.id, m.parent_id, m.menu_type, m.menu_code, m.menu_name, m.route_path, m.sort_no
+                        SELECT m.id, m.parent_id, m.menu_type, m.menu_code, m.menu_name, m.route_path, m.sort_no, m.is_visible
                           FROM sys_menu m
                          WHERE m.id IN (SELECT id FROM tree)
                          ORDER BY m.sort_no, m.id
                         """)
                 .param("user", login.userId()).param("company", login.companyId())
                 .query((rs, i) -> new MenuInfo(rs.getLong(1), rs.getLong(2), rs.getInt(3), rs.getString(4),
-                        rs.getString(5), rs.getString(6), rs.getInt(7)))
+                        rs.getString(5), rs.getString(6), rs.getInt(7), rs.getBoolean(8)))
                 .list();
         return new Me(user, login.companyId(), roles, codes, menus);
     }
