@@ -4,7 +4,7 @@
 |---|---|
 | 文書名 | 系统管理 DB 设计书（系统管理 DB 設計書） |
 | 文書番号 | DSN-SYS-090 |
-| 版数 | v1.19 |
+| 版数 | v1.20 |
 | 作成日 | 2026-10-20 |
 | 作成者 | system-workflow（域設計担当） |
 | 承認者 | 未承認（レビュー待ち） |
@@ -880,7 +880,7 @@ CREATE TABLE sys_login_log (
     location            VARCHAR(100),                     -- 地域（IP から推定、任意）
     user_agent          VARCHAR(500),                     -- UA
     device_type         SMALLINT,                         -- 端末：1 PC / 2 移动 / 3 API
-    session_id          VARCHAR(100),                     -- Sa-Token セッション ID（成功時）
+    session_id          VARCHAR(100),                     -- トークンの SHA-256 16 進完全値（64 桁、成功時）。平文トークンは保存しない。Redis 上のセッションとの対応付け用で、認証情報として使用不可
     occurred_at         TIMESTAMPTZ   NOT NULL DEFAULT now() -- 発生日時
 );
 COMMENT ON TABLE sys_login_log IS '登录日志（認証履歴）';
@@ -1646,3 +1646,4 @@ COMMENT ON TABLE sys_data_maintenance_log IS '数据维护历史（初期化・�
 | v1.17 | 2026-10-21 | §3.3 `uk_sys_tenant_code` を `(tenant_id, tenant_code)` → `(tenant_code) WHERE deleted=FALSE` の全体一意に変更（04 §6.1 第 4 条 (c) 具名例外）、ログイン参照関数 `sys_auth_find_login_user` を追記。§3.x `uk_sys_user_username` の目的をログイン＝企業代码＋`username` に修正。DB 迁移は DBA の `sys_user` 正式迁移で実施（蓝色大肥鱼 2026-10-21 #71 決定） | 业务分析 |
 | v1.18 | 2026-10-21 | §3.3 `tenant_code` は大文字小文字を区別せず大文字で保存、`CHECK (tenant_code = upper(tenant_code))`、照合前に `upper()`。§3.6 `username` は完全一致（区別あり）のまま、`gender` に `CHECK IN (0,1,2)`、`employee_type` に `CHECK IN (1,2,3,4)`、`department_id`/`position_id`/`factory_id`/`manager_user_id` に三列複合 FK `(tenant_id, company_id, x)`（NULL 可、例外なし、factory は跨域硬 FK）、`company_id`=`sys_company.id` を追記（蓝色大肥鱼 2026-10-21 #75 決定） | 业务分析 |
 | v1.19 | 2026-10-21 | §3.6 `factory_id` FK の列数根拠を 04 §6.2 項 2a の新規則（参照先に `company_id` があれば三列）に変更（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.20 | 2026-10-21 | §3.19 `sys_login_log.session_id`：トークンの SHA-256 16 進完全値（64 桁）を保存し平文トークンは保存しない、Redis セッションとの対応付け用で認証情報として使用不可（現行 VARCHAR(100) で 64 桁は収まる。迁移 `sys/V202610210104:746` の COMMENT は旧記述のまま）（蓝色大肥鱼 2026-10-21 16:29 決定） | 业务分析 |

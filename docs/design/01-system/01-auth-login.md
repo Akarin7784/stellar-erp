@@ -4,7 +4,7 @@
 |---|---|
 | 文書名 | 认证与登录 详细设计书（認証・ログイン 詳細設計書） |
 | 文書番号 | DSN-SYS-001 |
-| 版数 | v1.5 |
+| 版数 | v1.6 |
 | 作成日 | 2026-10-20 |
 | 作成者 | system-workflow（域設計担当） |
 | 承認者 | 未承認（レビュー待ち） |
@@ -266,7 +266,7 @@ stateDiagram-v2
 6. `password_reset_required=true` または `account_status=4` または `password_expire_at < now()` の場合、`passwordResetRequired=true` を返す（トークンは発行するが業務 API は 403 で制限）。
 7. Sa-Token でトークンを発行する（`loginId=userId`、端末種別、`tenantId`/`companyId`/`factoryId` をセッションに格納）。トークン・セッションは Sa-Token の Redis DAO で Redis に保存する（検証コードも Redis。メモリ保存は不可）。BR-08 により多重ログイン不可設定時は既存セッションを失効させる。
 8. ロール・権限コード・メニューを解決し、セッション（Redis）とレスポンスに格納する（詳細は F-SYS-003）。権限・メニューは**当前会社分のみ**：`sys_user_role.company_id = セッションの company_id` かつ租户一致のロールに付与されたもの。会社切替時は再計算する。データ範囲（`dataScopes`）は別 PR で設計・実装する。
-9. `sys_login_log` に成功を記録し、`sys_audit_log` に `LOGIN` を記録する（非同期）。
+9. `sys_login_log` に成功を記録し（`session_id` はトークンの SHA-256 16 進完全値〔64 桁〕。平文トークンは記録しない。Redis セッションとの対応付け用で認証情報として使用不可、90 §3.19）、`sys_audit_log` に `LOGIN` を記録する（非同期）。
 10. `{token, tokenName, expiresIn, userInfo, roles, permissions, menus, passwordResetRequired}` を返す。
 
 **PRC-SYS-001-04 パスワード変更**
@@ -478,3 +478,4 @@ stateDiagram-v2
 | v1.3 | 2026-10-21 | 前提 #4：ロールなしでもログイン成功、`/auth/me` `menus`=`[]`、フロントは「暂无权限，请联系管理员」（前提表 #4/#5 の列ずれも修正）。BR-15：HTTP 401 は 2001 のみ、2002〜2005 は 200＋body `code`。§7.1 `/auth/me` に同旨（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.4 | 2026-10-21 | BR-15：ログイン API の失敗は例外なく HTTP 200（入力チェック 1001・10900・4003 を含む）、401 は 2001 のみ、他 API の業務エラーは 422。PRC-SYS-001-02 手順 5・§6.3 #4/#7・§7.1 強度不足 10001→10005・§9 MSG-SYS-001 に code=10900・MSG-COM-033 行を追加（蓝色大肥鱼 2026-10-21 16:15/16:16 決定） | 业务分析 |
 | v1.5 | 2026-10-21 | BR-15：不正 JSON 等のプロトコル層エラーは HTTP 400、「401 は 2001 のみ・他は 200」は業務・入力チェックエラーに限ると追記（蓝色大肥鱼 2026-10-21 16:25 決定） | 业务分析 |
+| v1.6 | 2026-10-21 | PRC-SYS-001-02 手順 9：`sys_login_log.session_id` はトークンの SHA-256 16 進完全値（64 桁）、平文トークンは記録しない（蓝色大肥鱼 2026-10-21 16:29 決定） | 业务分析 |
