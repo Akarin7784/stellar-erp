@@ -78,7 +78,25 @@ export const ERROR_CODES = {
   SYSTEM_ERROR: 5000,
   SERVICE_UNAVAILABLE: 5001,
   RATE_LIMITED: 5002,
+  /** 公司代码・统一社会信用代码重复（公司登録）：HTTP 422 / MSG-SYS-093（01-system/91-api-design.md §1.1、93-messages.md:70）。 */
+  COMPANY_DUPLICATE: 10035,
+  /** 单位换算率有效期间重复：HTTP 422 / MSG-MDM-178（02-mdm/91-api-design.md §4.1、93-messages.md:113）。 */
+  UOM_CONVERSION_PERIOD_OVERLAP: 20077,
 } as const
+
+/** 后端未给 msgId 时按 code 补的消息 ID（只收录设计文档已定义的）。 */
+export const MSG_ID_BY_CODE: Partial<Record<number, string>> = {
+  [ERROR_CODES.COMPANY_DUPLICATE]: 'MSG-SYS-093',
+  [ERROR_CODES.UOM_CONVERSION_PERIOD_OVERLAP]: 'MSG-MDM-178',
+}
+
+/**
+ * 后端未给 message 时的默认文案（文案原样取自 93-messages.md）。
+ * 10035 的文案含占位符「{0}」（公司代码），前端无法补全，故不设默认，依赖后端 message。
+ */
+export const DEFAULT_MESSAGE_BY_CODE: Partial<Record<number, string>> = {
+  [ERROR_CODES.UOM_CONVERSION_PERIOD_OVERLAP]: '有効期間が既存の換算率と重複しています。',
+}
 
 /** 状态冲突类错误码（HTTP 409，非乐观锁）：显示后端 message。 */
 export const STATE_CONFLICT_CODES: readonly number[] = [
@@ -163,8 +181,9 @@ function notify(
       msg = message || MSG_STATE_CONFLICT
       break
     case 'business': {
-      const text = message || MSG_REQUEST_FAILED
-      const id = msgId ?? code
+      const text =
+        message || (code !== undefined && DEFAULT_MESSAGE_BY_CODE[code]) || MSG_REQUEST_FAILED
+      const id = msgId ?? (code !== undefined ? MSG_ID_BY_CODE[code] : undefined) ?? code
       msg = id !== undefined ? `[${id}] ${text}` : text
       break
     }
