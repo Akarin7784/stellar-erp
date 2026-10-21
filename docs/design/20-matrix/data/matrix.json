@@ -9,7 +9,7 @@
       "reports": 9,
       "batches": 12,
       "interfaces": 7,
-      "messages": 99,
+      "messages": 100,
       "apis": 145
     },
     "MDM": {
@@ -21,7 +21,7 @@
       "reports": 15,
       "batches": 10,
       "interfaces": 7,
-      "messages": 104,
+      "messages": 105,
       "apis": 192
     },
     "SAL": {
@@ -10525,6 +10525,15 @@
       "source": "01-system/03-org-position.md"
     },
     {
+      "id": "MSG-SYS-093",
+      "type": "",
+      "body": "",
+      "condition": "",
+      "action": "",
+      "domain": "SYS",
+      "source": "01-system/03-org-position.md"
+    },
+    {
       "id": "MSG-SYS-036",
       "type": "E",
       "body": "该岗位已被用户使用，不能停用。",
@@ -11571,6 +11580,15 @@
     {
       "id": "MSG-MDM-100",
       "type": "コード存在",
+      "body": "",
+      "condition": "",
+      "action": "",
+      "domain": "MDM",
+      "source": "02-mdm/04-uom-currency-tax.md"
+    },
+    {
+      "id": "MSG-MDM-178",
+      "type": "",
       "body": "",
       "condition": "",
       "action": "",
@@ -14937,9 +14955,9 @@
     {
       "id": "MSG-PRD-022",
       "type": "E",
-      "body": "BOM の単位と物料の基本単位が一致しません。",
-      "condition": "単位不整合",
-      "action": "BOM 修正",
+      "body": "BOM の単位と物料の基本単位が整合しません（換算不可）。",
+      "condition": "単位不整合（同一単位でも同一換算グループでもない、または有効な換算率が 0 件・複数件）。BOM 保存（CHK-PRD-001-09、BOM API 実装時に接続）、工单登録（BOM 展開行）、材料明細の保存（新規追加・単位／数量変更行）、承認提出（全行）、工单下达（全行）（CHK-PRD-002-10）で 422／60022",
+      "action": "BOM・単位換算マスタを修正",
       "domain": "PRD",
       "source": "06-production/93-messages.md"
     },
@@ -18294,7 +18312,7 @@
   ],
   "permissions": [
     {
-      "code": "system:user:*、system:role:*、system:menu:*、system:param:*",
+      "code": "system:user:*、system:role:*、system:menu:*、system:param:*、system:company:create（公司登録）",
       "function": "F-SYS-002〜020",
       "scope": "",
       "domain": "SYS",
@@ -18549,6 +18567,13 @@
       "code": "system:role-grant:approve",
       "function": "F-SYS-003",
       "scope": "全社",
+      "domain": "SYS",
+      "source": "01-system/00-overview.md"
+    },
+    {
+      "code": "system:company:create",
+      "function": "F-SYS-014",
+      "scope": "テナント",
       "domain": "SYS",
       "source": "01-system/00-overview.md"
     },
@@ -21872,7 +21897,7 @@
       "method": "POST",
       "path": "/api/system/companies",
       "name": "公司登録（PRC-SYS-014-03）",
-      "permission": "system:company:update",
+      "permission": "system:company:create",
       "domain": "SYS",
       "source": "01-system/03-org-position.md"
     },
@@ -22528,7 +22553,7 @@
       "method": "POST",
       "path": "/api/system/companies",
       "name": "公司登録（同一 TX で sys_param 既定行を投入、[90 §3.1](90-db-design.md)）",
-      "permission": "system:company:update",
+      "permission": "system:company:create",
       "domain": "SYS",
       "source": "01-system/91-api-design.md"
     },
@@ -23991,7 +24016,7 @@
     {
       "method": "POST/PUT",
       "path": "/api/mdm/uom-conversions[/{id}]",
-      "name": "換算 CRUD",
+      "name": "換算 CRUD（20077 は SQLSTATE 23P01 のうち制約名が ex_mdm_uom_conversion_period の場合のみ 20077 に変換（23P01 を一律 20077 にしない。標準原価公開の排他制約の 23P01 は 70134／MSG-FIN-134））",
       "permission": "mdm:uom:update",
       "domain": "MDM",
       "source": "02-mdm/91-api-design.md"

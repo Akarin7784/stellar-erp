@@ -574,7 +574,7 @@
 | POST/PUT | /api/mdm/tax-codes[/{id}] | 税码 CRUD | mdm:tax-code:update | MDM | 02-mdm/91-api-design.md |
 | GET | /api/mdm/uom-conversions | 換算一覧 | mdm:uom:view | MDM | 02-mdm/91-api-design.md |
 | POST | /api/mdm/uom-conversions | 換算登録 | mdm:uom:update | MDM | 02-mdm/04-uom-currency-tax.md |
-| POST/PUT | /api/mdm/uom-conversions[/{id}] | 換算 CRUD | mdm:uom:update | MDM | 02-mdm/91-api-design.md |
+| POST/PUT | /api/mdm/uom-conversions[/{id}] | 換算 CRUD（20077 は SQLSTATE 23P01 のうち制約名が ex_mdm_uom_conversion_period の場合のみ 20077 に変換（23P01 を一律 20077 にしない。標準原価公開の排他制約の 23P01 は 70134／MSG-FIN-134）） | mdm:uom:update | MDM | 02-mdm/91-api-design.md |
 | GET | /api/mdm/uoms | 単位一覧 | mdm:uom:view | MDM | 02-mdm/91-api-design.md |
 | POST | /api/mdm/uoms/convert | 数量換算（他域共用） | mdm:uom:view | MDM | 02-mdm/04-uom-currency-tax.md |
 | POST | /api/mdm/uoms/convert | 数量換算 | mdm:uom:view | MDM | 02-mdm/91-api-design.md |
@@ -1049,8 +1049,8 @@
 | POST | /api/system/auth/password | パスワード変更 | 認証済 | SYS | 01-system/91-api-design.md |
 | POST | /api/system/caches/refresh | キャッシュ再構築 | system:cache:refresh | SYS | 01-system/91-api-design.md |
 | GET | /api/system/companies | 公司一覧 | system:company:view | SYS | 01-system/91-api-design.md |
-| POST | /api/system/companies | 公司登録（PRC-SYS-014-03） | system:company:update | SYS | 01-system/03-org-position.md |
-| POST | /api/system/companies | 公司登録（同一 TX で sys_param 既定行を投入、90 §3.1） | system:company:update | SYS | 01-system/91-api-design.md |
+| POST | /api/system/companies | 公司登録（PRC-SYS-014-03） | system:company:create | SYS | 01-system/03-org-position.md |
+| POST | /api/system/companies | 公司登録（同一 TX で sys_param 既定行を投入、90 §3.1） | system:company:create | SYS | 01-system/91-api-design.md |
 | PUT | /api/system/companies/{id} | 公司更新 | system:company:update | SYS | 01-system/91-api-design.md |
 | POST | /api/system/departments | 部門登録 | system:department:create | SYS | 01-system/91-api-design.md |
 | GET | /api/system/departments/tree | 部門ツリー（有効のみ/全部） | system:department:view | SYS | 01-system/03-org-position.md |

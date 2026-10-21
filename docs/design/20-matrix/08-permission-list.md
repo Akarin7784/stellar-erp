@@ -8,7 +8,7 @@
 | 作成日 | 2026-10-20 |
 | 作成者 | Lead（生成工具 gen_matrix.py） |
 | 状態 | ドラフト（自动生成・最終レビュー前） |
-| 備考 | 全 451 件。権限コード/域/対象機能/データ範囲/提取元 |
+| 備考 | 全 452 件。権限コード/域/対象機能/データ範囲/提取元 |
 
 > 本文件由 `20-matrix/tools/gen_matrix.py` 从各域设计书中自动提取生成。修改设计书后重新运行即可更新。
 
@@ -416,6 +416,7 @@
 | system:audit-log:view/export、system:login-log:view | SYS | F-SYS-009 |  | 01-system/00-overview.md |
 | system:audit-log:view（モジュール=finance） | SYS | F-SYS-009 |  | 01-system/00-overview.md |
 | system:auth:login | SYS | F-SYS-001 | 本人 | 01-system/00-overview.md |
+| system:company:create | SYS | F-SYS-014 | テナント | 01-system/00-overview.md |
 | system:company:view | SYS | F-SYS-014 |  | 01-system/00-overview.md |
 | system:department:view | SYS | F-SYS-005 |  | 01-system/00-overview.md |
 | system:dict:update | SYS | F-SYS-007 |  | 01-system/00-overview.md |
@@ -443,7 +444,7 @@
 | system:role:view | SYS | F-SYS-003 |  | 01-system/00-overview.md |
 | system:tenant:view | SYS | F-SYS-017 |  | 01-system/00-overview.md |
 | system:user-role:update | SYS | F-SYS-003 |  | 01-system/00-overview.md |
-| system:user:*、system:role:*、system:menu:*、system:param:* | SYS | F-SYS-002〜020 |  | 01-system/00-overview.md |
+| system:user:*、system:role:*、system:menu:*、system:param:*、system:company:create（公司登録） | SYS | F-SYS-002〜020 |  | 01-system/00-overview.md |
 | system:user:create/update | SYS | F-SYS-002 |  | 01-system/00-overview.md |
 | system:user:create/update/disable、system:department:*、system:position:* | SYS | F-SYS-002、005、006 |  | 01-system/00-overview.md |
 | system:user:view | SYS | F-SYS-002 |  | 01-system/00-overview.md |

@@ -220,7 +220,7 @@ stateDiagram-v2
 
 **PRC-SYS-014-03 公司登録**（蓝色大肥鱼 2026-10-21 決定）
 
-1. 権限チェック（`system:company:update`）と入力チェック（会社コード・信用代码の一意）。
+1. 権限チェック（`system:company:create`。テナント開設級の操作で `update` とは分離）と入力チェック（汎用検証違反は `1001`。公司代码・统一社会信用代码の重複は 409／`10035`／`MSG-SYS-093`）。
 2. `sys_company` を INSERT する（共通カラム `company_id` は自行 `id` と同値）。
 3. 同一トランザクションで、[90 §3.15](90-db-design.md)「業務パラメータ」表の全キー（現時点 `prd.completion_over_rate = 0.05`、`prd.overproduction_max_rate = 1.0000`）を `sys_param` に `company_id` = 新しい `sys_company.id` で INSERT する。既存行はスキップ（`ON CONFLICT ... DO NOTHING`）。失敗時は会社登録ごとロールバック。
 4. 監査ログを記録する。以後、当該会社でのパラメータ読取りは `company_id = 0` へフォールバックせず、行がなければ `5000`。
@@ -241,6 +241,7 @@ stateDiagram-v2
 | 4 | 使用中部門の無効化 | 参照チェック | 拒否 | — | MSG-SYS-031 |
 | 5 | 默认工厂重複 | 排他更新 | 既存を解除して新規を默认（正常） | — | — |
 | 6 | 最後の会社の削除 | 業務チェック | 拒否 | — | MSG-SYS-035 |
+| 6a | 公司代码・信用代码の重複（公司登録） | 事前チェック/DB 一意索引 | 409（`10035`） | 全体 | MSG-SYS-093 |
 | 7 | 楽観排他競合 | UPDATE 0 件 | 409 | 全体 | MSG-COM-033 |
 
 ### 6.4 冪等性・排他
@@ -265,7 +266,7 @@ stateDiagram-v2
 | 10 | PUT | /api/system/positions/{id} | `system:position:update` | 岗位更新 |
 | 11 | DELETE | /api/system/positions/{id} | `system:position:delete` | 岗位無効化 |
 | 12 | GET | /api/system/companies | `system:company:view` | 公司一覧 |
-| 12a | POST | /api/system/companies | `system:company:update` | 公司登録（PRC-SYS-014-03） |
+| 12a | POST | /api/system/companies | `system:company:create` | 公司登録（PRC-SYS-014-03） |
 | 13 | PUT | /api/system/companies/{id} | `system:company:update` | 公司更新 |
 | 14 | GET | /api/system/factories | `system:company:view` | 工厂组织設合一覧（MDM の `mdm_factory` を参照） |
 | 15 | POST | /api/system/factories | `system:company:update` | 工厂组织設定登録（有効化・既定割当） |
@@ -316,6 +317,7 @@ stateDiagram-v2
 | MSG-SYS-033 | E | 部门层级不能超过 6 级。 | 階層超過 | 階層見直し | INFO |
 | MSG-SYS-034 | E | 已存在默认工厂，请先取消其他工厂的默认设置。 | 默认重複 | 既存解除 | INFO |
 | MSG-SYS-035 | E | 系统至少需要保留一家公司，不能删除。 | 最後の会社 | — | WARN |
+| MSG-SYS-093 | E | 公司代码「{0}」或统一社会信用代码已存在，请使用其他代码。 | 公司登録時のコード重複（10035、409） | 別コード | WARN |
 | MSG-SYS-036 | E | 该岗位已被用户使用，不能停用。 | 岗位使用中 | ユーザ異動 | WARN |
 
 ## 10. 権限・セキュリティ
@@ -368,4 +370,4 @@ stateDiagram-v2
 | v1.0 | 2026-10-20 | 初版：F-SYS-005/006/014/017 の業務ルール、画面 4、画面項目定義、処理 7 件、API 17 件、メッセージ 7 件、テスト観点 11 件 | system-workflow |
 | v1.1 | 2026-10-20 | Lead 裁决反映：工厂主データは MDM（`mdm_factory`）へ移管。F-SYS-014 は公司主体＋工厂组织設定（`sys_factory_setting`：有効化・既定割当・責任者）に限定し、画面項目定義・処理手順・API・更新仕様を修正 | system-workflow |
 | v1.2 | 2026-10-20 | Lead 追補 E38 `system.department.changed` を反映：組織変更イベントの発行を E38 契約に確定し、未決 #1 を已裁决に更新 | system-workflow（validator） |
-| v1.3 | 2026-10-21 | PRC-SYS-014-03 公司登録・API 12a `POST /api/system/companies` を追加：同一トランザクションで 90 §3.15 業務パラメータの既定行を当該会社に冪等投入（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.3 | 2026-10-21 | PRC-SYS-014-03 公司登録・API 12a `POST /api/system/companies` を追加：同一トランザクションで 90 §3.15 業務パラメータの既定行を当該会社に冪等投入。権限 `system:company:create`、重複は 409／`10035`／`MSG-SYS-093`（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

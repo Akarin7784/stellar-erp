@@ -62,7 +62,7 @@
 
 | ロール | 所属 | 主な操作 | 関連機能 ID | 主な権限コード |
 |---|---|---|---|---|
-| 系统管理员 | 信息部 | 用户/角色/菜单/参数/字典/编号/模板/任务监控/审计查询 | F-SYS-002〜020 | `system:user:*`、`system:role:*`、`system:menu:*`、`system:param:*` |
+| 系统管理员 | 信息部 | 用户/角色/菜单/参数/字典/编号/模板/任务监控/审计查询 | F-SYS-002〜020 | `system:user:*`、`system:role:*`、`system:menu:*`、`system:param:*`、`system:company:create`（公司登録） |
 | 人事管理员 | 综合管理部 | 用户开立・变更・停用、部门/岗位维护（不含权限付与） | F-SYS-002、005、006 | `system:user:create/update/disable`、`system:department:*`、`system:position:*` |
 | 部门经理 | 各部门 | 查看本部门用户、发起权限申请、审批本部门用户申请 | F-SYS-002、009 | `system:user:view`（データ範囲=部門）、`system:user-request:submit/approve` |
 | 总经理 | 公司 | 高权限角色付与审批、审计报表查阅 | F-SYS-003、009 | `system:role-grant:approve`、`system:audit-log:view` |
@@ -318,6 +318,7 @@ sequenceDiagram
 | `system:department:view` / `create` / `update` / `delete` | F-SYS-005 | 全社 | 系统管理员、人事管理员 |
 | `system:position:view` / `create` / `update` / `delete` | F-SYS-006 | 全社 | 系统管理员、人事管理员 |
 | `system:company:view` / `update` | F-SYS-014 | 全社 | 系统管理员、财务总监（参照） |
+| `system:company:create` | F-SYS-014 | テナント | 系统管理员（テナント開設級の操作。`update` とは分離（蓝色大肥鱼 2026-10-21 決定）） |
 | `system:tenant:view` / `update` | F-SYS-017 | 全社 | 系统管理员 |
 | `system:dict:view` / `create` / `update` / `delete` | F-SYS-007 | 全社 | 系统管理员 |
 | `system:param:view` / `update` | F-SYS-008 | 全社 | 系统管理员、运维担当（view） |
@@ -377,3 +378,4 @@ sequenceDiagram
 | v1.2 | 2026-10-20 | Lead 裁决反映：承認マトリクスは `wf_approval_matrix`（WF 所有）に統一（未決 #1 を已裁决に更新）。工厂主データは MDM の `mdm_factory` とし、SYS は `sys_factory_setting`（工厂组织设置）に変更（§2.1・機能一覧 F-SYS-014・テーブル一覧） | system-workflow |
 | v1.3 | 2026-10-20 | 整合性修正：帳票一覧に PRT-SYS-009（数据整合性検査报告）を追加（92 章の定義と一致）。E38 `system.department.changed` の発行を §3.3 連携表に追記 | system-workflow（validator） |
 | v1.4 | 2026-10-20 | 红队第 2 轮修复：REV-005（データ範囲に工場/倉庫次元を追加）、REV-018（3 区分→7 区分に統一）、権限 action に `cancel`/`reopen` を反映（`system:user:unlock`/`reopen` 行追加） | system-workflow |
+| v1.5 | 2026-10-21 | §10 権限一覧・§3 系统管理员の初期権限に `system:company:create`（公司登録、`update` と分離）を追加（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

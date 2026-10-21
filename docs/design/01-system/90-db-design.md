@@ -695,10 +695,10 @@ COMMENT ON TABLE sys_param IS '系统参数';
 
 | param_key | param_group | value_type | default_value | value_range | 説明 |
 |---|---|---|---|---|---|
-| `prd.completion_over_rate` | prd | 3 小数 | `0.05` | `0.0000-1.0000`（比率、小数 4 桁、`NUMERIC(5,4)` 相当） | 完工超収容差の会社既定（比率。`0.05` = 5%）。キー名はバックエンド PR #47 と一致 |
-| `prd.overproduction_max_rate` | prd | 3 小数 | `1.0000` | `0.0000-9.9999`（比率、小数 4 桁、`NUMERIC(5,4)` 相当） | 超産申請 1 件の上限率（受注行基本数量に乗じる。累計上限なし。蓝色大肥鱼 2026-10-21 決定） |
+| `prd.completion_over_rate` | prd | 4 小数 | `0.05` | `0.0000-1.0000`（比率、小数 4 桁、`NUMERIC(5,4)` 相当） | 完工超収容差の会社既定（比率。`0.05` = 5%）。キー名はバックエンド PR #47 と一致 |
+| `prd.overproduction_max_rate` | prd | 4 小数 | `1.0000` | `0.0000-9.9999`（比率、小数 4 桁、`NUMERIC(5,4)` 相当） | 超産申請 1 件の上限率（受注行基本数量に乗じる。累計上限なし。蓝色大肥鱼 2026-10-21 決定） |
 
-- `sys_param` はテナント単位（`tenant_id` + RLS）。既定値は**テナント作成時**に `sys_init_tenant(tenant_id)` を呼び出して投入する。既存の種テナントにはマイグレーションで明示的に行を投入する。関数・DDL は DBA の T1 マイグレーションで定義（本書は参照のみ）。
+- `sys_param` は会社単位（`uk_sys_param_key` = `(tenant_id, company_id, param_key)`、`tenant_id` + RLS）。既定値は**テナント作成時**に `sys_init_tenant(tenant_id)` を呼び出し、テナント配下の会社ごとに 1 行ずつ投入する。既存の種テナントにはマイグレーションで明示的に行を投入する。関数・DDL は DBA の T1 マイグレーションで定義（本書は参照のみ）。
 - `sys_init_tenant` が投入する既定パラメータ：`prd.completion_over_rate = 0.05`、`prd.overproduction_max_rate = 1.0000`（今後追加する既定パラメータもこの表に列挙する）。
 - 値が存在しない場合は既定値で補わず、エラー `5000` を返す。
 - **会社登録時の既定行投入**：`sys_param` は会社単位（`uk_sys_param_key (tenant_id, company_id, param_key)`、`company_id` = `sys_company.id`。RLS は `tenant_id`）（蓝色大肥鱼 2026-10-21 決定）。既定値の投入経路は次の 2 つで、いずれも既存行はスキップ（冪等）：
@@ -1617,4 +1617,5 @@ COMMENT ON TABLE sys_data_maintenance_log IS '数据维护历史（初期化・�
 | v1.8 | 2026-10-21 | 非一意 btree 索引（`idx_`）52 箇所を `tenant_id` 先頭（`company_id` がある表は次に `company_id`）に変更（DDL・索引一覧。既存迁移の索引は sys/V202610210707 と同一列。GIN は対象外。蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.9 | 2026-10-21 | main（#31）取込み後の再整合：一意索引・非一意 btree 索引を `tenant_id`（＋`company_id`）先頭に再適用、テナント級一意は 00-common/04 §6.1 第 4 条に従う（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.10 | 2026-10-21 | §3.15 業務パラメータに `prd.overproduction_max_rate`（既定 1.0000、`sys_init_tenant` シード）を追加（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
-| v1.11 | 2026-10-21 | §3.1 に `company_id` = `sys_company.id`（`LoginContext.companyId` も同値、`sys_company.company_id` は自行 `id` と同値）を明記。会社登録時に同一トランザクションで §3.15 業務パラメータの既定行を冪等投入、テナント開設は会社登録→`sys_init_tenant` の順、§3.3・§3.15 の「テナント単位」を会社単位に修正（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.11 | 2026-10-21 | `prd.completion_over_rate`・`prd.overproduction_max_rate` の value_type を 4 小数に訂正。`sys_param` を会社単位（`(tenant_id, company_id, param_key)`、sys/V202610210103:166）と明記し、`sys_init_tenant` は会社ごとに 1 行投入（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.12 | 2026-10-21 | §3.1 に `company_id` = `sys_company.id`（`LoginContext.companyId` も同値、`sys_company.company_id` は自行 `id` と同値）を明記。会社登録時に同一トランザクションで §3.15 業務パラメータの既定行を冪等投入、テナント開設は会社登録→`sys_init_tenant` の順、§3.3・§3.15 の「テナント単位」を会社単位に修正（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
