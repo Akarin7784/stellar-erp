@@ -15,10 +15,7 @@
           <el-icon><Odometer /></el-icon>
           <template #title>工作台</template>
         </el-menu-item>
-        <el-menu-item index="/system/users">
-          <el-icon><User /></el-icon>
-          <template #title>用户管理</template>
-        </el-menu-item>
+        <MenuTreeItem v-for="node in auth.menuTree" :key="node.id" :node="node" />
       </el-menu>
     </el-aside>
 
@@ -28,6 +25,11 @@
           <el-icon><Fold /></el-icon>
         </el-button>
         <span class="layout__breadcrumb">{{ route.meta.title ?? '' }}</span>
+        <span class="layout__spacer" />
+        <span class="layout__user">{{
+          auth.me?.userInfo.nickname || auth.me?.userInfo.username
+        }}</span>
+        <el-button text data-test="logout" @click="onLogout">退出登录</el-button>
       </el-header>
       <el-main class="layout__main">
         <router-view />
@@ -37,13 +39,22 @@
 </template>
 
 <script setup lang="ts">
-import { Fold, Odometer, User } from '@element-plus/icons-vue'
-import { useRoute } from 'vue-router'
+import { Fold, Odometer } from '@element-plus/icons-vue'
+import { useRoute, useRouter } from 'vue-router'
 
+import MenuTreeItem from '@/components/MenuTreeItem.vue'
 import { useAppStore } from '@/stores/app'
+import { useAuthStore } from '@/stores/auth'
 
 const appStore = useAppStore()
+const auth = useAuthStore()
 const route = useRoute()
+const router = useRouter()
+
+async function onLogout() {
+  await auth.logout().catch(() => undefined)
+  router.push({ name: 'login' })
+}
 </script>
 
 <style scoped lang="scss">
@@ -72,6 +83,10 @@ const route = useRoute()
     --el-menu-bg-color: transparent;
     --el-menu-text-color: #c0c4cc;
     --el-menu-active-color: #409eff;
+  }
+
+  &__spacer {
+    flex: 1;
   }
 
   &__header {

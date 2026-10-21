@@ -18,6 +18,13 @@ export interface ApiResult<T> {
 
 export const TOKEN_KEY = 'erp_token'
 
+let unauthorizedHandler: (() => void) | null = null
+
+/** 注册 2001（HTTP 401）时的处理（由 router 注册：跳转登录页）。 */
+export function setUnauthorizedHandler(fn: (() => void) | null): void {
+  unauthorizedHandler = fn
+}
+
 export const MSG_CONFLICT = '数据已被他人修改，请刷新后重试'
 export const MSG_STATE_CONFLICT = '操作未能完成，数据状态不允许此操作'
 export const MSG_FORBIDDEN = '没有权限执行此操作'
@@ -140,8 +147,8 @@ function notify(
   let level: 'error' | 'warning' = 'error'
   switch (classifyError(status, code)) {
     case 'unauthorized':
-      // 目前还没有登录页，只清除 token，不做跳转
       localStorage.removeItem(TOKEN_KEY)
+      unauthorizedHandler?.()
       msg = message || MSG_UNAUTHORIZED
       break
     case 'forbidden':
