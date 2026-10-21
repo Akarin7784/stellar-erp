@@ -133,7 +133,7 @@
 |---|---|
 | 目的 | 外部 IF の接続定義を登録する |
 | 権限 | `integration:interface-config:create` |
-| 冪等 | `interface_code` の一意制約。重複は 409 |
+| 冪等 | `interface_code` の一意制約。重複は 422 |
 | 排他 | なし（新規） |
 | 関連テーブル | `int_interface_config`、`sys_audit_log` |
 
@@ -157,7 +157,7 @@
 
 **レスポンス**：`201` + `InterfaceConfigDto`（secret なし）。
 
-**エラー**：1001 入力、409 + 90002 重複、403 権限。
+**エラー**：1001 入力、422 + 90002 重複、403 権限。
 
 ### 3.2 POST /api/integration/interface-configs/{id}/test（接続テスト）
 
@@ -420,3 +420,4 @@
 |---|---|---|---|
 | v1.0 | 2026-10-20 | 初版：内部 API 61 件・開放 API 9 件の一覧、主要 13 API の詳細、INT エラーコード 29 件 | integration-designer |
 | v1.1 | 2026-10-20 | 红队 REV-SW-003 対応：429 レート超過のコードを `5002` に修正 | system-workflow |
+| v1.2 | 2026-10-21 | 重複・既存系の業務エラーの HTTP を 409 → 422 に統一（409 は楽観排他競合 4003 のみ。03 §5・01-system 91 v1.10 と整合）。対象：:136、:160（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
