@@ -282,7 +282,7 @@ COMMENT ON TABLE sys_department IS '部门（组织ツリー）';
 | idx_sys_department_parent | B-Tree | (tenant_id, company_id, parent_id, sort_no) | — | ツリー表示 |
 | idx_sys_department_path | B-Tree | (tenant_id, company_id, department_path) | — | 子孫検索（`LIKE '/1/12/%'`） |
 
-**制約**：`parent_id` は自己参照 FK（`ON DELETE RESTRICT`）。循環参照はアプリで検出（`MSG-SYS-031`）。子部門・所属ユーザ・進行中承認経路がある場合は削除不可。
+**制約**：`parent_id` は 0＝ルートのため自己参照 FK を付けない（`id=0` の行が存在せず FK は 23503 になる。[04 §6.2](../00-common/04-common-db-spec.md) 項 2a 命名例外、蓝色大肥鱼 2026-10-21 決定）。親部門の存在（同一テナント・会社）と循環参照はアプリで検出（`MSG-SYS-031`）。子部門・所属ユーザ・進行中承認経路がある場合は削除不可。
 
 ### 3.5 sys_position 岗位
 
@@ -586,7 +586,7 @@ COMMENT ON TABLE sys_menu IS '菜单/权限（メニューツリー＋ボタン�
 | idx_sys_menu_parent | B-Tree | (tenant_id, company_id, parent_id, sort_no) | — | ツリー表示 |
 | idx_sys_menu_module | B-Tree | (tenant_id, company_id, module_code, menu_type) | — | モジュール別一覧 |
 
-**種データ（2026-10-21 決定）**：`sys_menu` はテナント単位（`company_id = 0`）。全件・導出規則・投入範囲は [94 §2.10・付録 A](94-sample-data.md)。目录・菜单行は `route_path`（先頭スラッシュなし）必須、按钮行は `permission_code` のみ。`permission_code` は複数行で重複可（`menu_code` は一意）、判定はコードのみ、目录は付与対象外。投入は `sys_init_tenant`（メニュー）→ `sys_init_company`（`SYSTEM_ADMIN`・付与）。`sys_menu` を参照する FK は `(tenant_id, menu_id)` 2 列の命名例外（[04 §6.2](../00-common/04-common-db-spec.md) 項 2a）（蓝色大肥鱼 2026-10-21 決定）。
+**種データ（2026-10-21 決定）**：`sys_menu` はテナント単位（`company_id = 0`）。全件・導出規則・投入範囲は [94 §2.10・付録 A](94-sample-data.md)。目录・菜单行は `route_path`（先頭スラッシュなし）必須、按钮行は `permission_code` のみ。`permission_code` は複数行で重複可（`menu_code` は一意）、判定はコードのみ、目录は付与対象外。投入は `sys_init_tenant`（メニュー）→ `sys_init_company`（`SYSTEM_ADMIN`・付与）。`sys_menu` を参照する FK は `fk_sys_role_permission_menu`（`(tenant_id, menu_id)` 2 列の命名例外、[04 §6.2](../00-common/04-common-db-spec.md) 項 2a）のみ。`parent_id` は 0＝ルートのため自己参照 FK を付けず、親の存在と階層はアプリで検査（`MSG-SYS-021`）、種データは pgTAP で検査（蓝色大肥鱼 2026-10-21 決定）。
 
 **制約**：`menu_type=3`（ボタン）は `permission_code` 必須。親に `menu_type=1/2`、子に `2/3` の階層ルールをアプリで強制（`MSG-SYS-021`）。メニュー削除時、子メニュー・権限付与がある場合は禁止。
 
@@ -1625,3 +1625,4 @@ COMMENT ON TABLE sys_data_maintenance_log IS '数据维护历史（初期化・�
 | v1.12 | 2026-10-21 | §3.1 に `company_id` = `sys_company.id`（`LoginContext.companyId` も同値、`sys_company.company_id` は自行 `id` と同値）を明記。会社登録時に同一トランザクションで §3.15 業務パラメータの既定行を冪等投入、テナント開設は会社登録→`sys_init_tenant` の順、§3.3・§3.15 の「テナント単位」を会社単位に修正（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.13 | 2026-10-21 | §3.9 `uk_sys_role_permission` の条件を実 DDL に合わせ削除（`deleted` 列なし）。§3.12 `route_path` を先頭スラッシュなしに統一し、`sys_menu` 種データ（`company_id=0`）を 94 §2.10 に参照。§3.1 会社登録時に `SYSTEM_ADMIN` ロール＋全権限付与、§3.3 `sys_init_tenant` で `sys_menu` 種データを投入（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.14 | 2026-10-21 | #58 決定反映：§3.12 `uk_sys_menu_permission` を普通索引 `idx_sys_menu_permission` に（`permission_code` 重複可）、§3.1/§3.3/§3.12 に `sys_init_tenant`（メニュー＋各社呼出し、provisioner のみ）／`sys_init_company(p_tenant_id, p_company_id)`（`sys_param`＋`SYSTEM_ADMIN` 未作成時のみ作成・全付与、`erp_app` にも EXECUTE、テナント・会社検査）を明記（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.15 | 2026-10-21 | §3.4 `sys_department.parent_id`・§3.12 `sys_menu.parent_id` は 0＝ルートのため自己参照 FK を付けず、アプリで検査（04 §6.2 項 2a 命名例外。蓝色大肥鱼 2026-10-21 決定、案 A） | 业务分析 |

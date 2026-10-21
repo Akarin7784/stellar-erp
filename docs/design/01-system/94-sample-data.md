@@ -244,7 +244,7 @@
 | G-4 | 複数画面が同じ権限コードを使う（66 画面） | 解決（蓝色大肥鱼 2026-10-21）：`permission_code` の重複を許可し全菜单行に設定。`menu_code` は一意のまま。一意索引は普通索引に変更（DBA が種マイグレーションで実施） |
 | G-5 | 目录行は `permission_code` を持たない | 解決：目录は付与対象外。判定はコードのみ（§2.10 (3)） |
 | G-6 | `sys_role_permission` に `deleted` 列がない | 解決：付与は会社登録時と初回回填（`SYSTEM_ADMIN` 未作成時）のみ。再実行で戻らない（§2.10 (6)） |
-| G-7 | 同域複合 FK の規則（`(tenant_id, company_id, x_id)`）は `sys_menu`（`company_id=0`）に適用できない | 解決：`sys_menu` を参照する FK（`sys_role_permission.menu_id`・`sys_menu.parent_id`）は `(tenant_id, menu_id)` 2 列の命名例外（[04 §6.2](../00-common/04-common-db-spec.md) 項 2a） |
+| G-7 | 同域複合 FK の規則（`(tenant_id, company_id, x_id)`）は `sys_menu`（`company_id=0`）に適用できない | 解決：`sys_menu` を参照する FK は `sys_role_permission.menu_id` の 1 本のみ（`fk_sys_role_permission_menu`、`(tenant_id, menu_id)` 2 列の命名例外、[04 §6.2](../00-common/04-common-db-spec.md) 項 2a）。`sys_menu.parent_id` には FK を付けない（`parent_id` は 0＝ルート（V202610210104、01/90 §3.12）、ルート行は `parent_id=0` だが `id=0` の行は存在しないため、自己参照 FK を付けるとルート行の投入が 23503 で失敗する）。親子関係はアプリで検査（`MSG-SYS-021`）、種データは pgTAP で検査（`parent_id<>0` の行は同一テナントに `id=parent_id` の菜单が存在、`parent_id=0` は目录 10 行のみ）（蓝色大肥鱼 2026-10-21 決定、案 A） |
 | G-8 | `route_path` の DDL 列コメント例が `/system/users`（sys/V202610210104:428） | 解決：先頭スラッシュなしを正とし、迁移コメントは DBA が種マイグレーションで修正 |
 | G-9 | 系统管理员以外のロール（`ROLE-*` 17 件）は示例値 | 解決：本種マイグレーションの対象外 |
 | G-10 | `component_path`・`icon` の値は設計書に定義がない | 解決：`NULL` で投入、フロント実装時に設定 |
