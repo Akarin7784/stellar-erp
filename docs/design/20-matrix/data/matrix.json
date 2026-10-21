@@ -1587,7 +1587,7 @@
     },
     {
       "id": "F-PRD-005",
-      "name": "生产订单管理",
+      "name": "工单管理",
       "summary": "手工/MRP 生成、单阶/多阶、承认、下达、拆分/合并、变更、取消",
       "screens": "SCR-PRD-008〜011",
       "priority": "P1",
@@ -6767,7 +6767,7 @@
     },
     {
       "name": "prd_work_order",
-      "logical": "生产订单",
+      "logical": "工单",
       "domain": "PRD",
       "source": "06-production/90-db-design.md"
     },
@@ -8126,7 +8126,7 @@
     },
     {
       "id": "PRT-PRD-001",
-      "name": "生产订单（制造指示书）",
+      "name": "工单（制造指示书）",
       "timing": "工单下达时（手動/自動）",
       "domain": "PRD",
       "source": "06-production/00-overview.md"

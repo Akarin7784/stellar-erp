@@ -209,7 +209,7 @@
 | prd_wo_lot | 工单批次追溯 | PRD | 06-production/90-db-design.md |
 | prd_work_center | 工作中心 | PRD | 06-production/90-db-design.md |
 | prd_work_center_calendar | 工作日历 | PRD | 06-production/90-db-design.md |
-| prd_work_order | 生产订单 | PRD | 06-production/90-db-design.md |
+| prd_work_order | 工单 | PRD | 06-production/90-db-design.md |
 | prd_work_order_change | 工单变更履历 | PRD | 06-production/90-db-design.md |
 | prd_work_order_material | 工单用料 | PRD | 06-production/90-db-design.md |
 | prd_work_order_operation | 工单工序 | PRD | 06-production/90-db-design.md |

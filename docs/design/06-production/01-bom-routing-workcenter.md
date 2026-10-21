@@ -9,7 +9,7 @@
 | 作成者 | production-designer |
 | 承認者 | 未承認（レビュー待ち） |
 | 状態 | ドラフト（レビュー中） |
-| 関連文書 | [业务域概要](00-overview.md) / [MRP](05-mrp-planning.md) / [生产订单](02-work-order.md) / [DB 设计](90-db-design.md) / [API 设计](91-api-design.md) / [YE3 多阶 BOM](../90-data/bom-demo.md) / [YE3 工艺路线・工作中心](../90-data/routing-demo.md) / [物料主数据](../90-data/material-master.csv) / [共通业务规则](../00-common/08-common-business-rules.md) |
+| 関連文書 | [业务域概要](00-overview.md) / [MRP](05-mrp-planning.md) / [工单](02-work-order.md) / [DB 设计](90-db-design.md) / [API 设计](91-api-design.md) / [YE3 多阶 BOM](../90-data/bom-demo.md) / [YE3 工艺路线・工作中心](../90-data/routing-demo.md) / [物料主数据](../90-data/material-master.csv) / [共通业务规则](../00-common/08-common-business-rules.md) |
 
 ---
 
@@ -136,7 +136,7 @@ stateDiagram-v2
 | 上流 | F-MDM-002 | 物料主数据 | 品目・単位・分類・標準単価を参照 |
 | 上流 | F-MDM-016 | 物料替代关系 | 替代グループの整合（任意） |
 | 下流 | F-PRD-010 | MRP | BOM 展開・低层码・所要量 |
-| 下流 | F-PRD-005 | 生产订单 | 工单の材料・工序スナップショット展開 |
+| 下流 | F-PRD-005 | 工单 | 工单の材料・工序スナップショット展開 |
 | 下流 | F-PRD-007 | 報工 | 工艺の標準工時を初期値に使用 |
 | 下流 | F-PRD-011 | 生产计划 | 工作中心能力・粗能力 |
 | 参照 | F-PRD-012 | 检验标准 | 工序の `inspection_standard_id` |
@@ -741,3 +741,4 @@ for each operation in seq ASC:
 
 
 | v1.1 | 2026-10-20 | 红队修复第2轮（REV-001/002/003/004/012 等）：INV 単一採番への整合（MII/MIR/FGI/OSI/OSR は INV 所有、PRD は request_no＋stock_doc_id/stock_doc_no 参照）、E15 resultCode/batchNo/warehouseId、E24 stockStatus=10 待検→E15 合格で 20 可用、原価サンプル 120 PCE／材料 79,187.55（標準 79,194.00・価格差異 −6.45）／人工 6,450.00／費用 7,740.00／93,377.55（778.15）、工单結案を 40＋closed_at に統一（45 廃止）、INV API 参照・工费率所有権 | production-designer |
+| v1.2 | 2026-10-21 | 関連文書・下流機能名の「生产订单」を「工单」に統一（06/00 §11 の用語規則に追随、蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

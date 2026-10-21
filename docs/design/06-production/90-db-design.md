@@ -9,7 +9,7 @@
 | 作成者 | production-designer |
 | 承認者 | 未承認（レビュー待ち） |
 | 状態 | ドラフト（レビュー中） |
-| 関連文書 | [业务域概要](00-overview.md) / [DB 共通规格](../00-common/04-common-db-spec.md) / [共通项目定义](../00-common/01-common-item-definitions.md) / [跨域流程](../00-common/09-cross-domain-flow.md) / [BOM・工艺](01-bom-routing-workcenter.md) / [生产订单](02-work-order.md) / [MRP](05-mrp-planning.md) / [质量](06-quality-management.md) |
+| 関連文書 | [业务域概要](00-overview.md) / [DB 共通规格](../00-common/04-common-db-spec.md) / [共通项目定义](../00-common/01-common-item-definitions.md) / [跨域流程](../00-common/09-cross-domain-flow.md) / [BOM・工艺](01-bom-routing-workcenter.md) / [工单](02-work-order.md) / [MRP](05-mrp-planning.md) / [质量](06-quality-management.md) |
 
 ---
 
@@ -115,7 +115,7 @@ erDiagram
 | 16 | `prd_mrp_demand` | MRP 需求 | 履歴 | — | 3.16 |
 | 17 | `prd_mrp_plan_order` | MRP 计划订单 | 伝票 | `plan_order_no` | 3.17 |
 | 18 | `prd_mrp_action` | MRP 动作消息 | 履歴 | — | 3.18 |
-| 19 | `prd_work_order` | 生产订单 | 伝票 | `work_order_no` | 3.19 |
+| 19 | `prd_work_order` | 工单 | 伝票 | `work_order_no` | 3.19 |
 | 20 | `prd_work_order_material` | 工单用料 | 伝票明細 | — | 3.20 |
 | 21 | `prd_work_order_operation` | 工单工序 | 伝票明細 | — | 3.21 |
 | 22 | `prd_work_order_change` | 工单变更履历 | 履歴 | — | 3.22 |
@@ -944,12 +944,12 @@ CREATE INDEX idx_prd_mrp_action_ref ON prd_mrp_action (tenant_id, company_id, re
 CREATE INDEX idx_prd_mrp_action_material ON prd_mrp_action (tenant_id, company_id, material_id, action_status);
 ```
 
-### 3.19 prd_work_order（生产订单）
+### 3.19 prd_work_order（工单）
 
 | 項目 | 内容 |
 |---|---|
 | テーブル物理名 | `prd_work_order` |
-| 論理名 | 生产订单（工单） |
+| 論理名 | 工单 |
 | 種別 | 伝票（ヘッダ） |
 | 更新元機能 | F-PRD-005（登録/承認/下达/変更/取消/結案）、F-PRD-010（計画订单転送） |
 | データ量見積 | 初期 30,000 / 年 +18,000 / 5 年 120,000（[04](../00-common/04-common-db-spec.md) 13 章と一致） |
@@ -2669,3 +2669,4 @@ CREATE INDEX idx_prd_capacity_load_date ON prd_capacity_load (tenant_id, company
 | v1.18 | 2026-10-21 | 三列外键 `(tenant_id, company_id, x_id)` の子表側に同三列先頭の btree 索引が無かった 11 本分を追加（00-common/04 §6.2 項 2a FK 前導索引規則 v1.25、迁移 `prd/V202610211417`）：`idx_prd_bom_substitute_line`・`idx_prd_inspection_standard`・`idx_prd_material_planning_material`・`idx_prd_ncr_defect_code`・`idx_prd_ncr_inspection`・`idx_prd_routing_operation_routing`・`idx_prd_routing_operation_alt_op`・`idx_prd_routing_operation_alt_wc`・`idx_prd_work_center_calendar_wc`・`idx_prd_work_order_bom`・`idx_prd_work_order_routing` | DBA |
 | v1.19 | 2026-10-21 | `prd_work_order.order_status` の注釈から 95（却下）を削除（却下は 10 へ戻す）（蓝色大肥鱼 2026-10-21 決定）。`prd_work_order_change.change_status` の 95 は変更しない。CHECK・迁移は数据库側で別 PR | 业务分析 |
 | v1.20 | 2026-10-21 | `prd_work_order` に `ck_prd_work_order_allowed_qty CHECK (allowed_qty >= 0)`、`prd_overproduction_approval` に `ck_prd_opa_approved_allowed_qty CHECK (approved_allowed_qty >= 0)` を追加（NULL は通過、既存データに負数なしのため即時検証。migration `prd/V202610211422`）。受注行 `allowed_qty`（`ck_sal_sales_order_line_qty`）・`current_allowed_qty`（`ck_prd_opa_allowed_qty`）は既存（蓝色大肥鱼 2026-10-21 決定） | DBA |
+| v1.21 | 2026-10-21 | `prd_work_order` 論理名・関連文書の「生产订单」を「工单」に統一（06/00 §11 の用語規則に追随、蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
