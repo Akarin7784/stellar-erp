@@ -192,6 +192,7 @@ PostgreSQL の一意制約チェックは RLS を経由しないため、`tenant
      | `mdm_exchange_rate` | `uk_mdm_exchange_rate` | `(tenant_id, from_currency_code, to_currency_code, rate_type, effective_date) WHERE deleted=FALSE` |
 
    - 上記以外（例：`uk_sys_role_code`・`uk_sys_number_rule_code`）は `(tenant_id, company_id, …)`。親 id 先頭の一意キーはいかなる場合も認めない。
+   - 複合外键の参照先としてのみ存在する `UNIQUE (tenant_id, id)`（`uk_<table>_tenant_id`、例：08-workflow/90 の `uk_wf_task_tenant_id`）は業務一意キーではなく、`(tenant_id, company_id, …)` 規則の対象外とする（§6.2 項 2）。
 5. `sys_sequence` の増分は `DO UPDATE SET current_value = sys_sequence.current_value + sys_sequence.step`（`EXCLUDED.step` 禁止）。
 6. CI：`RlsCoverageTest.everyUniqueIndexStartsWithTenantId` が業務 schema の全一意インデックス（主キー除く）を検査する。加えて #38 以降、pgTAP `composite_fk.sql` が一意キーの `(tenant_id, company_id)` 先頭（`company_id` なしの表は `tenant_id` 先頭）を検査し、項 4 (b) のテナント級一意は**表名＋索引名の組**で列挙したものだけを許可する（複合 FK 用 `UNIQUE (tenant_id, id)` も許可）。`composite_fk.sql` が照合するのは (b) のうち `sys_user` 以外のキーであり、`uk_sys_user_username` は `sys_user` の正式迁移までは未検査。親 id 先頭の例外は認めない（2026-10-21 蓝色大肥鱼 決定、例外一覧は廃止）。
 
@@ -440,6 +441,7 @@ V{yyyyMMdd}{NNNN}__{module}_{description}.sql     # バージョンは 12 桁
 | v1.7 | 2026-10-21 | §6.1 項 4：例外を (a) `company_id` なし共有表／(b) テナント級一意 8 本（`sys_company` 2・`sys_menu` 2・`sys_dict_type`・`sys_outbox_event`・`sys_idempotency`・`mdm_exchange_rate`）に限定し表で列挙。`uk_sys_role_code`・`uk_sys_number_rule_code` は `(tenant_id, company_id, …)`（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.8 | 2026-10-21 | §6.1 項 6：#38 以降 pgTAP `composite_fk.sql` がテナント級一意を表名＋索引名で照合・許可することを追記 | 业务分析 |
 | v1.9 | 2026-10-21 | §6.1 項 4 (b) に `sys_user.uk_sys_user_username (tenant_id, username)` を追加（計 9 本、蓝色大肥鱼 2026-10-21 決定。main 上の現名 `uk_sys_user_tenant_username`、改名・tenant_id 既定値（0）の修正・pgTAP 例外は sys_user 正式迁移で対応）。項 6 の pgTAP 記述から本数を除去し、同キーは未検査と明記 | 业务分析 |
+| v1.10 | 2026-10-21 | §6.1 項 4：複合外键の参照先専用 `UNIQUE (tenant_id, id)`（例 `uk_wf_task_tenant_id`）は業務一意キーではなく `(tenant_id, company_id, …)` 規則の対象外と明記 | 业务分析 |
 
 ## Flowable 引擎表の schema 分離（issue #7）
 

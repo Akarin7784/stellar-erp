@@ -142,14 +142,14 @@ CREATE TABLE int_interface_config (
     updated_at          TIMESTAMPTZ   NOT NULL DEFAULT now(),
     updated_by          BIGINT        NOT NULL DEFAULT 0,
     CONSTRAINT pk_int_interface_config PRIMARY KEY (id),
-    CONSTRAINT uk_int_interface_config_code UNIQUE (company_id, interface_code),
+    CONSTRAINT uk_int_interface_config_code UNIQUE (tenant_id, company_id, interface_code),
     CONSTRAINT ck_int_interface_config_type CHECK (interface_type IN (10,20,30,40,50,60)),
     CONSTRAINT ck_int_interface_config_dir CHECK (direction IN (10,20,30)),
     CONSTRAINT ck_int_interface_config_auth CHECK (auth_type IN (0,10,20,30,40,50,60)),
     CONSTRAINT ck_int_interface_config_retry CHECK (retry_max BETWEEN 0 AND 10)
 );
-CREATE INDEX idx_int_interface_config_partner ON int_interface_config (partner_code, enabled_flag);
-CREATE INDEX idx_int_interface_config_health ON int_interface_config (health_status, last_failure_at);
+CREATE INDEX idx_int_interface_config_partner ON int_interface_config (tenant_id, company_id, partner_code, enabled_flag);
+CREATE INDEX idx_int_interface_config_health ON int_interface_config (tenant_id, company_id, health_status, last_failure_at);
 COMMENT ON TABLE int_interface_config IS '外部インタフェース接続定義';
 COMMENT ON COLUMN int_interface_config.credential_ref IS '認証情報の参照キー。実値は環境変数/Secrets Manager に保存';
 ```
@@ -194,9 +194,9 @@ CREATE TABLE int_interface_mapping (
     updated_by      BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_int_interface_mapping PRIMARY KEY (id),
     CONSTRAINT fk_int_interface_mapping_if FOREIGN KEY (interface_id) REFERENCES int_interface_config (id),
-    CONSTRAINT uk_int_interface_mapping UNIQUE (interface_id, direction, source_field)
+    CONSTRAINT uk_int_interface_mapping UNIQUE (tenant_id, company_id, interface_id, direction, source_field)
 );
-CREATE INDEX idx_int_interface_mapping_if ON int_interface_mapping (interface_id, direction, sort_no);
+CREATE INDEX idx_int_interface_mapping_if ON int_interface_mapping (tenant_id, company_id, interface_id, direction, sort_no);
 ```
 
 > `transform_expr` は許可した関数のみ（四則演算・日付変換・コード変換・文字列切出）。スクリプト実行は禁止（セキュリティ）。
@@ -229,10 +229,10 @@ CREATE TABLE int_api_client (
     updated_at          TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_by          BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_int_api_client PRIMARY KEY (id),
-    CONSTRAINT uk_int_api_client_id UNIQUE (client_id),
+    CONSTRAINT uk_int_api_client_id UNIQUE (tenant_id, company_id, client_id),
     CONSTRAINT ck_int_api_client_status CHECK (status IN (10,20,90))
 );
-CREATE INDEX idx_int_api_client_status ON int_api_client (status, effective_to);
+CREATE INDEX idx_int_api_client_status ON int_api_client (tenant_id, company_id, status, effective_to);
 ```
 
 ### 3.4 `int_api_call_log`（API 呼出日志）
@@ -264,9 +264,9 @@ CREATE TABLE int_api_call_log (
     called_at       TIMESTAMPTZ  NOT NULL DEFAULT now(),
     CONSTRAINT pk_int_api_call_log PRIMARY KEY (id)
 );
-CREATE INDEX idx_int_api_call_log_time ON int_api_call_log (called_at DESC);
-CREATE INDEX idx_int_api_call_log_if ON int_api_call_log (if_id, called_at DESC);
-CREATE INDEX idx_int_api_call_log_client ON int_api_call_log (api_client_id, called_at DESC);
+CREATE INDEX idx_int_api_call_log_time ON int_api_call_log (tenant_id, company_id, called_at DESC);
+CREATE INDEX idx_int_api_call_log_if ON int_api_call_log (tenant_id, company_id, if_id, called_at DESC);
+CREATE INDEX idx_int_api_call_log_client ON int_api_call_log (tenant_id, company_id, api_client_id, called_at DESC);
 ```
 
 **保存**：6 か月（BAT-INT-008）。個人情報・口座番号・発票詳細は `request_summary` に含めない。
@@ -295,9 +295,9 @@ CREATE TABLE int_external_message (
     expires_at      TIMESTAMPTZ,                            -- 原文保存期限（既定 1 年）
     CONSTRAINT pk_int_external_message PRIMARY KEY (id)
 );
-CREATE UNIQUE INDEX uk_int_external_message_hash ON int_external_message (if_id, payload_hash);
-CREATE INDEX idx_int_external_message_biz ON int_external_message (biz_type, biz_key);
-CREATE INDEX idx_int_external_message_status ON int_external_message (status, received_at);
+CREATE UNIQUE INDEX uk_int_external_message_hash ON int_external_message (tenant_id, company_id, if_id, payload_hash);
+CREATE INDEX idx_int_external_message_biz ON int_external_message (tenant_id, company_id, biz_type, biz_key);
+CREATE INDEX idx_int_external_message_status ON int_external_message (tenant_id, company_id, status, received_at);
 ```
 
 > 同一 `if_id` + `payload_hash` の再受信は「重複」として `status=40` で記録し、業務処理しない（受信冪等）。
@@ -328,10 +328,10 @@ CREATE TABLE int_sync_job (
     created_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
     created_by      BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_int_sync_job PRIMARY KEY (id),
-    CONSTRAINT uk_int_sync_job_no UNIQUE (job_no),
+    CONSTRAINT uk_int_sync_job_no UNIQUE (tenant_id, company_id, job_no),
     CONSTRAINT ck_int_sync_job_status CHECK (status IN (10,40,45,90))
 );
-CREATE INDEX idx_int_sync_job_date ON int_sync_job (biz_date DESC, status);
+CREATE INDEX idx_int_sync_job_date ON int_sync_job (tenant_id, company_id, biz_date DESC, status);
 ```
 
 ### 3.7 `int_sync_task`（同期タスク）
@@ -368,10 +368,10 @@ CREATE TABLE int_sync_task (
     CONSTRAINT ck_int_sync_task_status CHECK (status IN (10,20,30,40,50,60,90)),
     CONSTRAINT ck_int_sync_task_retry CHECK (retry_count BETWEEN 0 AND 10)
 );
-CREATE UNIQUE INDEX uk_int_sync_task_idem ON int_sync_task (if_id, idempotency_key);
-CREATE INDEX idx_int_sync_task_status ON int_sync_task (status, next_retry_at);
-CREATE INDEX idx_int_sync_task_biz ON int_sync_task (biz_type, biz_id);
-CREATE INDEX idx_int_sync_task_job ON int_sync_task (job_id);
+CREATE UNIQUE INDEX uk_int_sync_task_idem ON int_sync_task (tenant_id, company_id, if_id, idempotency_key);
+CREATE INDEX idx_int_sync_task_status ON int_sync_task (tenant_id, company_id, status, next_retry_at);
+CREATE INDEX idx_int_sync_task_biz ON int_sync_task (tenant_id, company_id, biz_type, biz_id);
+CREATE INDEX idx_int_sync_task_job ON int_sync_task (tenant_id, company_id, job_id);
 ```
 
 **状態遷移**：10 待機 →20 送信中 →30 成功／40 再送待ち →20／50 失敗 →40 or 60 死信。90 スキップは冪等重複・対象外。
@@ -396,7 +396,7 @@ CREATE TABLE int_retry_log (
     CONSTRAINT pk_int_retry_log PRIMARY KEY (id),
     CONSTRAINT fk_int_retry_log_task FOREIGN KEY (sync_task_id) REFERENCES int_sync_task (id)
 );
-CREATE INDEX idx_int_retry_log_task ON int_retry_log (sync_task_id, retried_at DESC);
+CREATE INDEX idx_int_retry_log_task ON int_retry_log (tenant_id, company_id, sync_task_id, retried_at DESC);
 ```
 
 ### 3.9 `int_tax_invoice`（数电票）
@@ -450,13 +450,13 @@ CREATE TABLE int_tax_invoice (
     version             INT          NOT NULL DEFAULT 0,
     remark              VARCHAR(500),
     CONSTRAINT pk_int_tax_invoice PRIMARY KEY (id),
-    CONSTRAINT uk_int_tax_invoice_req UNIQUE (invoice_req_no),
+    CONSTRAINT uk_int_tax_invoice_req UNIQUE (tenant_id, company_id, invoice_req_no),
     CONSTRAINT ck_int_tax_invoice_status CHECK (status IN (10,20,30,35,40,50,60,90)),
     CONSTRAINT ck_int_tax_invoice_amt CHECK (amount >= 0 AND tax_amount >= 0)
 );
-CREATE INDEX idx_int_tax_invoice_buyer ON int_tax_invoice (buyer_id, issued_at DESC);
-CREATE INDEX idx_int_tax_invoice_status ON int_tax_invoice (status, issued_at);
-CREATE INDEX idx_int_tax_invoice_source ON int_tax_invoice (source_type, source_id);
+CREATE INDEX idx_int_tax_invoice_buyer ON int_tax_invoice (tenant_id, company_id, buyer_id, issued_at DESC);
+CREATE INDEX idx_int_tax_invoice_status ON int_tax_invoice (tenant_id, company_id, status, issued_at);
+CREATE INDEX idx_int_tax_invoice_source ON int_tax_invoice (tenant_id, company_id, source_type, source_id);
 ```
 
 ### 3.10 `int_tax_invoice_line`（数电票明细）
@@ -485,7 +485,7 @@ CREATE TABLE int_tax_invoice_line (
     created_by              BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_int_tax_invoice_line PRIMARY KEY (id),
     CONSTRAINT fk_int_tax_invoice_line_inv FOREIGN KEY (invoice_id) REFERENCES int_tax_invoice (id),
-    CONSTRAINT uk_int_tax_invoice_line UNIQUE (invoice_id, line_no)
+    CONSTRAINT uk_int_tax_invoice_line UNIQUE (tenant_id, company_id, invoice_id, line_no)
 );
 ```
 
@@ -526,8 +526,8 @@ CREATE TABLE int_input_invoice (
     CONSTRAINT ck_int_input_invoice_usage CHECK (usage_status IN (10,20,30,40))
 );
 -- 数電票は invoice_code が空になり得るため、invoice_code は空文字 '' を既定とし 3 列で一意とする
-CREATE UNIQUE INDEX uk_int_input_invoice ON int_input_invoice (company_id, invoice_code, invoice_no);
-CREATE INDEX idx_int_input_invoice_date ON int_input_invoice (invoice_date DESC, verify_status);
+CREATE UNIQUE INDEX uk_int_input_invoice ON int_input_invoice (tenant_id, company_id, invoice_code, invoice_no);
+CREATE INDEX idx_int_input_invoice_date ON int_input_invoice (tenant_id, company_id, invoice_date DESC, verify_status);
 ```
 
 > `invoice_code` は NULL ではなく空文字 `''` を格納する（PostgreSQL の UNIQUE は NULL を重複とみなすため）。数電票の一意性は `invoice_no`（20 位）で担保する。
@@ -560,9 +560,9 @@ CREATE TABLE int_bank_account (
     updated_at          TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_by          BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_int_bank_account PRIMARY KEY (id),
-    CONSTRAINT uk_int_bank_account_fin UNIQUE (fin_bank_account_id)
+    CONSTRAINT uk_int_bank_account_fin UNIQUE (tenant_id, company_id, fin_bank_account_id)
 );
-CREATE INDEX idx_int_bank_account_status ON int_bank_account (connection_status, enabled_flag);
+CREATE INDEX idx_int_bank_account_status ON int_bank_account (tenant_id, company_id, connection_status, enabled_flag);
 ```
 
 ### 3.13 `int_bank_payment`（銀企付款指令）
@@ -600,13 +600,13 @@ CREATE TABLE int_bank_payment (
     updated_at              TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_by              BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_int_bank_payment PRIMARY KEY (id),
-    CONSTRAINT uk_int_bank_payment_no UNIQUE (payment_no),
+    CONSTRAINT uk_int_bank_payment_no UNIQUE (tenant_id, company_id, payment_no),
     CONSTRAINT fk_int_bank_payment_acct FOREIGN KEY (bank_account_id) REFERENCES int_bank_account (id),
     CONSTRAINT ck_int_bank_payment_status CHECK (status IN (10,20,30,35,40,50,90)),
     CONSTRAINT ck_int_bank_payment_amt CHECK (amount > 0)
 );
-CREATE UNIQUE INDEX uk_int_bank_payment_idem ON int_bank_payment (idempotency_key);
-CREATE INDEX idx_int_bank_payment_status ON int_bank_payment (status, submitted_at);
+CREATE UNIQUE INDEX uk_int_bank_payment_idem ON int_bank_payment (tenant_id, company_id, idempotency_key);
+CREATE INDEX idx_int_bank_payment_status ON int_bank_payment (tenant_id, company_id, status, submitted_at);
 ```
 
 ### 3.14 `int_bank_statement_file`（対账单ファイル）
@@ -636,8 +636,8 @@ CREATE TABLE int_bank_statement_file (
     created_at          TIMESTAMPTZ  NOT NULL DEFAULT now(),
     created_by          BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_int_bank_statement_file PRIMARY KEY (id),
-    CONSTRAINT uk_int_bank_statement_file_no UNIQUE (file_no),
-    CONSTRAINT uk_int_bank_statement_file_hash UNIQUE (bank_account_id, file_hash),
+    CONSTRAINT uk_int_bank_statement_file_no UNIQUE (tenant_id, company_id, file_no),
+    CONSTRAINT uk_int_bank_statement_file_hash UNIQUE (tenant_id, company_id, bank_account_id, file_hash),
     CONSTRAINT ck_int_bank_statement_file_status CHECK (status IN (10,20,30,40,50))
 );
 ```
@@ -670,7 +670,7 @@ CREATE TABLE int_file_layout (
     updated_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_by      BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_int_file_layout PRIMARY KEY (id),
-    CONSTRAINT uk_int_file_layout UNIQUE (layout_code, version_no)
+    CONSTRAINT uk_int_file_layout UNIQUE (tenant_id, company_id, layout_code, version_no)
 );
 ```
 
@@ -701,11 +701,11 @@ CREATE TABLE int_file_transfer (
     created_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
     created_by      BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_int_file_transfer PRIMARY KEY (id),
-    CONSTRAINT uk_int_file_transfer_no UNIQUE (transfer_no),
+    CONSTRAINT uk_int_file_transfer_no UNIQUE (tenant_id, company_id, transfer_no),
     CONSTRAINT fk_int_file_transfer_layout FOREIGN KEY (layout_id) REFERENCES int_file_layout (id),
     CONSTRAINT ck_int_file_transfer_status CHECK (status IN (10,20,30,40,45,50,60))
 );
-CREATE INDEX idx_int_file_transfer_layout ON int_file_transfer (layout_id, biz_date DESC);
+CREATE INDEX idx_int_file_transfer_layout ON int_file_transfer (tenant_id, company_id, layout_id, biz_date DESC);
 ```
 
 ### 3.17 `int_file_transfer_error`（取込エラー行）
@@ -726,7 +726,7 @@ CREATE TABLE int_file_transfer_error (
     CONSTRAINT pk_int_file_transfer_error PRIMARY KEY (id),
     CONSTRAINT fk_int_file_transfer_error FOREIGN KEY (transfer_id) REFERENCES int_file_transfer (id)
 );
-CREATE INDEX idx_int_file_transfer_error ON int_file_transfer_error (transfer_id, row_no);
+CREATE INDEX idx_int_file_transfer_error ON int_file_transfer_error (tenant_id, company_id, transfer_id, row_no);
 ```
 
 ### 3.18 `int_notification_channel`（通知チャネル）
@@ -752,7 +752,7 @@ CREATE TABLE int_notification_channel (
     updated_at          TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_by          BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_int_notification_channel PRIMARY KEY (id),
-    CONSTRAINT uk_int_notification_channel UNIQUE (channel_code)
+    CONSTRAINT uk_int_notification_channel UNIQUE (tenant_id, company_id, channel_code)
 );
 ```
 
@@ -782,7 +782,7 @@ CREATE TABLE int_pda_device (
     updated_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_by      BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_int_pda_device PRIMARY KEY (id),
-    CONSTRAINT uk_int_pda_device_code UNIQUE (device_code)
+    CONSTRAINT uk_int_pda_device_code UNIQUE (tenant_id, company_id, device_code)
 );
 ```
 
@@ -808,7 +808,7 @@ CREATE TABLE int_pda_offline_batch (
     created_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
     created_by      BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_int_pda_offline_batch PRIMARY KEY (id),
-    CONSTRAINT uk_int_pda_offline_batch UNIQUE (device_code, batch_no)
+    CONSTRAINT uk_int_pda_offline_batch UNIQUE (tenant_id, company_id, device_code, batch_no)
 );
 ```
 
@@ -832,9 +832,9 @@ CREATE TABLE int_sync_reconcile (
     detail_json     JSONB,
     checked_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
     CONSTRAINT pk_int_sync_reconcile PRIMARY KEY (id),
-    CONSTRAINT uk_int_sync_reconcile UNIQUE (reconcile_date, if_id, biz_type)
+    CONSTRAINT uk_int_sync_reconcile UNIQUE (tenant_id, company_id, reconcile_date, if_id, biz_type)
 );
-CREATE INDEX idx_int_sync_reconcile_status ON int_sync_reconcile (status, reconcile_date);
+CREATE INDEX idx_int_sync_reconcile_status ON int_sync_reconcile (tenant_id, company_id, status, reconcile_date);
 ```
 
 ---
@@ -843,18 +843,18 @@ CREATE INDEX idx_int_sync_reconcile_status ON int_sync_reconcile (status, reconc
 
 | # | テーブル | 索引名 | 種別 | 対象列 | 目的 |
 |---|---|---|---|---|---|
-| 1 | `int_interface_config` | `uk_int_interface_config_code` | UNIQUE | (`company_id`,`interface_code`) | IF 一意 |
-| 2 | `int_interface_config` | `idx_int_interface_config_partner` | B-Tree | (`partner_code`,`enabled_flag`) | 相手先別一覧 |
-| 3 | `int_api_client` | `uk_int_api_client_id` | UNIQUE | (`client_id`) | 認証 |
-| 4 | `int_api_call_log` | `idx_int_api_call_log_time` | B-Tree | (`called_at` DESC) | 期間検索 |
-| 5 | `int_external_message` | `uk_int_external_message_hash` | UNIQUE | (`if_id`,`payload_hash`) | 受信冪等 |
-| 6 | `int_sync_task` | `uk_int_sync_task_idem` | UNIQUE | (`if_id`,`idempotency_key`) | 送信冪等 |
-| 7 | `int_sync_task` | `idx_int_sync_task_status` | B-Tree | (`status`,`next_retry_at`) | 再送抽出 |
-| 8 | `int_tax_invoice` | `uk_int_tax_invoice_req` | UNIQUE | (`invoice_req_no`) | 開票冪等 |
-| 9 | `int_bank_payment` | `uk_int_bank_payment_idem` | UNIQUE | (`idempotency_key`) | 二重送金防止 |
-| 10 | `int_bank_statement_file` | `uk_int_bank_statement_file_hash` | UNIQUE | (`bank_account_id`,`file_hash`) | 同一ファイル再取込防止 |
-| 11 | `int_file_transfer` | `uk_int_file_transfer_no` | UNIQUE | (`transfer_no`) | 批次一意 |
-| 12 | `int_sync_reconcile` | `uk_int_sync_reconcile` | UNIQUE | (`reconcile_date`,`if_id`,`biz_type`) | 対账一意 |
+| 1 | `int_interface_config` | `uk_int_interface_config_code` | UNIQUE | (`tenant_id`,`company_id`,`interface_code`) | IF 一意 |
+| 2 | `int_interface_config` | `idx_int_interface_config_partner` | B-Tree | (`tenant_id`,`company_id`,`partner_code`,`enabled_flag`) | 相手先別一覧 |
+| 3 | `int_api_client` | `uk_int_api_client_id` | UNIQUE | (`tenant_id`, `company_id`, `client_id`) | 認証 |
+| 4 | `int_api_call_log` | `idx_int_api_call_log_time` | B-Tree | (`tenant_id`, `company_id`, `called_at` DESC) | 期間検索 |
+| 5 | `int_external_message` | `uk_int_external_message_hash` | UNIQUE | (`tenant_id`,`company_id`,`if_id`,`payload_hash`) | 受信冪等 |
+| 6 | `int_sync_task` | `uk_int_sync_task_idem` | UNIQUE | (`tenant_id`,`company_id`,`if_id`,`idempotency_key`) | 送信冪等 |
+| 7 | `int_sync_task` | `idx_int_sync_task_status` | B-Tree | (`tenant_id`,`company_id`,`status`,`next_retry_at`) | 再送抽出 |
+| 8 | `int_tax_invoice` | `uk_int_tax_invoice_req` | UNIQUE | (`tenant_id`, `company_id`, `invoice_req_no`) | 開票冪等 |
+| 9 | `int_bank_payment` | `uk_int_bank_payment_idem` | UNIQUE | (`tenant_id`, `company_id`, `idempotency_key`) | 二重送金防止 |
+| 10 | `int_bank_statement_file` | `uk_int_bank_statement_file_hash` | UNIQUE | (`tenant_id`,`company_id`,`bank_account_id`,`file_hash`) | 同一ファイル再取込防止 |
+| 11 | `int_file_transfer` | `uk_int_file_transfer_no` | UNIQUE | (`tenant_id`, `company_id`, `transfer_no`) | 批次一意 |
+| 12 | `int_sync_reconcile` | `uk_int_sync_reconcile` | UNIQUE | (`tenant_id`,`company_id`,`reconcile_date`,`if_id`,`biz_type`) | 対账一意 |
 
 ## 5. 制約・整合性
 
@@ -914,3 +914,4 @@ CREATE INDEX idx_int_sync_reconcile_status ON int_sync_reconcile (status, reconc
 |---|---|---|---|
 | v1.0 | 2026-10-20 | 初版：21 テーブルの DDL・索引・制約・容量・更新タイミング | integration-designer |
 | v1.1 | 2026-10-21 | 明細 `int_tax_invoice_line`・`int_file_transfer_error` に `company_id` を付与（明細も親と同値を冗長保持） | 业务分析 |
+| v1.2 | 2026-10-21 | 全 20 一意キーを `(tenant_id, company_id, …)` 先頭に統一（00-common/04 §6.1）、btree 索引 24 本を `tenant_id`→`company_id` 先頭に統一（GIN なし、int 系迁移は未作成）。索引一覧表も同期 | 业务分析 |
