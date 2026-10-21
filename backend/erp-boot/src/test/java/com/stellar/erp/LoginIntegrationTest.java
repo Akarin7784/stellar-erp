@@ -251,7 +251,7 @@ class LoginIntegrationTest {
     }
 
     static final String REQ_T = "请输入必填项「企业代码」。", REQ_U = "请输入必填项「账号」。", REQ_P = "请输入必填项「密码」。";
-    static final String FMT_T = "「企业代码」只能为半角英数。";
+    static final String FMT_T = "「企业代码」只能输入半角英数字。", FMT_U = "「账号」只能输入半角英数字。";
 
     static String body(String tenantCode, String username, String password) {
         java.util.List<String> parts = new java.util.ArrayList<>();
@@ -265,8 +265,10 @@ class LoginIntegrationTest {
     void validationFailuresAreHttp200With1001() throws Exception {
         expectInvalid(body(null, "u7501", "x"), "MSG-COM-040", fe("tenantCode", REQ_T));
         expectInvalid(body("A".repeat(33), "u7501", "x"), "MSG-COM-041", fe("tenantCode", "「企业代码」不能超过 32 个字符。"));
-        expectInvalid(body("LOG-INT", "u7501", "x"), null, fe("tenantCode", FMT_T));
-        expectInvalid(body("ＬＯＧＩＮＴ", "u7501", "x"), null, fe("tenantCode", FMT_T));
+        expectInvalid(body("LOG-INT", "u7501", "x"), "MSG-COM-087", fe("tenantCode", FMT_T));
+        expectInvalid(body("ＬＯＧＩＮＴ", "u7501", "x"), "MSG-COM-087", fe("tenantCode", FMT_T));
+        expectInvalid(body(CODE, "u_7501", "x"), "MSG-COM-087", fe("username", FMT_U));
+        expectInvalid(body(CODE, "ｕ７５０１", "x"), "MSG-COM-087", fe("username", FMT_U));
         expectInvalid(body(CODE, null, "x"), "MSG-COM-040", fe("username", REQ_U));
         expectInvalid(body(CODE, "u".repeat(65), "x"), "MSG-COM-041", fe("username", "「账号」不能超过 64 个字符。"));
         expectInvalid(body(CODE, "u7501", null), "MSG-COM-040", fe("password", REQ_P));
@@ -278,7 +280,15 @@ class LoginIntegrationTest {
     void multipleInvalidFieldsAreAllReturnedInFormOrder() throws Exception {
         expectInvalid("{}", "MSG-COM-040", fe("tenantCode", REQ_T), fe("username", REQ_U), fe("password", REQ_P));
         expectInvalid(body(CODE, null, null), "MSG-COM-040", fe("username", REQ_U), fe("password", REQ_P));
-        expectInvalid(body("bad-code", "u".repeat(65), null), null,
+        expectInvalid(body("bad-code", "u".repeat(65), null), "MSG-COM-087",
                 fe("tenantCode", FMT_T), fe("username", "「账号」不能超过 64 个字符。"), fe("password", REQ_P));
+        expectInvalid(body(CODE, "bad user", null), "MSG-COM-087", fe("username", FMT_U), fe("password", REQ_P));
+    }
+
+    /** 不正な JSON 等のプロトコル層エラーはログイン API でも全体規則どおり HTTP 400（BR-15）。 */
+    @Test
+    void malformedJsonIsHttp400() throws Exception {
+        mvc.perform(post("/api/system/auth/login").contentType(MediaType.APPLICATION_JSON).content("{\"tenantCode\":"))
+                .andExpect(status().isBadRequest());
     }
 }

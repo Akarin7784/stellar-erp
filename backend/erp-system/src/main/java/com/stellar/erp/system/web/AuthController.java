@@ -50,8 +50,8 @@ public class AuthController {
 
     static final String MSG_REQUIRED = "MSG-COM-040";
     static final String MSG_TOO_LONG = "MSG-COM-041";
-    /** 半角英数以外：共通メッセージに該当 ID がないため msgId なし（BA に ID 採番を依頼中）。 */
-    static final String MSG_FORMAT = null;
+    /** 半角英数以外：MSG-COM-087「「{0}」只能输入半角英数字。」（CHK-SYS-001-12 / 02）。 */
+    static final String MSG_HALF_WIDTH = "MSG-COM-087";
     private static final java.util.regex.Pattern ALNUM = java.util.regex.Pattern.compile("[A-Za-z0-9]+");
 
     /**
@@ -64,9 +64,6 @@ public class AuthController {
         }
         java.util.List<Violation> vs = new java.util.ArrayList<>();
         Optional<Violation> t = check("tenantCode", "企业代码", r.tenantCode(), 32);
-        if (t.isEmpty() && !ALNUM.matcher(r.tenantCode()).matches()) {
-            t = Optional.of(new Violation("tenantCode", "「企业代码」只能为半角英数。", MSG_FORMAT));
-        }
         t.ifPresent(vs::add);
         check("username", "账号", r.username(), 64).ifPresent(vs::add);
         check("password", "密码", r.password(), 64).ifPresent(vs::add);
@@ -84,6 +81,9 @@ public class AuthController {
         }
         if (value.length() > max) {
             return Optional.of(new Violation(field, "「" + label + "」不能超过 " + max + " 个字符。", MSG_TOO_LONG));
+        }
+        if (!"password".equals(field) && !ALNUM.matcher(value).matches()) {
+            return Optional.of(new Violation(field, "「" + label + "」只能输入半角英数字。", MSG_HALF_WIDTH));
         }
         return Optional.empty();
     }
