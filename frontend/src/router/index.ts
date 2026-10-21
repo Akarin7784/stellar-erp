@@ -19,6 +19,10 @@ const BUILT_VIEWS: Record<string, { name: string; component: RouteComponent }> =
     name: 'production-work-order-create',
     component: () => import('@/views/production/WorkOrderCreateView.vue'),
   },
+  'production/overproduction-approvals': {
+    name: 'production-overproduction-approvals',
+    component: () => import('@/views/production/OverproductionApprovalView.vue'),
+  },
   'production/work-orders/:id': {
     name: 'production-work-order-detail',
     component: () => import('@/views/production/WorkOrderDetailView.vue'),
