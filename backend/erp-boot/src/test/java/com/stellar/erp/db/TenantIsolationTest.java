@@ -36,8 +36,8 @@ class TenantIsolationTest {
         JdbcTemplate owner = OwnerJdbc.of(pg);
         owner.update("DELETE FROM sys_user WHERE tenant_id IN (?, ?)", A, B);
         // owner 插入必须显式指定 tenant_id（列默认值依赖 app.tenant_id）
-        owner.update("INSERT INTO sys_user (id, tenant_id, company_id, user_code, username, real_name, password_hash) VALUES (?, ?, 1, ?, ?, ?, 'x')", 9001L, A, "alice");
-        owner.update("INSERT INTO sys_user (id, tenant_id, company_id, user_code, username, real_name, password_hash) VALUES (?, ?, 1, ?, ?, ?, 'x')", 9002L, B, "bob");
+        owner.update("INSERT INTO sys_user (id, tenant_id, company_id, user_code, username, real_name, password_hash) VALUES (?, ?, 1, ?, ?, ?, 'x')", 9001L, A, "alice", "alice", "alice");
+        owner.update("INSERT INTO sys_user (id, tenant_id, company_id, user_code, username, real_name, password_hash) VALUES (?, ?, 1, ?, ?, ?, 'x')", 9002L, B, "bob", "bob", "bob");
     }
 
     private <T> T asTenant(long tenant, java.util.function.Supplier<T> body) {
