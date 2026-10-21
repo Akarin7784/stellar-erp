@@ -23,8 +23,8 @@ public class MdmLookupController {
     }
 
     @GetMapping("/factories")
-    public Result<List<MdmLookupService.FactoryDto>> factories() {
-        return Result.ok(service.factories());
+    public Result<List<MdmLookupService.FactoryDto>> factories(@RequestParam(required = false) String resource) {
+        return Result.ok(service.factories(resource));
     }
 
     @GetMapping("/warehouses/options")

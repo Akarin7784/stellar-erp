@@ -16,7 +16,7 @@ import com.stellar.erp.common.BizException;
 import com.stellar.erp.common.LoginContext;
 import com.stellar.erp.common.PageResult;
 import com.stellar.erp.common.TenantContext;
-import com.stellar.erp.production.internal.FactoryDataScope;
+import com.stellar.erp.system.FactoryDataScope;
 
 /**
  * 工单一覧 GET /api/production/work-orders（06/91 §3.15、AC-PRD-22）。

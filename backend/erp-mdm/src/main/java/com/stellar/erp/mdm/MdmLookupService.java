@@ -1,12 +1,15 @@
 package com.stellar.erp.mdm;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.stellar.erp.common.BizException;
+import com.stellar.erp.system.FactoryDataScope;
 import com.stellar.erp.common.LoginContext;
 import com.stellar.erp.common.PageResult;
 
@@ -33,21 +36,48 @@ public class MdmLookupService {
     }
 
     private final JdbcClient jdbc;
+    private final FactoryDataScope scope;
 
-    public MdmLookupService(JdbcClient jdbc) {
+    public MdmLookupService(JdbcClient jdbc, FactoryDataScope scope) {
         this.jdbc = jdbc;
+        this.scope = scope;
     }
 
+    /**
+     * 工厂下拉（当前公司的有效工厂）。{@code resource}（例 {@code work-order} → production 模块・{@code production:work-order}）
+     * 指定時は CALC-02a（{@link FactoryDataScope}）で絞る：ユーザ個別が工厂型なら優先、そうでなければロール和集合
+     * （いずれか無制限なら無制限）、有効ロールなしは空。未知の値は 400。未指定は絞らない（负责人决定）。
+     */
+    /** {@code resource} 参数值 → {module, resource_code}（01-system 文档 #135）。 */
+    static final java.util.Map<String, String[]> FACTORY_SCOPE_RESOURCES = java.util.Map.of(
+            "work-order", new String[] {"production", "production:work-order"});
+
     @Transactional(readOnly = true)
-    public List<FactoryDto> factories() {
-        long company = LoginContext.require().companyId();
+    public List<FactoryDto> factories(String resource) {
+        LoginContext.LoginUser login = LoginContext.require();
+        long company = login.companyId();
+        Optional<Set<Long>> allowed = Optional.empty();
+        if (resource != null) {
+            String[] mr = FACTORY_SCOPE_RESOURCES.get(resource.trim());
+            if (mr == null) {
+                // 未知の resource（暫定：400 / 1001 / MSG-COM-049。正式な扱いは负责人确认待ち）
+                throw new BizException(1001, "MSG-COM-049", "resource 取值不正确");
+            }
+            allowed = scope.allowedFactories(login.userId(), company, mr[0], mr[1]);
+        }
+        Optional<Set<Long>> scoped = allowed;
+        if (scoped.isPresent() && scoped.get().isEmpty()) {
+            return List.of();
+        }
         return jdbc.sql("""
                         SELECT id, factory_code, factory_name, plant_type FROM mdm_factory
                          WHERE company_id = :c AND deleted = FALSE AND is_active = TRUE ORDER BY factory_code
                         """).param("c", company)
                 .query((rs, i) -> new FactoryDto(rs.getLong(1), rs.getString(2), rs.getString(3),
                         rs.getObject(4, Short.class)))
-                .list();
+                .list().stream()
+                .filter(f -> scoped.isEmpty() || scoped.get().contains(f.id()))
+                .toList();
     }
 
     /** {@code factoryId} 任意（03-warehouse-location §7 No.13 のリクエスト）。指定時は当前公司の工厂であることを確認。 */
