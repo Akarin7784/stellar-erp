@@ -15,7 +15,7 @@ import org.springframework.util.StringUtils;
 public class RequiredEnvironmentCheck implements ApplicationListener<ApplicationEnvironmentPreparedEvent> {
 
     static final List<String> PROD_REQUIRED = List.of(
-            "DB_URL", "DB_USER", "DB_PASSWORD", "DB_APP_USER", "DB_APP_PASSWORD");
+            "DB_URL", "DB_USER", "DB_PASSWORD", "DB_APP_USER", "DB_APP_PASSWORD", "REDIS_HOST");
 
     /** afterMigrate.sql 以 Flyway 占位符把该值拼进 SQL 字面量，因此不得包含单引号。 */
     static final String APP_PASSWORD_PLACEHOLDER = "spring.flyway.placeholders.erp_app_password";

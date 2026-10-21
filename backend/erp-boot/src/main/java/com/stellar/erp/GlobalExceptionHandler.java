@@ -99,8 +99,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         if (code >= 1000 && code <= 1999) {
             return HttpStatus.BAD_REQUEST;
         }
-        if (code >= 2000 && code <= 2999) {
+        // 認証帯：2001（未認証/期限切れ）のみ 401。2002 ログイン失敗・2003 ロック・2004 パスワード期限切れ・
+        // 2005 検証コード等はログイン画面で処理する業務結果として HTTP 200 + body の code（#71 決定）
+        if (code == 2001) {
             return HttpStatus.UNAUTHORIZED;
+        }
+        if (code >= 2000 && code <= 2999) {
+            return HttpStatus.OK;
         }
         if (code >= 3000 && code <= 3999) {
             return HttpStatus.FORBIDDEN;
