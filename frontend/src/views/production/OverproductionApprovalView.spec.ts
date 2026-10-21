@@ -127,8 +127,8 @@ describe('OverproductionApprovalView（SCR-PRD-034）', () => {
       approvalStatus: undefined,
       salesOrderLineId: '',
       workOrderId: '',
-      page: 1,
-      size: 20,
+      pageNum: 1,
+      pageSize: 20,
     })
     const rows = w.findAll('.el-table__body-wrapper tr')
     expect(rows).toHaveLength(3)
@@ -366,7 +366,12 @@ describe('OverproductionApprovalView（SCR-PRD-034）', () => {
     )
 
     await pickFirstLine()
-    expect(api.lines).toHaveBeenCalledWith({ salesOrderNo: '', material: '', page: 1, size: 20 })
+    expect(api.lines).toHaveBeenCalledWith({
+      salesOrderNo: '',
+      material: '',
+      pageNum: 1,
+      pageSize: 20,
+    })
     expect(body().querySelector('[data-test="c-line-text"]')!.textContent).toContain(
       'SO-001 第1行 M001 螺栓',
     )
@@ -400,8 +405,8 @@ describe('OverproductionApprovalView（SCR-PRD-034）', () => {
     expect(api.lines).toHaveBeenLastCalledWith({
       salesOrderNo: 'SO-0',
       material: '螺栓',
-      page: 1,
-      size: 20,
+      pageNum: 1,
+      pageSize: 20,
     })
   })
 

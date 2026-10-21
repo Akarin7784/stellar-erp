@@ -129,8 +129,8 @@
       class="pager"
       layout="total, prev, pager, next"
       :total="total"
-      :page-size="query.size"
-      :current-page="query.page"
+      :page-size="query.pageSize"
+      :current-page="query.pageNum"
       @current-change="onPage"
     />
 
@@ -237,8 +237,8 @@
         class="pager"
         layout="total, prev, pager, next"
         :total="linesTotal"
-        :page-size="pickerQuery.size"
-        :current-page="pickerQuery.page"
+        :page-size="pickerQuery.pageSize"
+        :current-page="pickerQuery.pageNum"
         @current-change="onLinesPage"
       />
     </el-dialog>
@@ -430,8 +430,8 @@ const query = reactive({
   approvalStatus: undefined as number | undefined,
   salesOrderLineId: '',
   workOrderId: '',
-  page: 1,
-  size: 20,
+  pageNum: 1,
+  pageSize: 20,
 })
 const rows = ref<OverproductionApproval[]>([])
 const total = ref(0)
@@ -454,8 +454,8 @@ async function load() {
       approvalStatus: query.approvalStatus,
       salesOrderLineId: query.salesOrderLineId.trim(),
       workOrderId: query.workOrderId.trim(),
-      page: query.page,
-      size: query.size,
+      pageNum: query.pageNum,
+      pageSize: query.pageSize,
     })
     rows.value = r.list
     total.value = r.total
@@ -468,12 +468,12 @@ async function load() {
 
 function search() {
   errorText.value = ''
-  query.page = 1
+  query.pageNum = 1
   void load()
 }
 
 function onPage(p: number) {
-  query.page = p
+  query.pageNum = p
   void load()
 }
 
@@ -532,11 +532,11 @@ async function onCreate() {
   }
 }
 
-// 销售订单行选择器（GET /sales-order-lines，size ≤ 200）
+// 销售订单行选择器（GET /sales-order-lines，pageSize ≤ 200）
 const pickerVisible = ref(false)
 const pickerError = ref('')
 const pickerLoading = ref(false)
-const pickerQuery = reactive({ salesOrderNo: '', material: '', page: 1, size: 20 })
+const pickerQuery = reactive({ salesOrderNo: '', material: '', pageNum: 1, pageSize: 20 })
 const lines = ref<SalesOrderLineOption[]>([])
 const linesTotal = ref(0)
 async function loadLines() {
@@ -553,16 +553,16 @@ async function loadLines() {
   }
 }
 function openPicker() {
-  Object.assign(pickerQuery, { salesOrderNo: '', material: '', page: 1 })
+  Object.assign(pickerQuery, { salesOrderNo: '', material: '', pageNum: 1 })
   pickerVisible.value = true
   void loadLines()
 }
 function searchLines() {
-  pickerQuery.page = 1
+  pickerQuery.pageNum = 1
   void loadLines()
 }
 function onLinesPage(p: number) {
-  pickerQuery.page = p
+  pickerQuery.pageNum = p
   void loadLines()
 }
 function pickLine(l: SalesOrderLineOption) {

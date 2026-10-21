@@ -4,10 +4,12 @@ import ElementPlus from 'element-plus'
 
 const getWorkOrder = vi.fn()
 const releaseWorkOrder = vi.fn()
+const submitWorkOrder = vi.fn()
 vi.mock('@/api/production/workOrder', async (orig) => ({
   ...(await orig<typeof import('@/api/production/workOrder')>()),
   getWorkOrder: (...a: unknown[]) => getWorkOrder(...a),
   releaseWorkOrder: (...a: unknown[]) => releaseWorkOrder(...a),
+  submitWorkOrder: (...a: unknown[]) => submitWorkOrder(...a),
 }))
 
 const confirm = vi.fn()
@@ -181,6 +183,70 @@ describe('WorkOrderDetailView 下达', () => {
     await w.find('[data-test="release"]').trigger('click')
     await flushPromises()
     expect(w.find('[data-test="error"]').text()).toBe(MSG_CONFLICT)
+    expect(getWorkOrder).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('WorkOrderDetailView 提交', () => {
+  const DRAFT = { ...DETAIL, orderStatus: 10, version: 1 }
+  const SUBMITTED = { ...DETAIL, orderStatus: 20, version: 2 }
+  const SUBMIT = 'production:work-order:submit'
+  const err = (status: number, code: number, message: string, msgId: string) =>
+    new ApiError('x', { status, code, msgId, data: { code, message, data: null, msgId } })
+
+  afterEach(() => vi.clearAllMocks())
+
+  it('状态 10 且有提交权限才显示提交按钮', async () => {
+    getWorkOrder.mockResolvedValue(DRAFT)
+    expect((await mountView([SUBMIT])).find('[data-test="submit"]').exists()).toBe(true)
+    expect(
+      (await mountView(['production:work-order:view'])).find('[data-test="submit"]').exists(),
+    ).toBe(false)
+    getWorkOrder.mockResolvedValue({ ...DETAIL, orderStatus: 25, version: 3 })
+    expect((await mountView([SUBMIT])).find('[data-test="submit"]').exists()).toBe(false)
+  })
+
+  it('成功：传 id/version，提示并重新读取', async () => {
+    getWorkOrder.mockResolvedValueOnce(DRAFT).mockResolvedValueOnce(SUBMITTED)
+    confirm.mockResolvedValue('confirm')
+    submitWorkOrder.mockResolvedValue(SUBMITTED)
+    const w = await mountView([SUBMIT])
+    await w.find('[data-test="submit"]').trigger('click')
+    await flushPromises()
+    expect(submitWorkOrder).toHaveBeenCalledWith('42', 1)
+    expect(success).toHaveBeenCalledWith('工单 WO-1 已提交')
+    expect(getWorkOrder).toHaveBeenCalledTimes(2)
+    expect(w.find('[data-test="submit"]').exists()).toBe(false)
+  })
+
+  it('取消确认时不调用 API', async () => {
+    getWorkOrder.mockResolvedValue(DRAFT)
+    confirm.mockRejectedValue('cancel')
+    const w = await mountView([SUBMIT])
+    await w.find('[data-test="submit"]').trigger('click')
+    await flushPromises()
+    expect(submitWorkOrder).not.toHaveBeenCalled()
+  })
+
+  it('422：显示 [msgId] message，不重读', async () => {
+    getWorkOrder.mockResolvedValue(DRAFT)
+    confirm.mockResolvedValue('confirm')
+    submitWorkOrder.mockRejectedValue(err(422, 60101, '当前状态不允许此操作。', 'MSG-PRD-101'))
+    const w = await mountView([SUBMIT])
+    await w.find('[data-test="submit"]').trigger('click')
+    await flushPromises()
+    expect(w.text()).toContain('[MSG-PRD-101] 当前状态不允许此操作。')
+    expect(getWorkOrder).toHaveBeenCalledTimes(1)
+  })
+
+  it('4003（409）：刷新提示并重读', async () => {
+    getWorkOrder.mockResolvedValue(DRAFT)
+    confirm.mockResolvedValue('confirm')
+    submitWorkOrder.mockRejectedValue(err(409, 4003, '版本冲突', 'MSG-COM-033'))
+    const w = await mountView([SUBMIT])
+    await w.find('[data-test="submit"]').trigger('click')
+    await flushPromises()
+    expect(w.text()).toContain(MSG_CONFLICT)
     expect(getWorkOrder).toHaveBeenCalledTimes(2)
   })
 })

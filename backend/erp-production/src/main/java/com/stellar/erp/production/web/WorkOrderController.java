@@ -6,7 +6,9 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.stellar.erp.common.RequirePermission;
@@ -15,6 +17,7 @@ import com.stellar.erp.production.WorkOrderCreateCommand;
 import com.stellar.erp.production.WorkOrderApprovalService;
 import com.stellar.erp.production.WorkOrderCreated;
 import com.stellar.erp.production.WorkOrderDetail;
+import com.stellar.erp.production.WorkOrderListService;
 import com.stellar.erp.production.WorkOrderQueryService;
 import com.stellar.erp.production.WorkOrderStateCommand;
 import com.stellar.erp.production.WorkOrderReleaseCommand;
@@ -33,13 +36,34 @@ public class WorkOrderController {
     private final WorkOrderReleaseService releaseService;
     private final WorkOrderApprovalService approvalService;
     private final WorkOrderQueryService queryService;
+    private final WorkOrderListService listService;
 
     public WorkOrderController(WorkOrderService service, WorkOrderReleaseService releaseService,
-                               WorkOrderApprovalService approvalService, WorkOrderQueryService queryService) {
+                               WorkOrderApprovalService approvalService, WorkOrderQueryService queryService,
+                               WorkOrderListService listService) {
+        this.listService = listService;
         this.service = service;
         this.releaseService = releaseService;
         this.approvalService = approvalService;
         this.queryService = queryService;
+    }
+
+    /**
+     * 一覧（06/91 §3.15、AC-PRD-22）。検索条件・ページング・ソートは {@link WorkOrderListParams} で検証し、
+     * 不正は 400 / 1001 + {@code data.fieldErrors}。データ範囲外の工場指定は 403 / 3002。
+     */
+    @GetMapping
+    @RequirePermission("production:work-order:view")
+    public ResponseEntity<Result<?>> list(@RequestParam MultiValueMap<String, String> params) {
+        WorkOrderListParams.Parsed parsed = WorkOrderListParams.parse(params);
+        if (!parsed.violations().isEmpty()) {
+            WorkOrderListParams.Violation first = parsed.violations().get(0);
+            return ResponseEntity.badRequest().body(new Result<>(1001, first.message(),
+                    new OverproductionApprovalController.FieldErrors(parsed.violations().stream()
+                            .map(v -> new OverproductionApprovalController.FieldError(v.field(), v.message())).toList()),
+                    first.msgId()));
+        }
+        return ResponseEntity.ok(Result.ok(listService.list(parsed.query())));
     }
 
     /** 詳細（91 #24 / 02 §7 No.2）。 */

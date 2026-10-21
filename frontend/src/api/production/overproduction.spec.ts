@@ -17,16 +17,16 @@ const ok = (data: unknown) => ({ data: { code: 0, message: 'ok', data, msgId: nu
 describe('overproduction API 请求', () => {
   afterEach(() => vi.restoreAllMocks())
 
-  it('一览：去掉空条件，带 page/size，silent', async () => {
+  it('一览：去掉空条件，带 pageNum/pageSize，silent', async () => {
     const get = vi.spyOn(http, 'get').mockResolvedValue(ok({ list: [], total: 0 }))
     await listOverproductionApprovals({
       approvalStatus: 20,
       salesOrderLineId: '',
-      page: 2,
-      size: 20,
+      pageNum: 2,
+      pageSize: 20,
     })
     expect(get).toHaveBeenCalledWith('/production/overproduction-approvals', {
-      params: { approvalStatus: 20, page: 2, size: 20 },
+      params: { approvalStatus: 20, pageNum: 2, pageSize: 20 },
       silent: true,
     })
   })
@@ -61,11 +61,11 @@ describe('overproduction API 请求', () => {
     )
   })
 
-  it('销售订单行选择器：条件 trim、size 不超过 200', async () => {
+  it('销售订单行选择器：条件 trim、pageSize 不超过 200', async () => {
     const get = vi.spyOn(http, 'get').mockResolvedValue(ok({ list: [], total: 0 }))
-    await searchSalesOrderLines({ salesOrderNo: ' SO1 ', material: '', page: 2, size: 500 })
+    await searchSalesOrderLines({ salesOrderNo: ' SO1 ', material: '', pageNum: 2, pageSize: 500 })
     expect(get).toHaveBeenCalledWith('/production/overproduction-approvals/sales-order-lines', {
-      params: { salesOrderNo: 'SO1', page: 2, size: 200 },
+      params: { salesOrderNo: 'SO1', pageNum: 2, pageSize: 200 },
       silent: true,
     })
   })

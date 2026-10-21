@@ -5,6 +5,17 @@
         <span>工单详细（SCR-PRD-010）</span>
         <span>
           <el-tag v-if="detail">{{ statusLabel }}</el-tag>
+          <!-- order_status=10 且有提交权限时显示提交按钮 -->
+          <el-button
+            v-if="canSubmit"
+            type="primary"
+            size="small"
+            class="ml"
+            data-test="submit"
+            :loading="submitting"
+            @click="onSubmit"
+            >提交</el-button
+          >
           <!-- 06/02 §4.7：order_status=25 时显示下达按钮 -->
           <el-button
             v-if="canRelease"
@@ -70,6 +81,7 @@ import {
   getWorkOrder,
   ORDER_STATUS_LABELS,
   releaseWorkOrder,
+  submitWorkOrder,
   toReleaseErrorView,
   type ReleaseErrorView,
   type WorkOrderDetail,
@@ -88,6 +100,13 @@ const releasing = ref(false)
 const auth = useAuthStore()
 /** 按 /auth/me permissions 控制按钮（同 OverproductionApprovalView） */
 const has = (code: string) => auth.me?.permissions.includes(code) ?? false
+
+/** 草稿（10）且有提交权限时可提交 */
+const STATUS_DRAFT = 10
+const canSubmit = computed(
+  () => detail.value?.orderStatus === STATUS_DRAFT && has(WO_PERMISSIONS.submit),
+)
+const submitting = ref(false)
 
 /** 已批准（25）且有下达权限时可下达 */
 const STATUS_APPROVED = 25
@@ -159,6 +178,41 @@ async function onRelease() {
     }
   } finally {
     releasing.value = false
+  }
+}
+
+/** 提交 10→20：成功后用返回的详细刷新；4003 刷新提示并重读；422 显示 `[msgId] message`。 */
+async function onSubmit() {
+  const d = detail.value
+  if (!d || submitting.value) return
+  try {
+    await ElMessageBox.confirm(`确认提交工单 ${d.workOrderNo}？`, '提交确认', {
+      type: 'warning',
+      confirmButtonText: '提交',
+      cancelButtonText: '取消',
+    })
+  } catch {
+    return
+  }
+  submitting.value = true
+  errorText.value = ''
+  errorKind.value = null
+  try {
+    await submitWorkOrder(props.id, d.version)
+    ElMessage.success(`工单 ${d.workOrderNo} 已提交`)
+    await load()
+  } catch (e) {
+    const v = toReleaseErrorView(e)
+    errorText.value = v.message
+    errorKind.value = v.kind
+    if (v.reload) {
+      const keep = errorText.value
+      await load()
+      errorText.value = keep
+      errorKind.value = v.kind
+    }
+  } finally {
+    submitting.value = false
   }
 }
 
