@@ -1,6 +1,6 @@
 -- pgTAP：同域父子表复合外键（sys/V202610211401）。public 下非 mdm 同域外键必须为 (tenant_id, company_id, x_id) → (tenant_id, company_id, id)，跨公司引用被拒。
 BEGIN;
-SELECT plan(8);
+SELECT plan(9);
 
 -- 同域判定：public 下表名前缀（split_part(_,1)）相同；排除 Flowable 引擎表（act_/flw_）。
 -- 合规形态：(tenant_id, company_id, x_id) → (tenant_id, company_id, id)；
@@ -44,10 +44,13 @@ VALUES (8030001, 803, 1, '9SDFK0001', 8030001, DATE '2026-10-21');
 
 SET ROLE erp_app;
 SELECT set_config('app.tenant_id', '803', true);
+-- throws_like 只匹配消息、不查 SQLSTATE，所以与 throws_ok(23503) 分两条断言
 SELECT throws_ok($$INSERT INTO prd_mrp_demand (id, company_id, mrp_run_id, material_id, material_code, material_name, factory_id, bucket_date, demand_type)
                    VALUES (8030101, 2, 8030001, 1, 'M', 'm', 8030001, DATE '2026-10-21', 10)$$,
-                 '23503', 'insert or update on table "prd_mrp_demand" violates foreign key constraint "fk_prd_mrp_demand_run"',
-                 '公司 2 的明细引用公司 1 的 prd_mrp_run.id → 23503 fk_prd_mrp_demand_run');
+                 '23503', NULL, '公司 2 的明细引用公司 1 的 prd_mrp_run.id → 23503');
+SELECT throws_like($$INSERT INTO prd_mrp_demand (id, company_id, mrp_run_id, material_id, material_code, material_name, factory_id, bucket_date, demand_type)
+                   VALUES (8030101, 2, 8030001, 1, 'M', 'm', 8030001, DATE '2026-10-21', 10)$$,
+                   '%fk_prd_mrp_demand_run%', '跨公司引用的报错指向约束 fk_prd_mrp_demand_run');
 SELECT lives_ok($$INSERT INTO prd_mrp_demand (id, company_id, mrp_run_id, material_id, material_code, material_name, factory_id, bucket_date, demand_type)
                   VALUES (8030102, 1, 8030001, 1, 'M', 'm', 8030001, DATE '2026-10-21', 10)$$,
                 '同租户同公司引用可写入');
