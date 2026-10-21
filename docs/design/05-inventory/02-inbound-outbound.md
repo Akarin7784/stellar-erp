@@ -191,7 +191,7 @@ stateDiagram-v2
 | 項目 | 内容 |
 |---|---|
 | MII 発生源 | E22 `production.material.issued`：`workOrderId, issueId, lines[{materialId, qty, batchNo, unitCost, amount}], amount, issuedAt`（[09 §3 E22](../00-common/09-cross-domain-flow.md)） |
-| MII 生成単位 | `issueId` ごとに 1 事務。来源は工单（`source_type='WORK_ORDER'`、`source_id=workOrderId`、`source_no=workOrderNo`）、`source_line_no` に工单明細行 |
+| MII 生成単位 | `issueId` ごとに 1 事務。来源は工单（`source_type='WORK_ORDER'`、`source_id=issueId`（PRD の要求 ID、§2.7）、`source_no=workOrderNo`）、工单 ID は `inv_stock_txn.work_order_id`、`source_line_no` に工单明細行。同一工单の複数回領料が来源二重計上一意（[90](90-db-design.md) 4.2.6）に抵触しない |
 | MII 批次 | 工单下达（E21）時の引当批次を優先。引当が無い場合は FEFO/FIFO。BOM 代替品（`mdm_material_substitute`）は PRD が指定した場合のみ採用 |
 | MII 数量 | 実発数量（E22 の `qty`）。BOM 理論値との差異は PRD 側で管理。`qty > 0` |
 | MIR 発生源 | **E36 `production.material.returned`**：PRD が退料を確定・発行し、INV が購読して MIR（在庫戻入）を登録する（payload：`workOrderId, returnId, returnNo, lines[{materialId, qty, batchNo, unitCost}], returnReason, returnedAt`）。PRD 未導入時の暫定手段として INV 手動登録（来源=工单、退料理由必須）も許容 |
@@ -208,7 +208,7 @@ stateDiagram-v2
 | 受信ペイロード | E24 `production.workorder.completed`：`workOrderId, completedQty, lines[{materialId, qty, batchNo, unitCost, amount, stockStatus}], costAmount, unitCost, inspectionId, inspectionResult, completedAt`（[09 §3 E24](../00-common/09-cross-domain-flow.md)） |
 | 生成単位 | 工单完工ごとに 1 事務（FGI）。部分完工は複数事務可（`completedQty` 単位） |
 | 批次 | 製造批番号を自動採番（`{YYMMDD}M{3 桁}`、[04](04-batch-serial-status.md) 第 3 章）。`expiry_date` は物料の `shelf_life_days` から算出 |
-| 原価 | E24 の `unitCost`（FIN の完工原価）。`null` の場合は**暫定単価**（`mdm_material.standard_cost`、無ければ直近 `FGI` の平均単価、無ければ 0）で過账し、FIN の原価確定後に `inv_cost_adjustment` で調整（[05](05-costing.md) 第 6 章） |
+| 原価 | E24 の `unitCost`（FIN の完工原価）。`null` の場合は**暫定単価**（`valuation_method=20` は `fin_standard_cost` の有効版 `total_unit_cost`、`10` は直近 `FGI` の平均単価、無ければ 0。`mdm_material` に標準原価列はない）で過账し、FIN の原価確定後に `inv_cost_adjustment` で調整（[05](05-costing.md) 第 6 章） |
 | 状態 | `inspection_flag` 按 §2.6.1a：`stage∈{30,40}`→true→`10` FQC 待检；否则 false→`20`。true 時 E24 `stockStatus≠10` は `MSG-INV-065`。E15（FQC）PASS/CONCESSION→`20`、REJECT→`40`。来源 `PRODUCTION_COMPLETION` |
 | 順序 | **E24 を先に過账し、E15 を後で適用**する（[09 §8](../00-common/09-cross-domain-flow.md)）。E15 が先着した場合は `inv_event_wait` に保留し、FGI 過账と同一 TX で適用する（§2.8） |
 | 伝票所有 | `FGI` は INV が採番（[08 §2.1:70](../00-common/08-common-business-rules.md)）。PRD の `receiptId`/`completedQty` は要求 ID・実績であり、E18 の `stockDocNo` で返却する |
@@ -231,7 +231,7 @@ stateDiagram-v2
 | 項目 | 内容 |
 |---|---|
 | 原因区分 | `10` 赠品受入 / `20` 借入 / `30` 期初投入 / `40` 样品受入 / `50` 盘盈以外の調整 / `60` 返品（販売以外） |
-| 原価 | 原因 10/40/60：参照単価（`mdm_material.standard_cost` または直近入庫単価）を初期表示し、修正可（0 以上）。原因 20 借入：原価 0（数量のみ、返却時に AOO）。原因 30 期初：手動単価必須 |
+| 原価 | 原因 10/40/60：参照単価（`fin_standard_cost` の有効版 `total_unit_cost` または直近入庫単価）を初期表示し、修正可（0 以上）。原因 20 借入：原価 0（数量のみ、返却時に AOO）。原因 30 期初：手動単価必須 |
 | 状態 | 既定 `20 可用`。品質確認が必要な場合は手動で `10 待检` |
 | 承認 | 金額 ≥ 10,000 元は WF 承認（[08 §8.1](../00-common/08-common-business-rules.md)：倉庫主管 → 財務経理）【示例值】。承認後に過账 |
 | 对方 | 赠品/样品は仕入先または顧客を任意指定（スナップショット保持）。借入は借入先必須 |
@@ -258,7 +258,7 @@ stateDiagram-v2
 | 来源（要求）ID | PRD の `issueId`/`returnId`/`receiptId` は**要求 ID** として `inv_stock_txn.source_id` に保持する（`source_type` = `WORK_ORDER`/`OUTSOURCING_ORDER`）。伝票番号そのものではない |
 | 返却 | 過账時の E18 に**追加項目** `stockDocId`（= `inv_stock_txn.id`）・`stockDocNo`（= `txn_no`）を含める。PRD は `sourceId` で自域要求行を特定し、`stockDocNo` を保持する（`eventVersion` +0） |
 | 帳票 | 伝票帳票（PRT-INV-001〜005）は INV が発行し、PRD/PUR/SAL 画面では `stockDocNo` を参照表示するのみ |
-| 二重計上防止 | `(source_type, source_id, txn_type)` の過账済一意制約（[90](90-db-design.md) 4.2）と E18 の `stockDocNo` 返却で、要求と伝票の対応が一意になる |
+| 二重計上防止 | `(source_type, source_id, txn_type)` の過账済一意（[90](90-db-design.md) 4.2.6 `inv_stock_txn_key`、`TRANSFER` 除く）と E18 の `stockDocNo` 返却で、要求と伝票の対応が一意になる。工单 ID は `work_order_id` 列に別途保持 |
 
 ### 2.8 品質イベント E15 の消費ルールと順序逆転の保留
 
@@ -499,7 +499,7 @@ stateDiagram-v2
 **PRC-INV-002-01／003-01 在庫更新の共通フロー**
 
 1. **受信・権限検証**：イベント駆動は `sys_event_consume_log` で `eventId` の重複を排除する。手動は `inventory:stock-txn:post` を検証する。
-2. **来源検証**：来源伝票（`source_type + source_id`）の存在・状態・未処理を検証する。`(source_type, source_id, txn_type, txn_status=30)` の一意インデックスで二重過账を防ぐ。
+2. **来源検証**：来源伝票（`source_type + source_id`）の存在・状態・未処理を検証する。`inv_stock_txn_key`（`SOURCE_POSTED`＝`source_type|source_id|txn_type`、[90](90-db-design.md) 4.2.6）への INSERT で二重過账を防ぐ（パーティション表のため索引ではなく台帳）。
 3. **明細正規化**：単位換算（CALC-07）、数量 4 桁・単価 6 桁・金額 2 桁への丸め、行番号付与、同一ロットキーの集約（同一 `warehouse/material/batch/status/location` で同方向の行は合算）。
 4. **業務検証**（第 5 章）：期間、遡及、批次/序列号、在庫状態、有効期限、在庫充足。
 5. **伝票生成**：`inv_stock_txn`（`txn_status=10`）と `inv_stock_txn_line` を INSERT する。採番は `sys_sequence`（`GRI/SDO/MII/MIR/FGI/OSI/OSR/AOI/AOO`）。
@@ -995,3 +995,4 @@ SELECT 1
 | v1.2 | 2026-10-20 | Lead 裁决：BR-12・2.6.6/2.6.7 の承認閾値を 08 §8.1 追補に同期（AOI/AOO ≥ 10,000 元は 倉庫主管→財務経理）、未決 #3 を「已追補」に更新 | inventory-designer |
 | v1.3 | 2026-10-20 | 红队第 2 轮修复：①MII/MIR/FGI/OSI/OSR の INV 単一採番と E18 `stockDocNo` 返却（§2.7）②在庫状態コードを 09 §8 に合わせ 10=待検/20=可用へ全面改訂③E15 resultCode 写像と E15/E24 順序逆転の `inv_event_wait` 保留（§2.8）④E35 受入取消・E39 倉庫変更の購読追加⑤遅延イベントの計上日ルール（BR-16）⑥同時実行 S11/S12・メッセージ 063〜067 追加⑦E22 出庫倉庫のフォールバック（E21 引当倉庫→既定倉庫） | inventory-designer |
 | v1.4 | 2026-10-21 | 藍色大肥魚拍板：`inspection_type`/`inspection_stage` 码表；`inspection_flag` 入庫点收窄（PI/OSR∈{10,40}、FGI∈{30,40}）；source_type 過账/INSPECTION；INV 不另开入庫検査单（§2.6.1a） | 业务分析 |
+| v1.5 | 2026-10-21 | 05 迁移準備：MII の `source_id` を要求 ID（§2.7）に統一し工单 ID は `work_order_id`、暫定単価・参照単価の `mdm_material.standard_cost`（存在しない列）を `fin_standard_cost` に修正、二重計上防止を `inv_stock_txn_key` に更新 | 业务分析 |
