@@ -17,8 +17,10 @@ const menu = (id: string, parentId: string, sortNo: number) => ({
   parentId,
   menuType: 2,
   menuCode: `M${id}`,
+  menuName: `菜单${id}`,
   routePath: `p${id}`,
   sortNo,
+  isVisible: true,
 })
 const ME = {
   userInfo: { id: '1', username: 'admin', nickname: null },
