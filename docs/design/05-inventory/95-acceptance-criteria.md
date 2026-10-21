@@ -63,7 +63,7 @@
 
 - W：`inv/` 迁移適用後に `pg_class.relrowsecurity/relforcerowsecurity` を確認。T：90 §2 の 24 表すべて true、ポリシー `tenant_isolation` が `USING`/`WITH CHECK` の両方を持つ（`inv_stock_txn` は親表）。
 - G：`app.tenant_id=1` の接続。W：tenant 2 の `inv_stock_balance` を SELECT。T：0 件。W：`tenant_id=2` で INSERT。T：RLS 違反で失敗。
-- W：`pg_constraint` の `inv_*` 外部キー。T：すべて `(tenant_id, x_id)` → `(tenant_id, id)` の複合（90 §6.3 の 11 系統）、単列 FK 0 件。被参照の 6 表に `uk_<table>_tenant_id`。
+- W：`pg_constraint` の `inv_*` 外部キー。T：同域親子 6 本は `(tenant_id, company_id, x_id)` → 親 `(tenant_id, company_id, id)`（制約名は 90 §6.3 どおり）、被参照の 6 表に `uk_<table>_tenant_company_id UNIQUE (tenant_id, company_id, id)`。mdm 向け跨域 FK は `(tenant_id, x_id)` → `(tenant_id, id)`。単列 FK 0 件。`inv_*` に `uk_<table>_tenant_id` は 0 件（跨域被参照なし）。
 - W：`scripts/check-tenant-default.sh`。T：合格（`tenant_id` 既定値は `current_setting('app.tenant_id')::bigint` のみ）。
 
 ## AC-INV-10 迁移番号
@@ -98,7 +98,7 @@
 
 ## AC-INV-15 一意・索引規則（自動検査）
 
-- W：pgTAP `composite_fk.sql` と `RlsCoverageTest`。T：`inv_*` の全 `uk_` が `(tenant_id, company_id, …)` 先頭（`uk_<table>_tenant_id` を除く）、全 btree `idx_` が `(tenant_id, company_id, …)` 先頭。
+- W：pgTAP `composite_fk.sql` と `RlsCoverageTest`。T：`inv_*` の全 `uk_` が `(tenant_id, company_id, …)` 先頭（`uk_<table>_tenant_company_id` を除く）、全 btree `idx_` が `(tenant_id, company_id, …)` 先頭。
 
 ## 改訂履歴
 
@@ -107,3 +107,4 @@
 | v1.1 | 2026-10-21 | AC の「親 ID 先頭の例外を除く」を削除（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.2 | 2026-10-21 | G2-20：非一意 btree `idx_` も `tenant_id` 先頭（次に `company_id`）、GIN 除外に修正（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.3 | 2026-10-21 | 05 迁移の受入基準を追加：AC-INV-09 RLS・複合 FK、10 迁移番号、11 パーティション・全期間一意、12 明細トリガー、13 計価方法（08 §6/BC-01）、14 区分値 CHECK・期間、15 一意/索引の自動検査 | 业务分析 |
+| v1.4 | 2026-10-21 | AC-INV-09/15：同域親子 FK を `(tenant_id, company_id, x_id)`・被参照キー `uk_<table>_tenant_company_id` に変更（PR #43） | 业务分析 |

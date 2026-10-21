@@ -40,7 +40,7 @@
 3. **状態は残高行の一部**：`stock_status` を残高の一意キーに含め、状態間移動は `ST_OUT`+`ST_IN` の対で表現する（[04](04-batch-serial-status.md)）。
 4. **原価計算単位**：`(warehouse_id, material_id, batch_id)`（非批次は `batch_id=0`）。同一単位の全状態行が同一 `avg_unit_cost` を共有する（[05](05-costing.md) 1.2）。
 5. **追記専用**：`inv_stock_txn` は過账後に数量・金額を変更しない。訂正は沖销（反向事務）。`inv_stock_txn_line` は INSERT のみ。
-6. **FK は複合外键のみ**（[04 §6.2](../00-common/04-common-db-spec.md)）：MDM マスタのうち被参照側に `uk_<table>_tenant_id` がある表（`mdm_material`/`mdm_warehouse`/`mdm_factory`/`mdm_supplier`/`mdm_customer`）へは `FOREIGN KEY (tenant_id, x_id) REFERENCES mdm_x (tenant_id, id)` を張る（06/07 の迁移と同じ。一覧は §6.3）。`mdm_warehouse_bin`（`location_id`、0=未管理の番兵）・`batch_id=0` の番兵列・他業務域（prd/sal/pur/fin）への参照は软引用（FK なし、サービス層で同一 TX 検証）。**域内の親子も `(tenant_id, 親_id)` の複合 FK**（親側に `uk_<table>_tenant_id`）。例外：月次パーティション表 `inv_stock_txn` は FK で参照しない（[04 §8.1](../00-common/04-common-db-spec.md)、明細との整合はトリガー）。
+6. **FK は複合外键のみ**（[04 §6.2](../00-common/04-common-db-spec.md)）：MDM マスタのうち被参照側に `uk_<table>_tenant_id` がある表（`mdm_material`/`mdm_warehouse`/`mdm_factory`/`mdm_supplier`/`mdm_customer`）へは `FOREIGN KEY (tenant_id, x_id) REFERENCES mdm_x (tenant_id, id)` を張る（06/07 の迁移と同じ。一覧は §6.3）。`mdm_warehouse_bin`（`location_id`、0=未管理の番兵）・`batch_id=0` の番兵列・他業務域（prd/sal/pur/fin）への参照は软引用（FK なし、サービス層で同一 TX 検証）。**域内の親子は `(tenant_id, company_id, 親_id)` → 親 `(tenant_id, company_id, id)` の複合 FK**（親側に `uk_<table>_tenant_company_id`、sys/V202610211401・PR #43 の規則）。例外：月次パーティション表 `inv_stock_txn` は FK で参照しない（[04 §8.1](../00-common/04-common-db-spec.md)、明細との整合はトリガー）。
 7. **スナップショット**：伝票明細（`inv_stock_txn_line`）は `material_code/name/spec`、`inv_stock_txn` は `partner_name` を保持し、マスタ変更の影響を受けない（[01 §13](../00-common/01-common-item-definitions.md)）。
 
 ### 1.2 ER 図（主要テーブル）
@@ -180,7 +180,8 @@ CREATE POLICY tenant_isolation ON inv_xxx
 
 - パーティション表 `inv_stock_txn` は親表に ENABLE/FORCE とポリシーを付ける（子パーティションへの直接アクセスは `erp_app` に許可しない）。
 - `erp_app` の DML 権限は `sys/V202610200101` の `ALTER DEFAULT PRIVILEGES` で自動付与されるため、迁移で GRANT を書かない。
-- **複合 FK の被参照表**には `CONSTRAINT uk_<table>_tenant_id UNIQUE (tenant_id, id)` を付ける（業務一意キーではない、[04 §6.1](../00-common/04-common-db-spec.md) 項 4 末尾）。本域の対象：`inv_transfer`、`inv_stocktake_plan`、`inv_stocktake`、`inv_serial`、`inv_reservation`、`inv_cost_adjustment`。
+- **同域親子 FK の被参照表**には `CONSTRAINT uk_<table>_tenant_company_id UNIQUE (tenant_id, company_id, id)` を付ける（業務一意キーではない。PR #43 `sys/V202610211401` の規則）。本域の対象：`inv_transfer`、`inv_stocktake_plan`、`inv_stocktake`、`inv_serial`、`inv_reservation`、`inv_cost_adjustment`。
+- `uk_<table>_tenant_id UNIQUE (tenant_id, id)` は**他域から複合 FK で参照される表にのみ**付ける（[04 §6.2](../00-common/04-common-db-spec.md)）。本域の表を他域が硬 FK で参照する計画はないため、本域では 0 件。
 - `tenant_id` 既定値は `current_setting('app.tenant_id')::bigint` のみ（固定値の既定は `scripts/check-tenant-default.sh` が拒否）。`company_id` は既定値なし。
 
 ---
@@ -656,7 +657,7 @@ CREATE TABLE inv_transfer (
     updated_at       TIMESTAMPTZ   NOT NULL DEFAULT now(),
     updated_by       BIGINT        NOT NULL DEFAULT 0,
     CONSTRAINT pk_inv_transfer PRIMARY KEY (id),
-    CONSTRAINT uk_inv_transfer_tenant_id UNIQUE (tenant_id, id),            -- 複合 FK の被参照キー（業務一意キーではない）
+    CONSTRAINT uk_inv_transfer_tenant_company_id UNIQUE (tenant_id, company_id, id),  -- 同域複合 FK の被参照キー（業務一意キーではない、#43）
     CONSTRAINT ck_inv_transfer_type CHECK (transfer_type IN (10,20,30)),
     CONSTRAINT ck_inv_transfer_status CHECK (transfer_status IN (10,20,25,30,35,40,90)),
     CONSTRAINT ck_inv_transfer_qty CHECK (total_qty >= 0 AND in_transit_qty >= 0),
@@ -717,7 +718,7 @@ CREATE TABLE inv_transfer_line (
     updated_at      TIMESTAMPTZ   NOT NULL DEFAULT now(),
     updated_by      BIGINT        NOT NULL DEFAULT 0,
     CONSTRAINT pk_inv_transfer_line PRIMARY KEY (id),
-    CONSTRAINT fk_inv_transfer_line_head FOREIGN KEY (tenant_id, transfer_id) REFERENCES inv_transfer (tenant_id, id),
+    CONSTRAINT fk_inv_transfer_line_head FOREIGN KEY (tenant_id, company_id, transfer_id) REFERENCES inv_transfer (tenant_id, company_id, id),
     CONSTRAINT ck_inv_transfer_line_qty CHECK (qty > 0 AND shipped_qty >= 0 AND received_qty >= 0
         AND received_qty + returned_qty <= shipped_qty AND in_transit_qty >= 0)
 );
@@ -763,7 +764,7 @@ CREATE TABLE inv_stocktake_plan (
     updated_at         TIMESTAMPTZ   NOT NULL DEFAULT now(),
     updated_by         BIGINT        NOT NULL DEFAULT 0,
     CONSTRAINT pk_inv_stocktake_plan PRIMARY KEY (id),
-    CONSTRAINT uk_inv_stocktake_plan_tenant_id UNIQUE (tenant_id, id),            -- 複合 FK の被参照キー（業務一意キーではない）
+    CONSTRAINT uk_inv_stocktake_plan_tenant_company_id UNIQUE (tenant_id, company_id, id),  -- 同域複合 FK の被参照キー（業務一意キーではない、#43）
     CONSTRAINT ck_inv_stocktake_plan_type CHECK (plan_type IN (10,20,30,40)),
     CONSTRAINT ck_inv_stocktake_plan_freeze CHECK (freeze_mode IN (10,20)),
     CONSTRAINT ck_inv_stocktake_plan_status CHECK (plan_status IN (10,20,25,30,40,90)),
@@ -816,8 +817,8 @@ CREATE TABLE inv_stocktake (
     updated_at        TIMESTAMPTZ   NOT NULL DEFAULT now(),
     updated_by        BIGINT        NOT NULL DEFAULT 0,
     CONSTRAINT pk_inv_stocktake PRIMARY KEY (id),
-    CONSTRAINT uk_inv_stocktake_tenant_id UNIQUE (tenant_id, id),            -- 複合 FK の被参照キー（業務一意キーではない）
-    CONSTRAINT fk_inv_stocktake_plan FOREIGN KEY (tenant_id, plan_id) REFERENCES inv_stocktake_plan (tenant_id, id),
+    CONSTRAINT uk_inv_stocktake_tenant_company_id UNIQUE (tenant_id, company_id, id),  -- 同域複合 FK の被参照キー（業務一意キーではない、#43）
+    CONSTRAINT fk_inv_stocktake_plan FOREIGN KEY (tenant_id, company_id, plan_id) REFERENCES inv_stocktake_plan (tenant_id, company_id, id),
     CONSTRAINT ck_inv_stocktake_freeze CHECK (freeze_mode IN (10,20)),
     CONSTRAINT ck_inv_stocktake_status CHECK (take_status IN (10,20,30,35,40,90)),
     CONSTRAINT ck_inv_stocktake_lines CHECK (total_lines >= 0 AND counted_lines >= 0 AND diff_lines >= 0)
@@ -875,7 +876,7 @@ CREATE TABLE inv_stocktake_line (
     updated_at       TIMESTAMPTZ   NOT NULL DEFAULT now(),
     updated_by       BIGINT        NOT NULL DEFAULT 0,
     CONSTRAINT pk_inv_stocktake_line PRIMARY KEY (id),
-    CONSTRAINT fk_inv_stocktake_line_head FOREIGN KEY (tenant_id, stocktake_id) REFERENCES inv_stocktake (tenant_id, id),
+    CONSTRAINT fk_inv_stocktake_line_head FOREIGN KEY (tenant_id, company_id, stocktake_id) REFERENCES inv_stocktake (tenant_id, company_id, id),
     CONSTRAINT ck_inv_stocktake_line_counted CHECK (counted_qty IS NULL OR counted_qty >= 0),
     CONSTRAINT ck_inv_stocktake_line_recounted CHECK (re_counted_qty IS NULL OR re_counted_qty >= 0),
     CONSTRAINT ck_inv_stocktake_line_reason CHECK (diff_reason IS NULL OR diff_reason IN (10,20,30,40,50,60))
@@ -1021,7 +1022,7 @@ CREATE TABLE inv_serial (
     updated_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_by        BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_inv_serial PRIMARY KEY (id),
-    CONSTRAINT uk_inv_serial_tenant_id UNIQUE (tenant_id, id),            -- 複合 FK の被参照キー（業務一意キーではない）
+    CONSTRAINT uk_inv_serial_tenant_company_id UNIQUE (tenant_id, company_id, id),  -- 同域複合 FK の被参照キー（業務一意キーではない、#43）
     CONSTRAINT ck_inv_serial_status CHECK (serial_status IN (10,20,30,40,50))
 );
 CREATE UNIQUE INDEX uk_inv_serial_no ON inv_serial (tenant_id, company_id, serial_no);
@@ -1066,7 +1067,7 @@ CREATE TABLE inv_serial_txn (
     created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
     created_by   BIGINT      NOT NULL DEFAULT 0,
     CONSTRAINT pk_inv_serial_txn PRIMARY KEY (id),
-    CONSTRAINT fk_inv_serial_txn_serial FOREIGN KEY (tenant_id, serial_id) REFERENCES inv_serial (tenant_id, id),
+    CONSTRAINT fk_inv_serial_txn_serial FOREIGN KEY (tenant_id, company_id, serial_id) REFERENCES inv_serial (tenant_id, company_id, id),
     CONSTRAINT ck_inv_serial_txn_direction CHECK (direction IN (1,-1)),
     CONSTRAINT ck_inv_serial_txn_status CHECK ((status_before IS NULL OR status_before IN (10,20,30,40,50)) AND (status_after IS NULL OR status_after IN (10,20,30,40,50)))
 );
@@ -1106,7 +1107,7 @@ CREATE TABLE inv_reservation (
     updated_at       TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_by       BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_inv_reservation PRIMARY KEY (id),
-    CONSTRAINT uk_inv_reservation_tenant_id UNIQUE (tenant_id, id),            -- 複合 FK の被参照キー（業務一意キーではない）
+    CONSTRAINT uk_inv_reservation_tenant_company_id UNIQUE (tenant_id, company_id, id),  -- 同域複合 FK の被参照キー（業務一意キーではない、#43）
     CONSTRAINT ck_inv_reservation_source CHECK (source_type IN ('SALES_ORDER','WORK_ORDER','MANUAL')),
     CONSTRAINT ck_inv_reservation_status CHECK (reservation_status IN (10,20,35,40,90)),
     CONSTRAINT ck_inv_reservation_shortage CHECK (shortage_qty >= 0)
@@ -1157,7 +1158,7 @@ CREATE TABLE inv_reservation_line (
     updated_at      TIMESTAMPTZ   NOT NULL DEFAULT now(),
     updated_by      BIGINT        NOT NULL DEFAULT 0,
     CONSTRAINT pk_inv_reservation_line PRIMARY KEY (id),
-    CONSTRAINT fk_inv_reservation_line_head FOREIGN KEY (tenant_id, reservation_id) REFERENCES inv_reservation (tenant_id, id),
+    CONSTRAINT fk_inv_reservation_line_head FOREIGN KEY (tenant_id, company_id, reservation_id) REFERENCES inv_reservation (tenant_id, company_id, id),
     CONSTRAINT ck_inv_reservation_line_status CHECK (line_status IN (10,35,40,90)),
     CONSTRAINT ck_inv_reservation_line_qty CHECK (reserved_qty >= 0 AND consumed_qty >= 0
         AND released_qty >= 0 AND shortage_qty >= 0
@@ -1269,7 +1270,7 @@ CREATE TABLE inv_cost_adjustment (
     updated_at          TIMESTAMPTZ   NOT NULL DEFAULT now(),
     updated_by          BIGINT        NOT NULL DEFAULT 0,
     CONSTRAINT pk_inv_cost_adjustment PRIMARY KEY (id),
-    CONSTRAINT uk_inv_cost_adjustment_tenant_id UNIQUE (tenant_id, id),            -- 複合 FK の被参照キー（業務一意キーではない）
+    CONSTRAINT uk_inv_cost_adjustment_tenant_company_id UNIQUE (tenant_id, company_id, id),  -- 同域複合 FK の被参照キー（業務一意キーではない、#43）
     CONSTRAINT ck_inv_cost_adjustment_type CHECK (adjustment_type IN (10,20,30,40,50)),
     CONSTRAINT ck_inv_cost_adjustment_status CHECK (adjustment_status IN (10,20,25,30,90)),
     CONSTRAINT ck_inv_cost_adjustment_source CHECK (source_type IN ('PURCHASE_INVOICE','PURCHASE_RECEIPT','FINISHED_COST','MANUAL','RECALC')),
@@ -1315,7 +1316,7 @@ CREATE TABLE inv_cost_adjustment_line (
     created_at            TIMESTAMPTZ   NOT NULL DEFAULT now(),
     created_by            BIGINT        NOT NULL DEFAULT 0,
     CONSTRAINT pk_inv_cost_adjustment_line PRIMARY KEY (id),
-    CONSTRAINT fk_inv_cost_adjustment_line_head FOREIGN KEY (tenant_id, adjustment_id) REFERENCES inv_cost_adjustment (tenant_id, id),
+    CONSTRAINT fk_inv_cost_adjustment_line_head FOREIGN KEY (tenant_id, company_id, adjustment_id) REFERENCES inv_cost_adjustment (tenant_id, company_id, id),
     CONSTRAINT ck_inv_cost_adjustment_line_qty CHECK (target_qty > 0 AND remaining_qty >= 0 AND issued_qty >= 0)
 );
 CREATE UNIQUE INDEX uk_inv_cost_adjustment_line_no ON inv_cost_adjustment_line (tenant_id, company_id, adjustment_id, line_no);
@@ -1671,7 +1672,9 @@ COMMENT ON COLUMN inv_event_wait.waiting_for IS 'PI=入荷待ち、FGI=完工入
 
 ### 6.3 FK 一覧（2026-10-21 改訂：全て複合 FK）
 
-すべて `FOREIGN KEY (tenant_id, x_id) REFERENCES 被参照表 (tenant_id, id)`（`ON DELETE` 指定なし＝NO ACTION、CASCADE 禁止、[04 §6.2](../00-common/04-common-db-spec.md)）。`x_id` 単独の FK は禁止。
+- **同域親子（#1〜6）**：`FOREIGN KEY (tenant_id, company_id, x_id) REFERENCES 親 (tenant_id, company_id, id)`、被参照は `uk_<親>_tenant_company_id`（PR #43）。
+- **跨域 mdm（#7〜11）**：`FOREIGN KEY (tenant_id, x_id) REFERENCES mdm_x (tenant_id, id)`（`uk_mdm_x_tenant_id`、sys/V202610210707）。
+- いずれも制約名は本表どおり、`ON DELETE` 指定なし（NO ACTION）、CASCADE 禁止。`x_id` 単独の FK は禁止。
 
 | # | 参照元（列） | 被参照 | 制約名 |
 |---|---|---|---|
@@ -1765,7 +1768,7 @@ COMMENT ON COLUMN inv_event_wait.waiting_for IS 'PI=入荷待ち、FGI=完工入
 | 配置 | `backend/erp-boot/src/main/resources/db/migration/inv/`（新規ディレクトリ。`{module}`=`inv`、[04 §10.1](../00-common/04-common-db-spec.md)） |
 | 版数 | `V{yyyyMMdd}{NNNN}__inv_{desc}.sql`。`NNNN` は**マージ時点の main 上の最大版の次**から取る。本書改訂時点の main（`871dc93`）の最大は `V202610210708`、よって次は `V202610210709`（同日）または作成日付の `0001`。DB の先行 PR（同域複合 FK・`fin_period` 修正）が先に入った場合は rebase して振り直す |
 | ファイル構成 | 06 と同じく**1 ファイル**で全 24 表を作成（表の DDL → RLS → 索引 → COMMENT の順、表は本書 §4 の順）。例：`inv/V202610210709__inv_create_tables.sql` |
-| 依存 | `mdm/V202610210201`〜`0203`（`mdm_material` 等）、`sys/V202610210707`（`uk_mdm_*_tenant_id`）。`fin_standard_cost` は FK なし（软引用） |
+| 依存 | `mdm/V202610210201`〜`0203`（`mdm_material` 等）、`sys/V202610210707`（`uk_mdm_*_tenant_id`）、PR #43 `sys/V202610211401`（同域複合 FK 規則。マージ後は inv の版数をこれより大きくする）。`fin_standard_cost` は FK なし（软引用） |
 | パーティション | 同ファイル内で `inv_stock_txn` の 2026-01〜2027-12 の月次パーティションと `inv_stock_txn_default` を作成 |
 | トリガー | `trg_inv_stock_txn_line_head`（表頭存在・`txn_type` 一致・`direction` 符号）を同ファイルで作成（関数は `inv_` 接頭辞、`SECURITY INVOKER`） |
 | シード | `inv_period` は会社ごとの初期化（アプリの会社開設処理）で作成し、固定 tenant のシード迁移は作らない。コード表は 90-data CSV を正とし、必要なら `R__seed_inv_{desc}.sql`（名前は `seed_inv_` で始める） |
@@ -1818,3 +1821,4 @@ COMMENT ON COLUMN inv_event_wait.waiting_for IS 'PI=入荷待ち、FGI=完工入
 | v1.4 | 2026-10-21 | 例外一覧に `uk_sys_user_username`（`(tenant_id, username)`、テナント単位）を追加（蓝色大肥鱼 2026-10-21 決定）。G2-20：非一意 btree `idx_` も `tenant_id` 先頭（次に `company_id`）、GIN 除外に修正 | 业务分析 |
 | v1.5 | 2026-10-21 | 非一意 btree 索引（`idx_`）61 箇所を `tenant_id` 先頭（`company_id` がある表は次に `company_id`）に変更（DDL・索引一覧。既存迁移の索引は sys/V202610210707 と同一列。GIN は対象外。蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.6 | 2026-10-21 | 05 迁移準備の欠落補完：§1.1/§3.4 RLS・`uk_<table>_tenant_id`・域内/MDM 複合 FK（§6.3 一覧）、`inv_stock_txn` 月次パーティション（PK `(id, txn_date)`）と全期間一意台帳 `inv_stock_txn_key`（4.2.6、24 表）、`inv_stock_txn` に `reason_type`/`work_order_id`/`sales_order_line_id` と来源・相手・原因 CHECK、TRANSFER を来源二重計上一意の対象外に、明細に `valuation_method`/`std_unit_cost`/`variance_amount`（08 §6 標準原価計価）と `txn_type` CHECK、明細 FK→トリガー、`uom_code` を VARCHAR(16)、集計 3 表に監査列、CHECK 追加（調撥承認・系譜自己参照・序列号履歴・予約明細状態・調整来源・スキャン区分・保留来源）、`fin_period` 状態写像、§9 迁移計画を main 最大版 `V202610210708` 以降へ改訂、未決 #7〜#11 | 业务分析 |
+| v1.7 | 2026-10-21 | PR #43（sys/V202610211401）の規則に合わせ、同域親子 FK 6 本を `(tenant_id, company_id, x_id)` → 親 `(tenant_id, company_id, id)` に、親 6 表の被参照キーを `uk_<table>_tenant_company_id` に変更（`uk_<table>_tenant_id` は跨域被参照のみ＝本域 0 件）。mdm 向け跨域 FK は `(tenant_id, x_id)` のまま。§3.4・§6.3・§9 依存を更新 | 业务分析 |
