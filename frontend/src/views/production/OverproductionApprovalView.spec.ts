@@ -235,6 +235,24 @@ describe('OverproductionApprovalView（SCR-PRD-034）', () => {
     )
   })
 
+  it('后端返回 1001（HTTP 400）：对话框内显示 [msgId] message，保持打开', async () => {
+    api.list.mockResolvedValue(page([row('2', 20)]))
+    api.reject.mockRejectedValue(bizErr(400, 1001, '请输入必填项「驳回理由」。', 'MSG-COM-040'))
+    const w = await mountView()
+    await w.find('[data-test="approve"]').trigger('click')
+    await flushPromises()
+    const ta = field('reject-reason')
+    ta.value = '理由'
+    ta.dispatchEvent(new Event('input'))
+    ;(body().querySelector('[data-test="do-reject"]') as HTMLElement).click()
+    await flushPromises()
+    expect(api.reject).toHaveBeenCalledWith('2', 2, '理由')
+    expect(body().querySelector('[data-test="approve-error"]')!.textContent).toContain(
+      '[MSG-COM-040] 请输入必填项「驳回理由」。',
+    )
+    expect((w.vm as unknown as { approveVisible: boolean }).approveVisible).toBe(true)
+  })
+
   it('审批成功后关闭对话框', async () => {
     api.list.mockResolvedValue(page([row('2', 20)]))
     api.approve.mockResolvedValue({})
