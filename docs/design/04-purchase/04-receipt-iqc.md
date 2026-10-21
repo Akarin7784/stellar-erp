@@ -230,7 +230,7 @@ stateDiagram-v2
 | 10 | `overReceiptQty` | 超收数量 | 数値 | NUMERIC(18,4) | 自動 | 0 | — | CALC-03 | `over_receipt_qty` | — |
 | 11 | `overReceiptReason` | 超收理由 | テキスト | VARCHAR(500) | △ | 空 | 超收時必須 | — | `over_receipt_reason` | — |
 | 12 | `overReceiptApprovedBy` | 超收承认者 | テキスト | BIGINT | △ | 空 | — | — | `over_receipt_approved_by` | 采购经理承認 |
-| 13 | `uomCode` | 单位 | テキスト | VARCHAR(8) | 自動 | PO 値 | — | PO 明細 | `uom_code` | — |
+| 13 | `uomCode` | 单位 | テキスト | VARCHAR(16) | 自動 | PO 値 | — | PO 明細 | `uom_code` | — |
 | 14 | `baseReceivedQty` | 基本单位数量 | 数値 | NUMERIC(18,4) | 自動 | 数量×换算率 | — | 計算 | `base_received_qty` | 在庫連携 |
 | 15 | `unitPrice` | PO 税抜単価 | 数値 | NUMERIC(18,6) | 自動 | PO 値 | — | PO 明細 | `unit_price` | 暂估基準 |
 | 16 | `amount` | 入荷金額 | 数値 | NUMERIC(18,2) | 自動 | 0.00 | — | 計算 | `amount` | — |
@@ -630,3 +630,4 @@ function judgeOverReceipt(poLine, receiptLines):
 | v1.0 | 2026-10-20 | 初版：F-PUR-011～014（收货・超收容差・IQC・入库跟踪）、E14/E15/E18/E35 連携、状態遷移、画面項目定義、テスト観点 | purchase-designer |
 | v1.1 | 2026-10-20 | 红队第 2 轮修复：E35 金額項目（unitPrice/amount）を 09 改訂へ追随、超收容差は MDM 既定＋PUR 上書きのみに整理（二重定義解消） | purchase-designer |
 | v1.2 | 2026-10-21 | 第一版全量化（段階表記を削除）、`inspection_required` を `inspection_flag`（`inspection_stage ∈ {10,40}` スナップショット）に置換、BR-07a（PURCHASE_RECEIPT/GR/GRI/IQC、INV は入庫検査单を別建てしない）追加 | 业务分析 |
+| v1.3 | 2026-10-21 | 単位コード項目（`uom_code`/`uomCode` 等）を VARCHAR(8)→VARCHAR(16) に変更し `mdm_uom.uom_code`（02-mdm/90:961）と整合（币种 `currency_code` 等の VARCHAR(8) は対象外。蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
