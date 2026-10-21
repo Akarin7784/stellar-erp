@@ -12,6 +12,7 @@ import {
   formatRatePercent,
   MSG_GENERIC_ERROR,
   MSG_ID_BY_CODE,
+  submitWorkOrder,
   PRD_BUSINESS_CODES,
   toCreateErrorView,
   type WorkOrderCreateRequest,
@@ -239,5 +240,21 @@ describe('toReleaseErrorView', () => {
   it('5000 / 非 ApiError → generic', () => {
     expect(toReleaseErrorView(e(500, 5000, 'x')).kind).toBe('generic')
     expect(toReleaseErrorView(new Error('x')).kind).toBe('generic')
+  })
+})
+
+describe('submitWorkOrder', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  it('POST /{id}/submit，body 只含 version，silent', async () => {
+    const post = vi
+      .spyOn(http, 'post')
+      .mockResolvedValue({ data: { code: 0, message: 'ok', data: { id: '7' }, msgId: null } })
+    await expect(submitWorkOrder('7', 3)).resolves.toEqual({ id: '7' })
+    expect(post).toHaveBeenCalledWith(
+      '/production/work-orders/7/submit',
+      { version: 3 },
+      { silent: true },
+    )
   })
 })

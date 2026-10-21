@@ -41,6 +41,7 @@
 | 10070 | MSG-SYS-060 | 監査期間超過 | 400 |
 | 10080 | MSG-SYS-080 | 帳票生成失敗 | 500 |
 | 10090 | MSG-SYS-086 | 初期化二重実行 | 422 |
+| 5000 | MSG-SYS-091 | 監査ログ書込み失敗（重要操作。サーバー側障害、業務トランザクション全体をロールバック。例：公司登録）（蓝色大肥鱼 2026-10-21 决定） | 500 |
 | 10900 | MSG-SYS-001 | アカウント停用/退職（ログイン API では HTTP 200、他 API では 422） | 200/422 |
 
 ### 1.2 選択用（`/options`）API の共通規則（蓝色大肥鱼 2026-10-21 決定）
@@ -260,6 +261,8 @@ Outbox 監視（`status`、`eventType`、`from`/`to`、ページング）。Payl
 | 成功 | HTTP 201、`code=0`、`data = {id, companyCode, companyName, version}`（`id` は文字列で返す。`version` は新規行の値 0） |
 | 入力エラー | HTTP 400／`1001`、`data.fieldErrors[]`（[00-common/03](../00-common/03-common-api-spec.md) §5.3） |
 | 重複 | 一意索引 `uk_sys_company_code`・`uk_sys_company_credit` の違反（23505）**のみ** HTTP 422／`10035`／`MSG-SYS-093`。それ以外の一意違反は `10035` に変換しない |
+| 入力値の個別エラー | `unifiedSocialCreditCode` の形式・GB 32100-2015 校验位違反は MSG-COM-088（空は MSG-COM-040、超長は MSG-COM-041）、`taxPayerType` が 1/2 以外・`fiscalYearStartMonth` が 1〜12 以外は MSG-COM-089、`baseCurrencyCode` 形式違反は MSG-COM-088（いずれも 400／`1001`、[03 §5](03-org-position.md) CHK-SYS-014-01・04〜06）（蓝色大肥鱼 2026-10-21 决定） |
+| 監査ログ | 同一トランザクションで `sys_audit_log` を INSERT（`company_id`＝操作者セッション会社、新会社は `resource_id`）。失敗時は全体ロールバックし HTTP 500／`5000`／`MSG-SYS-091`（蓝色大肥鱼 2026-10-21 决定） |
 | 権限なし | HTTP 403／`3001` |
 
 ## 4. 内部 API（モジュール間公開 Service）
@@ -295,3 +298,4 @@ Outbox 監視（`status`、`eventType`、`from`/`to`、ページング）。Payl
 | v1.12 | 2026-10-21 | #2 login・`/auth/me` の `menus[]` に `menuName`（`sys_menu.menu_name`）を追加し 7 項目に（01-auth-login v1.9 と同期、蓝色大肥鱼 2026-10-21 決定）。対象：:199 | 业务分析 |
 | v1.13 | 2026-10-21 | #2 login・`/auth/me` の `menus[]` に `isVisible`（`sys_menu.is_visible`）を追加し 8 項目に。`is_visible` では絞り込まない。外部リンク（`menu_type=4`）も `menus[]` に含め、`routePath` に外部リンク URL を格納する。フロントはクリック時に新しいタブで開き、ルートは生成せず権限による遮断も行わない（専用 URL 項目は将来必要になった時点で別途追加）（01-auth-login v1.10 と同期、蓝色大肥鱼 2026-10-21 決定）。対象：:199 | 业务分析 |
 | v1.14 | 2026-10-21 | §3.8 を追加：#47a 公司登録の成功レスポンス（HTTP 201、`data = {id, companyCode, companyName, version}`）、`10035` は `uk_sys_company_code`／`uk_sys_company_credit` 違反のみ、重複は 422（v1.3 の 409 は v1.10 で 422 に変更済み）を明記（バックエンド PR #89 に整合） | 业务分析 |
+| v1.15 | 2026-10-21 | §1.1 に `5000`／MSG-SYS-091（監査ログ書込み失敗、HTTP 500、全体ロールバック）を追加。§3.8 公司登録に入力値の個別エラー（088／089、`taxPayerType` は 089）と監査ログ（`company_id`＝操作者セッション会社、新会社は `resource_id`、失敗時 500／5000／MSG-SYS-091）を追記（蓝色大肥鱼 2026-10-21 决定） | 业务分析 |

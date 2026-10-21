@@ -248,6 +248,19 @@ export async function releaseWorkOrder(
   return res.data.data
 }
 
+/**
+ * 承认提出 10→20（91 #28；POST /{id}/submit，body {version}；权限 production:work-order:submit）。
+ * 返回最新 WorkOrderDetail。错误显示同下达（toReleaseErrorView：4003 刷新提示，422 显示 `[msgId] message`）。
+ */
+export async function submitWorkOrder(id: string, version: number): Promise<WorkOrderDetail> {
+  const res = await http.post<ApiResult<WorkOrderDetail>>(
+    `/production/work-orders/${id}/submit`,
+    { version },
+    { silent: true },
+  )
+  return res.data.data
+}
+
 /** 下达时后端未给 msgId / message 时的默认值（06/93、00-common 05）。 */
 const RELEASE_MSG_ID: Partial<Record<number, string>> = {
   4002: 'MSG-COM-034',
