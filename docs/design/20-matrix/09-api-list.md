@@ -8,7 +8,7 @@
 | 作成日 | 2026-10-20 |
 | 作成者 | Lead（生成工具 gen_matrix.py） |
 | 状態 | ドラフト（自动生成・最終レビュー前） |
-| 備考 | 全 1232 件。メソッド/パス/概要/権限/域/提取元 |
+| 備考 | 全 1239 件。メソッド/パス/概要/権限/域/提取元 |
 
 > 本文件由 `20-matrix/tools/gen_matrix.py` 从各域设计书中自动提取生成。修改设计书后重新运行即可更新。
 
@@ -673,6 +673,13 @@
 | POST | /api/production/outsourcing-settlements | 結算作成 | production:outsourcing:settle | PRD | 06-production/04-outsourcing.md |
 | POST | /api/production/outsourcing-settlements | 加工費結算 | production:outsourcing:settle | PRD | 06-production/91-api-design.md |
 | POST | /api/production/outsourcing-settlements/{id}/approve | 結算承認 | production:outsourcing:approve | PRD | 06-production/91-api-design.md |
+| GET | /api/production/overproduction-approvals | 超産申請一覧（詳細 §3.14） | production:overproduction-approval:view | PRD | 06-production/91-api-design.md |
+| POST | /api/production/overproduction-approvals | 超産申請登録（→10、201。§3.14） | production:overproduction-approval:create | PRD | 06-production/91-api-design.md |
+| GET | /api/production/overproduction-approvals/{id} | 超産申請詳細（§3.14） | 同上 | PRD | 06-production/91-api-design.md |
+| POST | /api/production/overproduction-approvals/{id}/approve | 承認（20→30、allowed_qty +request_qty。§3.14）。TODO：権限チェック未実装、Flowable 接入後に閉鎖 | production:overproduction-approval:approve | PRD | 06-production/91-api-design.md |
+| POST | /api/production/overproduction-approvals/{id}/cancel | 取消（10/20→90。§3.14） | production:overproduction-approval:cancel | PRD | 06-production/91-api-design.md |
+| POST | /api/production/overproduction-approvals/{id}/reject | 却下（20→40。§3.14） | production:overproduction-approval:approve | PRD | 06-production/91-api-design.md |
+| POST | /api/production/overproduction-approvals/{id}/submit | 申請提出（10→20。Flowable 接入後は WF 起動に置換。§3.14） | production:overproduction-approval:submit | PRD | 06-production/91-api-design.md |
 | GET | /api/production/reports/work-hours | 工数・能率集計 | production:report:view | PRD | 06-production/91-api-design.md |
 | GET | /api/production/routings | 工艺路線一覧 | production:routing:view | PRD | 06-production/91-api-design.md |
 | POST | /api/production/routings | 工艺路線登録 | production:routing:update | PRD | 06-production/91-api-design.md |

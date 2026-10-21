@@ -383,7 +383,7 @@
 | MSG-PRD-002 | E | 承認前の受注からは工单を作成できません。 | 受注状態 < 25 | 受注承認後に再実行 | PRD | 06-production/93-messages.md |
 | MSG-PRD-003 | E | 変更後の数量が既入庫数量を下回っています。 | 数量減が入庫実績未満 | 数量を確認 | PRD | 06-production/93-messages.md |
 | MSG-PRD-004 | W | 計画着手日が過去日です。このまま登録しますか？ | 過去日指定 | 確認 | PRD | 06-production/93-messages.md |
-| MSG-PRD-005 | E | 起案者と承認者が同一のため承認できません。 | 自己承認 | 別の承認者へ | PRD | 06-production/93-messages.md |
+| MSG-PRD-005 | E | 起案者と承認者が同一のため承認できません。 | 自己承認（工单承認、超産承認） | 別の承認者へ | PRD | 06-production/93-messages.md |
 | MSG-PRD-006 | E | 使用中のため削除できません。使用停止を検討してください。 | マスタ参照中 | 使用停止 | PRD | 06-production/93-messages.md |
 | MSG-PRD-007 | E | 工单で参照済みの BOM 明細は削除できません。BOM を廃止してください。 | 参照済み明細削除 | 版数更新で廃止 | PRD | 06-production/93-messages.md |
 | MSG-PRD-008 | E | BOM の変更には承認が必要です。承認申請してください。 | 未承認の変更確定 | 承認申請 | PRD | 06-production/93-messages.md |
@@ -476,7 +476,7 @@
 | MSG-PRD-098 | E | 工序の順序が前工程の完了と整合していません。 | 前工程未完了 | 前工程完了 | PRD | 06-production/93-messages.md |
 | MSG-PRD-099 | E | システムエラーが発生しました。管理者に連絡してください（エラー番号：{0}）。 | 500 エラー | trace_id を連絡 | PRD | 06-production/93-messages.md |
 | MSG-PRD-100 | E | 超産承認が必要です。許容完工数量を超える入庫は承認後のみ可能です。 | 超産未承認 | 超産承認申請 | PRD | 06-production/93-messages.md |
-| MSG-PRD-101 | E | 超産承認が却下または取消のため入庫できません。 | 超産承認無効 | 再申請または数量修正 | PRD | 06-production/93-messages.md |
+| MSG-PRD-101 | E | 超産承認が却下または取消のため入庫できません。 | 超産承認無効（却下・取消済での入庫。超産申請の状態不正操作（承認済 30・却下 40・取消 90 への承認等）、工单級申請で工单未下达・allowed_qty NULL も同コード、91 §3.14） | 再申請または数量修正 | PRD | 06-production/93-messages.md |
 | MSG-PRD-102 | E | 冲销数量が已完工数量を超えています。 | 冲销 qty > completed_qty | 数量修正 | PRD | 06-production/93-messages.md |
 | MSG-PRD-103 | E | 超産申請数量が不正です。申請超産数量は 0 より大きく、受注行基本数量 × 超産上限率（{0}）以下、かつ基本単位の小数桁数（{1} 桁）以内で指定してください。 | request_qty ≤ 0 または NULL、上限（受注行基本数量 × prd.overproduction_max_rate、1 件単位・累計なし）超過、小数桁数 > 基本単位 decimal_places（いずれも 60103） | 申請超産数量を修正して再申請 | PRD | 06-production/93-messages.md |
 | MSG-PRD-104 | E | 下达日不能早于今天。 | releaseDate が Asia/Shanghai 当日より前（60104） | 下达日を当日以降に修正 | PRD | 06-production/93-messages.md |
