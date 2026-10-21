@@ -126,6 +126,15 @@ class GlobalExceptionHandlerTest {
         assertThat(GlobalExceptionHandler.httpStatusOf(123).value()).isEqualTo(500);
     }
 
+    @org.junit.jupiter.api.Test
+    void onlyCode2001IsHttp401OtherAuthCodesAre200() {
+        assertThat(GlobalExceptionHandler.httpStatusOf(2001).value()).isEqualTo(401);
+        for (int code : new int[] {2002, 2003, 2004, 2005}) {
+            assertThat(GlobalExceptionHandler.httpStatusOf(code).value()).isEqualTo(200);
+        }
+        assertThat(GlobalExceptionHandler.httpStatusOf(3001).value()).isEqualTo(403);
+    }
+
     @Test
     void completedQtyCheckViolationMapsTo60040() throws Exception {
         mvc.perform(get("/ck/ck_sal_sol_completed_qty"))

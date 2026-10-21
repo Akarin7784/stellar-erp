@@ -250,6 +250,18 @@ class AuthInterceptorIntegrationTest {
     }
 
     @Test
+    void userWithoutRolesGetsEmptyRolesPermissionsAndMenus() throws Exception {
+        owner.update("INSERT INTO sys_user (id, tenant_id, username, nickname, password) VALUES (?, ?, 'u7401', '用户', 'x')",
+                USER, TENANT);
+        withToken(token(USER, TENANT, CO), get("/api/system/auth/me"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.roles.length()").value(0))
+                .andExpect(jsonPath("$.data.permissions.length()").value(0))
+                .andExpect(jsonPath("$.data.menus").isArray())
+                .andExpect(jsonPath("$.data.menus.length()").value(0));
+    }
+
+    @Test
     void meMenusAreSessionCompanyGrantsPlusParentDirectories() throws Exception {
         owner.update("INSERT INTO sys_user (id, tenant_id, username, nickname, password) VALUES (?, ?, 'u7401', '用户', 'x')",
                 USER, TENANT);
