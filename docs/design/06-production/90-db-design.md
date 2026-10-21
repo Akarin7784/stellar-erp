@@ -1055,7 +1055,7 @@ CREATE INDEX idx_prd_work_order_source ON prd_work_order (tenant_id, company_id,
 
 **G2-18 / 受注連係（2026-10-20 決定、backend #47）**：
 
-1. **品目一致**：工单 `material_id` ＝ 紐づく受注行（`sales_order_line_id`）の `material_id`。不一致は業務拒否 **HTTP 422・業務コード `60056`・`MSG-PRD-056`**（共通 4002 は状態競合 409 専用。業務拒否に 4002 を使わない）。
+1. **品目一致**：工单 `material_id` ＝ 紐づく受注行（`sales_order_line_id`）の `material_id`。不一致は業務拒否 **HTTP 422・業務コード `60056`・`MSG-PRD-056`**（共通 4002 は状態競合 422 専用。業務拒否に 4002 を使わない）。
 2. **単位**：工单・報工・完工の数量はすべて**物料基本単位**（販売単位ではない）。
 3. **容差チェーン**（`completion_over_rate` / `over_receipt_rate` は **NUMERIC(5,4) 比率**。NULL＝次段継承、0＝明示 0%）：受注行 → 物料 → 物料分類 → 会社 `sys_param` key `prd.completion_over_rate`（既定 0.05、`sys_init_tenant` シード）。会社パラメータ欠落やテナント未設定は **5000**（設定不備）。
 4. **`allowed_qty`**：`floor(base_qty × (1 + rate))` を `mdm_uom.decimal_places` で切捨て。MTO は受注確定時に受注行へスナップショットし、工单はそれを参照／コピー。再計算は承認済受注変更または超産承認後のみ。受注変更時はスナップショット率で `allowed_qty` を再算出し、承認済（30）超産増分 `request_qty` の合計を加算し戻す（承認済超産は消去しない。基準数量が減っても既存承認は有効）。
@@ -2663,3 +2663,4 @@ CREATE INDEX idx_prd_capacity_load_date ON prd_capacity_load (tenant_id, company
 | v1.14 | 2026-10-21 | `prd_work_order_material` に `bom_uom_code`・`bom_qty`（換算前の BOM 単位・数量、追跡用）を追加、`uom_code`／数量列は物料基本単位と明記。換算元は `mdm_uom`／`mdm_uom_conversion`（CHK-PRD-002-10）（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.15 | 2026-10-21 | §3.19.1 更新：申請保存は 10、提出 10→20、承認 20→30、却下 20→40、取消 10・20→90。工单級申請の工单未下达・`allowed_qty` NULL は登録時 60101（蓝色大肥鱼 2026-10-21 #66 決定） | 业务分析 |
 | v1.16 | 2026-10-21 | mdm 向け跨域 FK 29 本を三列 `(tenant_id, company_id, x_id)` → `mdm_x (tenant_id, company_id, id)` に変更（00-common/04 §6.2 項 2a、迁移 `prd/V202610211411`。被参照 `uk_mdm_{material,factory,warehouse,supplier}_tenant_company_id`、制約名・NO ACTION 維持）。子表側に `(tenant_id, company_id, x_id)` 先頭の btree 索引が無かった 9 本分を追加（`idx_prd_{bom_factory,routing_factory,material_planning_factory,outsourcing_order_factory,material_issue_wh,completion_receipt_wh,outsourcing_issue_wh,outsourcing_receipt_wh,outsourcing_settlement_line_material}`） | DBA |
+| v1.17 | 2026-10-21 | :1058 の 4002 説明を「状態競合 422 専用」に修正（409 は `version` 競合 4003 のみ。00-common/03 §5 と整合、蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
