@@ -1,10 +1,10 @@
--- pgTAP：菜单/权限/SYSTEM_ADMIN 种子（sys/V202610211405；01-system/94 §2.10、付录 A）
+-- pgTAP：菜单/权限/SYSTEM_ADMIN 种子（sys/V202610211405＋V202610211406 G-11 增量；01-system/94 §2.10、付录 A）
 -- owner 连接执行（superuser，绕过 RLS，须显式写 tenant_id），最后 ROLLBACK。
 BEGIN;
 SELECT plan(36);
 
 -- 0. 迁移回填：种租户 0 已有付录 A 的全部菜单
-SELECT is((SELECT count(*)::int FROM sys_menu WHERE tenant_id = 0 AND deleted = FALSE), 589, '回填：租户 0 的 sys_menu = 589 行');
+SELECT is((SELECT count(*)::int FROM sys_menu WHERE tenant_id = 0 AND deleted = FALSE), 594, '回填：租户 0 的 sys_menu = 594 行');
 
 -- 准备：租户 9201（A、B 公司，C 已删除）、9202（D 公司）
 INSERT INTO sys_tenant (id, tenant_id, tenant_code, tenant_name, max_user_count, status) VALUES
@@ -20,13 +20,13 @@ SET ROLE erp_tenant_provisioner;
 SELECT lives_ok($$SELECT sys_init_tenant(9201)$$, 'sys_init_tenant(9201) 成功');
 RESET ROLE;
 
-SELECT is((SELECT count(*)::int FROM sys_menu WHERE tenant_id = 9201), 589, '菜单 589 行');
+SELECT is((SELECT count(*)::int FROM sys_menu WHERE tenant_id = 9201), 594, '菜单 594 行');
 SELECT is((SELECT count(*)::int FROM sys_menu WHERE tenant_id = 9201 AND company_id <> 0), 0, '菜单全部 company_id = 0');
-SELECT is((SELECT count(*)::int FROM sys_menu WHERE tenant_id = 9201 AND permission_code IS NOT NULL), 579, '有 permission_code 的菜单 579 行');
-SELECT is((SELECT count(DISTINCT permission_code)::int FROM sys_menu WHERE tenant_id = 9201), 513, '不同权限码 513 个');
+SELECT is((SELECT count(*)::int FROM sys_menu WHERE tenant_id = 9201 AND permission_code IS NOT NULL), 584, '有 permission_code 的菜单 584 行');
+SELECT is((SELECT count(DISTINCT permission_code)::int FROM sys_menu WHERE tenant_id = 9201), 518, '不同权限码 518 个');
 SELECT results_eq($$SELECT menu_type::int, count(*)::int FROM sys_menu WHERE tenant_id = 9201 GROUP BY 1 ORDER BY 1$$,
-                  $$VALUES (1, 10), (2, 339), (3, 240)$$, '目录 10 / 菜单 339 / 按钮 240');
-SELECT is((SELECT count(*)::int FROM sys_menu WHERE tenant_id = 9201 AND menu_type = 2 AND is_visible), 174, '显示菜单 174 行');
+                  $$VALUES (1, 10), (2, 340), (3, 244)$$, '目录 10 / 菜单 340 / 按钮 244');
+SELECT is((SELECT count(*)::int FROM sys_menu WHERE tenant_id = 9201 AND menu_type = 2 AND is_visible), 175, '显示菜单 175 行');
 SELECT is((SELECT count(*)::int FROM sys_menu c WHERE c.tenant_id = 9201 AND c.parent_id <> 0
             AND NOT EXISTS (SELECT 1 FROM sys_menu p WHERE p.tenant_id = 9201 AND p.id = c.parent_id)), 0, 'parent_id 全部解决到同租户菜单');
 SELECT is((SELECT count(*)::int FROM sys_menu c WHERE c.tenant_id IN (0, 9201) AND c.parent_id <> 0
@@ -45,7 +45,7 @@ SELECT is((SELECT count(*)::int FROM sys_role WHERE tenant_id = 9201 AND company
 SELECT results_eq($$SELECT role_name::text, role_type::int, data_scope_type::int, requires_approval FROM sys_role
                      WHERE tenant_id = 9201 AND company_id = 920101 AND role_code = 'SYSTEM_ADMIN'$$,
                   $$VALUES ('系统管理员', 1, 1, TRUE)$$, 'SYSTEM_ADMIN 属性（内置、全社、需审批）');
-SELECT is((SELECT count(*)::int FROM sys_role_permission WHERE tenant_id = 9201 AND company_id = 920101), 579, '公司 A 授权 579 条');
+SELECT is((SELECT count(*)::int FROM sys_role_permission WHERE tenant_id = 9201 AND company_id = 920101), 584, '公司 A 授权 584 条');
 SELECT ok(EXISTS (SELECT 1 FROM sys_role_permission WHERE tenant_id = 9201 AND company_id = 920101 AND permission_code = 'system:company:create'),
           '公司 A 已授予 system:company:create');
 SELECT is((SELECT count(*)::int FROM sys_param WHERE tenant_id = 9201 AND company_id = 920102 AND deleted = FALSE), 2, '公司 B 的 sys_param 默认 2 行');
@@ -56,9 +56,9 @@ UPDATE sys_menu SET menu_name = '自定义' WHERE tenant_id = 9201 AND menu_code
 SET ROLE erp_tenant_provisioner;
 SELECT lives_ok($$SELECT sys_init_tenant(9201)$$, 'sys_init_tenant 重跑不报错');
 RESET ROLE;
-SELECT is((SELECT count(*)::int FROM sys_menu WHERE tenant_id = 9201), 589, '重跑后菜单仍 589 行');
+SELECT is((SELECT count(*)::int FROM sys_menu WHERE tenant_id = 9201), 594, '重跑后菜单仍 594 行');
 SELECT is((SELECT menu_name::text FROM sys_menu WHERE tenant_id = 9201 AND menu_code = 'SCR-SYS-004'), '自定义', '重跑不覆盖已有菜单');
-SELECT is((SELECT count(*)::int FROM sys_role_permission WHERE tenant_id = 9201 AND company_id = 920101), 578, '重跑后公司 A 授权仍 578 条（撤销保持）');
+SELECT is((SELECT count(*)::int FROM sys_role_permission WHERE tenant_id = 9201 AND company_id = 920101), 583, '重跑后公司 A 授权仍 583 条（撤销保持）');
 SELECT ok(NOT EXISTS (SELECT 1 FROM sys_role_permission WHERE tenant_id = 9201 AND company_id = 920101 AND permission_code = 'system:company:create'),
           '撤销的 system:company:create 未被补回');
 SELECT is((SELECT count(*)::int FROM sys_role WHERE tenant_id = 9201 AND role_code = 'SYSTEM_ADMIN'), 2, '重跑后 SYSTEM_ADMIN 仍 2 个');
@@ -93,7 +93,7 @@ RESET ROLE;
 SELECT results_eq($$SELECT (SELECT count(*)::int FROM sys_role WHERE tenant_id = 9202 AND role_code = 'SYSTEM_ADMIN'),
                            (SELECT count(*)::int FROM sys_role_permission WHERE tenant_id = 9202),
                            (SELECT count(*)::int FROM sys_role WHERE tenant_id = 9201)$$,
-                  $$VALUES (1, 579, 2)$$, 'erp_app 两次调用后：角色 1、授权 579，未写别的租户');
+                  $$VALUES (1, 584, 2)$$, 'erp_app 两次调用后：角色 1、授权 584，未写别的租户');
 
 -- 4. 索引与函数属性
 SELECT ok(EXISTS (SELECT 1 FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid
