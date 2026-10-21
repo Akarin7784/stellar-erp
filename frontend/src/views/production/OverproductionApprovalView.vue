@@ -26,7 +26,7 @@
           />
         </el-select>
       </el-form-item>
-      <el-form-item label="受注明细ID">
+      <el-form-item label="销售订单明细ID">
         <el-input v-model="query.salesOrderLineId" data-test="filter-line" clearable />
       </el-form-item>
       <el-form-item label="工单ID">
@@ -55,10 +55,10 @@
           }}</el-link>
         </template>
       </el-table-column>
-      <el-table-column label="受注明细ID" prop="salesOrderLineId" min-width="110" />
+      <el-table-column label="销售订单明细ID" prop="salesOrderLineId" min-width="110" />
       <el-table-column label="对象" min-width="120">
         <template #default="{ row }">{{
-          row.workOrderId ? `工单 ${row.workOrderId}` : '受注行'
+          row.workOrderId ? `工单 ${row.workOrderId}` : '销售订单行'
         }}</template>
       </el-table-column>
       <el-table-column label="申请超产数量" prop="requestQty" min-width="110" align="right" />
@@ -130,14 +130,14 @@
         class="mb"
       />
       <el-form label-width="110px" @submit.prevent>
-        <el-form-item label="受注明细ID" required>
+        <el-form-item label="销售订单明细ID" required>
           <el-input v-model="createForm.salesOrderLineId" data-test="c-line" />
         </el-form-item>
         <el-form-item label="工单ID">
           <el-input
             v-model="createForm.workOrderId"
             data-test="c-wo"
-            placeholder="不填＝受注行级"
+            placeholder="不填＝销售订单行级"
           />
         </el-form-item>
         <el-form-item label="申请超产数量" required>
@@ -215,11 +215,11 @@
         <el-descriptions-item label="状态">{{
           OPA_STATUS_LABELS[detail.approvalStatus]
         }}</el-descriptions-item>
-        <el-descriptions-item label="受注明细ID">{{
+        <el-descriptions-item label="销售订单明细ID">{{
           detail.salesOrderLineId
         }}</el-descriptions-item>
         <el-descriptions-item label="工单ID">{{
-          detail.workOrderId ?? '受注行级'
+          detail.workOrderId ?? '销售订单行级'
         }}</el-descriptions-item>
         <el-descriptions-item label="申请超产数量">{{ detail.requestQty }}</el-descriptions-item>
         <el-descriptions-item label="申请时允许上限">{{
@@ -362,7 +362,7 @@ function openCreate() {
 async function onCreate() {
   createError.value = ''
   if (!createForm.salesOrderLineId.trim()) {
-    createError.value = '请输入必填项「受注明细ID」。'
+    createError.value = '请输入必填项「销售订单明细ID」。'
     return
   }
   if (!createForm.requestQty.trim()) {

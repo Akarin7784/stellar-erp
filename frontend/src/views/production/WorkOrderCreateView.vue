@@ -2,7 +2,7 @@
   <el-card shadow="never">
     <template #header>
       <div class="toolbar">
-        <span>生产订单登録（SCR-PRD-009）</span>
+        <span>工单登记（SCR-PRD-009）</span>
         <el-tag>{{ statusLabel }}</el-tag>
       </div>
     </template>
@@ -22,7 +22,7 @@
           <el-form-item label="工单号">
             <el-input
               :model-value="created?.workOrderNo ?? ''"
-              placeholder="保存時自動採番"
+              placeholder="保存时自动编号"
               disabled
             />
           </el-form-item>
@@ -58,7 +58,7 @@
           </el-form-item>
         </el-col>
         <el-col :span="8">
-          <el-form-item label="品目" prop="materialId" :error="fieldError('materialId')">
+          <el-form-item label="物料" prop="materialId" :error="fieldError('materialId')">
             <el-select
               v-model="form.materialId"
               data-test="material"
@@ -79,7 +79,7 @@
           </el-form-item>
         </el-col>
         <el-col :span="8">
-          <el-form-item label="注文数量" prop="orderQty">
+          <el-form-item label="订单数量" prop="orderQty">
             <el-input v-model="form.orderQty" />
           </el-form-item>
         </el-col>
@@ -93,7 +93,7 @@
           </el-form-item>
         </el-col>
         <el-col :span="8">
-          <el-form-item label="计划着手日" prop="plannedStartDate">
+          <el-form-item label="计划开工日" prop="plannedStartDate">
             <el-date-picker v-model="form.plannedStartDate" type="date" value-format="YYYY-MM-DD" />
           </el-form-item>
         </el-col>
@@ -103,14 +103,14 @@
           </el-form-item>
         </el-col>
         <el-col :span="8">
-          <el-form-item label="優先度" prop="priorityNo">
+          <el-form-item label="优先级" prop="priorityNo">
             <el-select v-model="form.priorityNo">
               <el-option v-for="p in 9" :key="p" :label="p" :value="p" />
             </el-select>
           </el-form-item>
         </el-col>
         <el-col :span="8">
-          <el-form-item label="完工入库倉庫" prop="warehouseId">
+          <el-form-item label="完工入库仓库" prop="warehouseId">
             <el-select
               v-model="form.warehouseId"
               data-test="warehouse"
@@ -128,7 +128,7 @@
           </el-form-item>
         </el-col>
         <el-col :span="8">
-          <el-form-item label="部門" prop="departmentId">
+          <el-form-item label="部门" prop="departmentId">
             <el-alert
               v-if="deptLoadFailed"
               data-test="dept-load-warning"
@@ -155,7 +155,7 @@
         </el-col>
         <el-col :span="8">
           <el-form-item
-            label="受注明細ID"
+            label="销售订单明细ID"
             prop="salesOrderLineId"
             :error="fieldError('salesOrderLineId')"
           >
@@ -186,7 +186,7 @@
           </el-form-item>
         </el-col>
         <el-col :span="24">
-          <el-form-item label="備考" prop="remark">
+          <el-form-item label="备注" prop="remark">
             <el-input v-model="form.remark" type="textarea" maxlength="500" show-word-limit />
           </el-form-item>
         </el-col>
@@ -202,7 +202,7 @@
         @click="onSave"
         >保存</el-button
       >
-      <el-button @click="onCancel">キャンセル</el-button>
+      <el-button @click="onCancel">取消</el-button>
     </div>
   </el-card>
 </template>
@@ -258,7 +258,7 @@ const form = reactive<WorkOrderCreateRequest>({
   remark: '',
 })
 
-const required = { required: true, message: '必須項目です', trigger: 'blur' }
+const required = { required: true, message: '此项为必填项', trigger: 'blur' }
 const rules: FormRules = {
   factoryId: [required],
   materialId: [required],
@@ -421,7 +421,7 @@ async function onSave() {
   error.value = null
   try {
     created.value = await createWorkOrder(form)
-    ElMessage.success(`工单 ${created.value.workOrderNo} を登録しました`)
+    ElMessage.success(`工单 ${created.value.workOrderNo} 已登记`)
     await router.push({
       name: 'production-work-order-detail',
       params: { id: String(created.value.id) },

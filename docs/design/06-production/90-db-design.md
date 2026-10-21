@@ -991,7 +991,7 @@ CREATE TABLE prd_work_order (
     planned_end_date    DATE          NOT NULL,                  -- 计划完成日（納期）
     actual_start_date   DATE,                                    -- 実績着手日（初回報工日）
     actual_end_date     DATE,                                    -- 実績完成日（最終完工入库日）
-    order_status        SMALLINT      NOT NULL DEFAULT 10,       -- 10:草稿 20:承認待ち 25:承認済 30:下达済 35:製造中 40:完工（closed_at で結案・終端） 90:取消 95:却下
+    order_status        SMALLINT      NOT NULL DEFAULT 10,       -- 10:草稿 20:待审批 25:已批准 30:已下达 35:生产中 40:完工（以 closed_at 结案、终态） 90:取消（驳回退回 10，不使用 95，蓝色大肥鱼 2026-10-21 决定）
     material_issue_status SMALLINT    NOT NULL DEFAULT 0,        -- 材料引当/領料状態 0:未 10:一部 20:完了
     report_status       SMALLINT      NOT NULL DEFAULT 0,        -- 報工状態 0:未 10:一部 20:完了
     completion_status   SMALLINT      NOT NULL DEFAULT 0,        -- 入庫状態 0:未 10:一部 20:完了
@@ -1038,7 +1038,7 @@ CREATE TABLE prd_work_order (
     CONSTRAINT fk_prd_work_order_factory FOREIGN KEY (tenant_id, company_id, factory_id) REFERENCES mdm_factory (tenant_id, company_id, id),
     CONSTRAINT fk_prd_work_order_bom FOREIGN KEY (tenant_id, company_id, bom_id) REFERENCES prd_bom (tenant_id, company_id, id),
     CONSTRAINT fk_prd_work_order_routing FOREIGN KEY (tenant_id, company_id, routing_id) REFERENCES prd_routing (tenant_id, company_id, id),
-    CONSTRAINT ck_prd_work_order_status CHECK (order_status IN (10,20,25,30,35,40,90,95)),
+    CONSTRAINT ck_prd_work_order_status CHECK (order_status IN (10,20,25,30,35,40,90)),
     CONSTRAINT ck_prd_work_order_qty CHECK (order_qty > 0 AND completed_qty >= 0 AND scrapped_qty >= 0),
     CONSTRAINT ck_prd_work_order_date CHECK (planned_end_date >= planned_start_date),
     CONSTRAINT ck_prd_work_order_rate CHECK (over_receipt_rate >= 0 AND over_report_rate >= 0)
@@ -2665,3 +2665,4 @@ CREATE INDEX idx_prd_capacity_load_date ON prd_capacity_load (tenant_id, company
 | v1.16 | 2026-10-21 | mdm 向け跨域 FK 29 本を三列 `(tenant_id, company_id, x_id)` → `mdm_x (tenant_id, company_id, id)` に変更（00-common/04 §6.2 項 2a、迁移 `prd/V202610211411`。被参照 `uk_mdm_{material,factory,warehouse,supplier}_tenant_company_id`、制約名・NO ACTION 維持）。子表側に `(tenant_id, company_id, x_id)` 先頭の btree 索引が無かった 9 本分を追加（`idx_prd_{bom_factory,routing_factory,material_planning_factory,outsourcing_order_factory,material_issue_wh,completion_receipt_wh,outsourcing_issue_wh,outsourcing_receipt_wh,outsourcing_settlement_line_material}`） | DBA |
 | v1.17 | 2026-10-21 | :1058 の 4002 説明を「状態競合 422 専用」に修正（409 は `version` 競合 4003 のみ。00-common/03 §5 と整合、蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.18 | 2026-10-21 | 三列外键 `(tenant_id, company_id, x_id)` の子表側に同三列先頭の btree 索引が無かった 11 本分を追加（00-common/04 §6.2 項 2a FK 前導索引規則 v1.25、迁移 `prd/V202610211417`）：`idx_prd_bom_substitute_line`・`idx_prd_inspection_standard`・`idx_prd_material_planning_material`・`idx_prd_ncr_defect_code`・`idx_prd_ncr_inspection`・`idx_prd_routing_operation_routing`・`idx_prd_routing_operation_alt_op`・`idx_prd_routing_operation_alt_wc`・`idx_prd_work_center_calendar_wc`・`idx_prd_work_order_bom`・`idx_prd_work_order_routing` | DBA |
+| v1.19 | 2026-10-21 | `prd_work_order.order_status` の注釈から 95（却下）を削除（却下は 10 へ戻す）（蓝色大肥鱼 2026-10-21 決定）。`prd_work_order_change.change_status` の 95 は変更しない。CHECK・迁移は数据库側で別 PR | 业务分析 |
