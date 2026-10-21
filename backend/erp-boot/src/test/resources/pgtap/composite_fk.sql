@@ -1,19 +1,19 @@
--- pgTAP：复合外键（sys/V202610210707、inv/V202610211409・V202610211410、prd/V202610211411）。指向有 company_id 的 sys_/mdm_ 表的 FK 须为三列 (tenant_id, company_id, x)（2 列须登记：已定例外或待改存量），跨租户引用被拒。
+-- pgTAP：复合外键（sys/V202610210707、inv/V202610211409・V202610211410、prd/V202610211411、sal/V202610211412）。指向有 company_id 的 sys_/mdm_ 表的 FK 须为三列 (tenant_id, company_id, x)（2 列须登记：已定例外或待改存量），跨租户引用被拒。
 BEGIN;
-SELECT plan(13);
+SELECT plan(14);
 
 SELECT is((SELECT count(*)::int FROM pg_constraint k JOIN pg_class r ON r.oid = k.confrelid
             WHERE k.contype = 'f' AND array_length(k.conkey, 1) = 1 AND r.relname ~ '^(sys|mdm)_'),
           0, '指向 sys_/mdm_ 的单列外键为 0');
 -- 断言 2（收紧）：被引用表有 company_id 时只允许三列 (tenant_id, company_id, x) → (tenant_id, company_id, id)；
 -- 被引用表无 company_id 时为 (tenant_id, x) → (tenant_id, id)。被引用侧末列必须是 id。
--- 2 列 (tenant_id, x) → (tenant_id, id) 登记表：〔A〕已定例外 1 条、〔B〕待改为三列（存量，按域分批）47 条（inv 27 条已由 inv/V202610211410、prd 29 条已由 prd/V202610211411 改为三列）。新增 FK 不得默认走 2 列。
+-- 2 列 (tenant_id, x) → (tenant_id, id) 登记表：〔A〕已定例外 1 条、〔B〕待改为三列（存量，按域分批）33 条（inv 27 条已由 inv/V202610211410、prd 29 条已由 prd/V202610211411、sal 14 条已由 sal/V202610211412 改为三列）。新增 FK 不得默认走 2 列。
 CREATE TEMP TABLE t_cfk_2col_exception (conname name PRIMARY KEY) ON COMMIT DROP;
 INSERT INTO t_cfk_2col_exception VALUES
         -- 〔A〕已定例外 1 条（04 §6.2 2a 命名例外）
         -- 指向 sys_menu（company_id=0 的租户级表）1 条
         ('fk_sys_role_permission_menu'),
-        -- 〔B〕待改为三列（存量，按域分批）47 条：sal 14／fin 1／mdm 32（inv 27 条已于 inv/V202610211410、prd 29 条已于 prd/V202610211411 改为三列）
+        -- 〔B〕待改为三列（存量，按域分批）33 条：fin 1／mdm 32（inv 27 条已于 inv/V202610211410、prd 29 条已于 prd/V202610211411、sal 14 条已于 sal/V202610211412 改为三列）
         -- mdm 域内部 32 条
         ('fk_mdm_admission_supplier'),
         ('fk_mdm_bank_account_bank'),
@@ -48,22 +48,7 @@ INSERT INTO t_cfk_2col_exception VALUES
         ('fk_mdm_warehouse_factory'),
         ('fk_mdm_warehouse_zone_warehouse'),
         -- fin 1 条
-        ('fk_fin_standard_cost_material'),
-        -- sal 14 条
-        ('fk_sal_credit_log_customer'),
-        ('fk_sal_credit_occ_customer'),
-        ('fk_sal_delivery_note_wh'),
-        ('fk_sal_forecast_dept'),
-        ('fk_sal_inquiry_customer'),
-        ('fk_sal_inquiry_line_material'),
-        ('fk_sal_invoice_customer'),
-        ('fk_sal_iva_customer'),
-        ('fk_sal_quotation_customer'),
-        ('fk_sal_sales_order_customer'),
-        ('fk_sal_sales_order_line_m'),
-        ('fk_sal_special_price_cust'),
-        ('fk_sal_special_price_mat'),
-        ('fk_sal_statement_customer');
+        ('fk_fin_standard_cost_material');
 CREATE TEMP TABLE t_cfk ON COMMIT DROP AS
 SELECT k.conname, r.relname AS parent,
        EXISTS (SELECT 1 FROM pg_attribute x WHERE x.attrelid = r.oid AND x.attname = 'company_id' AND NOT x.attisdropped) AS parent_has_co,
@@ -92,6 +77,9 @@ SELECT is((SELECT count(*)::int FROM t_cfk WHERE conname ~ '^fk_inv_'
 SELECT is((SELECT count(*)::int FROM t_cfk WHERE conname ~ '^fk_prd_'
             AND NOT (cols[1:2] = ARRAY['tenant_id', 'company_id']::name[] AND refcols = ARRAY['tenant_id', 'company_id', 'id']::name[])),
           0, 'prd → mdm FK 29 条全部为 04 §6.2 2a 标准三列形（prd/V202610211411），登记表无 fk_prd_*');
+SELECT is((SELECT count(*)::int FROM t_cfk WHERE conname ~ '^fk_sal_'
+            AND NOT (cols[1:2] = ARRAY['tenant_id', 'company_id']::name[] AND refcols = ARRAY['tenant_id', 'company_id', 'id']::name[])),
+          0, 'sal → mdm/sys FK 14 条全部为 04 §6.2 2a 标准三列形（sal/V202610211412），登记表无 fk_sal_*');
 SELECT is((SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'fk_inv_stock_balance_material'),
           'FOREIGN KEY (tenant_id, company_id, material_id) REFERENCES mdm_material(tenant_id, company_id, id)',
           'fk_inv_stock_balance_material 为 04 §6.2 2a 标准三列形 = (tenant_id, company_id, material_id) → mdm_material(tenant_id, company_id, id)');

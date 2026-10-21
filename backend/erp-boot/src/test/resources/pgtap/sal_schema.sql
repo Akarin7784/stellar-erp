@@ -1,7 +1,7 @@
 -- pgTAP：03-sales 建表（sal/V202610210705）结构 / RLS / erp_app 权限 / 关键约束 / G2-18 列
 -- 约定：准备数据用 owner（暂停 FK 触发器，免建 mdm_customer 等前置数据），断言前 SET ROLE erp_app；以 ROLLBACK 结束。
 BEGIN;
-SELECT plan(23);
+SELECT plan(31);
 
 SELECT is((SELECT count(*)::int FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
             WHERE n.nspname = 'public' AND c.relkind = 'r' AND c.relname LIKE 'sal\_%'),
@@ -83,6 +83,50 @@ SELECT throws_ok($$INSERT INTO sal_sales_order (id, company_id, sales_order_no, 
                      delivery_address, sales_department_id, owner_user_id, payment_term_code, delivery_date, warehouse_id)
                    VALUES (3010002, 1, 'SO2610210001', DATE '2026-10-21', 1, 'C001', 'cust', 'addr', 1, 1, 'NET30', DATE '2026-11-30', 1)$$,
                  '23505', NULL, 'uk_sal_sales_order_no：同租户同公司受注号重复被拒（唯一检查先于 FK）');
+RESET ROLE;
+
+-- sal → mdm/sys 跨域 FK 14 条三列化（sal/V202610211412，04 §6.2 项 2a）
+SELECT is((SELECT count(*)::int FROM pg_constraint k JOIN pg_class c ON c.oid = k.conrelid JOIN pg_class p ON p.oid = k.confrelid
+            WHERE k.contype = 'f' AND c.relname ~ '^sal_' AND p.relname ~ '^(mdm|sys)_'), 14, 'sal → mdm/sys 跨域 FK 14 条');
+SELECT is((SELECT count(*)::int FROM pg_constraint k JOIN pg_class c ON c.oid = k.conrelid JOIN pg_class p ON p.oid = k.confrelid
+            WHERE k.contype = 'f' AND c.relname ~ '^sal_' AND p.relname ~ '^(mdm|sys)_'
+              AND (pg_get_constraintdef(k.oid) !~ '^FOREIGN KEY \(tenant_id, company_id, \w+\) REFERENCES (mdm|sys)_\w+\(tenant_id, company_id, id\)$'
+                   OR k.confdeltype <> 'a' OR k.confupdtype <> 'a')),
+          0, 'sal → mdm/sys FK 14 条全部三列 (tenant_id, company_id, x_id) → (tenant_id, company_id, id)，NO ACTION');
+SELECT is((SELECT count(*)::int FROM pg_constraint k JOIN pg_class c ON c.oid = k.conrelid JOIN pg_class p ON p.oid = k.confrelid
+            WHERE k.contype = 'f' AND c.relname ~ '^sal_' AND p.relname ~ '^(mdm|sys)_'
+              AND NOT EXISTS (SELECT 1 FROM pg_index i JOIN pg_class ic ON ic.oid = i.indexrelid JOIN pg_am am ON am.oid = ic.relam
+                               WHERE i.indrelid = k.conrelid AND am.amname = 'btree' AND i.indnatts >= 3
+                                 AND i.indkey[0] = k.conkey[1] AND i.indkey[1] = k.conkey[2] AND i.indkey[2] = k.conkey[3])),
+          0, 'sal → mdm/sys FK 14 条的子表均有以 (tenant_id, company_id, x_id) 打头的 btree 索引');
+
+INSERT INTO mdm_customer (id, tenant_id, company_id, customer_code, customer_name, customer_type, tax_no, owner_user_id, payment_term_code, settlement_method_code)
+VALUES (3030001, 303, 1, '9SALC1', 'c c1', 10, 'T1', 1, 'P', 'S'), (3030002, 303, 2, '9SALC2', 'c c2', 10, 'T2', 1, 'P', 'S');
+INSERT INTO mdm_material_category (id, tenant_id, company_id, category_code, category_name, category_path, category_level, is_leaf, status)
+VALUES (3030001, 303, 1, '9SAL', 'sal', '/9SAL/', 1, TRUE, 1), (3030002, 303, 2, '9SAL', 'sal', '/9SAL/', 1, TRUE, 1);
+INSERT INTO mdm_material (id, tenant_id, company_id, material_code, material_name, material_type, category_id, spec, base_uom_code, valuation_method, status)
+VALUES (3030001, 303, 1, '9SAL000001', 'sal m c1', 10, 3030001, 's', 'PCE', 10, 1),
+       (3030002, 303, 2, '9SAL000002', 'sal m c2', 10, 3030002, 's', 'PCE', 10, 1);
+INSERT INTO sys_department (id, tenant_id, company_id, department_code, department_name)
+VALUES (3030001, 303, 1, '9SALD1', 'd c1'), (3030002, 303, 2, '9SALD2', 'd c2');
+SET ROLE erp_app;
+SELECT set_config('app.tenant_id', '303', true);
+SELECT throws_ok($$INSERT INTO sal_special_price (id, company_id, special_price_no, customer_id, customer_code, customer_name, material_id, material_code, material_name,
+                     special_unit_price, tax_code, valid_from, valid_to, reason_type, reason)
+                   VALUES (3030001, 1, 'SP1', 3030002, '9SALC2', 'c c2', 3030001, '9SAL000001', 'm', 1, 'VAT13-OUT', DATE '2026-10-01', DATE '2026-12-31', 'X', 'r')$$,
+                 '23503', NULL, 'fk_sal_special_price_cust：公司 1 引用同租户公司 2 的客户 → 23503');
+SELECT throws_ok($$INSERT INTO sal_special_price (id, company_id, special_price_no, customer_id, customer_code, customer_name, material_id, material_code, material_name,
+                     special_unit_price, tax_code, valid_from, valid_to, reason_type, reason)
+                   VALUES (3030002, 1, 'SP2', 3030001, '9SALC1', 'c c1', 3030002, '9SAL000002', 'm', 1, 'VAT13-OUT', DATE '2026-10-01', DATE '2026-12-31', 'X', 'r')$$,
+                 '23503', NULL, 'fk_sal_special_price_mat：公司 1 引用同租户公司 2 的物料 → 23503');
+SELECT lives_ok($$INSERT INTO sal_special_price (id, company_id, special_price_no, customer_id, customer_code, customer_name, material_id, material_code, material_name,
+                    special_unit_price, tax_code, valid_from, valid_to, reason_type, reason)
+                  VALUES (3030003, 1, 'SP3', 3030001, '9SALC1', 'c c1', 3030001, '9SAL000001', 'm', 1, 'VAT13-OUT', DATE '2026-10-01', DATE '2026-12-31', 'X', 'r')$$,
+                'fk_sal_special_price_*：同公司客户・物料可写入');
+SELECT throws_ok($$INSERT INTO sal_sales_forecast (id, company_id, forecast_no, period_code, department_id) VALUES (3030001, 1, 'SF1', '2026-11', 3030002)$$,
+                 '23503', NULL, 'fk_sal_forecast_dept：公司 1 引用同租户公司 2 的部门 → 23503');
+SELECT lives_ok($$INSERT INTO sal_sales_forecast (id, company_id, forecast_no, period_code, department_id) VALUES (3030002, 1, 'SF2', '2026-11', 3030001)$$,
+                'fk_sal_forecast_dept：同公司部门可写入');
 RESET ROLE;
 
 SELECT * FROM finish();
