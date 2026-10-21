@@ -41,6 +41,7 @@ import com.stellar.erp.production.SalesOrderLineLookup.SalesOrderLine;
 import com.stellar.erp.production.internal.ProductionRepository;
 import com.stellar.erp.support.DbIntegrationTest;
 import com.stellar.erp.support.OwnerJdbc;
+import com.stellar.erp.support.PermissionGrants;
 
 /**
  * 任务 C：工单登録（over_receipt_rate チェーン快照）+ 超产申请（60103）。
@@ -76,6 +77,7 @@ class ProductionCoreIntegrationTest {
     void seed() {
         owner = OwnerJdbc.of(pg);
         cleanup();
+        PermissionGrants.grant(owner, TENANT, COMPANY, USER, 993900, PermissionGrants.WORK_ORDER_ALL);
         owner.execute("""
             INSERT INTO mdm_material_category (id, tenant_id, company_id, category_code, category_name, category_path, category_level, is_leaf, completion_over_rate) VALUES
               (993001, 303, 31, 'C1', '无率分类', '/C1/', 1, TRUE, NULL),
@@ -113,6 +115,7 @@ class ProductionCoreIntegrationTest {
     }
 
     void cleanup() {
+        PermissionGrants.cleanup(owner, TENANT);
         owner.execute("""
             DELETE FROM prd_overproduction_approval WHERE tenant_id = 303;
             DELETE FROM prd_work_order WHERE tenant_id = 303;

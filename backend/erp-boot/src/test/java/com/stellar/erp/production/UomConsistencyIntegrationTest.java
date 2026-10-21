@@ -30,6 +30,7 @@ import com.stellar.erp.common.TenantContext;
 import com.stellar.erp.production.internal.UomConverter;
 import com.stellar.erp.support.DbIntegrationTest;
 import com.stellar.erp.support.OwnerJdbc;
+import com.stellar.erp.support.PermissionGrants;
 
 /** CHK-PRD-002-10 / 60022：単位整合と基本単位換算（登録・下达・提出、erp_app + RLS）。 */
 @DbIntegrationTest
@@ -53,6 +54,7 @@ class UomConsistencyIntegrationTest {
     void seed() {
         owner = OwnerJdbc.of(pg);
         cleanup();
+        PermissionGrants.grant(owner, TENANT, CO, USER, 999900, PermissionGrants.WORK_ORDER_ALL);
         owner.execute("""
             INSERT INTO mdm_uom (id, tenant_id, company_id, uom_code, uom_name, conversion_group, decimal_places) VALUES
               (999071, 309, 91, 'PCE', '个', 'PCS', 0),
@@ -86,6 +88,7 @@ class UomConsistencyIntegrationTest {
     }
 
     void cleanup() {
+        PermissionGrants.cleanup(owner, TENANT);
         owner.execute("""
             DELETE FROM prd_work_order_material WHERE tenant_id = 309;
             DELETE FROM prd_work_order WHERE tenant_id = 309;
