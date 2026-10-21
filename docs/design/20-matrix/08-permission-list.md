@@ -8,7 +8,7 @@
 | 作成日 | 2026-10-20 |
 | 作成者 | Lead（生成工具 gen_matrix.py） |
 | 状態 | ドラフト（自动生成・最終レビュー前） |
-| 備考 | 全 452 件。権限コード/域/対象機能/データ範囲/提取元 |
+| 備考 | 全 453 件。権限コード/域/対象機能/データ範囲/提取元 |
 
 > 本文件由 `20-matrix/tools/gen_matrix.py` 从各域设计书中自动提取生成。修改设计书后重新运行即可更新。
 
@@ -249,6 +249,7 @@
 | production:outsourcing:create | PRD | F-PRD-009 |  | 06-production/00-overview.md |
 | production:outsourcing:settle | PRD | F-PRD-009 |  | 06-production/00-overview.md |
 | production:outsourcing:view | PRD | F-PRD-009 |  | 06-production/00-overview.md |
+| production:overproduction-approval:view | PRD | F-PRD-008 |  | 06-production/00-overview.md |
 | production:param:update | PRD | F-PRD-020 | 全社 | 06-production/00-overview.md |
 | production:plan:update | PRD | F-PRD-011 |  | 06-production/00-overview.md |
 | production:report:view | PRD | F-PRD-017 |  | 06-production/00-overview.md |

@@ -248,7 +248,7 @@
 | G-8 | `route_path` の DDL 列コメント例が `/system/users`（sys/V202610210104:428） | 解決：先頭スラッシュなしを正とし、迁移コメントは DBA が種マイグレーションで修正 |
 | G-9 | 系统管理员以外のロール（`ROLE-*` 17 件）は示例値 | 解決：本種マイグレーションの対象外 |
 | G-10 | `component_path`・`icon` の値は設計書に定義がない | 解決：`NULL` で投入、フロント実装時に設定 |
-| G-11 | 超産承認 API（[06/91](../06-production/91-api-design.md)、#66・#68）の権限コード `production:overproduction-approval:{view,create,submit,approve,cancel}`（reject は approve と共用）が V202610211405 の種にない。06 の画面一覧にも超産承認画面がない | 解決（蓝色大肥鱼 2026-10-21 決定）：付録 A #397〜#401 に菜单 1 行（`SCR-PRD-034` 超产审批一覧・詳細、`production/overproduction-approvals`、`is_visible=TRUE`、view）と按钮 4 行（approve/cancel/create/submit）を追加。`SCR-PRD-034` は暫定画面 ID で、06 画面一覧への追加は別途。DBA が**後続の増分迁移**（新バージョン）で `sys_menu` 5 行を全テナントに投入し、既存会社の `SYSTEM_ADMIN` にも 5 行を付与する（新規の付与のみ。`sys_init_company` の「既存 `SYSTEM_ADMIN` には付与しない」規則の例外として増分迁移で一度だけ実施）。V202610211405 は変更しない |
+| G-11 | 超産承認 API（[06/91](../06-production/91-api-design.md)、#66・#68）の権限コード `production:overproduction-approval:{view,create,submit,approve,cancel}`（reject は approve と共用）が V202610211405 の種にない | 解決（蓝色大肥鱼 2026-10-21 決定）：06 画面一覧に `SCR-PRD-034` 超产申请一覧を登録し（[06/00 §5](../06-production/00-overview.md)）、付録 A #397〜#401 に菜单 1 行（`production/overproduction-approvals`、`is_visible=TRUE`、view）と按钮 4 行（新規 create／提出 submit／承認・却下 approve／取消 cancel）を追加。DBA が**後続の増分迁移**（新バージョン。V202610211405 は変更しない）で投入する。増分迁移の要件：① `sys_menu` 5 行を全テナントに冪等投入（§2.10 (6) と同じ `ON CONFLICT DO NOTHING`）。② 既存会社の `SYSTEM_ADMIN`（`deleted = FALSE`）に**新しい 5 行（permission_code 付き）だけ**を一度だけ付与する（`ON CONFLICT DO NOTHING`）。既存の付与は変更せず、過去に撤销された付与も戻さない（既存 579 行分を再付与しない）。③ 以後に登録される会社は `sys_init_company` で 584 行全件（5 コードを含む）が付与される。pgTAP で次を断言する：既存会社の `SYSTEM_ADMIN` が 5 コードを得る／増分迁移前に撤销した既存付与が戻らない／増分迁移後の新規会社の `SYSTEM_ADMIN` が 5 コードを含む 584 行を持つ／再実行で行数が変わらない |
 
 ## 3. 仮定値の一覧
 
@@ -682,7 +682,7 @@
 | 394 | `SCR-PRD-032` | 设备台账 | 2 菜单 | `production` | `DIR-PRD` | `production/equipments` | `production:equipment:view` | 320 |  |
 | 395 | `BTN-PRODUCTION-EQUIPMENT-UPDATE` | update | 3 按钮 | `production` | `SCR-PRD-032` | — | `production:equipment:update` | 1 |  |
 | 396 | `SCR-PRD-033` | 生产报表 | 2 菜单 | `production` | `DIR-PRD` | `production/reports/view` | `production:report:view` | 330 |  |
-| 397 | `SCR-PRD-034` | 超产审批一覧・詳細 | 2 菜单 | `production` | `DIR-PRD` | `production/overproduction-approvals` | `production:overproduction-approval:view` | 340 | 暫定画面 ID（G-11）。後続増分迁移で投入 |
+| 397 | `SCR-PRD-034` | 超产申请一覧 | 2 菜单 | `production` | `DIR-PRD` | `production/overproduction-approvals` | `production:overproduction-approval:view` | 340 | G-11。後続増分迁移で投入 |
 | 398 | `BTN-PRODUCTION-OVERPRODUCTION-APPROVAL-APPROVE` | approve | 3 按钮 | `production` | `SCR-PRD-034` | — | `production:overproduction-approval:approve` | 1 | approve・reject 共用（G-11）。後続増分迁移で投入 |
 | 399 | `BTN-PRODUCTION-OVERPRODUCTION-APPROVAL-CANCEL` | cancel | 3 按钮 | `production` | `SCR-PRD-034` | — | `production:overproduction-approval:cancel` | 2 | 後続増分迁移で投入 |
 | 400 | `BTN-PRODUCTION-OVERPRODUCTION-APPROVAL-CREATE` | create | 3 按钮 | `production` | `SCR-PRD-034` | — | `production:overproduction-approval:create` | 3 | 後続増分迁移で投入 |
@@ -893,4 +893,4 @@
 | v1.5 | 2026-10-21 | 付録 A の `route_path` 20 件を訂正（子表・既存伝票操作は `<res>/:id/<子または操作>`、種別別新規は `<res>/<種別>/new`）、§2.10 (4) に規則を追記（蓝色大肥鱼 2026-10-21 承認） | 业务分析 |
 | v1.6 | 2026-10-21 | §2.10 (4)：複数伝票種別を扱う画面の `route_path` は種別コードを 09 §7.1 の順にハイフン連結（`mii-mir`、`osi-osr`）と明記 | 业务分析 |
 | v1.7 | 2026-10-21 | §2.10 (7) G-7 を改訂：`sys_menu.parent_id` に自己参照 FK を付けないことを明記（0＝ルート、親子はアプリ `MSG-SYS-021` と pgTAP で検査。#65、蓝色大肥鱼 2026-10-21 決定、案 A） | 业务分析 |
-| v1.8 | 2026-10-21 | G-11 を追加：超産承認の菜单 `SCR-PRD-034` と按钮 4 行（`production:overproduction-approval:*`、reject は approve と共用）を付録 A #397〜#401 に追加し後続行を繰下げ。件数を 594 行／付与 584／異なるコード 518 に更新（V202610211405 は 589／579／513 のまま、5 行は後続の増分迁移で投入。蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.8 | 2026-10-21 | G-11 を追加：超産承認の菜单 `SCR-PRD-034` と按钮 4 行（`production:overproduction-approval:*`、reject は approve と共用）を付録 A #397〜#401 に追加し後続行を繰下げ（画面は 06 §5 SCR-PRD-034）。増分迁移の要件（既存 SYSTEM_ADMIN へ新 5 コードのみ一度付与・撤销済み付与は戻さない・新規会社は sys_init_company で取得、pgTAP で両方を断言）を明記。件数を 594 行／付与 584／異なるコード 518 に更新（V202610211405 は 589／579／513 のまま、5 行は後続の増分迁移で投入。蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

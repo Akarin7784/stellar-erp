@@ -8,7 +8,7 @@
 | 作成日 | 2026-10-20 |
 | 作成者 | Lead（生成工具 gen_matrix.py） |
 | 状態 | ドラフト（自动生成・最終レビュー前） |
-| 備考 | 全 340 件。画面ID/名称/類型/機能/権限/域/提取元 |
+| 備考 | 全 341 件。画面ID/名称/類型/機能/権限/域/提取元 |
 
 > 本文件由 `20-matrix/tools/gen_matrix.py` 从各域设计书中自动提取生成。修改设计书后重新运行即可更新。
 
@@ -212,6 +212,7 @@
 | SCR-PRD-031 | 工时・效率统计 | 一覧検索 | F-PRD-017 | production:report:view | PRD | 06-production/00-overview.md |
 | SCR-PRD-032 | 设备台账 | 一覧検索 | F-PRD-018 | production:equipment:view | PRD | 06-production/00-overview.md |
 | SCR-PRD-033 | 生产报表 | 帳票プレビュー | F-PRD-019 | production:report:view | PRD | 06-production/00-overview.md |
+| SCR-PRD-034 | 超产申请一覧 | 一覧検索 | F-PRD-008 | production:overproduction-approval:view | PRD | 06-production/00-overview.md |
 | SCR-PUR-001 | 请购单一覧 | LIST | F-PUR-001 | purchase:requisition:view | PUR | 04-purchase/00-overview.md |
 | SCR-PUR-002 | 请购单登録編集 | EDIT | F-PUR-001/002/003 | purchase:requisition:create | PUR | 04-purchase/00-overview.md |
 | SCR-PUR-003 | 请购审批 | WF | F-PUR-002 | purchase:requisition:approve | PUR | 04-purchase/00-overview.md |
