@@ -276,10 +276,16 @@ def collect(c: Collected) -> None:
                                          "frequency": cell(row, i_freq), "domain": doc.domain, "source": doc.rel})
 
             # メッセージ一覧
-            if find_col(header, "メッセージID", "消息ID") is not None:
-                i_id = find_col(header, "メッセージID", "消息ID")
+            # 定義表のみ対象：先頭列がメッセージ ID かつ本文列を持つ表。
+            # 入力チェック表・異常表・業務コード表（91 §1.1）など ID を参照するだけの表は
+            # 本文等が空のまま定義として拾われ、93 の定義を上書きしてしまうため除外する。
+            # 93-messages.md の定義表は先頭列見出しが「ID」。
+            is_93_def = doc.rel.endswith("/93-messages.md") and header and norm(header[0]) == norm("ID")
+            if ((find_col(header, "メッセージID", "消息ID") == 0 or is_93_def)
+                    and find_col(header, "本文", "消息正文", "メッセージ本文") is not None):
+                i_id = 0
                 i_type = find_col(header, "種別", "类型")
-                i_body = find_col(header, "本文", "消息", "メッセージ本文", "消息正文")
+                i_body = find_col(header, "本文", "消息正文", "メッセージ本文")
                 i_cond = find_col(header, "発生条件", "发生条件")
                 i_act = find_col(header, "対処", "处理", "处理方式")
                 for row in rows:
