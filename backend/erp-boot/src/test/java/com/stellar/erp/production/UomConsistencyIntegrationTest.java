@@ -393,8 +393,9 @@ class UomConsistencyIntegrationTest {
         insertSameUnitKgLine(wo, 999403);
         owner.update("UPDATE mdm_uom SET status = 0 WHERE id = 999072");
         is60022(() -> as(() -> approvals.submit(wo, new WorkOrderStateCommand(0, null))));
-        assertThat(owner.queryForObject("SELECT order_status FROM prd_work_order WHERE id = ?", Integer.class, wo))
-                .isEqualTo(10);
+        Map<String, Object> w = owner.queryForMap("SELECT order_status, version FROM prd_work_order WHERE id = ?", wo);
+        assertThat(w.get("order_status")).isEqualTo(10);   // 案 (a)：保存後に停用された単位でも提出は 60022
+        assertThat(w.get("version")).isEqualTo(0);
         assertThat(owner.queryForObject("SELECT required_qty FROM prd_work_order_material WHERE id = 999403",
                 BigDecimal.class)).isEqualByComparingTo("1");   // 既存行は書き換えない
     }
