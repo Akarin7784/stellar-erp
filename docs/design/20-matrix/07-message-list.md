@@ -8,12 +8,71 @@
 | 作成日 | 2026-10-20 |
 | 作成者 | Lead（生成工具 gen_matrix.py） |
 | 状態 | ドラフト（自动生成・最終レビュー前） |
-| 備考 | 全 992 件。メッセージID/種別/本文/発生条件/対処/域/提取元 |
+| 備考 | 全 1013 件。メッセージID/種別/本文/発生条件/対処/域/提取元 |
 
 > 本文件由 `20-matrix/tools/gen_matrix.py` 从各域设计书中自动提取生成。修改设计书后重新运行即可更新。
 
 | メッセージ ID | 種別 | 本文 | 発生条件 | 対処 | 域 | 提取元 |
 |---|---|---|---|---|---|---|
+| MSG-COM-001 | I | 保存しました。 | 登録・更新成功 | — | COM | 00-common/05-common-message-list.md |
+| MSG-COM-002 | I | 删除しました。 | 論理削除成功 | — | COM | 00-common/05-common-message-list.md |
+| MSG-COM-003 | I | 处理已完成。 | 一括処理・状態操作成功 | 件数を添える場合は本文後に「（n 件）」 | COM | 00-common/05-common-message-list.md |
+| MSG-COM-004 | I | 导出任务已受理，完成后可在「导入导出中心」下载。 | 非同期エクスポート受付 | ジョブ ID を併記 | COM | 00-common/05-common-message-list.md |
+| MSG-COM-005 | I | 审批流程已提交。 | 提出成功 | 現在承認者を通知 | COM | 00-common/05-common-message-list.md |
+| MSG-COM-006 | I | 操作成功，但部分数据失败（成功 {0} 件，失败 {1} 件）。 | 一括処理の部分成功 | 失敗一覧を表示 | COM | 00-common/05-common-message-list.md |
+| MSG-COM-010 | C | 确定要删除吗？删除后不可恢复。 | 削除操作前 | OK/キャンセル | COM | 00-common/05-common-message-list.md |
+| MSG-COM-011 | C | 有未保存的修改，确定要离开吗？ | 編集画面離脱時 | 破棄/編集継続 | COM | 00-common/05-common-message-list.md |
+| MSG-COM-012 | C | 该操作不可撤销，是否继续？ | 取消・過帳等の不可逆操作前 | OK/キャンセル | COM | 00-common/05-common-message-list.md |
+| MSG-COM-013 | C | 已选择 {0} 件数据，确定执行吗？ | 一括操作前 | 対象件数明示 | COM | 00-common/05-common-message-list.md |
+| MSG-COM-014 | C | 取消后相关库存和会计处理也将回退，是否继续？ | 伝票取消前 | 影響範囲明示 | COM | 00-common/05-common-message-list.md |
+| MSG-COM-020 | E | 登录已过期，请重新登录。 | トークン期限切れ・無効 | ログイン画面へ遷移（code=2001） | COM | 00-common/05-common-message-list.md |
+| MSG-COM-021 | E | 企业代码、用户名或密码错误。 | ログイン失敗（企業コード不存在・無効・期限切れ、ユーザ不存在、パスワード不一致を区別しない） | 連続失敗でロック（MSG-COM-023）（code=2002） | COM | 00-common/05-common-message-list.md |
+| MSG-COM-022 | E | 验证码错误或已过期，请重新输入。 | 検証コード不一致・期限切れ・使用済み | 検証コード再取得（code=2005） | COM | 00-common/05-common-message-list.md |
+| MSG-COM-023 | E | 账号已被锁定，请于 {0} 分钟后重试或联系管理员。 | ログイン失敗回数超過 | ロック解除は管理者（code=2003） | COM | 00-common/05-common-message-list.md |
+| MSG-COM-024 | E | 首次登录或密码已重置，请修改密码。 | 初回ログイン・リセット後 | パスワード変更画面へ強制遷移 | COM | 00-common/05-common-message-list.md |
+| MSG-COM-025 | E | 密码已过期，请修改密码。 | パスワード有効期限切れ | パスワード変更画面へ強制遷移（code=2004） | COM | 00-common/05-common-message-list.md |
+| MSG-COM-026 | E | 密码强度不符合要求（8〜20 位，且包含大写字母、小写字母、数字、符号中至少 3 类）。 | パスワード変更時 | 強度要件を表示 | COM | 00-common/05-common-message-list.md |
+| MSG-COM-027 | E | 原密码不正确。 | パスワード変更時 | — | COM | 00-common/05-common-message-list.md |
+| MSG-COM-028 | E | 该账号已在其他终端登录，已被强制下线。 | 多重ログイン制限 | 再ログイン | COM | 00-common/05-common-message-list.md |
+| MSG-COM-030 | E | 您没有执行该操作的权限，请联系管理员。 | 権限不足 | code=3001 | COM | 00-common/05-common-message-list.md |
+| MSG-COM-031 | E | 您没有查看该数据的权限。 | データ範囲外 | code=3002 | COM | 00-common/05-common-message-list.md |
+| MSG-COM-032 | E | 该数据已被删除或不存在，请刷新后重试。 | 対象不存在・論理削除済み | code=4001 | COM | 00-common/05-common-message-list.md |
+| MSG-COM-033 | E | 数据已被其他用户更新，请重新获取最新信息后再操作。 | 楽観排他競合 | code=4003。最新情報再取得ボタン | COM | 00-common/05-common-message-list.md |
+| MSG-COM-034 | E | 该记录当前状态不允许此操作。 | 状態不整合 | code=4002。現在状態を表示 | COM | 00-common/05-common-message-list.md |
+| MSG-COM-035 | E | 数据已被其他操作占用，请稍后重试。 | 行ロック・同時処理 | code=4005 | COM | 00-common/05-common-message-list.md |
+| MSG-COM-040 | E | 请输入必填项「{0}」。 | 必須漏れ | 項目をハイライト | COM | 00-common/05-common-message-list.md |
+| MSG-COM-041 | E | 「{0}」不能超过 {1} 个字符。 | 桁数超過 | — | COM | 00-common/05-common-message-list.md |
+| MSG-COM-042 | E | 「{0}」的数值格式不正确。 | 数値形式エラー | — | COM | 00-common/05-common-message-list.md |
+| MSG-COM-043 | E | 「{0}」的日期格式不正确。 | 日付形式エラー | — | COM | 00-common/05-common-message-list.md |
+| MSG-COM-044 | E | 「{0}」必须大于 {1}。 | 値域エラー | — | COM | 00-common/05-common-message-list.md |
+| MSG-COM-045 | E | 「{0}」不能大于「{1}」。 | 相関チェック（数量・日付等） | — | COM | 00-common/05-common-message-list.md |
+| MSG-COM-046 | E | 开始日期不能晚于结束日期。 | 日付範囲矛盾 | — | COM | 00-common/05-common-message-list.md |
+| MSG-COM-047 | E | 数量必须大于 0。 | 数量 0 以下 | — | COM | 00-common/05-common-message-list.md |
+| MSG-COM-048 | E | 金额不能为负数。 | 金額負値 | — | COM | 00-common/05-common-message-list.md |
+| MSG-COM-049 | E | 所选数据不存在或已失效，请重新选择。 | コード存在チェック | — | COM | 00-common/05-common-message-list.md |
+| MSG-COM-050 | E | 该数据已存在，请勿重复添加。 | 一意制約違反 | 既存データへリンク | COM | 00-common/05-common-message-list.md |
+| MSG-COM-051 | E | 输入的金额与合计不一致，请确认。 | 合計相違 | 警告（W）の場合あり | COM | 00-common/05-common-message-list.md |
+| MSG-COM-052 | E | 查询条件过于宽泛，请增加筛选条件（预计超过 {0} 件）。 | 件数超過 | 条件追加を促す | COM | 00-common/05-common-message-list.md |
+| MSG-COM-060 | E | 文件大小超过限制（单文件最大 {0} MB）。 | サイズ超過 | — | COM | 00-common/05-common-message-list.md |
+| MSG-COM-061 | E | 文件格式不支持，请上传 {0} 格式的文件。 | 拡張子不正 | — | COM | 00-common/05-common-message-list.md |
+| MSG-COM-062 | E | 文件解析失败，请使用系统提供的模板。 | テンプレート不正 | テンプレート DL 導線 | COM | 00-common/05-common-message-list.md |
+| MSG-COM-063 | E | 导入失败：第 {0} 行，{1}。 | 行単位エラー | エラー行一覧を表示・DL | COM | 00-common/05-common-message-list.md |
+| MSG-COM-064 | W | 导入完成：成功 {0} 行，失败 {1} 行。 | 部分成功 | 失敗行は修正して再取込 | COM | 00-common/05-common-message-list.md |
+| MSG-COM-065 | E | 导出数据量超过上限（{0} 件），请缩小范围或使用异步导出。 | 同期エクスポート上限超過 | — | COM | 00-common/05-common-message-list.md |
+| MSG-COM-066 | E | 文件下载失败或文件已过期，请重新生成。 | ジョブ結果期限切れ・削除済み | 再実行 | COM | 00-common/05-common-message-list.md |
+| MSG-COM-070 | W | 库存不足，当前可用数量：{0}。 | 在庫引当不足 | 続行可否は機能側で定義 | COM | 00-common/05-common-message-list.md |
+| MSG-COM-071 | E | 会计期间已结账，不能新增或修改该期间的数据。 | 締切済期間 | 期間解除は管理者のみ | COM | 00-common/05-common-message-list.md |
+| MSG-COM-072 | E | 该单据已存在后续业务处理，不能取消。 | 下流処理あり | 下流処理の取消を先に行う | COM | 00-common/05-common-message-list.md |
+| MSG-COM-073 | E | 未找到匹配的审批流程，请联系管理员配置。 | WF 未設定 | 流程設定画面へ | COM | 00-common/05-common-message-list.md |
+| MSG-COM-074 | W | 当前数据存在未处理事项，请确认后再继续。 | 未完了事項あり | 詳細を表示 | COM | 00-common/05-common-message-list.md |
+| MSG-COM-075 | E | 该业务单据已提交，请勿重复提交。 | 二重提出 | code=4005 | COM | 00-common/05-common-message-list.md |
+| MSG-COM-080 | E | 服务器处理失败，请联系管理员（错误编号：{0}）。 | 500 エラー | trace_id を表示 | COM | 00-common/05-common-message-list.md |
+| MSG-COM-081 | E | 网络连接失败，请检查网络后重试。 | 通信エラー | 再試行 | COM | 00-common/05-common-message-list.md |
+| MSG-COM-082 | E | 请求过于频繁，请稍后重试。 | レート制限 | 429 | COM | 00-common/05-common-message-list.md |
+| MSG-COM-083 | E | 系统维护中，预计 {0} 恢复。 | メンテナンス | — | COM | 00-common/05-common-message-list.md |
+| MSG-COM-084 | W | 当前功能正在处理中，请稍候。 | 処理中 | 二重起動防止 | COM | 00-common/05-common-message-list.md |
+| MSG-COM-085 | E | 数据加载失败，请刷新页面重试。 | 取得失敗 | — | COM | 00-common/05-common-message-list.md |
+| MSG-COM-086 | W | 当前页面数据已过期，请刷新后再操作。 | 画面滞留 | — | COM | 00-common/05-common-message-list.md |
 | MSG-FIN-001 | E | 借方合计与贷方合计不一致（差额 {0}），无法保存。 | 借贷不平衡 | 差額行を修正（F-FIN-003/005/006） | FIN | 07-finance/93-messages.md |
 | MSG-FIN-002 | E | 科目代码格式不正确（应为 4 位一级科目，明细以点号分隔，如 6602.12）。 | コード形式不正 | 形式修正（F-FIN-001） | FIN | 07-finance/93-messages.md |
 | MSG-FIN-003 | E | 期初余额借贷不平衡（借方 {0} / 贷方 {1}，差额 {2}）。 | 期初试算不平衡 | 差额修正後に確定（F-FIN-002） | FIN | 07-finance/93-messages.md |
@@ -240,34 +299,6 @@
 | MSG-INT-093 | I | 通知已发送。 | 送信成功 | — | INT | 09-integration/93-messages.md |
 | MSG-INT-094 | I | 测试通知已发送，请确认接收。 | テスト成功 | — | INT | 09-integration/93-messages.md |
 | MSG-INT-095 | I | 对账完成，无差异。 | 差異 0 | — | INT | 09-integration/93-messages.md |
-| MSG-COM-002 | I | 删除しました。 |  |  | INV | 05-inventory/93-messages.md |
-| MSG-COM-003 | I | 处理已完成。 |  |  | INV | 05-inventory/93-messages.md |
-| MSG-COM-005 | I | 审批流程已提交。 |  |  | INV | 05-inventory/93-messages.md |
-| MSG-COM-006 | I | 操作成功，但部分数据失败（成功 {0} 件，失败 {1} 件）。 |  |  | INV | 05-inventory/93-messages.md |
-| MSG-COM-010 | C | 确定要删除吗？删除后不可恢复。 |  |  | INV | 05-inventory/93-messages.md |
-| MSG-COM-011 | C | 有未保存的修改，确定要离开吗？ |  |  | INV | 05-inventory/93-messages.md |
-| MSG-COM-012 | C | 该操作不可撤销，是否继续？ |  |  | INV | 05-inventory/93-messages.md |
-| MSG-COM-030 | E | 您没有执行该操作的权限，请联系管理员。 |  |  | INV | 05-inventory/93-messages.md |
-| MSG-COM-031 | E | 您没有查看该数据的权限。 |  |  | INV | 05-inventory/93-messages.md |
-| MSG-COM-032 | E | 该数据已被删除或不存在，请刷新后重试。 |  |  | INV | 05-inventory/93-messages.md |
-| MSG-COM-033 | E | 数据已被其他用户更新，请重新获取最新信息后再操作。 |  |  | INV | 05-inventory/93-messages.md |
-| MSG-COM-034 | E | 该记录当前状态不允许此操作。 |  |  | INV | 05-inventory/93-messages.md |
-| MSG-COM-040 | E | 请输入必填项「{0}」。 |  |  | INV | 05-inventory/93-messages.md |
-| MSG-COM-041 | E | 「{0}」不能超过 {1} 个字符。 |  |  | INV | 05-inventory/93-messages.md |
-| MSG-COM-042 | E | 「{0}」的数值格式不正确。 |  |  | INV | 05-inventory/93-messages.md |
-| MSG-COM-043 | E | 「{0}」的日期格式不正确。 |  |  | INV | 05-inventory/93-messages.md |
-| MSG-COM-046 | E | 开始日期不能晚于结束日期。 |  |  | INV | 05-inventory/93-messages.md |
-| MSG-COM-047 | E | 数量必须大于 0。 |  |  | INV | 05-inventory/93-messages.md |
-| MSG-COM-048 | E | 金额不能为负数。 |  |  | INV | 05-inventory/93-messages.md |
-| MSG-COM-049 | E | 所选数据不存在或已失效，请重新选择。 |  |  | INV | 05-inventory/93-messages.md |
-| MSG-COM-051 | E | 输入的金额与合计不一致，请确认。 |  |  | INV | 05-inventory/93-messages.md |
-| MSG-COM-052 | E | 查询条件过于宽泛，请增加筛选条件（预计超过 {0} 件）。 |  |  | INV | 05-inventory/93-messages.md |
-| MSG-COM-063 | E | 导入失败：第 {0} 行，{1}。 |  |  | INV | 05-inventory/93-messages.md |
-| MSG-COM-065 | E | 导出数据量超过上限（{0} 件），请缩小范围或使用异步导出。 |  |  | INV | 05-inventory/93-messages.md |
-| MSG-COM-071 | E | 会计期间已结账，不能新增或修改该期间的数据。 |  |  | INV | 05-inventory/93-messages.md |
-| MSG-COM-073 | E | 未找到匹配的审批流程，请联系管理员配置。 |  |  | INV | 05-inventory/93-messages.md |
-| MSG-COM-080 | E | 服务器处理失败，请联系管理员（错误编号：{0}）。 |  |  | INV | 05-inventory/93-messages.md |
-| MSG-COM-084 | W | 当前功能正在处理中，请稍候。 |  |  | INV | 05-inventory/93-messages.md |
 | MSG-INV-001 | E | 库存不足，当前可用数量：{0} {1}。 | 出庫・沖销時の可用量不足 | 数量を調整するか、欠品として処理する | INV | 05-inventory/93-messages.md |
 | MSG-INV-004 | E | 该物料未启用批次管理，不能指定批次。 | 非批次管理物料への批次指定 | 批次をクリアする | INV | 05-inventory/93-messages.md |
 | MSG-INV-005 | E | 该物料启用批次管理，必须指定批次。 | 批次管理物料の批次未入力 | 批次を指定する | INV | 05-inventory/93-messages.md |
@@ -434,7 +465,6 @@
 | MSG-MDM-190 | I | 品質問題を担当者に割り当てました。 | 割当 | — | MDM | 02-mdm/93-messages.md |
 | MSG-MDM-191 | E | 一括维护の行数は 1〜10,000 行の範囲で指定してください。 | 行数超過 | 分割 | MDM | 02-mdm/93-messages.md |
 | MSG-MDM-195 | W | データ権限が未設定のため全社データを表示しています。管理者に設定を依頼してください。 | 権限未設定 | 管理者へ | MDM | 02-mdm/93-messages.md |
-| MSG-COM-070 | W | 在庫が不足しています。現在の利用可能数量：{0}。 | 在庫不足 | 補充手配 | PRD | 06-production/03-material-issue-reporting.md |
 | MSG-PRD-001 | E | 指定した品目は製造品ではありません。製造品または委外品を選択してください。 | 品目区分不一致 | 品目を変更 | PRD | 06-production/93-messages.md |
 | MSG-PRD-002 | E | 承認前の受注からは工单を作成できません。 | 受注状態 < 25 | 受注承認後に再実行 | PRD | 06-production/93-messages.md |
 | MSG-PRD-003 | E | 変更後の数量が既入庫数量を下回っています。 | 数量減が入庫実績未満 | 数量を確認 | PRD | 06-production/93-messages.md |
@@ -871,15 +901,6 @@
 | MSG-SAL-196 | I | 预测已保存（版 {0}）。 |  | — | SAL | 03-sales/93-messages.md |
 | MSG-SAL-197 | I | 预测已确定，可用于生产计划。 |  | — | SAL | 03-sales/93-messages.md |
 | MSG-SAL-198 | W | 齐套率低于目标值（{0}%），请确认欠品与延迟案件。 |  | 欠品・遅延を確認 | SAL | 03-sales/93-messages.md |
-| MSG-COM-020 | E | 登录已过期，请重新登录。 | トークン期限切れ | 再ログイン | SYS | 01-system/01-auth-login.md |
-| MSG-COM-021 | E | 企业代码、用户名或密码错误。 | 認証失敗（企業代码不存在・租户無効/期限切れ・ユーザ不存在・パスワード不一致を区別しない、code=2002） | 再入力。5 回でロック | SYS | 01-system/01-auth-login.md |
-| MSG-COM-022 | E | 验证码错误或已过期，请重新输入。 | 検証コード不一致・期限切れ（code=2005） | 再取得 | SYS | 01-system/01-auth-login.md |
-| MSG-COM-023 | E | 账号已被锁定，请于 {0} 分钟后重试或联系管理员。 | ロック中 | 待機 or 管理者解除 | SYS | 01-system/01-auth-login.md |
-| MSG-COM-024 | E | 首次登录或密码已重置，请修改密码。 | password_reset_required=true | 強制改密 | SYS | 01-system/01-auth-login.md |
-| MSG-COM-025 | E | 密码已过期，请修改密码。 | 期限切れ | 強制改密 | SYS | 01-system/01-auth-login.md |
-| MSG-COM-026 | E | 密码强度不符合要求（8〜20 位，且包含大写字母、小写字母、数字、符号中至少 3 类）。 | 強度不足 | 再入力 | SYS | 01-system/01-auth-login.md |
-| MSG-COM-027 | E | 原密码不正确。 | 旧パスワード不一致 | 再入力 | SYS | 01-system/01-auth-login.md |
-| MSG-COM-028 | E | 该账号已在其他终端登录，已被强制下线。 | 多重ログイン制限 | 再ログイン | SYS | 01-system/01-auth-login.md |
 | MSG-SYS-001 | E | 该账号已停用或已离职，请联系管理员。 | status=0/account_status=3 | 管理者へ連絡 | SYS | 01-system/93-messages.md |
 | MSG-SYS-002 | E | 内置账号不能执行此操作。 | builtin ユーザ | 別アカウント使用 | SYS | 01-system/93-messages.md |
 | MSG-SYS-003 | E | 原密码不正确，请重新输入。连续 5 次错误将锁定账号 30 分钟。 | 改密の旧パスワード不一致 | 再入力 | SYS | 01-system/93-messages.md |

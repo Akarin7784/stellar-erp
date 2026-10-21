@@ -9,7 +9,7 @@
       "reports": 9,
       "batches": 12,
       "interfaces": 7,
-      "messages": 84,
+      "messages": 75,
       "apis": 146
     },
     "MDM": {
@@ -57,7 +57,7 @@
       "reports": 17,
       "batches": 9,
       "interfaces": 0,
-      "messages": 88,
+      "messages": 60,
       "apis": 131
     },
     "PRD": {
@@ -69,7 +69,7 @@
       "reports": 16,
       "batches": 11,
       "interfaces": 4,
-      "messages": 102,
+      "messages": 101,
       "apis": 121
     },
     "FIN": {
@@ -10111,76 +10111,175 @@
   ],
   "messages": [
     {
+      "id": "MSG-COM-001",
+      "type": "I",
+      "body": "保存しました。",
+      "condition": "登録・更新成功",
+      "action": "—",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-002",
+      "type": "I",
+      "body": "删除しました。",
+      "condition": "論理削除成功",
+      "action": "—",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-003",
+      "type": "I",
+      "body": "处理已完成。",
+      "condition": "一括処理・状態操作成功",
+      "action": "件数を添える場合は本文後に「（n 件）」",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-004",
+      "type": "I",
+      "body": "导出任务已受理，完成后可在「导入导出中心」下载。",
+      "condition": "非同期エクスポート受付",
+      "action": "ジョブ ID を併記",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-005",
+      "type": "I",
+      "body": "审批流程已提交。",
+      "condition": "提出成功",
+      "action": "現在承認者を通知",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-006",
+      "type": "I",
+      "body": "操作成功，但部分数据失败（成功 {0} 件，失败 {1} 件）。",
+      "condition": "一括処理の部分成功",
+      "action": "失敗一覧を表示",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-010",
+      "type": "C",
+      "body": "确定要删除吗？删除后不可恢复。",
+      "condition": "削除操作前",
+      "action": "OK/キャンセル",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-011",
+      "type": "C",
+      "body": "有未保存的修改，确定要离开吗？",
+      "condition": "編集画面離脱時",
+      "action": "破棄/編集継続",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-012",
+      "type": "C",
+      "body": "该操作不可撤销，是否继续？",
+      "condition": "取消・過帳等の不可逆操作前",
+      "action": "OK/キャンセル",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-013",
+      "type": "C",
+      "body": "已选择 {0} 件数据，确定执行吗？",
+      "condition": "一括操作前",
+      "action": "対象件数明示",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-014",
+      "type": "C",
+      "body": "取消后相关库存和会计处理也将回退，是否继续？",
+      "condition": "伝票取消前",
+      "action": "影響範囲明示",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
       "id": "MSG-COM-020",
       "type": "E",
       "body": "登录已过期，请重新登录。",
-      "condition": "トークン期限切れ",
-      "action": "再ログイン",
-      "domain": "SYS",
-      "source": "01-system/01-auth-login.md"
+      "condition": "トークン期限切れ・無効",
+      "action": "ログイン画面へ遷移（code=2001）",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
     },
     {
       "id": "MSG-COM-021",
       "type": "E",
       "body": "企业代码、用户名或密码错误。",
-      "condition": "認証失敗（企業代码不存在・租户無効/期限切れ・ユーザ不存在・パスワード不一致を区別しない、code=2002）",
-      "action": "再入力。5 回でロック",
-      "domain": "SYS",
-      "source": "01-system/01-auth-login.md"
+      "condition": "ログイン失敗（企業コード不存在・無効・期限切れ、ユーザ不存在、パスワード不一致を区別しない）",
+      "action": "連続失敗でロック（MSG-COM-023）（code=2002）",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
     },
     {
       "id": "MSG-COM-022",
       "type": "E",
       "body": "验证码错误或已过期，请重新输入。",
-      "condition": "検証コード不一致・期限切れ（code=2005）",
-      "action": "再取得",
-      "domain": "SYS",
-      "source": "01-system/01-auth-login.md"
+      "condition": "検証コード不一致・期限切れ・使用済み",
+      "action": "検証コード再取得（code=2005）",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
     },
     {
       "id": "MSG-COM-023",
       "type": "E",
       "body": "账号已被锁定，请于 {0} 分钟后重试或联系管理员。",
-      "condition": "ロック中",
-      "action": "待機 or 管理者解除",
-      "domain": "SYS",
-      "source": "01-system/01-auth-login.md"
+      "condition": "ログイン失敗回数超過",
+      "action": "ロック解除は管理者（code=2003）",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
     },
     {
       "id": "MSG-COM-024",
       "type": "E",
       "body": "首次登录或密码已重置，请修改密码。",
-      "condition": "password_reset_required=true",
-      "action": "強制改密",
-      "domain": "SYS",
-      "source": "01-system/01-auth-login.md"
+      "condition": "初回ログイン・リセット後",
+      "action": "パスワード変更画面へ強制遷移",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
     },
     {
       "id": "MSG-COM-025",
       "type": "E",
       "body": "密码已过期，请修改密码。",
-      "condition": "期限切れ",
-      "action": "強制改密",
-      "domain": "SYS",
-      "source": "01-system/01-auth-login.md"
+      "condition": "パスワード有効期限切れ",
+      "action": "パスワード変更画面へ強制遷移（code=2004）",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
     },
     {
       "id": "MSG-COM-026",
       "type": "E",
       "body": "密码强度不符合要求（8〜20 位，且包含大写字母、小写字母、数字、符号中至少 3 类）。",
-      "condition": "強度不足",
-      "action": "再入力",
-      "domain": "SYS",
-      "source": "01-system/01-auth-login.md"
+      "condition": "パスワード変更時",
+      "action": "強度要件を表示",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
     },
     {
       "id": "MSG-COM-027",
       "type": "E",
       "body": "原密码不正确。",
-      "condition": "旧パスワード不一致",
-      "action": "再入力",
-      "domain": "SYS",
-      "source": "01-system/01-auth-login.md"
+      "condition": "パスワード変更時",
+      "action": "—",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
     },
     {
       "id": "MSG-COM-028",
@@ -10188,17 +10287,359 @@
       "body": "该账号已在其他终端登录，已被强制下线。",
       "condition": "多重ログイン制限",
       "action": "再ログイン",
-      "domain": "SYS",
-      "source": "01-system/01-auth-login.md"
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-030",
+      "type": "E",
+      "body": "您没有执行该操作的权限，请联系管理员。",
+      "condition": "権限不足",
+      "action": "code=3001",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-031",
+      "type": "E",
+      "body": "您没有查看该数据的权限。",
+      "condition": "データ範囲外",
+      "action": "code=3002",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-032",
+      "type": "E",
+      "body": "该数据已被删除或不存在，请刷新后重试。",
+      "condition": "対象不存在・論理削除済み",
+      "action": "code=4001",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
     },
     {
       "id": "MSG-COM-033",
       "type": "E",
       "body": "数据已被其他用户更新，请重新获取最新信息后再操作。",
-      "condition": "",
-      "action": "",
-      "domain": "INV",
-      "source": "05-inventory/93-messages.md"
+      "condition": "楽観排他競合",
+      "action": "code=4003。最新情報再取得ボタン",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-034",
+      "type": "E",
+      "body": "该记录当前状态不允许此操作。",
+      "condition": "状態不整合",
+      "action": "code=4002。現在状態を表示",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-035",
+      "type": "E",
+      "body": "数据已被其他操作占用，请稍后重试。",
+      "condition": "行ロック・同時処理",
+      "action": "code=4005",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-040",
+      "type": "E",
+      "body": "请输入必填项「{0}」。",
+      "condition": "必須漏れ",
+      "action": "項目をハイライト",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-041",
+      "type": "E",
+      "body": "「{0}」不能超过 {1} 个字符。",
+      "condition": "桁数超過",
+      "action": "—",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-042",
+      "type": "E",
+      "body": "「{0}」的数值格式不正确。",
+      "condition": "数値形式エラー",
+      "action": "—",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-043",
+      "type": "E",
+      "body": "「{0}」的日期格式不正确。",
+      "condition": "日付形式エラー",
+      "action": "—",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-044",
+      "type": "E",
+      "body": "「{0}」必须大于 {1}。",
+      "condition": "値域エラー",
+      "action": "—",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-045",
+      "type": "E",
+      "body": "「{0}」不能大于「{1}」。",
+      "condition": "相関チェック（数量・日付等）",
+      "action": "—",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-046",
+      "type": "E",
+      "body": "开始日期不能晚于结束日期。",
+      "condition": "日付範囲矛盾",
+      "action": "—",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-047",
+      "type": "E",
+      "body": "数量必须大于 0。",
+      "condition": "数量 0 以下",
+      "action": "—",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-048",
+      "type": "E",
+      "body": "金额不能为负数。",
+      "condition": "金額負値",
+      "action": "—",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-049",
+      "type": "E",
+      "body": "所选数据不存在或已失效，请重新选择。",
+      "condition": "コード存在チェック",
+      "action": "—",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-050",
+      "type": "E",
+      "body": "该数据已存在，请勿重复添加。",
+      "condition": "一意制約違反",
+      "action": "既存データへリンク",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-051",
+      "type": "E",
+      "body": "输入的金额与合计不一致，请确认。",
+      "condition": "合計相違",
+      "action": "警告（W）の場合あり",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-052",
+      "type": "E",
+      "body": "查询条件过于宽泛，请增加筛选条件（预计超过 {0} 件）。",
+      "condition": "件数超過",
+      "action": "条件追加を促す",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-060",
+      "type": "E",
+      "body": "文件大小超过限制（单文件最大 {0} MB）。",
+      "condition": "サイズ超過",
+      "action": "—",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-061",
+      "type": "E",
+      "body": "文件格式不支持，请上传 {0} 格式的文件。",
+      "condition": "拡張子不正",
+      "action": "—",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-062",
+      "type": "E",
+      "body": "文件解析失败，请使用系统提供的模板。",
+      "condition": "テンプレート不正",
+      "action": "テンプレート DL 導線",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-063",
+      "type": "E",
+      "body": "导入失败：第 {0} 行，{1}。",
+      "condition": "行単位エラー",
+      "action": "エラー行一覧を表示・DL",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-064",
+      "type": "W",
+      "body": "导入完成：成功 {0} 行，失败 {1} 行。",
+      "condition": "部分成功",
+      "action": "失敗行は修正して再取込",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-065",
+      "type": "E",
+      "body": "导出数据量超过上限（{0} 件），请缩小范围或使用异步导出。",
+      "condition": "同期エクスポート上限超過",
+      "action": "—",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-066",
+      "type": "E",
+      "body": "文件下载失败或文件已过期，请重新生成。",
+      "condition": "ジョブ結果期限切れ・削除済み",
+      "action": "再実行",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-070",
+      "type": "W",
+      "body": "库存不足，当前可用数量：{0}。",
+      "condition": "在庫引当不足",
+      "action": "続行可否は機能側で定義",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-071",
+      "type": "E",
+      "body": "会计期间已结账，不能新增或修改该期间的数据。",
+      "condition": "締切済期間",
+      "action": "期間解除は管理者のみ",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-072",
+      "type": "E",
+      "body": "该单据已存在后续业务处理，不能取消。",
+      "condition": "下流処理あり",
+      "action": "下流処理の取消を先に行う",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-073",
+      "type": "E",
+      "body": "未找到匹配的审批流程，请联系管理员配置。",
+      "condition": "WF 未設定",
+      "action": "流程設定画面へ",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-074",
+      "type": "W",
+      "body": "当前数据存在未处理事项，请确认后再继续。",
+      "condition": "未完了事項あり",
+      "action": "詳細を表示",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-075",
+      "type": "E",
+      "body": "该业务单据已提交，请勿重复提交。",
+      "condition": "二重提出",
+      "action": "code=4005",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-080",
+      "type": "E",
+      "body": "服务器处理失败，请联系管理员（错误编号：{0}）。",
+      "condition": "500 エラー",
+      "action": "trace_id を表示",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-081",
+      "type": "E",
+      "body": "网络连接失败，请检查网络后重试。",
+      "condition": "通信エラー",
+      "action": "再試行",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-082",
+      "type": "E",
+      "body": "请求过于频繁，请稍后重试。",
+      "condition": "レート制限",
+      "action": "429",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-083",
+      "type": "E",
+      "body": "系统维护中，预计 {0} 恢复。",
+      "condition": "メンテナンス",
+      "action": "—",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-084",
+      "type": "W",
+      "body": "当前功能正在处理中，请稍候。",
+      "condition": "処理中",
+      "action": "二重起動防止",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-085",
+      "type": "E",
+      "body": "数据加载失败，请刷新页面重试。",
+      "condition": "取得失敗",
+      "action": "—",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
+      "id": "MSG-COM-086",
+      "type": "W",
+      "body": "当前页面数据已过期，请刷新后再操作。",
+      "condition": "画面滞留",
+      "action": "—",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
     },
     {
       "id": "MSG-SYS-001",
@@ -13234,24 +13675,6 @@
       "source": "04-purchase/93-messages.md"
     },
     {
-      "id": "MSG-COM-034",
-      "type": "E",
-      "body": "该记录当前状态不允许此操作。",
-      "condition": "",
-      "action": "",
-      "domain": "INV",
-      "source": "05-inventory/93-messages.md"
-    },
-    {
-      "id": "MSG-COM-073",
-      "type": "E",
-      "body": "未找到匹配的审批流程，请联系管理员配置。",
-      "condition": "",
-      "action": "",
-      "domain": "INV",
-      "source": "05-inventory/93-messages.md"
-    },
-    {
       "id": "MSG-PUR-030",
       "type": "W",
       "body": "已邀请供应商不足 2 家，请补充供应商或填写单一来源理由。",
@@ -14170,60 +14593,6 @@
       "source": "05-inventory/93-messages.md"
     },
     {
-      "id": "MSG-COM-030",
-      "type": "E",
-      "body": "您没有执行该操作的权限，请联系管理员。",
-      "condition": "",
-      "action": "",
-      "domain": "INV",
-      "source": "05-inventory/93-messages.md"
-    },
-    {
-      "id": "MSG-COM-032",
-      "type": "E",
-      "body": "该数据已被删除或不存在，请刷新后重试。",
-      "condition": "",
-      "action": "",
-      "domain": "INV",
-      "source": "05-inventory/93-messages.md"
-    },
-    {
-      "id": "MSG-COM-046",
-      "type": "E",
-      "body": "开始日期不能晚于结束日期。",
-      "condition": "",
-      "action": "",
-      "domain": "INV",
-      "source": "05-inventory/93-messages.md"
-    },
-    {
-      "id": "MSG-COM-049",
-      "type": "E",
-      "body": "所选数据不存在或已失效，请重新选择。",
-      "condition": "",
-      "action": "",
-      "domain": "INV",
-      "source": "05-inventory/93-messages.md"
-    },
-    {
-      "id": "MSG-COM-052",
-      "type": "E",
-      "body": "查询条件过于宽泛，请增加筛选条件（预计超过 {0} 件）。",
-      "condition": "",
-      "action": "",
-      "domain": "INV",
-      "source": "05-inventory/93-messages.md"
-    },
-    {
-      "id": "MSG-COM-071",
-      "type": "E",
-      "body": "会计期间已结账，不能新增或修改该期间的数据。",
-      "condition": "",
-      "action": "",
-      "domain": "INV",
-      "source": "05-inventory/93-messages.md"
-    },
-    {
       "id": "MSG-INV-004",
       "type": "E",
       "body": "该物料未启用批次管理，不能指定批次。",
@@ -14440,33 +14809,6 @@
       "source": "05-inventory/93-messages.md"
     },
     {
-      "id": "MSG-COM-006",
-      "type": "I",
-      "body": "操作成功，但部分数据失败（成功 {0} 件，失败 {1} 件）。",
-      "condition": "",
-      "action": "",
-      "domain": "INV",
-      "source": "05-inventory/93-messages.md"
-    },
-    {
-      "id": "MSG-COM-051",
-      "type": "E",
-      "body": "输入的金额与合计不一致，请确认。",
-      "condition": "",
-      "action": "",
-      "domain": "INV",
-      "source": "05-inventory/93-messages.md"
-    },
-    {
-      "id": "MSG-COM-012",
-      "type": "C",
-      "body": "该操作不可撤销，是否继续？",
-      "condition": "",
-      "action": "",
-      "domain": "INV",
-      "source": "05-inventory/93-messages.md"
-    },
-    {
       "id": "MSG-INV-027",
       "type": "E",
       "body": "调拨数量超出可调拨量（可用 {0} {1}）。",
@@ -14557,15 +14899,6 @@
       "source": "05-inventory/93-messages.md"
     },
     {
-      "id": "MSG-COM-003",
-      "type": "I",
-      "body": "处理已完成。",
-      "condition": "",
-      "action": "",
-      "domain": "INV",
-      "source": "05-inventory/93-messages.md"
-    },
-    {
       "id": "MSG-INV-009",
       "type": "E",
       "body": "序列号 {0} 不属于批次 {1}，请确认序列号与批次的对应关系。",
@@ -14620,15 +14953,6 @@
       "source": "05-inventory/93-messages.md"
     },
     {
-      "id": "MSG-COM-040",
-      "type": "E",
-      "body": "请输入必填项「{0}」。",
-      "condition": "",
-      "action": "",
-      "domain": "INV",
-      "source": "05-inventory/93-messages.md"
-    },
-    {
       "id": "MSG-INV-061",
       "type": "W",
       "body": "成本差异金额为 0，无需调整。",
@@ -14643,15 +14967,6 @@
       "body": "原价核对不一致或无法执行：{0}。",
       "condition": "月结・再計算の前提未充足",
       "action": "差異原因を調査する",
-      "domain": "INV",
-      "source": "05-inventory/93-messages.md"
-    },
-    {
-      "id": "MSG-COM-084",
-      "type": "W",
-      "body": "当前功能正在处理中，请稍候。",
-      "condition": "",
-      "action": "",
       "domain": "INV",
       "source": "05-inventory/93-messages.md"
     },
@@ -14737,15 +15052,6 @@
       "source": "05-inventory/93-messages.md"
     },
     {
-      "id": "MSG-COM-005",
-      "type": "I",
-      "body": "审批流程已提交。",
-      "condition": "",
-      "action": "",
-      "domain": "INV",
-      "source": "05-inventory/93-messages.md"
-    },
-    {
       "id": "MSG-INV-016",
       "type": "W",
       "body": "物料 {0} 未设置安全库存或提前期，无法生成补货建议。",
@@ -14773,119 +15079,11 @@
       "source": "05-inventory/93-messages.md"
     },
     {
-      "id": "MSG-COM-002",
-      "type": "I",
-      "body": "删除しました。",
-      "condition": "",
-      "action": "",
-      "domain": "INV",
-      "source": "05-inventory/93-messages.md"
-    },
-    {
       "id": "MSG-INV-062",
       "type": "E",
       "body": "盘点对象范围内没有库存数据。",
       "condition": "対象範囲に残高 0 件",
       "action": "範囲を変更する",
-      "domain": "INV",
-      "source": "05-inventory/93-messages.md"
-    },
-    {
-      "id": "MSG-COM-010",
-      "type": "C",
-      "body": "确定要删除吗？删除后不可恢复。",
-      "condition": "",
-      "action": "",
-      "domain": "INV",
-      "source": "05-inventory/93-messages.md"
-    },
-    {
-      "id": "MSG-COM-011",
-      "type": "C",
-      "body": "有未保存的修改，确定要离开吗？",
-      "condition": "",
-      "action": "",
-      "domain": "INV",
-      "source": "05-inventory/93-messages.md"
-    },
-    {
-      "id": "MSG-COM-031",
-      "type": "E",
-      "body": "您没有查看该数据的权限。",
-      "condition": "",
-      "action": "",
-      "domain": "INV",
-      "source": "05-inventory/93-messages.md"
-    },
-    {
-      "id": "MSG-COM-041",
-      "type": "E",
-      "body": "「{0}」不能超过 {1} 个字符。",
-      "condition": "",
-      "action": "",
-      "domain": "INV",
-      "source": "05-inventory/93-messages.md"
-    },
-    {
-      "id": "MSG-COM-042",
-      "type": "E",
-      "body": "「{0}」的数值格式不正确。",
-      "condition": "",
-      "action": "",
-      "domain": "INV",
-      "source": "05-inventory/93-messages.md"
-    },
-    {
-      "id": "MSG-COM-043",
-      "type": "E",
-      "body": "「{0}」的日期格式不正确。",
-      "condition": "",
-      "action": "",
-      "domain": "INV",
-      "source": "05-inventory/93-messages.md"
-    },
-    {
-      "id": "MSG-COM-047",
-      "type": "E",
-      "body": "数量必须大于 0。",
-      "condition": "",
-      "action": "",
-      "domain": "INV",
-      "source": "05-inventory/93-messages.md"
-    },
-    {
-      "id": "MSG-COM-048",
-      "type": "E",
-      "body": "金额不能为负数。",
-      "condition": "",
-      "action": "",
-      "domain": "INV",
-      "source": "05-inventory/93-messages.md"
-    },
-    {
-      "id": "MSG-COM-063",
-      "type": "E",
-      "body": "导入失败：第 {0} 行，{1}。",
-      "condition": "",
-      "action": "",
-      "domain": "INV",
-      "source": "05-inventory/93-messages.md"
-    },
-    {
-      "id": "MSG-COM-065",
-      "type": "E",
-      "body": "导出数据量超过上限（{0} 件），请缩小范围或使用异步导出。",
-      "condition": "",
-      "action": "",
-      "domain": "INV",
-      "source": "05-inventory/93-messages.md"
-    },
-    {
-      "id": "MSG-COM-080",
-      "type": "E",
-      "body": "服务器处理失败，请联系管理员（错误编号：{0}）。",
-      "condition": "",
-      "action": "",
       "domain": "INV",
       "source": "05-inventory/93-messages.md"
     },
@@ -15167,15 +15365,6 @@
       "action": "検査完了/特采",
       "domain": "PRD",
       "source": "06-production/93-messages.md"
-    },
-    {
-      "id": "MSG-COM-070",
-      "type": "W",
-      "body": "在庫が不足しています。現在の利用可能数量：{0}。",
-      "condition": "在庫不足",
-      "action": "補充手配",
-      "domain": "PRD",
-      "source": "06-production/03-material-issue-reporting.md"
     },
     {
       "id": "MSG-PRD-080",
