@@ -128,7 +128,7 @@
           </el-form-item>
         </el-col>
         <el-col :span="8">
-          <!-- 后端暂无部门列表/选项接口（如 GET /api/sys/depts/options），先保留手填 ID -->
+          <!-- 部门选项接口 GET /api/system/departments/options（#61）待接入，先保留手填 ID -->
           <el-form-item label="部門ID" prop="departmentId">
             <el-input v-model="form.departmentId" data-test="department" />
           </el-form-item>
