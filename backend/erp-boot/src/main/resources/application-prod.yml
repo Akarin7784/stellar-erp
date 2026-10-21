@@ -1,6 +1,9 @@
 # 生产配置：DB_URL / DB_USER / DB_PASSWORD / DB_APP_USER / DB_APP_PASSWORD 必须由环境变量提供，无默认值。
 # 缺失时由 RequiredEnvironmentCheck 在启动早期直接失败（fail fast）。
 spring:
+  data:
+    redis:
+      host: ${REDIS_HOST}
   datasource:
     url: ${DB_URL}
     # 应用账号（非 owner，受 RLS 约束）

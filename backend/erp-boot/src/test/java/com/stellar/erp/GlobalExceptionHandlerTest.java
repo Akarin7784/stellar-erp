@@ -126,6 +126,19 @@ class GlobalExceptionHandlerTest {
         assertThat(GlobalExceptionHandler.httpStatusOf(123).value()).isEqualTo(500);
     }
 
+    @org.junit.jupiter.api.Test
+    void onlyCode2001IsHttp401OtherAuthCodesAre200() {
+        assertThat(GlobalExceptionHandler.httpStatusOf(2001).value()).isEqualTo(401);
+        for (int code : new int[] {2002, 2003, 2004, 2005}) {
+            assertThat(GlobalExceptionHandler.httpStatusOf(code).value()).isEqualTo(200);
+        }
+        assertThat(GlobalExceptionHandler.httpStatusOf(3001).value()).isEqualTo(403);
+        // 登录 API 以外：账号停用码为业务错误 422，4003 为 409（登录 API 自身全部 HTTP 200）
+        assertThat(GlobalExceptionHandler.httpStatusOf(com.stellar.erp.system.auth.LoginService.ACCOUNT_DISABLED).value())
+                .isEqualTo(422);
+        assertThat(GlobalExceptionHandler.httpStatusOf(4003).value()).isEqualTo(409);
+    }
+
     @Test
     void completedQtyCheckViolationMapsTo60040() throws Exception {
         mvc.perform(get("/ck/ck_sal_sol_completed_qty"))

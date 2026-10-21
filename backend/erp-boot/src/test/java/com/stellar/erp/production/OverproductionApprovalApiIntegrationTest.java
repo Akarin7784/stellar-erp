@@ -29,6 +29,7 @@ import com.stellar.erp.common.LoginContext.LoginUser;
 import com.stellar.erp.common.TenantContext;
 import com.stellar.erp.support.DbIntegrationTest;
 import com.stellar.erp.support.OwnerJdbc;
+import com.stellar.erp.support.PermissionGrants;
 
 /**
  * 超产申请 / 承認 API（{@code /api/production/overproduction-approvals}）の実エンドポイント結合テスト（erp_app + RLS、MockMvc）。
@@ -40,6 +41,9 @@ class OverproductionApprovalApiIntegrationTest {
     static final long TENANT = 311L, CO = 71L, CO2 = 72L, USER = 7311L, APPROVER = 7312L;
     static final long LINE = 997041, LINE2 = 997042, LINE_CO2 = 997043, WO = 997101, WO_LINE2 = 997102, WO_CO2 = 997103;
     static final String BASE = "/api/production/overproduction-approvals";
+    static final String[] ALL_CODES = {"production:overproduction-approval:view", "production:overproduction-approval:create",
+            "production:overproduction-approval:submit", "production:overproduction-approval:approve",
+            "production:overproduction-approval:cancel"};
 
     @Autowired PostgreSQLContainer pg;
     @Autowired WebApplicationContext wac;
@@ -85,6 +89,11 @@ class OverproductionApprovalApiIntegrationTest {
               (997091, 311, 71, 'prd.overproduction_max_rate', '超产申请上限率', 'prd', '0.5000', 3),
               (997092, 311, 72, 'prd.overproduction_max_rate', '超产申请上限率', 'prd', '9.0000', 3);
             """);
+        // 91 #39a〜39g の権限コード（シードに依存せず明示付与）
+        PermissionGrants.grant(owner, TENANT, CO, USER, 997500, ALL_CODES);
+        PermissionGrants.grant(owner, TENANT, CO, APPROVER, 997600, ALL_CODES);
+        PermissionGrants.grant(owner, TENANT, CO2, USER, 997700, ALL_CODES);
+        PermissionGrants.grant(owner, TENANT, CO2, APPROVER, 997800, ALL_CODES);
         insertWorkOrder(WO, 71, 997011, 997021, 997031, LINE);
         insertWorkOrder(WO_LINE2, 71, 997011, 997021, 997031, LINE2);
         insertWorkOrder(WO_CO2, 72, 997012, 997022, 997032, LINE_CO2);
@@ -118,6 +127,10 @@ class OverproductionApprovalApiIntegrationTest {
     void cleanup() {
         owner.execute("""
             DELETE FROM prd_overproduction_approval WHERE tenant_id = 311;
+            DELETE FROM sys_user_role WHERE tenant_id = 311;
+            DELETE FROM sys_role_permission WHERE tenant_id = 311;
+            DELETE FROM sys_menu WHERE tenant_id = 311 AND module_code = 'test';
+            DELETE FROM sys_role WHERE tenant_id = 311;
             DELETE FROM prd_work_order WHERE tenant_id = 311;
             DELETE FROM sys_sequence WHERE tenant_id = 311;
             DELETE FROM sys_param WHERE tenant_id = 311;
@@ -459,5 +472,74 @@ class OverproductionApprovalApiIntegrationTest {
                 .andExpect(jsonPath("$.data.list[0].id").value(a));
         getAs(CO2, BASE + "/" + a).andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value(4001));
         getAs(CO2, BASE).andExpect(status().isOk()).andExpect(jsonPath("$.data.total").value(0));
+    }
+
+    // ------------------------------------------------------------------ 403（権限コードなし、エンドポイントごと）
+
+    static final long NOPERM = 7399L;
+
+    ResultActions asNoPerm(org.springframework.test.web.servlet.RequestBuilder req) throws Exception {
+        TenantContext.set(TENANT);
+        LoginContext.set(new LoginUser(NOPERM, CO));
+        return mvc.perform(req);
+    }
+
+    static void is403(ResultActions r) throws Exception {
+        r.andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value(3001))
+                .andExpect(jsonPath("$.msgId").value("MSG-COM-030"));
+    }
+
+    /** view 以外の全コードを持つユーザ：一覧は 403。 */
+    @Test
+    void listWithoutViewIs403() throws Exception {
+        PermissionGrants.grant(owner, TENANT, CO, NOPERM, 997900, ALL_CODES[1], ALL_CODES[2], ALL_CODES[3], ALL_CODES[4]);
+        is403(asNoPerm(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get(BASE)));
+    }
+
+    @Test
+    void detailWithoutViewIs403() throws Exception {
+        String id = newApproval(null, "1");
+        PermissionGrants.grant(owner, TENANT, CO, NOPERM, 997900, ALL_CODES[1], ALL_CODES[2], ALL_CODES[3], ALL_CODES[4]);
+        is403(asNoPerm(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get(BASE + "/" + id)));
+    }
+
+    @Test
+    void createWithoutCreateIs403() throws Exception {
+        PermissionGrants.grant(owner, TENANT, CO, NOPERM, 997900, ALL_CODES[0], ALL_CODES[2], ALL_CODES[3], ALL_CODES[4]);
+        is403(asNoPerm(post(BASE).contentType(MediaType.APPLICATION_JSON).content(body(LINE, null, "1"))));
+        assertThat(approvalCount()).isZero();
+    }
+
+    @Test
+    void submitWithoutSubmitIs403() throws Exception {
+        String id = newApproval(null, "1");
+        PermissionGrants.grant(owner, TENANT, CO, NOPERM, 997900, ALL_CODES[0], ALL_CODES[1], ALL_CODES[3], ALL_CODES[4]);
+        is403(asNoPerm(post(BASE + "/" + id + "/submit").contentType(MediaType.APPLICATION_JSON).content("{\"version\": 0}")));
+        assertThat(statusOf(id)).isEqualTo(10);
+    }
+
+    @Test
+    void approveWithoutApproveIs403() throws Exception {
+        String id = pendingApproval(WO, "10");
+        PermissionGrants.grant(owner, TENANT, CO, NOPERM, 997900, ALL_CODES[0], ALL_CODES[1], ALL_CODES[2], ALL_CODES[4]);
+        is403(asNoPerm(post(BASE + "/" + id + "/approve").contentType(MediaType.APPLICATION_JSON).content("{\"version\": 1}")));
+        assertThat(statusOf(id)).isEqualTo(20);
+        assertThat(lineAllowed(LINE)).isEqualByComparingTo("105");
+    }
+
+    @Test
+    void rejectWithoutApproveIs403() throws Exception {
+        String id = pendingApproval(WO, "10");
+        PermissionGrants.grant(owner, TENANT, CO, NOPERM, 997900, ALL_CODES[0], ALL_CODES[1], ALL_CODES[2], ALL_CODES[4]);
+        is403(asNoPerm(post(BASE + "/" + id + "/reject").contentType(MediaType.APPLICATION_JSON).content("{\"version\": 1}")));
+        assertThat(statusOf(id)).isEqualTo(20);
+    }
+
+    @Test
+    void cancelWithoutCancelIs403() throws Exception {
+        String id = newApproval(null, "1");
+        PermissionGrants.grant(owner, TENANT, CO, NOPERM, 997900, ALL_CODES[0], ALL_CODES[1], ALL_CODES[2], ALL_CODES[3]);
+        is403(asNoPerm(post(BASE + "/" + id + "/cancel").contentType(MediaType.APPLICATION_JSON).content("{\"version\": 0}")));
+        assertThat(statusOf(id)).isEqualTo(10);
     }
 }

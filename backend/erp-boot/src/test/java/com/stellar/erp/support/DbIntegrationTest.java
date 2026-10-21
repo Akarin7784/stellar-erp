@@ -9,6 +9,7 @@ import java.lang.annotation.Target;
 import org.junit.jupiter.api.Tag;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.ActiveProfiles;
 
 /**
  * 数据库集成测试约定：标注后启动完整 Spring 上下文，连接 Testcontainers PostgreSQL（postgres:18.6），
@@ -19,7 +20,9 @@ import org.springframework.context.annotation.Import;
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
 @Tag("integration")
-@SpringBootTest
-@Import(PostgresContainerConfig.class)
+// erp.auth.trust-preset-context：既存 MockMvc 测试直接设置 LoginContext；仅 test profile 允许为 true（TrustPresetContextPolicy）。
+@SpringBootTest(properties = "erp.auth.trust-preset-context=true")
+@ActiveProfiles("test")
+@Import({PostgresContainerConfig.class, RedisContainerConfig.class})
 public @interface DbIntegrationTest {
 }

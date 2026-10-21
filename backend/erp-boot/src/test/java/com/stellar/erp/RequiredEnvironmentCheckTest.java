@@ -62,7 +62,8 @@ class RequiredEnvironmentCheckTest {
                 .withProperty("DB_USER", "u")
                 .withProperty("DB_PASSWORD", "p")
                 .withProperty("DB_APP_USER", "erp_app")
-                .withProperty("DB_APP_PASSWORD", "ap");
+                .withProperty("DB_APP_PASSWORD", "ap")
+                .withProperty("REDIS_HOST", "redis");
         env.setActiveProfiles("prod");
         assertThatCode(() -> RequiredEnvironmentCheck.verify(env)).doesNotThrowAnyException();
     }
