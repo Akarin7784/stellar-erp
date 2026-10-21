@@ -4,7 +4,7 @@
 |---|---|
 | 文書名 | 认证与登录 详细设计书（認証・ログイン 詳細設計書） |
 | 文書番号 | DSN-SYS-001 |
-| 版数 | v1.9 |
+| 版数 | v1.10 |
 | 作成日 | 2026-10-20 |
 | 作成者 | system-workflow（域設計担当） |
 | 承認者 | 未承認（レビュー待ち） |
@@ -346,7 +346,7 @@ stateDiagram-v2
     "userInfo": { "id": "1845000000000000123", "userCode": "E000123", "realName": "张建国", "departmentName": "信息部", "avatarUrl": null },
     "roles": [{ "roleCode": "SYSTEM_ADMIN", "roleName": "系统管理员" }],
     "permissions": ["system:user:view", "system:user:create"],
-    "menus": [{ "id": "1", "parentId": "0", "menuType": 1, "menuCode": "system", "menuName": "系统管理", "routePath": "system", "sortNo": 10 }]
+    "menus": [{ "id": "1", "parentId": "0", "menuType": 1, "menuCode": "system", "menuName": "系统管理", "isVisible": true, "routePath": "system", "sortNo": 10 }]
   }
 }
 // レスポンス（失敗：入力チェック 1001、HTTP 200。message は標準文案のみ、項目名は data.fieldErrors、BR-15）
@@ -369,7 +369,7 @@ stateDiagram-v2
 
 **POST /api/system/auth/logout**：免ログイン。ヘッダ `Authorization` のトークンを失効。トークンなし・無効・期限切れでも 200 `{code:0}`（冪等、繰り返し可）（蓝色大肥鱼 2026-10-21 #71 決定）。
 
-**GET /api/system/auth/me**：`userInfo`、`roles`、`permissions`（コードで重複排除）、`menus`、`passwordExpireDays` を返す。`menus[]` はフラット配列で、項目は `id`、`parentId`（DB `parent_id`、0＝ルート）、`menuType`（`menu_type`）、`menuCode`（`menu_code`）、`menuName`（`menu_name`、菜单名称。サイドバー表示用で、メニュー管理で名称変更すると追随する）、`routePath`（`route_path`、先頭スラッシュなし。按钮行は null）、`sortNo`（`sort_no`）。対象は**当前会社で権限のあるメニュー**（`sys_user_role.company_id = セッション company_id` のロールに付与されたもの）と、その**祖先の目录**（親を辿って補完、付与対象外の目录も含む）。ツリー化はフロントで行う。`id`/`parentId` は文字列（03 §8）。`dataScopes` は別 PR で追加する（本 PR 時点では返さない）（蓝色大肥鱼 2026-10-21 #71 決定）。ロールを 1 つも持たないユーザもログインは成功し、`menus` は空配列 `[]` を返す。フロントは「暂无权限，请联系管理员」を表示する（蓝色大肥鱼 2026-10-21 決定）。
+**GET /api/system/auth/me**：`userInfo`、`roles`、`permissions`（コードで重複排除）、`menus`、`passwordExpireDays` を返す。`menus[]` はフラット配列で、項目は `id`、`parentId`（DB `parent_id`、0＝ルート）、`menuType`（`menu_type`）、`menuCode`（`menu_code`）、`menuName`（`menu_name`、菜单名称。サイドバー表示用で、メニュー管理で名称変更すると追随する）、`isVisible`（`is_visible`、サイドバー表示制御。`false` でも返却し、フロントはサイドバーに表示しないがルート生成と権限判定は行う）、`routePath`（`route_path`、先頭スラッシュなし）、`sortNo`（`sort_no`）。対象は**当前会社で権限のあるメニュー**（`sys_user_role.company_id = セッション company_id` のロールに付与されたもの）と、その**祖先の目录**（親を辿って補完、付与対象外の目录も含む）。対象条件は `status=1`・未削除（`deleted=FALSE`）・`menu_type<>3` で、`is_visible` では絞り込まない（非表示画面もルートと権限判定に必要なため返却する）。ツリー化はフロントで行う。外部リンク（`menu_type=4`）も `menus[]` に含め、`routePath` に外部リンク URL を格納する。フロントはクリック時に新しいタブで開き、ルートは生成せず権限による遮断も行わない（専用 URL 項目は将来必要になった時点で別途追加）（蓝色大肥鱼 2026-10-21 決定）。`id`/`parentId` は文字列（03 §8）。`dataScopes` は別 PR で追加する（本 PR 時点では返さない）（蓝色大肥鱼 2026-10-21 #71 決定）。ロールを 1 つも持たないユーザもログインは成功し、`menus` は空配列 `[]` を返す。フロントは「暂无权限，请联系管理员」を表示する（蓝色大肥鱼 2026-10-21 決定）。
 
 ## 8. データ更新仕様
 
@@ -450,7 +450,7 @@ stateDiagram-v2
 | 10c | TST-F-SYS-001-16 | 異常系 | 企業代码未入力 | MSG-COM-040、API は呼ばない |
 | 10d | TST-F-SYS-001-17 | セキュリティ | `sys_auth_find_login_user` の権限・戻り値 | `erp_app` 以外（`PUBLIC` 等）は EXECUTE 不可、戻り値に照合用の最小項目以外（氏名・携帯等）を含まない |
 | 10e | TST-F-SYS-001-18 | 権限 | 会社 A で権限コードあり・会社 B でなし、会社 B のセッションで当該 API／`/auth/me` | 403（code=3001）、`/auth/me` の `permissions`・`menus` に当該コード・メニューを含まない |
-| 10f | TST-F-SYS-001-19 | 正常系 | `/auth/me` の `menus` | 権限のあるメニュー＋その祖先目录のみ、項目は id/parentId/menuType/menuCode/menuName/routePath/sortNo の 7 項目 |
+| 10f | TST-F-SYS-001-19 | 正常系 | `/auth/me` の `menus` | 権限のあるメニュー＋その祖先目录のみ、項目は id/parentId/menuType/menuCode/menuName/isVisible/routePath/sortNo の 8 項目。`is_visible=FALSE` の権限ありメニューも `isVisible=false` で含まれる |
 | 10g | TST-F-SYS-001-20 | 正常系 | 期限切れトークン・トークンなしでログアウトを 2 回 | 2 回とも 200 |
 | 11 | TST-F-SYS-001-11 | セキュリティ | 検証コードを使い回す | 2 回目は MSG-COM-022 |
 | 12 | TST-F-SYS-001-12 | 権限 | 管理者がユーザをロック解除 | `account_status=1`、ログイン可 |
@@ -484,3 +484,4 @@ stateDiagram-v2
 | v1.7 | 2026-10-21 | BR-15：1001 の `message` は標準文案のみ（英語項目名を連結しない）、項目名は 03 §5.3 の `data.fieldErrors[]`、`msgId` 付与。§7.1 に 1001 の応答例を追加（蓝色大肥鱼 2026-10-21 16:30 決定） | 业务分析 |
 | v1.8 | 2026-10-21 | BR-15：`tenantCode`・`username` は半角英数必須、違反時は 1001＋MSG-COM-087 を `data.fieldErrors[]` に入れる（順序は tenantCode・username・password）。BR-15 に `username` 半角英数が漏れていたため CHK-SYS-001-02 に合わせて補完。§5 CHK-SYS-001-12/02 のメッセージ列に MSG-COM-087 を追加（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.9 | 2026-10-21 | §7.1 `/auth/me` `menus[]` に `menuName`（`sys_menu.menu_name`、サイドバー表示用、メニュー管理の名称変更に追随）を追加し 6 項目→7 項目（応答例・テスト 10f も同期）。§4.4 `password` の入力チェックを「必須・≤64 字」に改め、ログイン時は必須・上限のみ（MSG-COM-040/041）、8〜20 位・複雑度（BR-01）は設定・変更時のみ、VARCHAR(100) は `password_hash` 列長で平文長と無関係と明記。CHK-SYS-001-03 に上限 64 字（MSG-COM-041）を補完（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.10 | 2026-10-21 | §7.1 `/auth/me` `menus[]` に `isVisible`（`sys_menu.is_visible`、サイドバー表示制御）を追加し 7 項目→8 項目。対象条件を `status=1`・未削除・`menu_type<>3` と明記し、`is_visible` では絞り込まない（非表示画面も返却、フロントはサイドバー非表示・ルート生成と権限判定は行う）。`routePath` 説明の「按钮行は null」を削除（`menu_type<>3` のため按钮行は返らない）。外部リンク（`menu_type=4`）も `menus[]` に含め、`routePath` に外部リンク URL を格納する。フロントはクリック時に新しいタブで開き、ルートは生成せず権限による遮断も行わない（専用 URL 項目は将来必要になった時点で別途追加）。応答例・テスト 10f も同期（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

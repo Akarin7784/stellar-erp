@@ -149,7 +149,14 @@ async function onSubmit() {
     const result = await login({ ...form })
     auth.setToken(result.token)
     localStorage.setItem(TENANT_CODE_STORAGE_KEY, form.tenantCode)
-    const me = await auth.fetchMe()
+    let me
+    try {
+      me = await auth.fetchMe()
+    } catch (e) {
+      // /auth/me 失败：不保留半登录状态（token 已存但无 me）
+      auth.clear()
+      throw e
+    }
     if (me.menus.length === 0) {
       await router.replace({ name: 'no-permission' })
     } else {
