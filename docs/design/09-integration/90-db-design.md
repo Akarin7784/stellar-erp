@@ -35,7 +35,7 @@
 | 3 | 認証情報（secret、証明書、口座番号）は**平文保存禁止**。`*_ref`（Secrets Manager キー）または AES-256-GCM 暗号文 + `key_version` を保存 |
 | 4 | 原文は `int_external_message.payload` に保存するが、パスワード・口座番号・個人情報はマスキングする（[01 第 15 章](../00-common/01-common-item-definitions.md)） |
 | 5 | ログ系（`*_log`、`*_message`、`*_task`）は追記専用。状態遷移のみ UPDATE 可（`status`、`retry_count`） |
-| 6 | 冪等キーは `(if_id, idempotency_key)` の一意索引で保証する。重複時は既存結果を返す |
+| 6 | 冪等キーは `(tenant_id, company_id, if_id, idempotency_key)` の一意索引（`uk_int_sync_task_idem`）で保証する。重複時は既存結果を返す |
 | 7 | パーティションは Phase 2（`int_api_call_log`、`int_external_message` は月次レンジ）。Phase 1 は単一テーブル + 6 か月アーカイブ |
 | 8 | 状態・区分は `SMALLINT` + `COMMENT`。名称は保存しない |
 
@@ -864,8 +864,8 @@ CREATE INDEX idx_int_sync_reconcile_status ON int_sync_reconcile (tenant_id, com
 | CK-INT-02 | 同期タスク状態は定義値のみ | CHECK | `MSG-INT-005` |
 | CK-INT-03 | 付款金額 > 0 | CHECK | `MSG-INT-042` |
 | CK-INT-04 | 数电票金額 ≥ 0 | CHECK | `MSG-INT-022` |
-| CK-INT-05 | 同一受信原文の二重処理禁止 | UNIQUE (if_id, payload_hash) | `MSG-INT-062` |
-| CK-INT-06 | 同一冪等キーの二重送信禁止 | UNIQUE (if_id, idempotency_key) | `MSG-INT-063` |
+| CK-INT-05 | 同一受信原文の二重処理禁止 | UNIQUE (tenant_id, company_id, if_id, payload_hash) | `MSG-INT-062` |
+| CK-INT-06 | 同一冪等キーの二重送信禁止 | UNIQUE (tenant_id, company_id, if_id, idempotency_key) | `MSG-INT-063` |
 | FK-01 | mapping → config | FK | `MSG-COM-032` |
 | FK-02 | task → job | FK | `MSG-COM-032` |
 | FK-03 | payment → bank_account | FK | `MSG-COM-032` |
@@ -906,7 +906,7 @@ CREATE INDEX idx_int_sync_reconcile_status ON int_sync_reconcile (tenant_id, com
 | 3 | `int_external_message.payload` の圧縮要否 | 500 万件/年の容量 | Phase 1 は TEXT、Phase 2 で `pg_largeobject`/オブジェクトストレージ | 情報部 | 2027-03-31 |
 | 4 | パーティション開始時期 | Phase 1 は単一テーブル | Phase 2 で月次レンジ | 情報部 | 2027-03-31 |
 | 5 | 銀行固有アダプタのテーブル化可否 | 銀行ごとに項目が異なる | `ext_data` に銀行固有項目を保持 | integration | 2026-12-31 |
-| 6 | `int_input_invoice` の一意索引確定 | 数电票は `invoice_code` が空になり得る | `UNIQUE (company_id, invoice_code, invoice_no)` とし、`invoice_code` は空文字を既定とする。実装時に確定 | integration | 2026-11-15 |
+| 6 | `int_input_invoice` の一意索引確定 | 数电票は `invoice_code` が空になり得る | `UNIQUE (tenant_id, company_id, invoice_code, invoice_no)` とし、`invoice_code` は空文字を既定とする。実装時に確定 | integration | 2026-11-15 |
 
 ## 9. 改訂履歴
 
@@ -914,4 +914,4 @@ CREATE INDEX idx_int_sync_reconcile_status ON int_sync_reconcile (tenant_id, com
 |---|---|---|---|
 | v1.0 | 2026-10-20 | 初版：21 テーブルの DDL・索引・制約・容量・更新タイミング | integration-designer |
 | v1.1 | 2026-10-21 | 明細 `int_tax_invoice_line`・`int_file_transfer_error` に `company_id` を付与（明細も親と同値を冗長保持） | 业务分析 |
-| v1.2 | 2026-10-21 | 全 20 一意キーを `(tenant_id, company_id, …)` 先頭に統一（00-common/04 §6.1）、btree 索引 24 本を `tenant_id`→`company_id` 先頭に統一（GIN なし、int 系迁移は未作成）。索引一覧表も同期 | 业务分析 |
+| v1.2 | 2026-10-21 | 全 20 一意キーを `(tenant_id, company_id, …)` 先頭に統一（00-common/04 §6.1）、btree 索引 24 本を `tenant_id`→`company_id` 先頭に統一（GIN なし、int 系迁移は未作成）。索引一覧表・方針 6・CK-INT-05/06・未決 6 の列表記も同期 | 业务分析 |
