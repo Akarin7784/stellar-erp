@@ -473,6 +473,7 @@ V{yyyyMMdd}{NNNN}__{module}_{description}.sql     # バージョンは 12 桁
 | v1.26 | 2026-10-21 | COMMENT 中文化：`sys/V202610211419` 将含日文的约束／列／表／函数 COMMENT 改为中文；补 `sal_quotation.quotation_status`（20=待审批、25=已批准，#108 §5 第 2 条）与 `mdm_supplier`／`mdm_credit_limit.approval_status`（10/20/25/90/95，#108 §5 第 9 条）。pgTAP `composite_fk.sql` 删除已被全域断言取代的 mdm 专用索引断言，plan 22→21；新增 pgTAP `comment_zh.sql`（plan 1）：最终 COMMENT 不得含日文（假名／日文汉字／品目・受注・却下 等日文用词） | DBA |
 | v1.27 | 2026-10-21 | `prd/V202610211420`：`ck_prd_work_order_status` 去掉 95（工单驳回回到 10 草稿），列 COMMENT 同步；pgTAP `prd_schema.sql` plan 37→38（#114 §待定 4） | DBA |
 | v1.28 | 2026-10-21 | `prd/V202610211422`：`ck_prd_work_order_allowed_qty`（`prd_work_order.allowed_qty >= 0`）、`ck_prd_opa_approved_allowed_qty`（`prd_overproduction_approval.approved_allowed_qty >= 0`）を追加、NULL 通過、即时校验；约束 COMMENT 为中文；pgTAP `prd_schema.sql` plan 38→42（06/90 v1.20） | DBA |
+| v1.29 | 2026-10-21 | `sys/V202610211423`：`ck_sys_menu_menu_name_not_blank`（`btrim(menu_name) <> ''`）を追加、即时校验；约束 COMMENT 为中文；pgTAP `sys_menu_permission_seed.sql` plan 38→41（01/90 v1.22） | DBA |
 
 ## Flowable 引擎表の schema 分離（issue #7）
 
