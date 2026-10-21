@@ -1,4 +1,4 @@
--- pgTAP：复合外键（sys/V202610210707、inv/V202610211409）。指向有 company_id 的 sys_/mdm_ 表的 FK 须为三列 (tenant_id, company_id, x)（2 列须具名例外），跨租户引用被拒。
+-- pgTAP：复合外键（sys/V202610210707、inv/V202610211409）。指向有 company_id 的 sys_/mdm_ 表的 FK 须为三列 (tenant_id, company_id, x)（2 列须登记：已定例外或待改存量），跨租户引用被拒。
 BEGIN;
 SELECT plan(11);
 
@@ -7,40 +7,11 @@ SELECT is((SELECT count(*)::int FROM pg_constraint k JOIN pg_class r ON r.oid = 
           0, '指向 sys_/mdm_ 的单列外键为 0');
 -- 断言 2（收紧）：被引用表有 company_id 时只允许三列 (tenant_id, company_id, x) → (tenant_id, company_id, id)；
 -- 被引用表无 company_id 时为 (tenant_id, x) → (tenant_id, id)。被引用侧末列必须是 id。
--- 具名例外（2 列 (tenant_id, x) → (tenant_id, id)）：下表逐条登记，新增 FK 不得默认走 2 列。
+-- 2 列 (tenant_id, x) → (tenant_id, id) 登记表：〔A〕已定例外 33 条、〔B〕待改为三列（存量，按域分批）71 条。新增 FK 不得默认走 2 列。
 CREATE TEMP TABLE t_cfk_2col_exception (conname name PRIMARY KEY) ON COMMIT DROP;
 INSERT INTO t_cfk_2col_exception VALUES
-        -- fin → sys/mdm 跨域（04 §6.2 项 2：主数据可跨公司共享，2 列）：1 条
-        ('fk_fin_standard_cost_material'),
-        -- inv → sys/mdm 跨域（04 §6.2 项 2：主数据可跨公司共享，2 列）：27 条
-        ('fk_inv_age_snapshot_material'),
-        ('fk_inv_age_snapshot_wh'),
-        ('fk_inv_batch_material'),
-        ('fk_inv_batch_supplier'),
-        ('fk_inv_cost_adjustment_line_material'),
-        ('fk_inv_cost_adjustment_line_wh'),
-        ('fk_inv_cost_layer_material'),
-        ('fk_inv_cost_layer_wh'),
-        ('fk_inv_event_wait_wh'),
-        ('fk_inv_replenishment_material'),
-        ('fk_inv_replenishment_wh'),
-        ('fk_inv_reservation_line_material'),
-        ('fk_inv_reservation_line_wh'),
-        ('fk_inv_scan_log_wh'),
-        ('fk_inv_serial_customer'),
-        ('fk_inv_serial_material'),
-        ('fk_inv_serial_txn_wh'),
-        ('fk_inv_stock_summary_material'),
-        ('fk_inv_stock_summary_wh'),
-        ('fk_inv_stocktake_line_material'),
-        ('fk_inv_stocktake_plan_wh'),
-        ('fk_inv_stocktake_wh'),
-        ('fk_inv_transfer_from_factory'),
-        ('fk_inv_transfer_from_wh'),
-        ('fk_inv_transfer_line_material'),
-        ('fk_inv_transfer_to_factory'),
-        ('fk_inv_transfer_to_wh'),
-        -- mdm 域内部（04 §6.2 2a 命名例外，32 条）：32 条
+        -- 〔A〕已定例外 33 条（04 §6.2 2a 命名例外，恒久保持 2 列）
+        -- mdm 域内部 32 条
         ('fk_mdm_admission_supplier'),
         ('fk_mdm_bank_account_bank'),
         ('fk_mdm_barcode_material'),
@@ -73,7 +44,40 @@ INSERT INTO t_cfk_2col_exception VALUES
         ('fk_mdm_warehouse_bin_zone'),
         ('fk_mdm_warehouse_factory'),
         ('fk_mdm_warehouse_zone_warehouse'),
-        -- prd → sys/mdm 跨域（04 §6.2 项 2：主数据可跨公司共享，2 列）：29 条
+        -- 指向 sys_menu（company_id=0 的租户级表）1 条
+        ('fk_sys_role_permission_menu'),
+        -- 〔B〕待改为三列（存量，按域分批）71 条：fin 1／inv 27／prd 29／sal 14
+        -- fin 1 条
+        ('fk_fin_standard_cost_material'),
+        -- inv 27 条
+        ('fk_inv_age_snapshot_material'),
+        ('fk_inv_age_snapshot_wh'),
+        ('fk_inv_batch_material'),
+        ('fk_inv_batch_supplier'),
+        ('fk_inv_cost_adjustment_line_material'),
+        ('fk_inv_cost_adjustment_line_wh'),
+        ('fk_inv_cost_layer_material'),
+        ('fk_inv_cost_layer_wh'),
+        ('fk_inv_event_wait_wh'),
+        ('fk_inv_replenishment_material'),
+        ('fk_inv_replenishment_wh'),
+        ('fk_inv_reservation_line_material'),
+        ('fk_inv_reservation_line_wh'),
+        ('fk_inv_scan_log_wh'),
+        ('fk_inv_serial_customer'),
+        ('fk_inv_serial_material'),
+        ('fk_inv_serial_txn_wh'),
+        ('fk_inv_stock_summary_material'),
+        ('fk_inv_stock_summary_wh'),
+        ('fk_inv_stocktake_line_material'),
+        ('fk_inv_stocktake_plan_wh'),
+        ('fk_inv_stocktake_wh'),
+        ('fk_inv_transfer_from_factory'),
+        ('fk_inv_transfer_from_wh'),
+        ('fk_inv_transfer_line_material'),
+        ('fk_inv_transfer_to_factory'),
+        ('fk_inv_transfer_to_wh'),
+        -- prd 29 条
         ('fk_prd_bom_factory'),
         ('fk_prd_bom_line_component'),
         ('fk_prd_bom_material'),
@@ -103,7 +107,7 @@ INSERT INTO t_cfk_2col_exception VALUES
         ('fk_prd_work_order_factory'),
         ('fk_prd_work_order_material'),
         ('fk_prd_work_order_material_material'),
-        -- sal → sys/mdm 跨域（04 §6.2 项 2：主数据可跨公司共享，2 列）：14 条
+        -- sal 14 条
         ('fk_sal_credit_log_customer'),
         ('fk_sal_credit_occ_customer'),
         ('fk_sal_delivery_note_wh'),
@@ -117,9 +121,7 @@ INSERT INTO t_cfk_2col_exception VALUES
         ('fk_sal_sales_order_line_m'),
         ('fk_sal_special_price_cust'),
         ('fk_sal_special_price_mat'),
-        ('fk_sal_statement_customer'),
-        -- 指向 sys_menu（04 §6.2 2a 命名例外）：1 条
-        ('fk_sys_role_permission_menu');
+        ('fk_sal_statement_customer');
 CREATE TEMP TABLE t_cfk ON COMMIT DROP AS
 SELECT k.conname, r.relname AS parent,
        EXISTS (SELECT 1 FROM pg_attribute x WHERE x.attrelid = r.oid AND x.attname = 'company_id' AND NOT x.attisdropped) AS parent_has_co,
@@ -136,15 +138,15 @@ SELECT is((SELECT count(*)::int FROM t_cfk
                      AND refcols = ARRAY['tenant_id', 'company_id', 'id']::name[]
               ELSE array_length(cols, 1) = 2 AND cols[1] = 'tenant_id' AND refcols = ARRAY['tenant_id', 'id']::name[]
             END),
-          0, '指向 sys_/mdm_ 的外键：被引用表有 company_id → (tenant_id, company_id, x) → (tenant_id, company_id, id)（具名例外为 (tenant_id, x) → (tenant_id, id)）；无 company_id → (tenant_id, x) → (tenant_id, id)');
+          0, '指向 sys_/mdm_ 的外键：被引用表有 company_id → (tenant_id, company_id, x) → (tenant_id, company_id, id)（登记表〔A〕已定例外／〔B〕待改为三列存量为 (tenant_id, x) → (tenant_id, id)）；无 company_id → (tenant_id, x) → (tenant_id, id)');
 SELECT is((SELECT count(*)::int FROM t_cfk_2col_exception e
             WHERE NOT EXISTS (SELECT 1 FROM t_cfk f WHERE f.conname = e.conname AND f.parent_has_co)),
-          0, '2 列具名例外全部真实存在且被引用表有 company_id（防止例外表陈旧）');
+          0, '2 列登记表（〔A〕+〔B〕）全部真实存在且被引用表有 company_id（防止例外表陈旧）');
 SELECT ok(EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uk_mdm_material_tenant_id' AND contype = 'u'),
           'mdm_material 有 uk_mdm_material_tenant_id UNIQUE (tenant_id, id)');
 SELECT is((SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'fk_inv_stock_balance_material'),
           'FOREIGN KEY (tenant_id, company_id, material_id) REFERENCES mdm_material(tenant_id, company_id, id)',
-          '具名例外 fk_inv_stock_balance_material = (tenant_id, company_id, material_id) → mdm_material(tenant_id, company_id, id)');
+          'fk_inv_stock_balance_material 为 04 §6.2 2a 标准三列形 = (tenant_id, company_id, material_id) → mdm_material(tenant_id, company_id, id)');
 
 SELECT is((SELECT count(*)::int FROM pg_index i JOIN pg_class tc ON tc.oid = i.indrelid
             LEFT JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = i.indkey[0]
