@@ -1,6 +1,6 @@
 -- pgTAP：05 库存域（inv/V202610211404）。结构（24 表 / RLS / 分区 / FK）、关键 CHECK、表头触发器、inv_stock_txn_key 防重（90-db-design.md:458-489）、跨公司隔离。
 BEGIN;
-SELECT plan(59);
+SELECT plan(60);
 
 -- ===== 结构 =====
 SELECT is((SELECT count(*)::int FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -90,6 +90,9 @@ SELECT throws_ok($$INSERT INTO inv_stock_txn (id, company_id, txn_no, txn_type, 
 SELECT throws_ok($$INSERT INTO inv_stock_txn (id, company_id, txn_no, txn_type, txn_date, factory_id, warehouse_id, source_type, accounting_period)
                    VALUES (14, 1, 'X5', 'AOI', DATE '2026-10-15', 8040001, 8040001, 'MANUAL', '2026-10')$$,
                  '23514', NULL, 'ck_inv_stock_txn_reason：AOI で reason_type 未入力 → 23514');
+SELECT throws_ok($$INSERT INTO inv_stock_txn (id, company_id, txn_no, txn_type, txn_date, factory_id, warehouse_id, source_type, accounting_period)
+                   VALUES (17, 1, 'X8', 'AOO', DATE '2026-10-15', 8040001, 8040001, 'MANUAL', '2026-10')$$,
+                 '23514', NULL, 'ck_inv_stock_txn_reason：AOO で reason_type 未入力 → 23514');
 SELECT throws_ok($$INSERT INTO inv_stock_txn (id, company_id, txn_no, txn_type, txn_date, factory_id, warehouse_id, source_type, accounting_period, reason_type)
                    VALUES (15, 1, 'X6', 'SC_OUT', DATE '2026-10-15', 8040001, 8040001, 'MANUAL', '2026-10', 60)$$,
                  '23514', NULL, 'ck_inv_stock_txn_reason：SC_OUT で reason_type=60 → 23514（02 §2.6.7 は 10〜50）');
