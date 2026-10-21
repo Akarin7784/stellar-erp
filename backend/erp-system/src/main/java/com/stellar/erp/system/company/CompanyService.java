@@ -21,6 +21,8 @@ import com.stellar.erp.common.TenantContext;
  *   <li>{@code sys_company} を INSERT（{@code company_id} = 自行 {@code id}、租户はログインコンテキスト）。</li>
  *   <li>同一トランザクションで {@code sys_init_company(tenant, id)}：{@code sys_param} 既定行と SYSTEM_ADMIN ロール＋全権限。
  *       失敗時は会社登録ごとロールバック。</li>
+ *   <li>同一トランザクションで {@code sys_audit_log} に CREATE / system / company を同期 INSERT（手順 4、05 PRC-SYS-009-01 4.）。
+ *       INSERT 失敗時は会社登録ごとロールバックし 5000 / MSG-SYS-091。</li>
  *   <li>{@code uk_sys_company_code} / {@code uk_sys_company_credit} の一意違反（23505）のみ 10035 / MSG-SYS-093 / 422。
  *       その他の 23505 は変換しない。</li>
  * </ol>
@@ -48,9 +50,12 @@ public class CompanyService {
     private final JdbcClient jdbc;
     private final TransactionTemplate tx;
     private final ObjectProvider<BeforeInitHook> hook;
+    private final CompanyAuditWriter audit;
 
-    public CompanyService(JdbcClient jdbc, PlatformTransactionManager tm, ObjectProvider<BeforeInitHook> hook) {
+    public CompanyService(JdbcClient jdbc, PlatformTransactionManager tm, ObjectProvider<BeforeInitHook> hook,
+                          CompanyAuditWriter audit) {
         this.jdbc = jdbc;
+        this.audit = audit;
         this.tx = new TransactionTemplate(tm);
         this.hook = hook;
     }
@@ -78,6 +83,7 @@ public class CompanyService {
                 }
                 jdbc.sql("SELECT sys_init_company(:tenant, :id)").param("tenant", tenant).param("id", id)
                         .query((rs, i) -> 1).list();
+                writeAudit(tenant, id, c);
                 return new CompanyCreated(id, c.companyCode(), c.companyName(), 0);
             });
         } catch (DataIntegrityViolationException e) {
@@ -86,6 +92,16 @@ public class CompanyService {
                         "公司代码「" + c.companyCode() + "」或统一社会信用代码已存在，请使用其他代码。");
             }
             throw e;
+        }
+    }
+
+    public static final String MSG_AUDIT_FAILED = "MSG-SYS-091";
+
+    private void writeAudit(long tenant, long companyId, CreateCompanyCommand c) {
+        try {
+            audit.write(tenant, companyId, c);
+        } catch (RuntimeException e) {
+            throw new BizException(5000, MSG_AUDIT_FAILED, "审计日志写入失败，操作已中止，请稍后重试或联系管理员。");
         }
     }
 
