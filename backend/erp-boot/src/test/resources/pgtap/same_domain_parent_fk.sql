@@ -1,10 +1,10 @@
--- pgTAP：同域父子表复合外键（sys/V202610211401）。public 下非 mdm 同域外键必须为 (tenant_id, company_id, x_id) → (tenant_id, company_id, id)，跨公司引用被拒。
+-- pgTAP：同域父子表复合外键（sys/V202610211401、mdm/V202610211414）。public 下同域外键（含 mdm）必须为 (tenant_id, company_id, x_id) → (tenant_id, company_id, id)，跨公司引用被拒。
 BEGIN;
 SELECT plan(12);
 
 -- 同域判定：public 下表名前缀（split_part(_,1)）相同；排除 Flowable 引擎表（act_/flw_）。
 -- 合规形态：(tenant_id, company_id, x_id) → (tenant_id, company_id, id)；
--- mdm 域内部外键现为 0707 的 (tenant_id, x_id) → (tenant_id, id)，待改为三列（蓝色大肥鱼 2026-10-21 决定，后续 PR）。新域（inv/wf …）自动纳入。
+-- mdm 域内部外键 32 条已由 mdm/V202610211414 改为三列（蓝色大肥鱼 2026-10-21 决定）。新域（inv/wf …）自动纳入。
 -- 例外（04 §6.2 2a，sys/V202610211405）：指向 sys_menu（company_id=0 的租户级表）的外键为 (tenant_id, menu_id) → (tenant_id, id) 2 列。
 CREATE TEMP TABLE t_sdfk ON COMMIT DROP AS
 SELECT k.conname, c.relname AS child, p.relname AS parent, split_part(c.relname, '_', 1) AS dom,
@@ -25,8 +25,9 @@ SELECT is((SELECT count(*)::int FROM t_sdfk
           0, '非 mdm 同域外键中，单列或不含 company_id 的为 0（应为 (tenant_id, company_id, x_id) → (tenant_id, company_id, id)）');
 SELECT is((SELECT count(*)::int FROM t_sdfk
             WHERE dom = 'mdm'
-              AND NOT (array_length(cols, 1) = 2 AND cols[1] = 'tenant_id' AND refcols = ARRAY['tenant_id', 'id']::name[])),
-          0, 'mdm 域内部外键现为 (tenant_id, x_id) → (tenant_id, id)（待改为三列，后续 PR；改后此断言随之更新）');
+              AND NOT (array_length(cols, 1) = 3 AND cols[1] = 'tenant_id' AND cols[2] = 'company_id'
+                       AND refcols = ARRAY['tenant_id', 'company_id', 'id']::name[])),
+          0, 'mdm 域内部外键全部为 (tenant_id, company_id, x_id) → (tenant_id, company_id, id)（mdm/V202610211414）');
 SELECT is((SELECT count(*)::int FROM t_sdfk
             WHERE parent = 'sys_menu'
               AND NOT (array_length(cols, 1) = 2 AND cols[1] = 'tenant_id' AND refcols = ARRAY['tenant_id', 'id']::name[])),
