@@ -785,7 +785,7 @@ class OverproductionApprovalApiIntegrationTest {
                 .andExpect(jsonPath("$.data.list[0].completedQty").value(0))
                 .andExpect(jsonPath("$.data.list[0].length()").value(11))
                 .andExpect(jsonPath("$.data.list[1].salesOrderLineId").value(String.valueOf(LINE2)));
-        getAs(CO, lines, "page", "2", "size", "1")
+        getAs(CO, lines, "pageNum", "2", "pageSize", "1")
                 .andExpect(jsonPath("$.data.total").value(2))
                 .andExpect(jsonPath("$.data.list.length()").value(1))
                 .andExpect(jsonPath("$.data.list[0].salesOrderLineId").value(String.valueOf(LINE2)));
@@ -804,12 +804,12 @@ class OverproductionApprovalApiIntegrationTest {
 
     @Test
     void salesOrderLinePickerSizeOver200Is400With1001FieldErrors() throws Exception {
-        getAs(CO, BASE + "/sales-order-lines", "size", "201")
+        getAs(CO, BASE + "/sales-order-lines", "pageSize", "201")
                 .andExpect(status().isBadRequest())
-                .andExpect(content().json("{\"code\":1001,\"message\":\"「size」不能大于「200」。\",\"msgId\":\"MSG-COM-045\","
-                        + "\"data\":{\"fieldErrors\":[{\"field\":\"size\",\"message\":\"「size」不能大于「200」。\"}]}}",
+                .andExpect(content().json("{\"code\":1001,\"message\":\"「pageSize」不能大于「200」。\",\"msgId\":\"MSG-COM-045\","
+                        + "\"data\":{\"fieldErrors\":[{\"field\":\"pageSize\",\"message\":\"「pageSize」不能大于「200」。\"}]}}",
                         JsonCompareMode.STRICT));
-        getAs(CO, BASE + "/sales-order-lines", "size", "200").andExpect(status().isOk())
+        getAs(CO, BASE + "/sales-order-lines", "pageSize", "200").andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.pageSize").value(200));
     }
 
@@ -817,5 +817,26 @@ class OverproductionApprovalApiIntegrationTest {
     void salesOrderLinePickerWithoutCreateIs403() throws Exception {
         PermissionGrants.grant(owner, TENANT, CO, NOPERM, 997900, ALL_CODES[0], ALL_CODES[2], ALL_CODES[3], ALL_CODES[4]);
         is403(asNoPerm(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get(BASE + "/sales-order-lines")));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/sales-order-lines", ""})
+    void pagingUsesPageNumPageSizeWith044And045(String path) throws Exception {
+        getAs(CO, BASE + path, "pageNum", "0", "pageSize", "0")
+                .andExpect(status().isBadRequest())
+                .andExpect(content().json("{\"code\":1001,\"message\":\"「pageNum」必须大于 0。\",\"msgId\":\"MSG-COM-044\","
+                        + "\"data\":{\"fieldErrors\":[{\"field\":\"pageNum\",\"message\":\"「pageNum」必须大于 0。\"},"
+                        + "{\"field\":\"pageSize\",\"message\":\"「pageSize」必须大于 0。\"}]}}", JsonCompareMode.STRICT));
+        getAs(CO, BASE + path, "pageSize", "201")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.msgId").value("MSG-COM-045"))
+                .andExpect(jsonPath("$.data.fieldErrors[0].field").value("pageSize"));
+        getAs(CO, BASE + path, "pageNum", "1", "pageSize", "200").andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.pageNum").value(1))
+                .andExpect(jsonPath("$.data.pageSize").value(200));
+        // 旧パラメータ page/size は無視（既定 1/20）
+        getAs(CO, BASE + path, "page", "2", "size", "1").andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.pageNum").value(1))
+                .andExpect(jsonPath("$.data.pageSize").value(20));
     }
 }

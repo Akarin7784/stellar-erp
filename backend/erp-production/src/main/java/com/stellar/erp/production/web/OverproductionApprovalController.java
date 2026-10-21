@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.stellar.erp.common.PageResult;
 import com.stellar.erp.common.RequirePermission;
 import com.stellar.erp.common.Result;
 import com.stellar.erp.production.OverproductionApprovalService;
@@ -56,13 +55,17 @@ public class OverproductionApprovalController {
         return Result.ok(service.get(id));
     }
 
-    /** 一覧（当前公司のみ。salesOrderLineId / workOrderId / approvalStatus で絞込、page/size は 91 §3.14）。 */
+    /** 一覧（当前公司のみ。salesOrderLineId / workOrderId / approvalStatus で絞込、pageNum/pageSize は 91 §3.14・03 §7.1）。 */
     @GetMapping
     @RequirePermission("production:overproduction-approval:view")
-    public Result<PageResult<OverproductionApprovalView>> list(@RequestParam(required = false) Long salesOrderLineId,
+    public ResponseEntity<Result<?>> list(@RequestParam(required = false) Long salesOrderLineId,
             @RequestParam(required = false) Long workOrderId, @RequestParam(required = false) Short approvalStatus,
-            @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int size) {
-        return Result.ok(service.list(salesOrderLineId, workOrderId, approvalStatus, page, size));
+            @RequestParam(defaultValue = "1") int pageNum, @RequestParam(defaultValue = "20") int pageSize) {
+        ResponseEntity<Result<?>> bad = pagingErrors(pageNum, pageSize);
+        if (bad != null) {
+            return bad;
+        }
+        return ResponseEntity.ok(Result.ok(service.list(salesOrderLineId, workOrderId, approvalStatus, pageNum, pageSize)));
     }
 
     /** 提出 10→20。body は {@code {"version": n}}。 */
@@ -131,30 +134,38 @@ public class OverproductionApprovalController {
     static final int REMARK_MAX = 500;
 
     /**
-     * 超产申请用 受注行ピッカー（当前会社のみ、page/size は 91 §3.14 と同じ）。
+     * 超产申请用 受注行ピッカー（当前会社のみ、pageNum/pageSize は 91 §3.14 と同じ）。
      * {@code salesOrderNo}：受注番号の部分一致、{@code material}：品目コード／品名の部分一致。
      */
     @GetMapping("/sales-order-lines")
     @RequirePermission("production:overproduction-approval:create")
     public ResponseEntity<Result<?>> salesOrderLines(@RequestParam(required = false) String salesOrderNo,
             @RequestParam(required = false) String material,
-            @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int size) {
-        // page/size は丸めずに 400 / 1001 + fieldErrors（size 上限 200）
+            @RequestParam(defaultValue = "1") int pageNum, @RequestParam(defaultValue = "20") int pageSize) {
+        ResponseEntity<Result<?>> bad = pagingErrors(pageNum, pageSize);
+        if (bad != null) {
+            return bad;
+        }
+        return ResponseEntity.ok(Result.ok(service.searchSalesOrderLines(salesOrderNo, material, pageNum, pageSize)));
+    }
+
+    /** pageNum/pageSize は丸めずに 400 / 1001 + fieldErrors（pageSize 上限 200、91 §3.14）。問題なしは null。 */
+    static ResponseEntity<Result<?>> pagingErrors(int pageNum, int pageSize) {
         java.util.List<Violation> vs = new java.util.ArrayList<>();
-        if (page < 1) {
-            vs.add(new Violation("page", "「page」必须大于 0。", MSG_GREATER_THAN));
+        if (pageNum < 1) {
+            vs.add(new Violation("pageNum", "「pageNum」必须大于 0。", MSG_GREATER_THAN));
         }
-        if (size < 1) {
-            vs.add(new Violation("size", "「size」必须大于 0。", MSG_GREATER_THAN));
-        } else if (size > PAGE_SIZE_MAX) {
-            vs.add(new Violation("size", "「size」不能大于「" + PAGE_SIZE_MAX + "」。", MSG_NOT_GREATER_THAN));
+        if (pageSize < 1) {
+            vs.add(new Violation("pageSize", "「pageSize」必须大于 0。", MSG_GREATER_THAN));
+        } else if (pageSize > PAGE_SIZE_MAX) {
+            vs.add(new Violation("pageSize", "「pageSize」不能大于「" + PAGE_SIZE_MAX + "」。", MSG_NOT_GREATER_THAN));
         }
-        if (!vs.isEmpty()) {
-            Violation first = vs.get(0);
-            return ResponseEntity.badRequest().body(new Result<>(1001, first.message(),
-                    new FieldErrors(vs.stream().map(v -> new FieldError(v.field(), v.message())).toList()), first.msgId()));
+        if (vs.isEmpty()) {
+            return null;
         }
-        return ResponseEntity.ok(Result.ok(service.searchSalesOrderLines(salesOrderNo, material, page, size)));
+        Violation first = vs.get(0);
+        return ResponseEntity.badRequest().body(new Result<>(1001, first.message(),
+                new FieldErrors(vs.stream().map(v -> new FieldError(v.field(), v.message())).toList()), first.msgId()));
     }
 
     static final int PAGE_SIZE_MAX = 200;
