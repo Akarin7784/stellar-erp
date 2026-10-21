@@ -13,6 +13,10 @@ public final class PermissionGrants {
     }
 
     /** 1 ロールを作って {@code codes} を付与し、ユーザに割り当てる。 */
+    /** 工单 API の全権限（view/create/submit/release/approve）。 */
+    public static final String[] WORK_ORDER_ALL = {"production:work-order:view", "production:work-order:create",
+            "production:work-order:submit", "production:work-order:release", "production:work-order:approve"};
+
     public static void grant(JdbcTemplate owner, long tenant, long company, long user, long base, String... codes) {
         owner.update("""
                 INSERT INTO sys_role (id, tenant_id, company_id, role_code, role_name) VALUES (?, ?, ?, ?, 'test role')

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -61,6 +62,9 @@ class WorkOrderDetailLookupIntegrationTest {
     void seed() {
         owner = OwnerJdbc.of(pg);
         cleanup();
+        PermissionGrants.grant(owner, TENANT, CO, CREATOR, 996400, PermissionGrants.WORK_ORDER_ALL);
+        PermissionGrants.grant(owner, TENANT, CO2, CREATOR, 996500, PermissionGrants.WORK_ORDER_ALL);
+        PermissionGrants.grant(owner, TENANT, CO, APPROVER, 996600, PermissionGrants.WORK_ORDER_ALL);
         owner.execute("""
             INSERT INTO mdm_material_category (id, tenant_id, company_id, category_code, category_name, category_path, category_level, is_leaf)
               VALUES (995001, 305, 51, 'E1', 'E', '/E1/', 1, TRUE), (995002, 305, 52, 'E2', 'E', '/E2/', 1, TRUE);
@@ -340,6 +344,52 @@ class WorkOrderDetailLookupIntegrationTest {
                 .andExpect(jsonPath("$.code").value(3001))
                 .andExpect(jsonPath("$.msgId").value("MSG-COM-030"));
         assertThat(owner.queryForObject("SELECT order_status FROM prd_work_order WHERE id = ?", Integer.class, id)).isEqualTo(20);
+    }
+
+    /** 各エンドポイントの権限なし → 403 / 3001 / MSG-COM-030（#86 と同形）。NOPERM は無関係な権限のみ。 */
+    MockMvc asNoPerm() {
+        PermissionGrants.grant(owner, TENANT, CO, NOPERM, 996300, "production:work-order:unrelated");
+        TenantContext.set(TENANT);
+        LoginContext.set(new LoginUser(NOPERM, CO));
+        return MockMvcBuilders.webAppContextSetup(wac).build();
+    }
+
+    static void is403(org.springframework.test.web.servlet.ResultActions r) throws Exception {
+        r.andExpect(status().isForbidden())
+                .andExpect(content().json("{\"code\":3001,\"message\":\"您没有执行该操作的权限，请联系管理员。\",\"data\":null,\"msgId\":\"MSG-COM-030\"}",
+                        org.springframework.test.json.JsonCompareMode.STRICT));
+    }
+
+    int statusOf(long id) {
+        return owner.queryForObject("SELECT order_status FROM prd_work_order WHERE id = ?", Integer.class, id);
+    }
+
+    @Test
+    void getWithoutViewIs403() throws Exception {
+        long id = createDraft(true);
+        is403(asNoPerm().perform(get("/api/production/work-orders/" + id)));
+    }
+
+    @Test
+    void submitWithoutSubmitIs403() throws Exception {
+        long id = createDraft(true);
+        is403(asNoPerm().perform(post("/api/production/work-orders/" + id + "/submit").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"version\": 0}")));
+        assertThat(statusOf(id)).isEqualTo(10);
+    }
+
+    @Test
+    void createWithoutCreateIs403() throws Exception {
+        is403(asNoPerm().perform(post("/api/production/work-orders").contentType(MediaType.APPLICATION_JSON).content("{}")));
+        assertThat(owner.queryForObject("SELECT count(*) FROM prd_work_order WHERE tenant_id = ?", Integer.class, TENANT)).isZero();
+    }
+
+    @Test
+    void releaseWithoutReleaseIs403() throws Exception {
+        long id = createDraft(true);
+        is403(asNoPerm().perform(post("/api/production/work-orders/" + id + "/release").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"version\": 0}")));
+        assertThat(statusOf(id)).isEqualTo(10);
     }
 
     /** 2 スレッド同時実行：1 件のみ成功、他方は 4002/4003、version は +1 のみ（#25 と同じ方式）。 */
