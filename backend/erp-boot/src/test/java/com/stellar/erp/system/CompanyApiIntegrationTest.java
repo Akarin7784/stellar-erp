@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.SingleConnectionDataSource;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.json.JsonCompareMode;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
@@ -24,6 +25,7 @@ import org.springframework.web.context.WebApplicationContext;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import com.jayway.jsonpath.JsonPath;
+import com.stellar.erp.system.company.CompanyAuditWriter;
 import com.stellar.erp.common.LoginContext;
 import com.stellar.erp.common.LoginContext.LoginUser;
 import com.stellar.erp.common.TenantContext;
@@ -43,6 +45,7 @@ class CompanyApiIntegrationTest {
 
     @Autowired PostgreSQLContainer pg;
     @Autowired WebApplicationContext wac;
+    @MockitoSpyBean CompanyAuditWriter auditWriter;
 
     static JdbcTemplate owner;
     MockMvc mvc;
@@ -262,10 +265,10 @@ class CompanyApiIntegrationTest {
 
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(ints = {0, 3})
-    void taxPayerTypeOutOfRangeIs049(int v) throws Exception {
+    void taxPayerTypeOutOfRangeIs089(int v) throws Exception {
         create(USER, withField(",\"taxPayerType\":" + v))
                 .andExpect(status().isBadRequest())
-                .andExpect(content().json(one("taxPayerType", "所选数据不存在或已失效，请重新选择。", "MSG-COM-049"),
+                .andExpect(content().json(one("taxPayerType", "「纳税人类型」必须在 1 到 2 之间。", "MSG-COM-089"),
                         JsonCompareMode.STRICT));
     }
 
@@ -335,5 +338,25 @@ class CompanyApiIntegrationTest {
         create(USER, body("RBK2", "91350100M000100Y43")).andExpect(status().isInternalServerError());
         assertThat(owner.queryForObject("SELECT count(*) FROM sys_audit_log WHERE tenant_id = ?", Integer.class, TENANT))
                 .isEqualTo(1);
+    }
+
+    @Test
+    void auditWriteFailureRollsBackWith5000Msg091() throws Exception {
+        create(USER, body("PRE1", USCC_A)).andExpect(status().isCreated());
+        long companiesBefore = companies();
+        int auditsBefore = owner.queryForObject("SELECT count(*) FROM sys_audit_log WHERE tenant_id = ?", Integer.class, TENANT);
+        org.mockito.Mockito.doThrow(new org.springframework.dao.DataAccessResourceFailureException("audit down"))
+                .when(auditWriter).write(org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong(),
+                        org.mockito.ArgumentMatchers.any());
+        create(USER, body("AUDNG", USCC_B))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.code").value(5000))
+                .andExpect(jsonPath("$.msgId").value("MSG-SYS-091"))
+                .andExpect(jsonPath("$.message").value("审计日志写入失败，操作已中止，请稍后重试或联系管理员。"));
+        assertThat(companies()).isEqualTo(companiesBefore);
+        assertThat(owner.queryForObject("SELECT count(*) FROM sys_company WHERE tenant_id = ? AND company_code = 'AUDNG'",
+                Integer.class, TENANT)).isZero();
+        assertThat(owner.queryForObject("SELECT count(*) FROM sys_audit_log WHERE tenant_id = ?", Integer.class, TENANT))
+                .isEqualTo(auditsBefore);
     }
 }

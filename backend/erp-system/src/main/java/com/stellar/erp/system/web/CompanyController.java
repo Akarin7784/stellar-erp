@@ -84,9 +84,9 @@ public class CompanyController {
         } else if (!UnifiedSocialCreditCode.isValid(uscc)) {
             vs.add(new Violation("unifiedSocialCreditCode", "「统一社会信用代码」的格式不正确。", MSG_FORMAT));
         }
-        // CHK-SYS-014-04：1/2 → MSG-COM-049（03:181）
+        // CHK-SYS-014-04：1/2 → MSG-COM-089（lead 決定 2026-10-21、03:181 の 049 から変更）
         if (taxPayerType != 1 && taxPayerType != 2) {
-            vs.add(new Violation("taxPayerType", "所选数据不存在或已失效，请重新选择。", "MSG-COM-049"));
+            vs.add(new Violation("taxPayerType", "「纳税人类型」必须在 1 到 2 之间。", "MSG-COM-089"));
         }
         // CHK-SYS-014-05：1〜12 → MSG-COM-089
         if (fiscalMonth < 1 || fiscalMonth > 12) {
