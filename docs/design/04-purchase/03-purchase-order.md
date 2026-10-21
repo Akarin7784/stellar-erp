@@ -242,7 +242,7 @@ stateDiagram-v2
 | 2 | `purchaseRequisitionLineId` | 来源请购行 | テキスト | BIGINT | △ | 空 | 请购行存在 | `pur_purchase_requisition_line` | `purchase_requisition_line_id` | 请购由来 |
 | 3 | `rfqQuotationLineId` | 来源报价行 | テキスト | BIGINT | △ | 空 | 报价行存在 | `pur_supplier_quotation_line` | `rfq_quotation_line_id` | 询价由来 |
 | 4 | `materialId`/`materialCode`/`materialName`/`spec` | 物料 | 選択ダイアログ | BIGINT/VARCHAR | ○ | 请购/询价由来 | 有効・采购品（`MSG-PUR-002`） | `mdm_material` | 同名項目 | スナップショット |
-| 5 | `uomCode` | 采购单位 | 選択 | VARCHAR(8) | ○ | 物料采购单位 | 同一单位组 | `mdm_uom` | `uom_code` | — |
+| 5 | `uomCode` | 采购单位 | 選択 | VARCHAR(16) | ○ | 物料采购单位 | 同一单位组 | `mdm_uom` | `uom_code` | — |
 | 6 | `conversionRate` | 换算率 | 数値 | NUMERIC(18,8) | 自動 | 物料默认 | > 0 | `mdm_uom_conversion` | `conversion_rate` | 基本单位換算 |
 | 7 | `quantity` | 発注数量 | 数値 | NUMERIC(18,4) | ○ | 请购残量 | > 0、≥ 入荷済数量（变更時） | — | `quantity` | 取引単位 |
 | 8 | `baseQuantity` | 基本单位数量 | 数値 | NUMERIC(18,4) | 自動 | 数量×换算率 | — | 計算 | `base_quantity` | 在庫連携 |
@@ -704,3 +704,4 @@ stateDiagram-v2
 | v1.0 | 2026-10-20 | 初版：F-PUR-007～010（訂单登録・承認・変更・取消）、取价優先順位、状態遷移、画面項目定義、E13、テスト観点 | purchase-designer |
 | v1.1 | 2026-10-20 | 红队第 2 轮修复：E13 購読者を INT のみに更新、MOQ 参照・超收容差既定を MDM 正本へ（上書きのみ）、E13 payload とサンプル金額を整合 | purchase-designer |
 | v1.2 | 2026-10-21 | `pr_line_id`→`purchase_requisition_line_id`；`remain_qty` を派生・不落库と明記；`change_approved_at` を 90 DDL に追加 | 业务分析 |
+| v1.3 | 2026-10-21 | 単位コード項目（`uom_code`/`uomCode` 等）を VARCHAR(8)→VARCHAR(16) に変更し `mdm_uom.uom_code`（02-mdm/90:961）と整合（币种 `currency_code` 等の VARCHAR(8) は対象外。蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

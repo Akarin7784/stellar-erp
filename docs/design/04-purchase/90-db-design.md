@@ -261,7 +261,7 @@ CREATE TABLE pur_purchase_requisition_line (
     material_code           VARCHAR(20)  NOT NULL,
     material_name           VARCHAR(200) NOT NULL,
     spec                    VARCHAR(200),
-    uom_code                VARCHAR(8)   NOT NULL,
+    uom_code                VARCHAR(16)  NOT NULL,
     quantity                NUMERIC(18,4) NOT NULL,
     estimated_unit_price    NUMERIC(18,6),
     estimated_amount        NUMERIC(18,2) NOT NULL DEFAULT 0,
@@ -298,7 +298,7 @@ CREATE TABLE pur_purchase_requisition_line (
 | 4 | `material_code` | 物料编码 | VARCHAR(20) | NOT NULL | — | — | — | スナップショット（10 桁） |
 | 5 | `material_name` | 品名 | VARCHAR(200) | NOT NULL | — | — | — | スナップショット |
 | 6 | `spec` | 规格 | VARCHAR(200) | NULL | — | — | NULL | 例 `50W470 0.50mm×1000mm 卷料` |
-| 7 | `uom_code` | 采购单位 | VARCHAR(8) | NOT NULL | — | `mdm_uom.uom_code` | — | PCE/KGM 等 |
+| 7 | `uom_code` | 采购单位 | VARCHAR(16) | NOT NULL | — | `mdm_uom.uom_code` | — | PCE/KGM 等 |
 | 8 | `quantity` | 请购数量 | NUMERIC(18,4) | NOT NULL | — | — | — | > 0 |
 | 9 | `estimated_unit_price` | 预计单价（税抜） | NUMERIC(18,6) | NULL | — | `mdm_purchase_price`（参照） | NULL | 参考値 |
 | 10 | `estimated_amount` | 预计金额（税抜） | NUMERIC(18,2) | NOT NULL | — | — | 0 | 数量×単価 |
@@ -409,7 +409,7 @@ CREATE TABLE pur_rfq_line (
     material_code       VARCHAR(20)  NOT NULL,
     material_name       VARCHAR(200) NOT NULL,
     spec                VARCHAR(200),
-    uom_code            VARCHAR(8)   NOT NULL,
+    uom_code            VARCHAR(16)  NOT NULL,
     quantity            NUMERIC(18,4) NOT NULL,
     required_date       DATE         NOT NULL,
     target_price        NUMERIC(18,6),
@@ -439,7 +439,7 @@ CREATE TABLE pur_rfq_line (
 | 1 | `rfq_id` | 询价単 ID | BIGINT | NOT NULL | `pur_rfq.id` | — |
 | 2 | `purchase_requisition_line_id` | 来源请购行 | BIGINT | NULL | `pur_purchase_requisition_line.id` | 请购由来 |
 | 3 | `material_id`/`material_code`/`material_name`/`spec` | 物料 | BIGINT/VARCHAR | NOT NULL/NULL | `mdm_material.id` | スナップショット |
-| 4 | `uom_code` | 单位 | VARCHAR(8) | NOT NULL | `mdm_uom.uom_code` | — |
+| 4 | `uom_code` | 单位 | VARCHAR(16) | NOT NULL | `mdm_uom.uom_code` | — |
 | 5 | `quantity` | 询价数量 | NUMERIC(18,4) | NOT NULL | — | > 0 |
 | 6 | `required_date` | 希望交期 | DATE | NOT NULL | — | — |
 | 7 | `target_price` | 目安単価 | NUMERIC(18,6) | NULL | — | 税抜 |
@@ -586,7 +586,7 @@ CREATE TABLE pur_supplier_quotation_line (
     material_name        VARCHAR(200) NOT NULL,
     spec                 VARCHAR(200),
     quoted_qty           NUMERIC(18,4) NOT NULL,
-    uom_code             VARCHAR(8)   NOT NULL,
+    uom_code             VARCHAR(16)  NOT NULL,
     quoted_unit_price    NUMERIC(18,6) NOT NULL,
     tax_code             VARCHAR(32)  NOT NULL,
     tax_rate             NUMERIC(7,4) NOT NULL,
@@ -776,7 +776,7 @@ CREATE TABLE pur_purchase_order_line (
     material_code            VARCHAR(20)  NOT NULL,
     material_name            VARCHAR(200) NOT NULL,
     spec                     VARCHAR(200),
-    uom_code                 VARCHAR(8)   NOT NULL,
+    uom_code                 VARCHAR(16)  NOT NULL,
     conversion_rate          NUMERIC(18,8) NOT NULL DEFAULT 1,
     quantity                 NUMERIC(18,4) NOT NULL,
     base_quantity            NUMERIC(18,4) NOT NULL,
@@ -827,7 +827,7 @@ CREATE TABLE pur_purchase_order_line (
 | 2 | `purchase_requisition_line_id` | 来源请购行 | BIGINT | NULL | 请购由来 |
 | 3 | `rfq_quotation_line_id` | 来源报价行 | BIGINT | NULL | 询价由来 |
 | 4 | `material_id`+snapshot | 物料 | BIGINT/VARCHAR | NOT NULL | スナップショット |
-| 5 | `uom_code`/`conversion_rate` | 単位・換算率 | VARCHAR(8)/NUMERIC(18,8) | NOT NULL | 基本単位換算 |
+| 5 | `uom_code`/`conversion_rate` | 単位・換算率 | VARCHAR(16)/NUMERIC(18,8) | NOT NULL | 基本単位換算 |
 | 6 | `quantity`/`base_quantity` | 発注数量・基本単位数量 | NUMERIC(18,4) | NOT NULL | 取引単位/在庫単位 |
 | 7 | `unit_price`/`tax_code`/`tax_rate`/`amount`/`tax_amount` | 単価・税・金額 | NUMERIC/VARCHAR | NOT NULL | 税抜単価・进项税码 |
 | 8 | `delivery_date`/`required_date`/`supplier_promised_date` | 約定・希望・承诺交期 | DATE | NOT NULL/NULL | 交期跟踪基準 |
@@ -983,7 +983,7 @@ CREATE TABLE pur_receipt_line (
     material_code         VARCHAR(20)  NOT NULL,
     material_name         VARCHAR(200) NOT NULL,
     spec                  VARCHAR(200),
-    uom_code              VARCHAR(8)   NOT NULL,
+    uom_code              VARCHAR(16)  NOT NULL,
     received_qty          NUMERIC(18,4) NOT NULL,
     base_received_qty     NUMERIC(18,4) NOT NULL,
     unit_price            NUMERIC(18,6) NOT NULL,
@@ -1156,7 +1156,7 @@ CREATE TABLE pur_return_line (
     material_name         VARCHAR(200) NOT NULL,
     spec                  VARCHAR(200),
     batch_no              VARCHAR(64),
-    uom_code              VARCHAR(8)   NOT NULL,
+    uom_code              VARCHAR(16)  NOT NULL,
     return_qty            NUMERIC(18,4) NOT NULL,
     unit_price            NUMERIC(18,6) NOT NULL,
     tax_code              VARCHAR(32)  NOT NULL,
@@ -1311,7 +1311,7 @@ CREATE TABLE pur_invoice_line (
     material_name          VARCHAR(200) NOT NULL,
     spec                   VARCHAR(200),
     invoice_qty            NUMERIC(18,4) NOT NULL,
-    uom_code               VARCHAR(8)   NOT NULL,
+    uom_code               VARCHAR(16)  NOT NULL,
     invoice_unit_price     NUMERIC(18,6) NOT NULL,
     tax_code               VARCHAR(32)  NOT NULL,
     tax_rate               NUMERIC(7,4) NOT NULL,
@@ -1867,3 +1867,4 @@ CREATE TABLE pur_supplier_performance (
 | v1.6 | 2026-10-21 | 明細・関連・履歴 13 表に `company_id BIGINT NOT NULL` を追加、親 ID 先頭の一意制約 12 件を `(tenant_id, company_id, …)` 先頭に変更（§4 一覧・§7 #11 含む）、§6.1 注記削除・例外一覧に `uk_sys_user_username`（`(tenant_id, username)`、テナント単位）を追加（蓝色大肥鱼 2026-10-21 決定）。G2-20：非一意 btree `idx_` も `tenant_id` 先頭（次に `company_id`）、GIN 除外に修正 | 业务分析 |
 | v1.7 | 2026-10-21 | 非一意 btree 索引（`idx_`）35 箇所を `tenant_id` 先頭（`company_id` がある表は次に `company_id`）に変更（DDL・索引一覧。既存迁移の索引は sys/V202610210707 と同一列。GIN は対象外。蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.8 | 2026-10-21 | main（#31）取込み後の再整合：一意索引・非一意 btree 索引を `tenant_id`（＋`company_id`）先頭に再適用、テナント級一意は 00-common/04 §6.1 第 4 条に従う（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.9 | 2026-10-21 | 単位コード項目（`uom_code`/`uomCode` 等）を VARCHAR(8)→VARCHAR(16) に変更し `mdm_uom.uom_code`（02-mdm/90:961）と整合（币种 `currency_code` 等の VARCHAR(8) は対象外。蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
