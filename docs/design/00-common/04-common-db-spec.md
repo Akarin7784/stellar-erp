@@ -472,6 +472,7 @@ V{yyyyMMdd}{NNNN}__{module}_{description}.sql     # バージョンは 12 桁
 | v1.25 | 2026-10-21 | §6.2 項 2a：FK 前導索引規則を追加（三列外键 `(tenant_id, company_id, x_id)` の子表に同三列先頭の btree 索引必須、部分索引は `x_id IS NOT NULL` のみ可）。欠けていた 41 本を追加（inv 17／mdm 7／prd 11／sal 6、`inv/V202610211415`・`mdm/V202610211416`・`prd/V202610211417`・`sal/V202610211418`）。fin・sys は欠落なし。tenant_id 非先頭の旧 sal 索引 5 本は `sys/V202610210707` で既に `(tenant_id, company_id, …)` 先頭に再作成済みのため変更なし。pgTAP `composite_fk.sql` に全域断言を追加 | DBA |
 | v1.26 | 2026-10-21 | COMMENT 中文化：`sys/V202610211419` 将含日文的约束／列／表／函数 COMMENT 改为中文；补 `sal_quotation.quotation_status`（20=待审批、25=已批准，#108 §5 第 2 条）与 `mdm_supplier`／`mdm_credit_limit.approval_status`（10/20/25/90/95，#108 §5 第 9 条）。pgTAP `composite_fk.sql` 删除已被全域断言取代的 mdm 专用索引断言，plan 22→21；新增 pgTAP `comment_zh.sql`（plan 1）：最终 COMMENT 不得含日文（假名／日文汉字／品目・受注・却下 等日文用词） | DBA |
 | v1.27 | 2026-10-21 | `prd/V202610211420`：`ck_prd_work_order_status` 去掉 95（工单驳回回到 10 草稿），列 COMMENT 同步；pgTAP `prd_schema.sql` plan 37→38（#114 §待定 4） | DBA |
+| v1.28 | 2026-10-21 | `prd/V202610211422`：`ck_prd_work_order_allowed_qty`（`prd_work_order.allowed_qty >= 0`）、`ck_prd_opa_approved_allowed_qty`（`prd_overproduction_approval.approved_allowed_qty >= 0`）を追加、NULL 通過、即时校验；约束 COMMENT 为中文；pgTAP `prd_schema.sql` plan 38→42（06/90 v1.20） | DBA |
 
 ## Flowable 引擎表の schema 分離（issue #7）
 

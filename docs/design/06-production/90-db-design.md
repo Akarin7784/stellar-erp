@@ -1041,7 +1041,8 @@ CREATE TABLE prd_work_order (
     CONSTRAINT ck_prd_work_order_status CHECK (order_status IN (10,20,25,30,35,40,90)),
     CONSTRAINT ck_prd_work_order_qty CHECK (order_qty > 0 AND completed_qty >= 0 AND scrapped_qty >= 0),
     CONSTRAINT ck_prd_work_order_date CHECK (planned_end_date >= planned_start_date),
-    CONSTRAINT ck_prd_work_order_rate CHECK (over_receipt_rate >= 0 AND over_report_rate >= 0)
+    CONSTRAINT ck_prd_work_order_rate CHECK (over_receipt_rate >= 0 AND over_report_rate >= 0),
+    CONSTRAINT ck_prd_work_order_allowed_qty CHECK (allowed_qty >= 0)   -- NULL＝未快照は通過（prd/V202610211422）
 );
 
 CREATE UNIQUE INDEX uk_prd_work_order_no ON prd_work_order (tenant_id, company_id, work_order_no);
@@ -1093,7 +1094,8 @@ CREATE TABLE prd_overproduction_approval (
     CONSTRAINT pk_prd_overproduction_approval PRIMARY KEY (id),
     CONSTRAINT ck_prd_opa_status CHECK (approval_status IN (10,20,30,40,90)),
     CONSTRAINT ck_prd_opa_request_qty CHECK (request_qty > 0),          -- 違反は 60103 にマッピング（制約名で判別）
-    CONSTRAINT ck_prd_opa_allowed_qty CHECK (current_allowed_qty >= 0)
+    CONSTRAINT ck_prd_opa_allowed_qty CHECK (current_allowed_qty >= 0),
+    CONSTRAINT ck_prd_opa_approved_allowed_qty CHECK (approved_allowed_qty >= 0)   -- NULL＝未承認は通過（prd/V202610211422）
 );
 
 CREATE UNIQUE INDEX uk_prd_overproduction_approval_no
@@ -2666,3 +2668,4 @@ CREATE INDEX idx_prd_capacity_load_date ON prd_capacity_load (tenant_id, company
 | v1.17 | 2026-10-21 | :1058 の 4002 説明を「状態競合 422 専用」に修正（409 は `version` 競合 4003 のみ。00-common/03 §5 と整合、蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.18 | 2026-10-21 | 三列外键 `(tenant_id, company_id, x_id)` の子表側に同三列先頭の btree 索引が無かった 11 本分を追加（00-common/04 §6.2 項 2a FK 前導索引規則 v1.25、迁移 `prd/V202610211417`）：`idx_prd_bom_substitute_line`・`idx_prd_inspection_standard`・`idx_prd_material_planning_material`・`idx_prd_ncr_defect_code`・`idx_prd_ncr_inspection`・`idx_prd_routing_operation_routing`・`idx_prd_routing_operation_alt_op`・`idx_prd_routing_operation_alt_wc`・`idx_prd_work_center_calendar_wc`・`idx_prd_work_order_bom`・`idx_prd_work_order_routing` | DBA |
 | v1.19 | 2026-10-21 | `prd_work_order.order_status` の注釈から 95（却下）を削除（却下は 10 へ戻す）（蓝色大肥鱼 2026-10-21 決定）。`prd_work_order_change.change_status` の 95 は変更しない。CHECK・迁移は数据库側で別 PR | 业务分析 |
+| v1.20 | 2026-10-21 | `prd_work_order` に `ck_prd_work_order_allowed_qty CHECK (allowed_qty >= 0)`、`prd_overproduction_approval` に `ck_prd_opa_approved_allowed_qty CHECK (approved_allowed_qty >= 0)` を追加（NULL は通過、既存データに負数なしのため即時検証。migration `prd/V202610211422`）。受注行 `allowed_qty`（`ck_sal_sales_order_line_qty`）・`current_allowed_qty`（`ck_prd_opa_allowed_qty`）は既存（蓝色大肥鱼 2026-10-21 決定） | DBA |

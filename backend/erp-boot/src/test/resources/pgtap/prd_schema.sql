@@ -1,7 +1,7 @@
 -- pgTAP：06-production 建表（V202610210702）结构 / RLS / erp_app 权限 / standard_cost NULL 无默认
 -- 约定：准备数据用 owner，断言前 SET ROLE erp_app；以 ROLLBACK 结束。
 BEGIN;
-SELECT plan(38);
+SELECT plan(42);
 
 -- 结构
 SELECT is((SELECT count(*)::int FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -149,6 +149,26 @@ RESET ROLE;
 SELECT is((SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'ck_prd_work_order_status'),
           'CHECK ((order_status = ANY (ARRAY[10, 20, 25, 30, 35, 40, 90])))',
           'ck_prd_work_order_status 不含 95（prd/V202610211420）');
+
+-- allowed_qty 非负（prd/V202610211422）：负数 → 23514，NULL（未快照／未批准）可写入
+SET ROLE erp_app;
+SELECT set_config('app.tenant_id', '603', true);
+SELECT lives_ok($$INSERT INTO prd_work_order (id, company_id, work_order_no, material_id, material_code, material_name, uom_code, factory_id,
+                     order_qty, planned_start_date, planned_end_date, over_receipt_rate, allowed_qty)
+                   VALUES (6030101, 1, 'WO2610210101', 6030001, '9PRD000001', 'prd m c1', 'PCE', 6030001, 10, DATE '2026-11-01', DATE '2026-11-05', 0, NULL)$$,
+                'prd_work_order.allowed_qty 为 NULL（未快照）可写入');
+SELECT throws_ok($$UPDATE prd_work_order SET allowed_qty = -1 WHERE id = 6030101$$, '23514',
+                 'new row for relation "prd_work_order" violates check constraint "ck_prd_work_order_allowed_qty"',
+                 'ck_prd_work_order_allowed_qty 拒绝 allowed_qty < 0');
+SELECT set_config('app.tenant_id', '602', true);
+SELECT lives_ok($$INSERT INTO prd_overproduction_approval (id, company_id, approval_no, sales_order_id, sales_order_line_id,
+                     material_id, request_qty, current_allowed_qty, approved_allowed_qty, requested_by, requested_at)
+                   VALUES (6020004, 1, 'OPA2610210004', 1, 1, 1, 5, 0, NULL, 1, now())$$,
+                'approved_allowed_qty 为 NULL（未批准）可写入');
+SELECT throws_ok($$UPDATE prd_overproduction_approval SET approved_allowed_qty = -1 WHERE id = 6020004$$, '23514',
+                 'new row for relation "prd_overproduction_approval" violates check constraint "ck_prd_opa_approved_allowed_qty"',
+                 'ck_prd_opa_approved_allowed_qty 拒绝 approved_allowed_qty < 0');
+RESET ROLE;
 
 SELECT * FROM finish();
 ROLLBACK;
