@@ -2,7 +2,7 @@
 -- 范围：main（871dc93）public 下全部同域单列外键，共 74 处（prd 46 / sal 28）；子表、父表均有 company_id NOT NULL。
 -- 保留原约束名与 ON DELETE 行为（RESTRICT / NO ACTION），ON UPDATE NO ACTION、MATCH SIMPLE、不可延迟。
 -- 被引用父表 34 张各加 UNIQUE (tenant_id, company_id, id)（uk_<table>_tenant_company_id）。表内无数据，直接建（不用 NOT VALID）。
--- 不含：mdm 域内部外键（0707 已为 (tenant_id, x_id)，是否升级到 company 级待定）；flowable 引擎表（wf schema）。
+-- 不含：mdm 域内部外键（蓝色大肥鱼已定：保持 0707 的 (tenant_id, x_id)）；Flowable 引擎表（act_*/flw_*，位于 flowable schema，不在 public）。
 
 -- 1. 被引用父表加 UNIQUE (tenant_id, company_id, id)
 ALTER TABLE prd_bom ADD CONSTRAINT uk_prd_bom_tenant_company_id UNIQUE (tenant_id, company_id, id);
