@@ -227,7 +227,7 @@ stateDiagram-v2
 | 20 | create_child_wo | 子工单作成 | ヘッダ | チェック | BOOLEAN | — | false | — | — | （`prd_work_order_relation`） | 編集可 | 多阶製造時 |
 | 21 | progress_rate | 進捗率 | ヘッダ | 数値 | NUMERIC(7,4) | — | 0 | — | — | `progress_rate` | 参照のみ | バー表示 |
 | 22 | order_status | 状態 | ヘッダ | バッジ | SMALLINT | — | 10 | — | — | `order_status` | 参照のみ | 色付きバッジ |
-| 23 | over_receipt_rate | 完工超収容差 | ヘッダ | 数値 | NUMERIC(5,4) | — | チェーン解決値 | — | 受注行→物料→分類→テナント `sys_param` `prd.completion_over_rate`（登録時に解決） | `over_receipt_rate` | 参照のみ | % 表示・小数 2 桁（比率 NUMERIC(5,4) で保存）。前端は送信しない（[90-db-design.md](90-db-design.md) `prd_work_order.over_receipt_rate`） |
+| 23 | over_receipt_rate | 完工超収容差 | ヘッダ | 数値 | NUMERIC(5,4) | — | チェーン解決値 | — | 受注行→物料→分類→会社 `sys_param` `prd.completion_over_rate`（登録時に解決） | `over_receipt_rate` | 参照のみ | % 表示・小数 2 桁（比率 NUMERIC(5,4) で保存）。前端は送信しない（[90-db-design.md](90-db-design.md) `prd_work_order.over_receipt_rate`） |
 | 24 | remark | 備考 | ヘッダ | テキスト | VARCHAR(500) | — | 空 | 500 桁 | — | `remark` | 編集可 | — |
 
 **材料明細（タブ）項目定義**
@@ -704,4 +704,3 @@ stateDiagram-v2
 | v1.12 | 2026-10-21 | CHK-PRD-002-10：整合＝同一単位または同一換算グループで換算可能（CHK-PRD-001-09 と同一基準）、換算不可は拒否。検査は下达時の BOM 展開・既存明細と材料明細の手動追加・編集時（登録・提出・承認では検査しない）。CALC-WO-10（基本単位へ換算・切上げ、BOM 単位・数量を保持）、§6.2 手順 6・§6.4 2a・手動明細編集・§6.10・MSG-PRD-022 文言・TST-F-PRD-005-19 を追加。有効換算率 0 件・複数件も換算不可（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.13 | 2026-10-21 | CHK-PRD-002-10：手動材料明細は保存時と承認提出時に検査し、下达時の BOM 展開で再検査（§6.3 手順 2a 追加、提出の 60022 は全体ロールバック）。BOM 展開行は登録・提出・承認で検査しない（蓝色大肥鱼 2026-10-21 後続訂正） | 业务分析 |
 | v1.14 | 2026-10-21 | CHK-PRD-002-10：保存は新規追加・単位／数量変更行のみ、承認提出・下达は全行検査（変更フラグなし）。CALC-WO-10 の基準日を planned_start_date／当日（Asia/Shanghai）に統一。§6.2 手順 6 登録時は BOM 展開行を即時換算し換算不可は 60022 で全体ロールバック（蓝色大肥鱼 2026-10-21 最終決定） | 业务分析 |
-| v1.15 | 2026-10-21 | over_receipt_rate のチェーン末端を会社→テナント `sys_param` に訂正（蓝色大肥鱼 2026-10-21 決定：sys_param はテナント単位） | 业务分析 |
