@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -35,6 +36,12 @@ import cn.dev33.satoken.stp.StpUtil;
 @Service
 public class LoginService {
 
+    /**
+     * 账号停用/离职（MSG-SYS-001）の業務コード。SYS 帯（10000-19999）の新規コードで、番号は BA の docs PR で確定する。
+     * 確定後はこの 1 行のみ差し替える（10001 は「ユーザ重複」で使用済みのため使わない）。
+     */
+    public static final int ACCOUNT_DISABLED = 10900; // TODO(#71): BA docs PR で確定した番号に差し替え
+
     static final int MAX_FAILS = 5;
     static final Duration LOCK = Duration.ofMinutes(30);
     /** 0 行時の照合用（cost 10、実ハッシュと同等の計算時間）。 */
@@ -56,11 +63,14 @@ public class LoginService {
     private final JdbcClient jdbc;
     private final TransactionTemplate tx;
     private final AuthMeService me;
+    private final ObjectProvider<UserUpdateHook> hook;
 
-    public LoginService(JdbcClient jdbc, PlatformTransactionManager tm, AuthMeService me) {
+    public LoginService(JdbcClient jdbc, PlatformTransactionManager tm, AuthMeService me,
+                        ObjectProvider<UserUpdateHook> hook) {
         this.jdbc = jdbc;
         this.tx = new TransactionTemplate(tm);
         this.me = me;
+        this.hook = hook;
     }
 
     static BizException badCredentials() {
@@ -87,9 +97,11 @@ public class LoginService {
         TenantContext.set(u.tenantId());
         LoginContext.set(new LoginContext.LoginUser(u.userId(), u.companyId()));
         try {
-            BizException failure = tx.execute(s -> authenticate(u, cmd));
-            if (failure != null) {
-                throw failure;
+            Outcome outcome = tx.execute(s -> authenticateWithRetry(u, cmd));
+            if (outcome.failure() != null) {
+                // ログインログは独立トランザクション（ユーザ更新のコミット後）
+                tx.executeWithoutResult(s -> log(u, cmd, false, outcome.reason(), null));
+                throw outcome.failure();
             }
             String token = AuthSessions.open(u.userId(), u.tenantId(), u.companyId());
             tx.executeWithoutResult(s -> log(u, cmd, true, null, token));
@@ -108,43 +120,88 @@ public class LoginService {
         }
     }
 
-    /** 状態判定・照合・失敗回数更新。失敗時は（更新をコミットさせるため）例外を投げずに返す。 */
-    private BizException authenticate(Found u, LoginCommand cmd) {
+    /** テスト用フック：sys_user 更新直前に呼ばれる（楽観排他競合の再現用）。本番では Bean なし。 */
+    public interface UserUpdateHook {
+        void beforeUserUpdate(long userId);
+    }
+
+    record Outcome(BizException failure, String reason) {
+        static final Outcome OK = new Outcome(null, null);
+        static final Outcome CONFLICT = new Outcome(null, "CONFLICT");
+    }
+
+    static BizException staleVersion() {
+        return new BizException(4003, "MSG-COM-033", "数据已被其他用户更新，请重新获取最新信息后再操作。");
+    }
+
+    /**
+     * 状態判定・照合・sys_user 更新（{@code WHERE id AND version} の楽観排他）。競合時は最新行を再読込して
+     * 1 回だけ再試行し、なお競合なら 4003 / MSG-COM-033（01-auth-login 6.3 No.7、03 §楽観排他）。
+     */
+    private Outcome authenticateWithRetry(Found u, LoginCommand cmd) {
+        Found cur = u;
+        for (int attempt = 0; attempt < 2; attempt++) {
+            Outcome o = attempt(cur, cmd);
+            if (o != Outcome.CONFLICT) {
+                return o;
+            }
+            cur = reread(cur);
+        }
+        return new Outcome(staleVersion(), "MSG-COM-033");
+    }
+
+    private Found reread(Found u) {
+        return jdbc.sql("""
+                        SELECT tenant_id, id, company_id, password_hash, status, account_status, lock_until,
+                               login_fail_count, password_reset_required, password_expire_at, version
+                          FROM sys_user WHERE id = :id AND deleted = FALSE
+                        """)
+                .param("id", u.userId())
+                .query((rs, i) -> new Found(rs.getLong(1), rs.getLong(2), rs.getLong(3), rs.getString(4), rs.getInt(5),
+                        rs.getInt(6), rs.getObject(7, OffsetDateTime.class), rs.getInt(8), rs.getBoolean(9),
+                        rs.getObject(10, OffsetDateTime.class), rs.getInt(11)))
+                .single();
+    }
+
+    private Outcome attempt(Found u, LoginCommand cmd) {
         if (u.status() != 1 || u.accountStatus() == 3) {
-            log(u, cmd, false, "MSG-SYS-001", null);
-            return new BizException(10001, "MSG-SYS-001", "该账号已停用或已离职，请联系管理员。");
+            return new Outcome(new BizException(ACCOUNT_DISABLED, "MSG-SYS-001", "该账号已停用或已离职，请联系管理员。"), "MSG-SYS-001");
         }
         OffsetDateTime now = OffsetDateTime.now();
         int fails = u.loginFailCount();
-        if (u.accountStatus() == 2) {
+        int accountStatus = u.accountStatus();
+        if (accountStatus == 2) {
             if (u.lockUntil() == null || u.lockUntil().isAfter(now)) {
-                log(u, cmd, false, "MSG-COM-023", null);
-                return locked(u.lockUntil(), now);
+                return new Outcome(locked(u.lockUntil(), now), "MSG-COM-023");
             }
-            // ロック期限到来：解除状態に戻す
-            jdbc.sql("UPDATE sys_user SET account_status = 1, lock_until = NULL, login_fail_count = 0, "
-                            + "version = version + 1, updated_at = now() WHERE id = :id")
-                    .param("id", u.userId()).update();
+            // ロック期限到来：解除状態に戻す（以下の更新に含める）
             fails = 0;
+            accountStatus = 1;
         }
-        if (!BCrypt.checkpw(cmd.password(), u.passwordHash())) {
-            int next = fails + 1;
-            if (next >= MAX_FAILS) {
-                jdbc.sql("UPDATE sys_user SET login_fail_count = :n, account_status = 2, lock_until = :until, "
-                                + "version = version + 1, updated_at = now() WHERE id = :id")
-                        .param("n", next).param("until", now.plus(LOCK)).param("id", u.userId()).update();
-            } else {
-                jdbc.sql("UPDATE sys_user SET login_fail_count = :n, version = version + 1, updated_at = now() "
-                                + "WHERE id = :id")
-                        .param("n", next).param("id", u.userId()).update();
-            }
-            log(u, cmd, false, "MSG-COM-021", null);
-            return badCredentials();
+        boolean ok = BCrypt.checkpw(cmd.password(), u.passwordHash());
+        int nextFails = ok ? 0 : fails + 1;
+        boolean lock = !ok && nextFails >= MAX_FAILS;
+        int nextStatus = lock ? 2 : accountStatus;
+        OffsetDateTime lockUntil = lock ? now.plus(LOCK) : (nextStatus == 2 ? u.lockUntil() : null);
+        UserUpdateHook h = hook.getIfAvailable();
+        if (h != null) {
+            h.beforeUserUpdate(u.userId());
         }
-        jdbc.sql("UPDATE sys_user SET login_fail_count = 0, last_login_at = now(), last_login_ip = :ip, "
-                        + "version = version + 1, updated_at = now() WHERE id = :id")
-                .param("ip", cmd.ip()).param("id", u.userId()).update();
-        return null;
+        int rows = jdbc.sql("""
+                        UPDATE sys_user
+                           SET login_fail_count = :fails, account_status = :status, lock_until = :until,
+                               last_login_at = CASE WHEN :ok THEN now() ELSE last_login_at END,
+                               last_login_ip = CASE WHEN :ok THEN CAST(:ip AS VARCHAR) ELSE last_login_ip END,
+                               version = version + 1, updated_at = now()
+                         WHERE id = :id AND version = :version
+                        """)
+                .param("fails", nextFails).param("status", nextStatus).param("until", lockUntil)
+                .param("ok", ok).param("ip", cmd.ip()).param("id", u.userId()).param("version", u.version())
+                .update();
+        if (rows == 0) {
+            return Outcome.CONFLICT;
+        }
+        return ok ? Outcome.OK : new Outcome(badCredentials(), "MSG-COM-021");
     }
 
     static BizException locked(OffsetDateTime until, OffsetDateTime now) {

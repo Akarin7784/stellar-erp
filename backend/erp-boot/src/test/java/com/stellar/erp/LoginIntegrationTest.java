@@ -24,6 +24,7 @@ import com.jayway.jsonpath.JsonPath;
 import com.stellar.erp.common.LoginContext;
 import com.stellar.erp.common.TenantContext;
 import com.stellar.erp.support.DbIntegrationTest;
+import com.stellar.erp.support.LoginConflictInjector;
 import com.stellar.erp.support.OwnerJdbc;
 import com.stellar.erp.support.PermissionGrants;
 
@@ -61,6 +62,7 @@ class LoginIntegrationTest {
 
     @AfterEach
     void tearDown() {
+        LoginConflictInjector.reset();
         cleanup();
         LoginContext.clear();
         TenantContext.clear();
@@ -146,10 +148,12 @@ class LoginIntegrationTest {
     }
 
     @Test
-    void disabledAccountIs10001() throws Exception {
+    void disabledAccountIsHttp200WithAccountDisabledCode() throws Exception {
         owner.update("UPDATE sys_user SET account_status = 3 WHERE id = ?", USER);
+        assertThat(com.stellar.erp.system.auth.LoginService.ACCOUNT_DISABLED).isBetween(10000, 19999).isNotEqualTo(10001);
         login(CODE, "u7501", PW)
-                .andExpect(jsonPath("$.code").value(10001))
+                .andExpect(status().isOk()) // ログイン API に限り HTTP 200
+                .andExpect(jsonPath("$.code").value(com.stellar.erp.system.auth.LoginService.ACCOUNT_DISABLED))
                 .andExpect(jsonPath("$.msgId").value("MSG-SYS-001"));
     }
 
@@ -168,5 +172,47 @@ class LoginIntegrationTest {
                 .andExpect(jsonPath("$.data.roles.length()").value(0))
                 .andExpect(jsonPath("$.data.permissions.length()").value(0))
                 .andExpect(jsonPath("$.data.menus.length()").value(0));
+    }
+
+    /** 別接続（owner、autocommit）で version を進め、ログイン側の WHERE version 更新を 0 件にする。 */
+    void injectConflicts(int times, String extraSet) {
+        int[] left = {times};
+        LoginConflictInjector.action = id -> {
+            if (left[0]-- > 0) {
+                owner.update("UPDATE sys_user SET version = version + 1" + extraSet + " WHERE id = ?", id);
+            }
+        };
+    }
+
+    int version() {
+        return owner.queryForObject("SELECT version FROM sys_user WHERE id = ?", Integer.class, USER);
+    }
+
+    @Test
+    void oneVersionConflictIsRetriedAndLoginSucceeds() throws Exception {
+        int v0 = version();
+        injectConflicts(1, "");
+        login(CODE, "u7501", PW).andExpect(status().isOk()).andExpect(jsonPath("$.code").value(0));
+        assertThat(version()).isEqualTo(v0 + 2); // 競合更新 +1、再試行の更新 +1
+    }
+
+    @Test
+    void retryRereadsFailCountBeforeIncrementing() throws Exception {
+        injectConflicts(1, ", login_fail_count = 2");
+        isBadCredentials(login(CODE, "u7501", "wrong"));
+        assertThat(owner.queryForObject("SELECT login_fail_count FROM sys_user WHERE id = ?", Integer.class, USER))
+                .isEqualTo(3);
+    }
+
+    @Test
+    void secondVersionConflictIs4003() throws Exception {
+        injectConflicts(2, "");
+        login(CODE, "u7501", PW)
+                .andExpect(status().isOk()) // ログイン API は 4003 も HTTP 200（改密等の他 API は 409）
+                .andExpect(jsonPath("$.code").value(4003))
+                .andExpect(jsonPath("$.msgId").value("MSG-COM-033"))
+                .andExpect(jsonPath("$.data").doesNotExist());
+        assertThat(owner.queryForObject("SELECT count(*) FROM sys_login_log WHERE tenant_id = ? AND fail_reason = 'MSG-COM-033'",
+                Integer.class, TENANT)).isEqualTo(1);
     }
 }

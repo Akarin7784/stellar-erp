@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.stellar.erp.common.BizException;
 import com.stellar.erp.common.Result;
 import com.stellar.erp.system.AuthSessions;
 import com.stellar.erp.system.auth.AuthMeService;
@@ -42,11 +43,19 @@ public class AuthController {
             String captchaKey, String captcha, Boolean rememberMe) {
     }
 
-    /** ログイン（#2）：ログイン不要。 */
+    /**
+     * ログイン（#2）：ログイン不要。業務エラー（2002 / 2003 / 账号停用 ACCOUNT_DISABLED /
+     * 楽観排他 1 回リトライ後の 4003 等）は本エンドポイントに限りすべて HTTP 200 + body の code で返す（#71 決定）。
+     * 他 API の同コードは共通規則どおり（業務エラー 422、4003 は 409）。
+     */
     @PostMapping("/login")
     public Result<LoginService.LoginResult> login(@Valid @RequestBody LoginRequest req, HttpServletRequest http) {
-        return Result.ok(login.login(new LoginService.LoginCommand(req.tenantCode(), req.username(), req.password(),
-                http.getRemoteAddr(), http.getHeader("User-Agent"))));
+        try {
+            return Result.ok(login.login(new LoginService.LoginCommand(req.tenantCode(), req.username(),
+                    req.password(), http.getRemoteAddr(), http.getHeader("User-Agent"))));
+        } catch (BizException e) {
+            return Result.fail(e.getCode(), e.getMessage(), e.getMsgId());
+        }
     }
 
     /** ログアウト（#3）：ログイン不要。トークンなし・無効・期限切れでも 200（冪等）。当該トークンのみ失効（BR-07）。 */
