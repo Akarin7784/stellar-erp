@@ -554,7 +554,7 @@
 |---|---|
 | 目的 | 工单を 20（承認中）→25（承認済）に遷移する |
 | 権限 | `production:work-order:approve`（02-work-order.md T-02） |
-| 備考 | — |
+| 備考 | WF 接入後：流程 key `prd_work_order_release`、一級（生产主管）。E32 承認→20→25、却下→20→10、強制終了（TERMINATED）→10（90 にしない）。却下理由は WF 履歴のみ（工单表に列追加なし）（蓝色大肥鱼 2026-10-21 決定） |
 | 呼出元 | 08 工作流の E32 承認完了コールバックと**同一のサービスメソッド**を呼ぶ。08（Flowable）接入後は本 API を閉じ、E32 コールバックからのみ遷移可能とする（蓝色大肥鱼 2026-10-21 決定、PR #32）。**Flowable 接入前の暫定入口**であり、統一入口は [08/91 #33](../08-workflow/91-api-design.md) `POST /api/workflow/tasks/{taskId}/approve`。接入後は廃止またはコールバック専用とする |
 | リクエスト | `{ "version": 4 }` |
 | 正常 | 200 + 工单 DTO（`orderStatus=25`、`version`+1） |
@@ -597,6 +597,7 @@
 
 - 申請 DTO の `requestedByName`（申請者名）は `sys_user` を `tenant_id` と `id` のみで結合する（ユーザは複数会社に所属し得るため `company_id` では絞らない。蓝色大肥鱼 2026-10-21 決定）。
 
+- **WF 接入後**：流程 key `prd_overproduction_approval`、一級（生产主管）。表の状態値は 30／40 のまま、E32 受信側で承認→30、却下→40、強制終了→90 にマッピングする（蓝色大肥鱼 2026-10-21 決定）。
 - **承認時の更新（案 B）**：受注行→工单の順に `FOR UPDATE`。工单級は受注行と当該工单の `allowed_qty` をそれぞれ +`request_qty`、受注行級は受注行のみ +`request_qty`。更新 0 行は全体ロールバック。却下・取消では `allowed_qty` を変更しない。
 - **version**：承認により受注行と工单の `version` が +1 される（想定どおり）。前端は編集画面の保存で 409／`4003` を受けた場合、「データが更新されました」と表示して再読込する（自動上書きしない）。
 
@@ -694,3 +695,4 @@
 | v1.24 | 2026-10-21 | 超産申請の草稿修正 API を追加（状態 10 のみ、version 必須、allowed_qty 不変）（蓝色大肥鱼 2026-10-21 決定）。§2.2 に #39h（権限 create 共用）、§3.14 に草稿修正行（可変 requestQty・workOrderId・remark、状態不正 422／60101）を追加（v1.23 は #104） | 业务分析 |
 | v1.25 | 2026-10-21 | §2.2 に #39i 受注行選択 `GET /api/production/overproduction-approvals/sales-order-lines`（権限 create 共用）、§3.14 に受注行選択行（絞込 salesOrderNo・material、size ≤ 200（超過は 400／1001）、当前会社・受注状態 25/30/35・行状態 10/30/35・`allowed_qty` NOT NULL）と `requestedByName` の `sys_user` 結合条件を追加（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.26 | 2026-10-21 | §3.14 受注行選択：返却 11 項目（`salesOrderLineId`、`salesOrderId`、`salesOrderNo`、`lineNo`、`materialId`、`materialCode`、`materialName`、`baseUomCode`、`baseQty`、`allowedQty`、`completedQty`）を明記、`size` > 200 は 400／`1001`＋`fieldErrors`（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.27 | 2026-10-21 | §3.11 備考に工单 WF（`prd_work_order_release`、一級、承認→25・却下→10）、§3.14 に超産 WF（`prd_overproduction_approval`、一級、承認→30・却下→40・強制終了→90 の回調マッピング）を追記（蓝色大肥鱼 2026-10-21 決定）。追補：§3.11 に E32 強制終了→10・却下理由は WF 履歴のみを追記（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
