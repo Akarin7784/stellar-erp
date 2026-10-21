@@ -991,7 +991,7 @@ CREATE TABLE prd_work_order (
     planned_end_date    DATE          NOT NULL,                  -- 计划完成日（納期）
     actual_start_date   DATE,                                    -- 実績着手日（初回報工日）
     actual_end_date     DATE,                                    -- 実績完成日（最終完工入库日）
-    order_status        SMALLINT      NOT NULL DEFAULT 10,       -- 10:草稿 20:承認待ち 25:承認済 30:下达済 35:製造中 40:完工（closed_at で結案・終端） 90:取消（却下は 10 へ戻す。95 は使わない（蓝色大肥鱼 2026-10-21 決定））
+    order_status        SMALLINT      NOT NULL DEFAULT 10,       -- 10:草稿 20:待审批 25:已批准 30:已下达 35:生产中 40:完工（以 closed_at 结案、终态） 90:取消（驳回退回 10，不使用 95，蓝色大肥鱼 2026-10-21 决定）
     material_issue_status SMALLINT    NOT NULL DEFAULT 0,        -- 材料引当/領料状態 0:未 10:一部 20:完了
     report_status       SMALLINT      NOT NULL DEFAULT 0,        -- 報工状態 0:未 10:一部 20:完了
     completion_status   SMALLINT      NOT NULL DEFAULT 0,        -- 入庫状態 0:未 10:一部 20:完了
@@ -1038,7 +1038,7 @@ CREATE TABLE prd_work_order (
     CONSTRAINT fk_prd_work_order_factory FOREIGN KEY (tenant_id, company_id, factory_id) REFERENCES mdm_factory (tenant_id, company_id, id),
     CONSTRAINT fk_prd_work_order_bom FOREIGN KEY (tenant_id, company_id, bom_id) REFERENCES prd_bom (tenant_id, company_id, id),
     CONSTRAINT fk_prd_work_order_routing FOREIGN KEY (tenant_id, company_id, routing_id) REFERENCES prd_routing (tenant_id, company_id, id),
-    CONSTRAINT ck_prd_work_order_status CHECK (order_status IN (10,20,25,30,35,40,90,95)),
+    CONSTRAINT ck_prd_work_order_status CHECK (order_status IN (10,20,25,30,35,40,90)),
     CONSTRAINT ck_prd_work_order_qty CHECK (order_qty > 0 AND completed_qty >= 0 AND scrapped_qty >= 0),
     CONSTRAINT ck_prd_work_order_date CHECK (planned_end_date >= planned_start_date),
     CONSTRAINT ck_prd_work_order_rate CHECK (over_receipt_rate >= 0 AND over_report_rate >= 0)

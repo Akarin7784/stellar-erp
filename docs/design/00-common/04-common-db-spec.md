@@ -4,7 +4,7 @@
 |---|---|
 | 文書名 | DB 共通规格（DB 共通仕様） |
 | 文書番号 | DSN-CMN-004 |
-| 版数 | v1.26 |
+| 版数 | v1.27 |
 | 作成日 | 2026-10-20 |
 | 作成者 | Lead（设计基盤） |
 | 承認者 | 未承認（社内レビュー待ち） |
@@ -471,6 +471,7 @@ V{yyyyMMdd}{NNNN}__{module}_{description}.sql     # バージョンは 12 桁
 | v1.24 | 2026-10-21 | §6.2 項 2a：mdm 域内部 FK 32 本を三列化（`mdm/V202610211414`、被参照 11 表〔`mdm_{bank,change_request,credit_check_rule,data_quality_rule,material_category,payment_term,price_list,supplier_evaluation,supplier_quotation,tax_code,warehouse_zone}`〕に `uk_<table>_tenant_company_id` を追加、子表側 FK 索引 7 本を追加）。登録表 `t_cfk_2col_exception` を〔A〕1 本（`fk_sys_role_permission_menu`）のみに縮小、〔B〕0 本で全域（inv／prd／sal／fin／mdm）完了（蓝色大肥鱼 2026-10-21 決定） | DBA |
 | v1.25 | 2026-10-21 | §6.2 項 2a：FK 前導索引規則を追加（三列外键 `(tenant_id, company_id, x_id)` の子表に同三列先頭の btree 索引必須、部分索引は `x_id IS NOT NULL` のみ可）。欠けていた 41 本を追加（inv 17／mdm 7／prd 11／sal 6、`inv/V202610211415`・`mdm/V202610211416`・`prd/V202610211417`・`sal/V202610211418`）。fin・sys は欠落なし。tenant_id 非先頭の旧 sal 索引 5 本は `sys/V202610210707` で既に `(tenant_id, company_id, …)` 先頭に再作成済みのため変更なし。pgTAP `composite_fk.sql` に全域断言を追加 | DBA |
 | v1.26 | 2026-10-21 | COMMENT 中文化：`sys/V202610211419` 将含日文的约束／列／表／函数 COMMENT 改为中文；补 `sal_quotation.quotation_status`（20=待审批、25=已批准，#108 §5 第 2 条）与 `mdm_supplier`／`mdm_credit_limit.approval_status`（10/20/25/90/95，#108 §5 第 9 条）。pgTAP `composite_fk.sql` 删除已被全域断言取代的 mdm 专用索引断言，plan 22→21；新增 pgTAP `comment_zh.sql`（plan 1）：最终 COMMENT 不得含日文（假名／日文汉字／品目・受注・却下 等日文用词） | DBA |
+| v1.27 | 2026-10-21 | `prd/V202610211420`：`ck_prd_work_order_status` 去掉 95（工单驳回回到 10 草稿），列 COMMENT 同步；pgTAP `prd_schema.sql` plan 37→38（#114 §待定 4） | DBA |
 
 ## Flowable 引擎表の schema 分離（issue #7）
 
