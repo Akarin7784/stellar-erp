@@ -14931,9 +14931,9 @@
     {
       "id": "MSG-PRD-022",
       "type": "E",
-      "body": "BOM の単位と物料の基本単位が一致しません。",
-      "condition": "単位不整合",
-      "action": "BOM 修正",
+      "body": "BOM の単位と物料の基本単位が整合しません（換算不可）。",
+      "condition": "単位不整合（同一単位でも同一換算グループでもない、または換算率なし）。BOM 保存（CHK-PRD-001-09、BOM API 実装時に接続）、工单下达時の BOM 展開・既存材料明細、材料明細の手動追加・編集（CHK-PRD-002-10）で 422／60022",
+      "action": "BOM・単位換算マスタを修正",
       "domain": "PRD",
       "source": "06-production/93-messages.md"
     },

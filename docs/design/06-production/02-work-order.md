@@ -75,6 +75,7 @@
 |---|---|---|---|---|
 | CALC-WO-01 | 純必要量 | `required_qty = BOM.component_qty × order_qty ÷ BOM.base_qty` | 4 桁四捨五入 | 120 × 1.0000 = 120.0000 |
 | CALC-WO-02 | 総必要量（gross） | `total_required_qty = required_qty ÷ (1 − BOM.loss_rate)` | 4 桁切上 | 120.0000 ÷ (1−0.0050) = 120.6030 |
+| CALC-WO-03 | 単位換算 | BOM 使用単位 ≠ 物料基本単位のとき `qty_base = qty_bom × conversion_rate`（`mdm_uom_conversion` の `from_uom_code`=BOM 単位・`to_uom_code`=基本単位、基準日有効・`status=1`。逆方向行のみなら `1 ÷ conversion_rate`）。`required_qty`・`total_required_qty` に適用。換算前の単位・総必要量は `bom_uom_code`・`bom_qty` に保持（蓝色大肥鱼 2026-10-21 決定） | 基本単位の `mdm_uom.decimal_places` で**切上**（`rounding_mode` によらず、払出不足を防ぐ） | 10 BOX × 12 = 120 PCE |
 | CALC-WO-03 | 超領上限 | `max_issue_qty = total_required_qty × (1 + 超領容许率 0.03)` | 4 桁切上 | 120.6030 × 1.03 = 124.2211 |
 | CALC-WO-04 | 工序必要工数 | `need_hours = setup_time + run_time_per_unit × qty` | 2 桁（h） | 0.5 + 0.35 × 120 = 42.50 h |
 | CALC-WO-05 | 工序日程（開始） | `planned_start = max(前工序 planned_end + queue_time, 工单 planned_start)` | 稼働日 | — |
@@ -336,7 +337,7 @@ stateDiagram-v2
 | 7 | CHK-PRD-002-07 | BOM | 業務 | 有効 BOM が存在（基準日＝`planned_start_date`（計画着手日）。未入力時は会社のタイムゾーンの当日（現時点では Asia/Shanghai のみ）） | 品目選択/保存/承認提出時は警告のみ、下达時はエラー（422／`60020`）（蓝色大肥鱼 2026-10-21 #36 決定） | `MSG-PRD-020` |
 | 8 | CHK-PRD-002-08 | 工艺 | 業務 | 有効工艺が存在（または工序 1 件以上） | 品目選択/保存時は警告のみ（工序 0 件で登録可）、承認時は工序 0 件ならエラー（422／`60021`）（蓝色大肥鱼 2026-10-21 決定） | `MSG-PRD-021` |
 | 9 | CHK-PRD-002-09 | 材料明細 | 必須 | 保存・提出時はチェックしない（0 行可（蓝色大肥鱼 2026-10-21 PR #37 決定））。下达時は 0 行なら BOM 展開（§6.4 2a） | — | — |
-| 10 | CHK-PRD-002-10 | 材料単位 | 業務 | BOM 單位と物料基本単位が整合 | 展開時 | `MSG-PRD-022` |
+| 10 | CHK-PRD-002-10 | 材料単位 | 業務 | BOM 使用単位と物料基本単位が同一単位、または同一換算グループ（`mdm_uom.conversion_group`）で換算可能（[01](01-bom-routing-workcenter.md) CHK-PRD-001-09 と同一基準）。換算不可は拒否 | 下达時の BOM 展開・既存材料明細の検査、材料明細の手動追加・編集時（登録・承認提出・承認では検査しない） | `MSG-PRD-022`（422／`60022`） |
 | 11 | CHK-PRD-002-11 | 状態 | 状態 | 編集は 10/25 のみ、提出は 10 のみ | 操作時 | `MSG-COM-034` |
 | 12 | CHK-PRD-002-12 | 自己承認 | 権限 | 起案者と承認者が同一でない | 承認時 | `MSG-PRD-005` |
 | 13 | CHK-PRD-002-13 | 拆分合計 | 相関 | 子工单数量合計 = 元工单数量（±0.0001） | 拆分実行時 | `MSG-PRD-048` |
@@ -368,11 +369,13 @@ stateDiagram-v2
 3. 基準日 = `planned_start_date` として、有効 BOM（`bom_status=30`、有効期間内、`is_default` 優先）と有効工艺（同条件）を解決する。基準日の `planned_start_date` が未入力なら会社のタイムゾーンの当日（現時点では Asia/Shanghai）を使う。BOM がなくても登録は続行し（材料明細 0 件）、`MSG-PRD-020` を警告として返す（蓝色大肥鱼 2026-10-21 #36 決定）。
 4. 工单番号を採番する（`sys_sequence` キー `PRD_WORK_ORDER`、`WO{YYMMDD}{4桁}`）。採番は同一トランザクション内。
 5. `prd_work_order` を INSERT する（`order_status=10`、`source_type`、`parent_work_order_id`、`standard_cost` は NULL のまま。卷算値（[01](01-bom-routing-workcenter.md) 5.3）は画面の参考表示のみで、正式値は下达時にスナップショットする（§6.4、PR #8 決定 2（蓝色大肥鱼 2026-10-21）））。
-6. 有効 BOM がある場合のみ、BOM を展開し `prd_work_order_material` を INSERT する（BOM なしは材料明細 0 行のまま）（CALC-WO-01/02）。`prd_bom_line.is_key_part`・`substitute_group`・`operation_seq` を引き継ぐ。
+6. 有効 BOM がある場合のみ、BOM を展開し `prd_work_order_material` を INSERT する（BOM なしは材料明細 0 行のまま）（CALC-WO-01/02/03）。登録時は CHK-PRD-002-10 を検査しない：換算可能な行は CALC-WO-03 で基本単位に換算して格納し、換算不可の行は BOM 単位のまま格納して下达時に `60022` とする（蓝色大肥鱼 2026-10-21 決定）。`prd_bom_line.is_key_part`・`substitute_group`・`operation_seq` を引き継ぐ。
 7. 工艺を展開し `prd_work_order_operation` を INSERT する（CALC-WO-04/05/06）。工序日程は [05](05-mrp-planning.md) 6.3 の式で算出する。
 8. `create_child_wo=true` の場合、製造品の子品目について子工单を生成する（PRC-PRD-002-10）。子工单は `order_status=10`、`parent_work_order_id` に親 ID を設定。
 9. 変更履歴の初版（`prd_work_order_change` の `change_type=10` 相当は登録時は作らない。初回登録は監査ログのみ）。
 10. 監査ログ（CREATE）を記録し、登録結果を返す。
+
+**材料明細の手動追加・編集**（蓝色大肥鱼 2026-10-21 決定）：`PUT /api/production/work-orders/{id}` で材料明細を追加、または物料・単位・数量を編集するとき、行ごとに CHK-PRD-002-10 を検査する。入力単位を `bom_uom_code`・入力数量を `bom_qty` として保持し、CALC-WO-03 で基本単位へ換算・切上げて `uom_code`／`required_qty` に格納する。1 行でも換算不可なら 422／`60022`／`MSG-PRD-022` で保存全体をロールバックする（`version` 不変）。
 
 ### 6.3 工单承認（PRC-PRD-002-03）
 
@@ -384,7 +387,7 @@ stateDiagram-v2
 
 ### 6.4 工单下达（PRC-PRD-002-04）
 
-チェック順序（蓝色大肥鱼 2026-10-21 PR #37 決定）：`60104`（下达日過去日）→ `allowed_qty` NULL は `5000`（工单ロック前）→ 工单 `FOR UPDATE` → 状態・保留・引当チェック → 材料明細 0 行時の有効 BOM 解決（なしは `60020`）または展開 → 状態変更。
+チェック順序（蓝色大肥鱼 2026-10-21 PR #37 決定）：`60104`（下达日過去日）→ `allowed_qty` NULL は `5000`（工单ロック前）→ 工单 `FOR UPDATE` → 状態・保留・引当チェック → 材料明細 0 行時の有効 BOM 解決（なしは `60020`）または展開 → 単位整合（換算不可は `60022`）→ 状態変更。
 
 1. `order_status=25` を確認。MTO は先に受注行を `FOR UPDATE`、続けて工单を id 昇順で `FOR UPDATE`（[04 §11.1](../00-common/04-common-db-spec.md)）。`material_id`＝受注行物料を検証（不一致 `MSG-PRD-056`/`60056`）。`allowed_qty` を受注行からスナップショット。
 2. 保留中（`is_hold=true`）は下达不可（`MSG-PRD-047`）。
@@ -392,6 +395,7 @@ stateDiagram-v2
    - 0 行：有効 BOM（基準日＝`planned_start_date`、未入力時は下达処理日の会社タイムゾーン当日（現時点 Asia/Shanghai。登録時と同一規則））を解決し、CALC-WO-01/02 で `prd_work_order_material` を INSERT してから以降の手順と状態変更を行う。
    - 0 行で有効 BOM なし：422／`60020`／`MSG-PRD-020` で中止し、全体ロールバック（`order_status=25`・`version` 不変、材料明細を書かない、E21 を Outbox に記録しない）（蓝色大肥鱼 2026-10-21 #36 決定）。
    - 1 行以上：再展開せず既存明細のまま下达する。
+   - 単位整合（CHK-PRD-002-10）（蓝色大肥鱼 2026-10-21 決定）：展開した行・既存行のすべてについて、BOM 使用単位（`bom_uom_code`）と物料基本単位（`mdm_material.base_uom_code`）が同一単位、または同一換算グループ（`mdm_uom.conversion_group`）で換算可能かを検査し、CALC-WO-03 で基本単位へ換算・切上げて `uom_code`／`required_qty`／`total_required_qty` に格納する（`bom_uom_code`・`bom_qty` は換算前の値を保持）。1 行でも換算不可なら 422／`60022`／`MSG-PRD-022` で中止し、`60020` と同様に全体ロールバック（`order_status=25`・`version` 不変、材料明細を書かない、E21 を Outbox に記録しない）。
    - 同一工单の同時下达は行ロックで直列化され、後続は 409／`4002` または `4003`（後続リクエストは `FOR UPDATE` で待機し、取得後に状態 30 を検知して `4002`、`version` が古ければ `4003`。ロック待ちタイムアウトは既存の `lock_timeout` 処理に従い、新コードは設けない）。展開は 1 回のみ。
 3. 材料行の引当依頼データを作成する：`lines[] = {materialId, requiredQty（total_required_qty − 既引当）, uom, warehouseId}`。
 4. 標準原価スナップショット：`material_id` と下达日の期間で（下达日はリクエストの `releaseDate`（未指定時は Asia/Shanghai 当日）で、その月で検索。蓝色大肥鱼 2026-10-21） `fin_standard_cost`（`status=40`、`period_from ≤ 期間 ≤ COALESCE(period_to, ∞)`）を検索し、`total_unit_cost` を `standard_cost` に設定する。発行版がなければ `standard_cost=NULL` のまま下达を続行し、`MSG-FIN-117`（警告「未设定标准成本，本期不进行成本差异分析。」）を返す。下达後は再スナップショットしない（PR #8 決定 2（蓝色大肥鱼 2026-10-21））。
@@ -486,6 +490,7 @@ stateDiagram-v2
 | No | 異常条件 | 検知箇所 | 処理 | ロールバック | メッセージ ID |
 |---|---|---|---|---|---|
 | 1 | BOM なし | 登録/展開/承認提出：警告のみで続行。下达：エラー終了（422／`60020`） | 下达時のみ全体 | `MSG-PRD-020`（蓝色大肥鱼 2026-10-21 #36 決定） |
+| 1a | 材料単位の換算不可（CHK-PRD-002-10） | 下达（BOM 展開・既存明細）／材料明細の手動追加・編集 | 422／`60022` で中止 | 全体（下达は `order_status=25`・`version` 不変、E21 なし） | `MSG-PRD-022`（蓝色大肥鱼 2026-10-21 決定） |
 | 2 | 引当不足 | 下达 | 部分引当で続行（設定）または中止。警告表示 | なし（続行時） | `MSG-PRD-045` |
 | 3 | INV 引当 API 失敗 | 下达（E21 配信） | Outbox リトライ（1 分〜6 時間、最大 10 回）。工单は 30 のまま「引当待ち」表示 | なし（非同期） | `MSG-PRD-044` |
 | 4 | 状態不整合（同時承認） | 承認 | 409、最新再取得 | 全体 | `MSG-COM-034` |
@@ -610,7 +615,7 @@ stateDiagram-v2
 | `MSG-PRD-005` | E | 起案者と承認者が同一のため承認できません。 | 自己承認 | 別の承認者へ | WARN |
 | `MSG-PRD-020` | E | 有効な BOM がありません。BOM を登録・承認してください。 | BOM なし | BOM 登録 | ERROR |
 | `MSG-PRD-021` | E | 有効な工艺路线がありません。工艺路线を登録してください。 | 工艺なし。品目選択・保存では警告（`warnings[]`、処理続行）、承認で工序明細 0 行時はエラー（422／`60021`）（蓝色大肥鱼 2026-10-21 決定） | 工艺登録 | WARN（警告時）／ERROR（承認時） |
-| `MSG-PRD-022` | E | BOM の単位と物料の基本単位が一致しません。 | 単位不整合 | BOM 修正 | ERROR |
+| `MSG-PRD-022` | E | BOM の単位と物料の基本単位が整合しません（換算不可）。 | 単位不整合（同一単位でも同一換算グループでもない、または換算率なし） | BOM・単位換算マスタを修正 | ERROR |
 | `MSG-PRD-040` | E | 完工数量が許容上限（`allowed_qty`）を超えています。 | ハード超過 | 数量修正 | ERROR |
 | `MSG-PRD-044` | E | 下达に失敗しました。時間をおいて再実行してください。 | E21 発行失敗 | 再実行 | ERROR |
 | `MSG-PRD-045` | W | 一部材料の引当が不足しています。不足分は補充手配が必要です。 | 引当不足 | 補充請購 | WARN |
@@ -667,6 +672,7 @@ stateDiagram-v2
 | 16 | TST-F-PRD-005-16 | 正常系 | 他域からの MRP 計画订单転送で工单が作成される | `source_type=10`、`source_no` 設定 |
 | 17 | TST-F-PRD-005-17 | 境界値 | `allowed_qty` ちょうどまで許可、超過は MTO 未承認なら `MSG-PRD-100`、ハード超過は `MSG-PRD-040` | 上限ちょうどは成功、超過は所定コードで拒否 |
 | 18 | TST-F-PRD-005-18 | 正常系 | 子工单同時作成（多阶） | `parent_work_order_id` 設定、材料透過なし |
+| 19 | TST-F-PRD-005-19 | 正常系／異常系 | 下达時の材料単位：同一単位はそのまま、換算可能は基本単位へ換算・切上げ（`bom_uom_code`・`bom_qty` 保持）、換算不可は 422／`60022`・全体ロールバック。手動明細編集で換算不可は 422／`60022` | AC-PRD-14 |
 
 ## 13. 未決事項
 
@@ -694,3 +700,4 @@ stateDiagram-v2
 | v1.9 | 2026-10-21 | CHK-PRD-002-09（保存・提出時の材料明細 1 行以上）を削除、§6.2 手順 6 を BOM ありの場合のみ展開に変更、§6.4 にチェック順序（60104→allowed_qty NULL 5000→ロック→状態/引当→60020/展開→状態変更）を明記、60020 時は E21 なし（蓝色大肥鱼 2026-10-21 PR #37 決定） | 业务分析 |
 | v1.10 | 2026-10-21 | §6.3 承認手順 2 を工序明細 1 行以上のみに変更（材料明細は下达時に確保）、§6.4 2a 同時下达の後続を 409／4002 または 4003 に明記（蓝色大肥鱼 2026-10-21 PR #37 決定） | 业务分析 |
 | v1.11 | 2026-10-21 | §6.3 承認：工序明細 0 行は 422／60021／MSG-PRD-021、CHK-PRD-002-08 と MSG-PRD-021 を警告（選択・保存）／エラー（承認）の二用途に（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.12 | 2026-10-21 | CHK-PRD-002-10：整合＝同一単位または同一換算グループで換算可能（CHK-PRD-001-09 と同一基準）、換算不可は拒否。検査は下达時の BOM 展開・既存明細と材料明細の手動追加・編集時（登録・提出・承認では検査しない）。CALC-WO-03（基本単位へ換算・切上げ、BOM 単位・数量を保持）、§6.2 手順 6・§6.4 2a・手動明細編集・§6.10・MSG-PRD-022 文言・TST-F-PRD-005-19 を追加（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

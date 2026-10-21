@@ -1146,8 +1146,10 @@ CREATE TABLE prd_work_order_material (
     material_code       VARCHAR(64)   NOT NULL,                  -- 材料编码（スナップショット）
     material_name       VARCHAR(200)  NOT NULL,                  -- 材料名称（スナップショット）
     material_spec       VARCHAR(200),                            -- 材料规格（スナップショット）
-    uom_code            VARCHAR(16)   NOT NULL,                  -- 单位
-    required_qty        NUMERIC(18,4) NOT NULL,                  -- 純必要量（BOM.component_qty × order_qty ÷ base_qty）
+    uom_code            VARCHAR(16)   NOT NULL,                  -- 单位（物料基本単位 mdm_material.base_uom_code。数量列はすべてこの単位）
+    bom_uom_code        VARCHAR(16),                             -- BOM 使用単位（換算前、追跡用。mdm_uom.uom_code）
+    bom_qty             NUMERIC(18,4),                           -- BOM 単位の総必要量（換算前、追跡用）
+    required_qty        NUMERIC(18,4) NOT NULL,                  -- 純必要量（BOM.component_qty × order_qty ÷ base_qty、基本単位へ換算・切上げ）
     loss_rate           NUMERIC(7,4)  NOT NULL DEFAULT 0,        -- 適用损耗率（BOM スナップショット）
     loss_qty            NUMERIC(18,4) NOT NULL DEFAULT 0,        -- 损耗量 = required_qty ÷ (1 − loss_rate) − required_qty
     total_required_qty  NUMERIC(18,4) NOT NULL,                  -- 総必要量（gross）= required_qty + loss_qty
@@ -1176,6 +1178,8 @@ CREATE UNIQUE INDEX uk_prd_work_order_material_wo_line ON prd_work_order_materia
 CREATE INDEX idx_prd_work_order_material_material ON prd_work_order_material (tenant_id, company_id, material_id, issue_status);
 CREATE INDEX idx_prd_work_order_material_unissued ON prd_work_order_material (tenant_id, company_id, work_order_id, remaining_qty) WHERE remaining_qty > 0;
 ```
+
+> 単位（蓝色大肥鱼 2026-10-21 決定）：数量列は物料基本単位で保持し、BOM／手入力の単位と換算前数量を `bom_uom_code`・`bom_qty` に残す。換算は 02-mdm/90 §4.4 の `mdm_uom`（`conversion_group`・`decimal_places`）と `mdm_uom_conversion`（`conversion_rate`）による（CALC-WO-03、基本単位精度で切上げ）。単位はプロジェクト全体で `uom_code` 参照であり、`mdm_uom` の一意キー `uk_mdm_uom_code` は部分索引（`WHERE deleted = FALSE`）のため FK 参照先にならず、`bom_uom_code` も既存の `uom_code` 列と同じく FK なし（`mdm_uom` には `UNIQUE (tenant_id, id)` もない）。両列は既存迁移 `prd/V202610210702` に未収録のため、DB 担当が小さな追加迁移で `ADD COLUMN` する。
 
 ### 3.21 prd_work_order_operation（工单工序）
 
@@ -2632,3 +2636,4 @@ CREATE INDEX idx_prd_capacity_load_date ON prd_capacity_load (tenant_id, company
 | v1.9 | 2026-10-21 | 例外一覧に `uk_sys_user_username`（`(tenant_id, username)`、テナント単位）を追加（蓝色大肥鱼 2026-10-21 決定）。G2-20：非一意 btree `idx_` も `tenant_id` 先頭（次に `company_id`）、GIN 除外に修正 | 业务分析 |
 | v1.10 | 2026-10-21 | 非一意 btree 索引（`idx_`）98 箇所を `tenant_id` 先頭（`company_id` がある表は次に `company_id`）に変更（DDL・索引一覧。既存迁移の索引は sys/V202610210707 と同一列。GIN は対象外。蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.11 | 2026-10-21 | main（#31）取込み後の再整合：一意索引・非一意 btree 索引を `tenant_id`（＋`company_id`）先頭に再適用、テナント級一意は 00-common/04 §6.1 第 4 条に従う（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.12 | 2026-10-21 | `prd_work_order_material` に `bom_uom_code`・`bom_qty`（換算前の BOM 単位・数量、追跡用）を追加、`uom_code`／数量列は物料基本単位と明記。換算元は `mdm_uom`／`mdm_uom_conversion`（CHK-PRD-002-10）（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
