@@ -270,10 +270,10 @@ sequenceDiagram
 | SCR-PRD-005 | 工艺路线登録編集 | 登録編集 | F-PRD-003 | `production:routing:update` | 004 | 004 |
 | SCR-PRD-006 | 工作中心一覧・編集 | 一覧検索 | F-PRD-004 | `production:work-center:view` | 菜单：生产管理 > 工作中心 | 007 |
 | SCR-PRD-007 | 工作日历・产能设定 | 登録編集 | F-PRD-004 | `production:work-center:update` | 006 | 006 |
-| SCR-PRD-008 | 生产订单一覧 | 一覧検索 | F-PRD-005 | `production:work-order:view` | 菜单：生产管理 > 生产订单 | 009、010、011 |
-| SCR-PRD-009 | 生产订单登録編集 | 登録編集 | F-PRD-005 | `production:work-order:create` | 008 | 008、010 |
-| SCR-PRD-010 | 生产订单詳細（工序/用料/报工/入库标签） | 参照詳細 | F-PRD-005 | `production:work-order:view` | 008、009 | 009、012、014、016 |
-| SCR-PRD-011 | 生产订单下达・拆分・合并 | ウィザード | F-PRD-005 | `production:work-order:release` | 008、010 | 008、010 |
+| SCR-PRD-008 | 工单一览 | 一覧検索 | F-PRD-005 | `production:work-order:view` | 菜单：生产管理 > 生产订单 | 009、010、011 |
+| SCR-PRD-009 | 工单登记编辑 | 登録編集 | F-PRD-005 | `production:work-order:create` | 008 | 008、010 |
+| SCR-PRD-010 | 工单详细（工序/用料/报工/入库标签） | 参照詳細 | F-PRD-005 | `production:work-order:view` | 008、009 | 009、012、014、016 |
+| SCR-PRD-011 | 工单下达・拆分・合并 | ウィザード | F-PRD-005 | `production:work-order:release` | 008、010 | 008、010 |
 | SCR-PRD-012 | 生产领料单登録編集 | 登録編集 | F-PRD-006 | `production:material-issue:create` | 010 | 013 |
 | SCR-PRD-013 | 领退料一覧 | 一覧検索 | F-PRD-006 | `production:material-issue:view` | 菜单：生产管理 > 领料/退料 | 012 |
 | SCR-PRD-014 | 工序报工登録（现场/扫码） | 登録編集 | F-PRD-007 | `production:work-report:create` | 010、PDA | 015 |
@@ -524,3 +524,4 @@ sequenceDiagram
 | v1.3 | 2026-10-21 | 超産却下の rejectReason を必須化（共通 03 §284 に追随）。SCR-PRD-034 の却下ダイアログに却下理由必須・≤ 500 文字を追記 | 业务分析 |
 | v1.4 | 2026-10-21 | 超産申請の草稿修正 API を追加（状態 10 のみ、version 必須、allowed_qty 不変）（蓝色大肥鱼 2026-10-21 決定）。SCR-PRD-034 に草稿修正ダイアログ（数量・工单・備考）を追記（v1.3 は #104） | 业务分析 |
 | v1.5 | 2026-10-21 | §11 用語に「工单」を追加：中文は「工单」に統一、「生产订单」は使わない（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.6 | 2026-10-21 | SCR-PRD-008〜011 の名称を中文「工单」表記に統一（工单一览・工单登记编辑・工单详细（工序/用料/报工/入库标签）・工单下达・拆分・合并）。界面は中文を標準とする。`sys_menu` は後続迁移で UPDATE し対齐（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
