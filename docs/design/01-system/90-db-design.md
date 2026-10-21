@@ -176,6 +176,8 @@ COMMENT ON TABLE sys_company IS '公司（会计主体）';
 
 **会社登録時の既定パラメータ（2026-10-21 決定）**：会社を登録する処理（`POST /api/system/companies`、PRC-SYS-014-03）は、`sys_company` の INSERT と**同一トランザクション**で、§3.15「業務パラメータ」表の全キーを当該会社の `sys_param` 行（`company_id` = 新しい `sys_company.id`、`param_value` = `default_value`）として投入する。既存行はスキップする（`ON CONFLICT (tenant_id, company_id, param_key) WHERE deleted = FALSE DO NOTHING`）。投入に失敗した場合は会社登録全体をロールバックする（蓝色大肥鱼 2026-10-21 決定）。
 
+**会社登録時の系统管理员ロール（2026-10-21 決定）**：バックエンドは会社 INSERT と同一トランザクションで `sys_init_company(p_tenant_id, p_company_id)` を呼ぶ。同関数は当該会社の `sys_param` 既定行を投入し、当該会社に `SYSTEM_ADMIN` がない場合のみ `sys_role`（`role_code='SYSTEM_ADMIN'`、`role_type=1`、`data_scope_type=1`）を作成して `permission_code IS NOT NULL` の全 `sys_menu` 行（`system:company:create` を含む）を `sys_role_permission` に付与する。既にあれば付与しない（外した付与は戻らない）。`SECURITY DEFINER`・`SET search_path`、`EXECUTE` は `erp_tenant_provisioner` と `erp_app`。最初に `p_tenant_id = current_setting('app.tenant_id')::bigint`、会社が存在・同テナント・`deleted = FALSE` を検査し、違反時は例外。詳細は [94 §2.10](94-sample-data.md)（蓝色大肥鱼 2026-10-21 決定）。
+
 **更新仕様**：F-SYS-014 のみが INSERT/UPDATE。削除は無効化（`status=0`）で表現し、`company_id` が参照されている場合は削除不可（`MSG-SYS-014`）。
 
 ### 3.2 sys_factory_setting 工厂组织设置
@@ -220,7 +222,7 @@ COMMENT ON TABLE sys_factory_setting IS '工厂组织设置（工厂主数据は
 | データ量見積 | `id=0` はシステムテナント。テナント数に応じて増加 |
 | 保存期間 | 無期限 |
 
-**概要**：マルチテナントの契約単位。画面・API は参照のみ。第一版から RLS（`tenant_id = current_setting('app.tenant_id')::bigint`）を有効化しており、その親テーブルとなる（[04 §14](../00-common/04-common-db-spec.md)）。テナント作成時は**先に初期会社（`sys_company`）を登録し、その後**同一トランザクションで `sys_init_tenant(tenant_id)` を呼び出し、既存会社ごとの既定パラメータ（§3.15「業務パラメータ」の一覧）を投入する（関数は DBA の T1 マイグレーションで定義、本書は参照のみ）。テナント開設後に追加する会社は §3.1 の会社登録時投入で補う（蓝色大肥鱼 2026-10-21 決定）。
+**概要**：マルチテナントの契約単位。画面・API は参照のみ。第一版から RLS（`tenant_id = current_setting('app.tenant_id')::bigint`）を有効化しており、その親テーブルとなる（[04 §14](../00-common/04-common-db-spec.md)）。テナント作成時は**先に初期会社（`sys_company`）を登録し、その後**同一トランザクションで `sys_init_tenant(tenant_id)` を呼び出し、既存会社ごとの既定パラメータ（§3.15「業務パラメータ」の一覧）を投入する（関数は DBA の T1 マイグレーションで定義、本書は参照のみ）。テナント開設後に追加する会社は §3.1 の会社登録時投入で補う（蓝色大肥鱼 2026-10-21 決定）。 `sys_init_tenant(p_tenant_id)` は `sys_menu` 種データ（`company_id = 0`、[94 付録 A](94-sample-data.md)）を冪等投入（上書きしない）し、続けて当該テナントの各会社に `sys_init_company(p_tenant_id, p_company_id)` を呼ぶ。`sys_init_tenant` の `EXECUTE` は `erp_tenant_provisioner` のみ（蓝色大肥鱼 2026-10-21 決定）。
 
 ```sql
 CREATE TABLE sys_tenant (
@@ -467,7 +469,7 @@ COMMENT ON TABLE sys_role_permission IS '角色权限（ロール×メニュー/
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_sys_role_permission | UNIQUE | (tenant_id, company_id, role_id, menu_id) | WHERE deleted=FALSE | 重複付与防止 |
+| uk_sys_role_permission | UNIQUE | (tenant_id, company_id, role_id, menu_id) | —（`deleted` 列なし、sys/V202610210708:81） | 重複付与防止 |
 | idx_sys_role_permission_code | B-Tree | (tenant_id, company_id, permission_code) | — | 権限コード逆引き（監査用） |
 
 **更新仕様**：F-SYS-003 の保存時に「全削除→再登録」（トランザクション内）。権限キャッシュ（Redis）を無効化し、影響ユーザの次回リクエストから反映。
@@ -561,7 +563,7 @@ CREATE TABLE sys_menu (
     menu_type           SMALLINT      NOT NULL,           -- 类型：1 目录 / 2 菜单 / 3 按钮 / 4 外链
     parent_id           BIGINT        NOT NULL DEFAULT 0, -- 父菜单 ID（0=ルート）
     module_code         VARCHAR(32)   NOT NULL,           -- 模块名（system/sales/mdm/…）
-    route_path          VARCHAR(300),                     -- 前端路由路径（例 /system/users）
+    route_path          VARCHAR(300),                     -- 前端路由路径（先頭スラッシュなし、例 system/users）
     component_path      VARCHAR(300),                     -- コンポーネントパス（例 system/user/index）
     permission_code     VARCHAR(100),                     -- 权限代码（例 system:user:view）
     icon                VARCHAR(64),                      -- アイコン
@@ -580,9 +582,11 @@ COMMENT ON TABLE sys_menu IS '菜单/权限（メニューツリー＋ボタン�
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
 | uk_sys_menu_code | UNIQUE | (tenant_id, menu_code) | WHERE deleted=FALSE | メニューコード一意 |
-| uk_sys_menu_permission | UNIQUE | (tenant_id, permission_code) | WHERE deleted=FALSE AND permission_code IS NOT NULL | 権限コード一意 |
+| idx_sys_menu_permission | B-Tree | (tenant_id, permission_code) | WHERE deleted=FALSE AND permission_code IS NOT NULL | 権限コード検索（**一意ではない**。旧 `uk_sys_menu_permission` を DBA が種マイグレーションで普通索引に変更） |
 | idx_sys_menu_parent | B-Tree | (tenant_id, company_id, parent_id, sort_no) | — | ツリー表示 |
 | idx_sys_menu_module | B-Tree | (tenant_id, company_id, module_code, menu_type) | — | モジュール別一覧 |
+
+**種データ（2026-10-21 決定）**：`sys_menu` はテナント単位（`company_id = 0`）。全件・導出規則・投入範囲は [94 §2.10・付録 A](94-sample-data.md)。目录・菜单行は `route_path`（先頭スラッシュなし）必須、按钮行は `permission_code` のみ。`permission_code` は複数行で重複可（`menu_code` は一意）、判定はコードのみ、目录は付与対象外。投入は `sys_init_tenant`（メニュー）→ `sys_init_company`（`SYSTEM_ADMIN`・付与）。`sys_menu` を参照する FK は `(tenant_id, menu_id)` 2 列の命名例外（[04 §6.2](../00-common/04-common-db-spec.md) 項 2a）（蓝色大肥鱼 2026-10-21 決定）。
 
 **制約**：`menu_type=3`（ボタン）は `permission_code` 必須。親に `menu_type=1/2`、子に `2/3` の階層ルールをアプリで強制（`MSG-SYS-021`）。メニュー削除時、子メニュー・権限付与がある場合は禁止。
 
@@ -1560,7 +1564,7 @@ COMMENT ON TABLE sys_data_maintenance_log IS '数据维护历史（初期化・�
 |---|---|---|
 | 認証 | uk_sys_user_username、idx_sys_user_code | sys_user |
 | 権限解決 | uk_sys_user_role、idx_sys_role_permission_code | sys_user_role、sys_role_permission |
-| メニュー生成 | idx_sys_menu_parent、uk_sys_menu_permission | sys_menu |
+| メニュー生成 | idx_sys_menu_parent、idx_sys_menu_permission | sys_menu |
 | 組織ツリー | idx_sys_department_parent、idx_sys_department_path | sys_department |
 | 辞書キャッシュ | idx_sys_dict_item_type | sys_dict_item |
 | 採番 | uk_sys_sequence_key_date | sys_sequence |
@@ -1619,3 +1623,5 @@ COMMENT ON TABLE sys_data_maintenance_log IS '数据维护历史（初期化・�
 | v1.10 | 2026-10-21 | §3.15 業務パラメータに `prd.overproduction_max_rate`（既定 1.0000、`sys_init_tenant` シード）を追加（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.11 | 2026-10-21 | `prd.completion_over_rate`・`prd.overproduction_max_rate` の value_type を 4 小数に訂正。`sys_param` を会社単位（`(tenant_id, company_id, param_key)`、sys/V202610210103:166）と明記し、`sys_init_tenant` は会社ごとに 1 行投入（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.12 | 2026-10-21 | §3.1 に `company_id` = `sys_company.id`（`LoginContext.companyId` も同値、`sys_company.company_id` は自行 `id` と同値）を明記。会社登録時に同一トランザクションで §3.15 業務パラメータの既定行を冪等投入、テナント開設は会社登録→`sys_init_tenant` の順、§3.3・§3.15 の「テナント単位」を会社単位に修正（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.13 | 2026-10-21 | §3.9 `uk_sys_role_permission` の条件を実 DDL に合わせ削除（`deleted` 列なし）。§3.12 `route_path` を先頭スラッシュなしに統一し、`sys_menu` 種データ（`company_id=0`）を 94 §2.10 に参照。§3.1 会社登録時に `SYSTEM_ADMIN` ロール＋全権限付与、§3.3 `sys_init_tenant` で `sys_menu` 種データを投入（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.14 | 2026-10-21 | #58 決定反映：§3.12 `uk_sys_menu_permission` を普通索引 `idx_sys_menu_permission` に（`permission_code` 重複可）、§3.1/§3.3/§3.12 に `sys_init_tenant`（メニュー＋各社呼出し、provisioner のみ）／`sys_init_company(p_tenant_id, p_company_id)`（`sys_param`＋`SYSTEM_ADMIN` 未作成時のみ作成・全付与、`erp_app` にも EXECUTE、テナント・会社検査）を明記（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

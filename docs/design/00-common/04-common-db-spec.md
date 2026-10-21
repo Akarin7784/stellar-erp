@@ -185,7 +185,6 @@ PostgreSQL の一意制約チェックは RLS を経由しないため、`tenant
      | `sys_company` | `uk_sys_company_credit` | `(tenant_id, unified_social_credit_code) WHERE deleted=FALSE AND unified_social_credit_code IS NOT NULL` |
      | `sys_user` | `uk_sys_user_username`（目標名） | `(tenant_id, username)`。main 上は現在 `uk_sys_user_tenant_username`（`V1__baseline.sql:18`）。改名・`tenant_id` 既定値（0）の修正・pgTAP 例外登録は `sys_user` の正式迁移で行う |
      | `sys_menu` | `uk_sys_menu_code` | `(tenant_id, menu_code) WHERE deleted=FALSE` |
-     | `sys_menu` | `uk_sys_menu_permission` | `(tenant_id, permission_code) WHERE deleted=FALSE AND permission_code IS NOT NULL` |
      | `sys_dict_type` | `uk_sys_dict_type_code` | `(tenant_id, dict_code) WHERE deleted=FALSE` |
      | `sys_outbox_event` | `uk_sys_outbox_event_id` | `(tenant_id, event_id)` |
      | `sys_idempotency` | `uk_sys_idempotency_key` | `(tenant_id, idempotency_key)` |
@@ -202,6 +201,7 @@ PostgreSQL の一意制約チェックは RLS を経由しないため、`tenant
 2. **例外**：主データ域 **sys**（`sys_*`）と **mdm**（`mdm_*`）は、他域から硬 FK で参照してよい（6 章「外部キー」の規則に従う）。ただし**必ず複合外键 `FOREIGN KEY (tenant_id, x_id) REFERENCES 被参照表 (tenant_id, id)`** とし、`x_id` 単独の FK は禁止。被参照表には `UNIQUE (tenant_id, id)`（命名 `uk_<table>_tenant_id`）を付与する。適用済：`sys/V202610210707__sys_composite_tenant_fk.sql`（#35。被参照 17 表に `uk_<table>_tenant_id`、sys/mdm 向け単列 FK 76 本〔mdm 32／prd 29／sal 14／fin 1〕を複合 FK に再作成、原制約名・NO ACTION を維持）。
 2a. **同一域内の親子・自己参照（同域外键）**：`FOREIGN KEY (tenant_id, company_id, x_id) REFERENCES 父表 (tenant_id, company_id, id)` の三列複合外键とする（跨公司の親子紐付けを DB で拒否）。被参照父表には `UNIQUE (tenant_id, company_id, id)`（命名 `uk_<table>_tenant_company_id`）を付与する。適用済：`sys/V202610211401__sys_same_domain_parent_fk.sql`（#43。父表 34 張に `uk_<table>_tenant_company_id`、同域単列 FK 74 本〔prd 46／sal 28〕を再作成、原制約名・ON DELETE 動作〔RESTRICT／NO ACTION〕を維持）。CI：pgTAP `same_domain_parent_fk.sql` が public 下の非 mdm 同域外键を動的に収集し三列形を検査する（新域も自動対象）。
    - **跨域参照・sys/mdm 参照**は項 2 のとおり `(tenant_id, x_id)` → `(tenant_id, id)`（主データは company を跨いで共有されうるため）。
+   - **命名例外：`sys_menu` を参照する外键**（`sys_role_permission.menu_id`、`sys_menu.parent_id`）は `(tenant_id, menu_id)` → `sys_menu (tenant_id, id)` の 2 列とする。`sys_menu` はテナント単位（`company_id = 0`）で、参照元（会社単位の `sys_role_permission`）と `company_id` が一致しないため三列形は使えない（蓝色大肥鱼 2026-10-21 決定）。pgTAP `same_domain_parent_fk.sql` の除外対象に追加する（DBA）。
    - **命名例外：mdm 域内部の外键**（32 本、`sys/V202610210707` で作成）は `(tenant_id, x_id)` → `(tenant_id, id)` のまま維持する。主データは同一租户内で複数公司に共有されるため、`company_id` 一致を強制しない（蓝色大肥鱼 2026-10-21 決定。pgTAP `same_domain_parent_fk.sql:27-30` で断言）。
 3. **将来硬 FK を追加する場合**：後から建てた域の側で**別の迁移**を起こし、`ALTER TABLE … ADD CONSTRAINT … FOREIGN KEY … NOT VALID` で追加した後、別ステップで `ALTER TABLE … VALIDATE CONSTRAINT …` を実行する。前提として被参照列に一意制約が必要。租户を持つ表は**複合外键 `(tenant_id, x_id)` → 被参照側 `UNIQUE (tenant_id, id)`** とすること（`x_id` 単独の FK は租户隔离を迂回するため禁止）。
 4. **目的**：迁移順序が FK に縛られず、各域を単独で rebase／回滚できるようにする。
@@ -448,6 +448,7 @@ V{yyyyMMdd}{NNNN}__{module}_{description}.sql     # バージョンは 12 桁
 | v1.11 | 2026-10-21 | §6.2 項 2a を新設、§6.1 項 4 に `uk_<table>_tenant_company_id` は FK 参照先専用で業務一意キーではない旨を追記：同域親子 FK は `(tenant_id, company_id, x_id)` → 父表 `uk_<table>_tenant_company_id UNIQUE (tenant_id, company_id, id)`、跨域・sys/mdm 参照は `(tenant_id, x_id)`、mdm 域内部 FK は命名例外として `(tenant_id, x_id)` 維持（#43 迁移 `sys/V202610211401` に整合） | 业务分析 |
 | v1.12 | 2026-10-21 | §6「外部キー」：論理削除マスタにも硬 FK `(tenant_id, x_id)` を張れる旨に改訂（マスタは物理削除しない。論理削除済みの新規参照禁止はサービス層）（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.13 | 2026-10-21 | §6.1 項 2：`company_id` の値は `sys_company.id`（`LoginContext.companyId` 同値、`sys_company.company_id` = 自行 `id`）と明記（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.14 | 2026-10-21 | §6.1 項 4 (b) から `uk_sys_menu_permission` を削除（`sys_menu.permission_code` は重複可、普通索引に変更）。§6.2 項 2a に `sys_menu` 参照 FK の 2 列命名例外を追加（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 
 ## Flowable 引擎表の schema 分離（issue #7）
 
