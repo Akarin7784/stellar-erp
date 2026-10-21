@@ -1,6 +1,6 @@
 -- pgTAP：05 库存域（inv/V202610211404）。结构（24 表 / RLS / 分区 / FK）、关键 CHECK、表头触发器、inv_stock_txn_key 防重（90-db-design.md:458-489）、跨公司隔离。
 BEGIN;
-SELECT plan(67);
+SELECT plan(73);
 
 -- ===== 结构 =====
 SELECT is((SELECT count(*)::int FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -60,15 +60,16 @@ SELECT is((SELECT count(*)::int FROM pg_constraint k JOIN pg_class c ON c.oid = 
             WHERE k.contype = 'f' AND c.relname ~ '^inv_' AND p.relname ~ '^mdm_'), 28, 'inv → mdm 跨域 FK 28 条（§6.3 #7〜11 + inv_stock_balance.material_id）');
 SELECT is((SELECT count(*)::int FROM pg_constraint k JOIN pg_class c ON c.oid = k.conrelid JOIN pg_class p ON p.oid = k.confrelid
             WHERE k.contype = 'f' AND c.relname ~ '^inv_' AND p.relname ~ '^mdm_'
-              AND k.conname <> 'fk_inv_stock_balance_material'
-              AND pg_get_constraintdef(k.oid) !~ '^FOREIGN KEY \(tenant_id, \w+\) REFERENCES mdm_\w+\(tenant_id, id\)$'),
-          0, 'inv → mdm FK（fk_inv_stock_balance_material 除外）全部 (tenant_id, x_id) → (tenant_id, id)，无 ON DELETE');
+              AND (pg_get_constraintdef(k.oid) !~ '^FOREIGN KEY \(tenant_id, company_id, \w+\) REFERENCES mdm_\w+\(tenant_id, company_id, id\)$'
+                   OR k.confdeltype <> 'a' OR k.confupdtype <> 'a')),
+          0, 'inv → mdm FK 28 条全部三列 (tenant_id, company_id, x_id) → (tenant_id, company_id, id)，NO ACTION（04 §6.2 项 2a，inv/V202610211409・V202610211410）');
 SELECT is((SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'fk_inv_stock_balance_material'),
           'FOREIGN KEY (tenant_id, company_id, material_id) REFERENCES mdm_material(tenant_id, company_id, id)',
           'fk_inv_stock_balance_material 为三列 → mdm_material(tenant_id, company_id, id)，NO ACTION（inv/V202610211409）');
-SELECT ok(EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uk_mdm_material_tenant_company_id' AND contype = 'u'
-                   AND pg_get_constraintdef(oid) = 'UNIQUE (tenant_id, company_id, id)'),
-          'mdm_material 有 uk_mdm_material_tenant_company_id UNIQUE (tenant_id, company_id, id)');
+SELECT is((SELECT count(*)::int FROM pg_constraint WHERE contype = 'u' AND pg_get_constraintdef(oid) = 'UNIQUE (tenant_id, company_id, id)'
+            AND conname IN ('uk_mdm_material_tenant_company_id', 'uk_mdm_warehouse_tenant_company_id', 'uk_mdm_factory_tenant_company_id',
+                            'uk_mdm_supplier_tenant_company_id', 'uk_mdm_customer_tenant_company_id')),
+          5, 'inv 引用的 mdm 5 表均有 uk_<表>_tenant_company_id UNIQUE (tenant_id, company_id, id)');
 SELECT is((SELECT count(*)::int FROM pg_constraint WHERE contype = 'u' AND conname ~ '^uk_inv_\w+_tenant_company_id$'), 6,
           '同域被引用父表 6 张有 uk_<表>_tenant_company_id');
 SELECT is((SELECT count(*)::int FROM pg_constraint WHERE contype = 'u' AND conname ~ '^uk_inv_\w+_tenant_id$'), 0,
@@ -88,6 +89,14 @@ VALUES (8040002, 804, 2, '9INV', 'inv', '/9INV/', 1, TRUE, 1), (8050002, 805, 1,
 INSERT INTO mdm_material (id, tenant_id, company_id, material_code, material_name, material_type, category_id, spec, base_uom_code, valuation_method, status)
 VALUES (8040002, 804, 2, '9INV000002', 'inv m c2', 10, 8040002, 's', 'PCE', 10, 1),
        (8050002, 805, 1, '9INV000003', 'inv m t805', 10, 8050002, 's', 'PCE', 10, 1);
+-- 三列 FK 拒绝跨公司用：同租户公司 2 的工厂/仓库，公司 1・2 的供应商/客户
+INSERT INTO mdm_factory (id, tenant_id, company_id, factory_code, factory_name) VALUES (8040002, 804, 2, '9INV', 'inv 804 c2');
+INSERT INTO mdm_warehouse (id, tenant_id, company_id, warehouse_code, warehouse_name, warehouse_type, factory_id)
+VALUES (8040002, 804, 2, '9INV2', 'inv wh 804 c2', 10, 8040002);
+INSERT INTO mdm_supplier (id, tenant_id, company_id, supplier_code, supplier_name, supplier_type, tax_no, buyer_id, payment_term_code, settlement_method_code)
+VALUES (8040001, 804, 1, '9INVS1', 's c1', 10, 'T1', 1, 'P', 'S'), (8040002, 804, 2, '9INVS2', 's c2', 10, 'T2', 1, 'P', 'S');
+INSERT INTO mdm_customer (id, tenant_id, company_id, customer_code, customer_name, customer_type, tax_no, owner_user_id, payment_term_code, settlement_method_code)
+VALUES (8040001, 804, 1, '9INVC1', 'c c1', 10, 'T1', 1, 'P', 'S'), (8040002, 804, 2, '9INVC2', 'c c2', 10, 'T2', 1, 'P', 'S');
 -- 租户 805 的一行（RLS 可见性用）
 INSERT INTO inv_stock_txn_key (id, tenant_id, company_id, key_type, key_value, txn_id, txn_date)
 VALUES (8050001, 805, 1, 'TXN_NO', 'GRI2610150001', 1, DATE '2026-10-15');
@@ -106,6 +115,18 @@ SELECT throws_ok($$INSERT INTO inv_stock_balance (id, company_id, warehouse_id, 
                  '23503', NULL, 'fk_inv_stock_balance_material：租户 804 引用租户 805 的物料 → 23503');
 SELECT lives_ok($$INSERT INTO inv_stock_balance (id, company_id, warehouse_id, material_id, stock_status) VALUES (5, 1, 8040001, 8040001, 20)$$,
                 'fk_inv_stock_balance_material：同租户同公司物料可写入');
+SELECT throws_ok($$INSERT INTO inv_stock_summary (id, company_id, period_code, warehouse_id, material_id, uom_code) VALUES (1, 1, '2026-10', 8040002, 8040001, 'PCE')$$,
+                 '23503', NULL, 'fk_inv_stock_summary_wh：公司 1 引用同租户公司 2 的仓库 → 23503');
+SELECT throws_ok($$INSERT INTO inv_stock_summary (id, company_id, period_code, warehouse_id, material_id, uom_code) VALUES (2, 1, '2026-10', 8040001, 8040002, 'PCE')$$,
+                 '23503', NULL, 'fk_inv_stock_summary_material：公司 1 引用同租户公司 2 的物料 → 23503');
+SELECT throws_ok($$INSERT INTO inv_batch (id, company_id, batch_no, material_id, supplier_id) VALUES (1, 1, 'B1', 8040001, 8040002)$$,
+                 '23503', NULL, 'fk_inv_batch_supplier：公司 1 引用同租户公司 2 的供应商 → 23503');
+SELECT throws_ok($$INSERT INTO inv_serial (id, company_id, serial_no, material_id, customer_id) VALUES (1, 1, 'S1', 8040001, 8040002)$$,
+                 '23503', NULL, 'fk_inv_serial_customer：公司 1 引用同租户公司 2 的客户 → 23503');
+SELECT lives_ok($$INSERT INTO inv_batch (id, company_id, batch_no, material_id, supplier_id) VALUES (2, 1, 'B2', 8040001, 8040001)$$,
+                'fk_inv_batch_*：同公司物料・供应商可写入');
+SELECT lives_ok($$INSERT INTO inv_serial (id, company_id, serial_no, material_id, customer_id) VALUES (2, 1, 'S2', 8040001, 8040001)$$,
+                'fk_inv_serial_*：同公司物料・客户可写入');
 SELECT throws_ok($$INSERT INTO inv_stock_txn (id, company_id, txn_no, txn_type, txn_date, factory_id, warehouse_id, source_type, accounting_period)
                    VALUES (10, 1, 'X1', 'XX', DATE '2026-10-15', 8040001, 8040001, 'MANUAL', '2026-10')$$,
                  '23514', NULL, 'ck_inv_stock_txn_type：19 種以外 → 23514');
