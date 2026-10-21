@@ -1,19 +1,19 @@
--- pgTAP：复合外键（sys/V202610210707、inv/V202610211409・V202610211410、prd/V202610211411、sal/V202610211412）。指向有 company_id 的 sys_/mdm_ 表的 FK 须为三列 (tenant_id, company_id, x)（2 列须登记：已定例外或待改存量），跨租户引用被拒。
+-- pgTAP：复合外键（sys/V202610210707、inv/V202610211409・V202610211410、prd/V202610211411、sal/V202610211412、fin/V202610211413）。指向有 company_id 的 sys_/mdm_ 表的 FK 须为三列 (tenant_id, company_id, x)（2 列须登记：已定例外或待改存量），跨租户引用被拒。
 BEGIN;
-SELECT plan(14);
+SELECT plan(17);
 
 SELECT is((SELECT count(*)::int FROM pg_constraint k JOIN pg_class r ON r.oid = k.confrelid
             WHERE k.contype = 'f' AND array_length(k.conkey, 1) = 1 AND r.relname ~ '^(sys|mdm)_'),
           0, '指向 sys_/mdm_ 的单列外键为 0');
 -- 断言 2（收紧）：被引用表有 company_id 时只允许三列 (tenant_id, company_id, x) → (tenant_id, company_id, id)；
 -- 被引用表无 company_id 时为 (tenant_id, x) → (tenant_id, id)。被引用侧末列必须是 id。
--- 2 列 (tenant_id, x) → (tenant_id, id) 登记表：〔A〕已定例外 1 条、〔B〕待改为三列（存量，按域分批）33 条（inv 27 条已由 inv/V202610211410、prd 29 条已由 prd/V202610211411、sal 14 条已由 sal/V202610211412 改为三列）。新增 FK 不得默认走 2 列。
+-- 2 列 (tenant_id, x) → (tenant_id, id) 登记表：〔A〕已定例外 1 条、〔B〕待改为三列（存量，按域分批）32 条（inv 27 条已由 inv/V202610211410、prd 29 条已由 prd/V202610211411、sal 14 条已由 sal/V202610211412、fin 1 条已由 fin/V202610211413 改为三列）。新增 FK 不得默认走 2 列。
 CREATE TEMP TABLE t_cfk_2col_exception (conname name PRIMARY KEY) ON COMMIT DROP;
 INSERT INTO t_cfk_2col_exception VALUES
         -- 〔A〕已定例外 1 条（04 §6.2 2a 命名例外）
         -- 指向 sys_menu（company_id=0 的租户级表）1 条
         ('fk_sys_role_permission_menu'),
-        -- 〔B〕待改为三列（存量，按域分批）33 条：fin 1／mdm 32（inv 27 条已于 inv/V202610211410、prd 29 条已于 prd/V202610211411、sal 14 条已于 sal/V202610211412 改为三列）
+        -- 〔B〕待改为三列（存量，按域分批）32 条：mdm 32（inv 27 条已于 inv/V202610211410、prd 29 条已于 prd/V202610211411、sal 14 条已于 sal/V202610211412、fin 1 条已于 fin/V202610211413 改为三列）
         -- mdm 域内部 32 条
         ('fk_mdm_admission_supplier'),
         ('fk_mdm_bank_account_bank'),
@@ -46,9 +46,7 @@ INSERT INTO t_cfk_2col_exception VALUES
         ('fk_mdm_warehouse_bin_warehouse'),
         ('fk_mdm_warehouse_bin_zone'),
         ('fk_mdm_warehouse_factory'),
-        ('fk_mdm_warehouse_zone_warehouse'),
-        -- fin 1 条
-        ('fk_fin_standard_cost_material');
+        ('fk_mdm_warehouse_zone_warehouse');
 CREATE TEMP TABLE t_cfk ON COMMIT DROP AS
 SELECT k.conname, r.relname AS parent,
        EXISTS (SELECT 1 FROM pg_attribute x WHERE x.attrelid = r.oid AND x.attname = 'company_id' AND NOT x.attisdropped) AS parent_has_co,
@@ -80,6 +78,13 @@ SELECT is((SELECT count(*)::int FROM t_cfk WHERE conname ~ '^fk_prd_'
 SELECT is((SELECT count(*)::int FROM t_cfk WHERE conname ~ '^fk_sal_'
             AND NOT (cols[1:2] = ARRAY['tenant_id', 'company_id']::name[] AND refcols = ARRAY['tenant_id', 'company_id', 'id']::name[])),
           0, 'sal → mdm/sys FK 14 条全部为 04 §6.2 2a 标准三列形（sal/V202610211412），登记表无 fk_sal_*');
+SELECT is((SELECT pg_get_constraintdef(k.oid) || ' / ' || k.confdeltype::text || k.confupdtype::text FROM pg_constraint k WHERE k.conname = 'fk_fin_standard_cost_material'),
+          'FOREIGN KEY (tenant_id, company_id, material_id) REFERENCES mdm_material(tenant_id, company_id, id) / aa',
+          'fk_fin_standard_cost_material 为 04 §6.2 2a 标准三列形，NO ACTION（fin/V202610211413），登记表无 fk_fin_*');
+SELECT ok(EXISTS (SELECT 1 FROM pg_constraint k JOIN pg_index i ON i.indrelid = k.conrelid JOIN pg_class ic ON ic.oid = i.indexrelid JOIN pg_am am ON am.oid = ic.relam
+                   WHERE k.conname = 'fk_fin_standard_cost_material' AND am.amname = 'btree' AND i.indnatts >= 3
+                     AND i.indkey[0] = k.conkey[1] AND i.indkey[1] = k.conkey[2] AND i.indkey[2] = k.conkey[3]),
+          'fk_fin_standard_cost_material 子表有以 (tenant_id, company_id, material_id) 打头的 btree 索引');
 SELECT is((SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'fk_inv_stock_balance_material'),
           'FOREIGN KEY (tenant_id, company_id, material_id) REFERENCES mdm_material(tenant_id, company_id, id)',
           'fk_inv_stock_balance_material 为 04 §6.2 2a 标准三列形 = (tenant_id, company_id, material_id) → mdm_material(tenant_id, company_id, id)');
@@ -116,12 +121,14 @@ SELECT ok(EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_prd_bom_effect
                    AND indexdef LIKE '%(tenant_id, company_id, effective_status, valid_from, valid_to)%'),
           'idx_prd_bom_effective = (tenant_id, company_id, effective_status, valid_from, valid_to)');
 
--- 准备（owner）：租户 801 / 802 各一个物料
+-- 准备（owner）：租户 801 / 802 各一个物料；租户 801 公司 2 另一个物料（fin 三列 FK 跨公司检查）
 INSERT INTO mdm_material_category (id, tenant_id, company_id, category_code, category_name, category_path, category_level, is_leaf, status)
 VALUES (8010001, 801, 1, '9CFK', 'cfk', '/9CFK/', 1, TRUE, 1),
+       (8010003, 801, 2, '9CFK', 'cfk c2', '/9CFK/', 1, TRUE, 1),
        (8020001, 802, 1, '9CFK', 'cfk', '/9CFK/', 1, TRUE, 1);
 INSERT INTO mdm_material (id, tenant_id, company_id, material_code, material_name, material_type, category_id, spec, base_uom_code, valuation_method, status)
 VALUES (8010001, 801, 1, '9CFK000001', 'cfk 801', 10, 8010001, 's', 'PCE', 20, 1),
+       (8010003, 801, 2, '9CFK000003', 'cfk 801 c2', 10, 8010003, 's', 'PCE', 20, 1),
        (8020001, 802, 1, '9CFK000001', 'cfk 802', 10, 8020001, 's', 'PCE', 20, 1);
 
 SET ROLE erp_app;
@@ -135,6 +142,9 @@ SELECT throws_ok($$INSERT INTO mdm_material (id, company_id, material_code, mate
 SELECT lives_ok($$INSERT INTO fin_standard_cost (id, company_id, material_id, material_code, cost_version, period_from, cost_method, material_unit_cost, total_unit_cost)
                   VALUES (8010102, 1, 8010001, '9CFK000001', '2026A', DATE '2026-01-01', 2, 1, 1)$$,
                 '同租户引用可写入');
+SELECT throws_ok($$INSERT INTO fin_standard_cost (id, company_id, material_id, material_code, cost_version, period_from, cost_method, material_unit_cost, total_unit_cost)
+                   VALUES (8010103, 1, 8010003, '9CFK000003', '2026A', DATE '2026-01-01', 2, 1, 1)$$,
+                 '23503', NULL, 'fk_fin_standard_cost_material：公司 1 引用同租户公司 2 的物料 → 23503');
 RESET ROLE;
 
 SELECT * FROM finish();
