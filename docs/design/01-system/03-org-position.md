@@ -220,10 +220,10 @@ stateDiagram-v2
 
 **PRC-SYS-014-03 公司登録**（蓝色大肥鱼 2026-10-21 決定）
 
-1. 権限チェック（`system:company:create`。テナント開設級の操作で `update` とは分離）と入力チェック（汎用検証違反は `1001`。公司代码・统一社会信用代码の重複は 422／`10035`／`MSG-SYS-093`）。
+1. 権限チェック（`system:company:create`。テナント開設級の操作で `update` とは分離）と入力チェック（汎用検証違反は `1001`。公司代码・统一社会信用代码の重複（一意索引 `uk_sys_company_code`・`uk_sys_company_credit` の違反のみ）は 422／`10035`／`MSG-SYS-093`。他の一意違反は `10035` にしない）。
 2. `sys_company` を INSERT する（共通カラム `company_id` は自行 `id` と同値）。
 3. 同一トランザクションで、[90 §3.15](90-db-design.md)「業務パラメータ」表の全キー（現時点 `prd.completion_over_rate = 0.05`、`prd.overproduction_max_rate = 1.0000`）を `sys_param` に `company_id` = 新しい `sys_company.id` で INSERT する。既存行はスキップ（`ON CONFLICT ... DO NOTHING`）。失敗時は会社登録ごとロールバック。
-4. 監査ログを記録する。以後、当該会社でのパラメータ読取りは `company_id = 0` へフォールバックせず、行がなければ `5000`。
+4. 監査ログを記録する。成功時は HTTP 201、`data = {id, companyCode, companyName, version}` を返す（[91 §3.8](91-api-design.md)）。以後、当該会社でのパラメータ読取りは `company_id = 0` へフォールバックせず、行がなければ `5000`。
 
 **PRC-SYS-014-02 工厂組織設定 登録・更新**
 
@@ -373,3 +373,4 @@ stateDiagram-v2
 | v1.3 | 2026-10-21 | PRC-SYS-014-03 公司登録・API 12a `POST /api/system/companies` を追加：同一トランザクションで 90 §3.15 業務パラメータの既定行を当該会社に冪等投入。権限 `system:company:create`、重複は 409／`10035`／`MSG-SYS-093`（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.4 | 2026-10-21 | PRC-SYS-014-03 手順 1・§6.3 #6a・§9 MSG-SYS-093：公司重複 10035 の HTTP を 409 → 422（409 は楽観排他競合のみ）（蓝色大肥鱼 2026-10-21 16:24 決定） | 业务分析 |
 | v1.5 | 2026-10-21 | 重複・既存系の業務エラーの HTTP を 409 → 422 に統一（409 は楽観排他競合 4003 のみ。03 §5・01-system 91 v1.10 と整合）。対象：:238（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.6 | 2026-10-21 | PRC-SYS-014-03 手順 1：`10035` は `uk_sys_company_code`／`uk_sys_company_credit` 違反のみ（重複は 422。v1.3 の 409 は v1.4 で変更済み）。手順 4：成功時 HTTP 201・`data = {id, companyCode, companyName, version}` を明記（バックエンド PR #89 に整合） | 业务分析 |
