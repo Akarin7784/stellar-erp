@@ -2,7 +2,6 @@ package com.stellar.erp;
 
 import java.util.Optional;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.stereotype.Component;
 import org.springframework.web.method.HandlerMethod;
@@ -48,9 +47,9 @@ public class AuthInterceptor implements HandlerInterceptor {
     private final boolean trustPresetContext;
 
     public AuthInterceptor(UserPermissionService permissions,
-                           @Value("${erp.auth.trust-preset-context:false}") boolean trustPresetContext) {
+                           TrustPresetContextPolicy trustPolicy) {
         this.permissions = permissions;
-        this.trustPresetContext = trustPresetContext;
+        this.trustPresetContext = trustPolicy.enabled();
     }
 
     @Override

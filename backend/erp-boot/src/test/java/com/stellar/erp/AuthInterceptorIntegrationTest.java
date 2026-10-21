@@ -36,6 +36,7 @@ class AuthInterceptorIntegrationTest {
 
     @Autowired PostgreSQLContainer pg;
     @Autowired WebApplicationContext wac;
+    @Autowired org.springframework.data.redis.core.StringRedisTemplate redis;
 
     static JdbcTemplate sharedOwner;
     JdbcTemplate owner;
@@ -169,6 +170,15 @@ class AuthInterceptorIntegrationTest {
         // リクエスト後にスレッドへ残らない
         org.assertj.core.api.Assertions.assertThat(LoginContext.current()).isEmpty();
         org.assertj.core.api.Assertions.assertThat(TenantContext.current()).isEmpty();
+    }
+
+    @Test
+    void tokenIsStoredInRedisAndRemovedOnLogout() throws Exception {
+        String t = token(USER, TENANT, CO);
+        String key = "Authorization:login:token:" + t;
+        org.assertj.core.api.Assertions.assertThat(redis.hasKey(key)).isTrue();
+        withToken(t, post("/api/system/auth/logout")).andExpect(status().isOk());
+        org.assertj.core.api.Assertions.assertThat(redis.hasKey(key)).isFalse();
     }
 
     @Test

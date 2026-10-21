@@ -25,6 +25,12 @@ spring:
     password: ${DB_PASSWORD}
     placeholders:
       erp_app_password: ${DB_APP_PASSWORD}
+  data:
+    redis:
+      # Sa-Token token 存储（sa-token-redis-template）。dev 默认值见 application-dev.yml，prod 由环境变量提供
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
   threads:
     virtual:
       enabled: true
@@ -46,6 +52,11 @@ mybatis-plus:
       logic-delete-field: deleted
       logic-delete-value: true
       logic-not-delete-value: false
+
+erp:
+  auth:
+    # 仅测试用：信任预先设置的 LoginContext（无 token）。只能在 test profile 下为 true，否则启动失败。
+    trust-preset-context: false
 
 sa-token:
   token-name: Authorization
