@@ -1681,7 +1681,7 @@ COMMENT ON COLUMN inv_event_wait.waiting_for IS 'PI=入荷待ち、FGI=完工入
 ### 6.3 FK 一覧（2026-10-21 改訂：全て複合 FK）
 
 - **同域親子（#1〜6）**：`FOREIGN KEY (tenant_id, company_id, x_id) REFERENCES 親 (tenant_id, company_id, id)`、被参照は `uk_<親>_tenant_company_id`（PR #43）。
-- **跨域 mdm（#7〜11）**：`FOREIGN KEY (tenant_id, x_id) REFERENCES mdm_x (tenant_id, id)`（`uk_mdm_x_tenant_id`、sys/V202610210707）。
+- **跨域 mdm（#7〜11）**：`FOREIGN KEY (tenant_id, x_id) REFERENCES mdm_x (tenant_id, id)`（`uk_mdm_x_tenant_id`、sys/V202610210707）。例外：`fk_inv_stock_balance_material` は三列 `(tenant_id, company_id, material_id)` → `mdm_material (tenant_id, company_id, id)`（`uk_mdm_material_tenant_company_id`、inv/V202610211409、04 §6.2 項 2a）。
 - いずれも制約名は本表どおり、`ON DELETE` 指定なし（NO ACTION）、CASCADE 禁止。`x_id` 単独の FK は禁止。
 
 | # | 参照元（列） | 被参照 | 制約名 |
@@ -1703,7 +1703,7 @@ COMMENT ON COLUMN inv_event_wait.waiting_for IS 'PI=入荷待ち、FGI=完工入
 | 列 | 理由 |
 |---|---|
 | `inv_stock_txn` の全列、`inv_stock_txn_line.txn_id`、`*_txn_id`（`last_txn_id`/`adjust_txn_id`/`source_txn_id`/`applied_txn_id` 等） | `inv_stock_txn` は月次パーティション表で FK 参照不可（[04 §8.1](../00-common/04-common-db-spec.md)）。表頭→明細はトリガー、他はサービス層で検証 |
-| `inv_stock_txn.warehouse_id/factory_id/partner_id`、`inv_stock_balance.warehouse_id`、`inv_stock_txn_line.material_id`（`inv_stock_balance.material_id` は硬 FK `fk_inv_stock_balance_material`、#7） | 1 億行級の事務・明細と高頻度更新の残高で FK 検査コストを避ける。過账サービスが同一 TX で存在・租户一致を検証 |
+| `inv_stock_txn.warehouse_id/factory_id/partner_id`、`inv_stock_balance.warehouse_id`、`inv_stock_txn_line.material_id`（`inv_stock_balance.material_id` は三列硬 FK `fk_inv_stock_balance_material` `(tenant_id, company_id, material_id)` → `mdm_material (tenant_id, company_id, id)`、#7、`inv/V202610211409`） | 1 億行級の事務・明細と高頻度更新の残高で FK 検査コストを避ける。過账サービスが同一 TX で存在・租户一致を検証 |
 | `location_id`（0=未管理の番兵）、`batch_id`（0=非批次の番兵） | 番兵値 0 は被参照行を持たない。`mdm_warehouse_bin` に `uk_mdm_warehouse_bin_tenant_id` も未作成 |
 | `work_order_id`・`sales_order_line_id`・`outsourcing_order_id`・`source_id`・`partner_id`・`customer_id`（`inv_serial_txn`） | 他業務域（prd/sal/pur）または多態参照。[04 §6.2](../00-common/04-common-db-spec.md) 項 1 により FK なし、同一 TX で存在・租户一致を検証 |
 | `created_by`/`updated_by`/`posted_by` 等 → `sys_user` | `0`＝システムの番兵（06/07 迁移と同じく FK なし） |
@@ -1825,3 +1825,4 @@ COMMENT ON COLUMN inv_event_wait.waiting_for IS 'PI=入荷待ち、FGI=完工入
 | v1.9 | 2026-10-21 | §9 版数規則から具体版数を削除（main 最大版より大きいこと、check-migrations で確認）、§6.3 の余分な表区切り行を削除 | 业务分析 |
 | v1.10 | 2026-10-21 | PR #55 指摘の決定反映（蓝色大肥鱼 2026-10-21 決定）：`ck_inv_stock_txn_reason` を NULL 不可に（AOI/AOO 10〜60、SC_OUT 10〜50）、`uk_inv_batch_genealogy_key` を NULLS NOT DISTINCT、子パーティション RLS・REVOKE と月次作成関数（§3.4/4.2.2）、明細 insert-only（4.3.3）、`txn_id` FK なし（4.3.2）、`inv_stock_balance.material_id` 硬 FK と履歴・ログ表の倉庫 FK（§6.3）、§6.3 末尾の旧 FK 表を削除、`inv_stock_txn` 索引 6 本を具名例外（§5） | 业务分析 |
 | v1.11 | 2026-10-21 | 月次パーティション作成関数を `public.inv_create_stock_txn_partition(p_month DATE)`（SECURITY DEFINER、PUBLIC から REVOKE）と明記、月次ジョブは専用ロール `erp_partition_maintainer`（当該関数の EXECUTE のみ）で実行・3 か月以上先まで事前作成、DEFAULT パーティションに行があればアラート（§3.4・4.2.2） | 业务分析 |
+| v1.12 | 2026-10-21 | `fk_inv_stock_balance_material` を三列 `(tenant_id, company_id, material_id)` → `mdm_material (tenant_id, company_id, id)` に変更（§6.3、inv/V202610211409） | DBA |
