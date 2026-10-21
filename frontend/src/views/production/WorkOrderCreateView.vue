@@ -128,9 +128,21 @@
           </el-form-item>
         </el-col>
         <el-col :span="8">
-          <!-- 部门选项接口 GET /api/system/departments/options（#61）待接入，先保留手填 ID -->
-          <el-form-item label="部門ID" prop="departmentId">
-            <el-input v-model="form.departmentId" data-test="department" />
+          <el-form-item label="部門" prop="departmentId">
+            <el-select
+              v-model="form.departmentId"
+              data-test="department"
+              filterable
+              clearable
+              placeholder="请选择部门"
+            >
+              <el-option
+                v-for="d in departments"
+                :key="d.id"
+                :label="`${d.departmentCode} ${d.departmentName}`"
+                :value="String(d.id)"
+              />
+            </el-select>
           </el-form-item>
         </el-col>
         <el-col :span="8">
@@ -213,6 +225,7 @@ import {
   type MaterialOption,
   type WarehouseOption,
 } from '@/api/mdm/lookup'
+import { listDeptOptions, type DeptOption } from '@/api/system/dept'
 import { validateDateRange, validateOrderQty } from './workOrderRules'
 
 const router = useRouter()
@@ -271,6 +284,7 @@ const isBackflush = computed({
 
 const factories = ref<FactoryOption[]>([])
 const warehouses = ref<WarehouseOption[]>([])
+const departments = ref<DeptOption[]>([])
 const materials = ref<MaterialOption[]>([])
 const materialLoading = ref(false)
 /** 已选品目的快照：即使不在当前检索结果里也照样显示 code/name 和 unitName */
@@ -364,12 +378,21 @@ function todayShanghai(): string {
   return new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Shanghai' }).format(new Date())
 }
 
+async function loadDepartments() {
+  try {
+    departments.value = await listDeptOptions()
+  } catch {
+    departments.value = []
+  }
+}
+
 onMounted(async () => {
   try {
     factories.value = await listFactories()
   } catch {
     factories.value = []
   }
+  void loadDepartments()
   void onMaterialSearch('')
 })
 
