@@ -133,7 +133,7 @@
 | F-PRD-002 | BOM 展开与成本卷算 | 多阶展开、低层码计算、用量与损耗、标准成本卷算、成本比较 | SCR-PRD-003 | P1 | 設計済 | 同上 | PRD | 06-production/00-overview.md |
 | F-PRD-003 | 工艺路线管理 | 工序序列、工作中心、准备/单件工时、替代工序、版本与生效期 | SCR-PRD-004〜005 | P1 | 設計済 | 同上 | PRD | 06-production/00-overview.md |
 | F-PRD-004 | 工作中心与产能管理 | 工作中心、设备、班组、工作日历、班次、日能力 | SCR-PRD-006〜007 | P1 | 設計済 | 同上 | PRD | 06-production/00-overview.md |
-| F-PRD-005 | 生产订单管理 | 手工/MRP 生成、单阶/多阶、承认、下达、拆分/合并、变更、取消 | SCR-PRD-008〜011 | P1 | 設計済 | 02-work-order.md | PRD | 06-production/00-overview.md |
+| F-PRD-005 | 工单管理 | 手工/MRP 生成、单阶/多阶、承认、下达、拆分/合并、变更、取消 | SCR-PRD-008〜011 | P1 | 設計済 | 02-work-order.md | PRD | 06-production/00-overview.md |
 | F-PRD-006 | 生产领料/补料/退料 | MII/MIR 登记、超领检查、倒冲（後方払出）、引当消込、退料戻入 | SCR-PRD-012〜013 | P1 | 設計済 | 03-material-issue-reporting.md | PRD | 06-production/00-overview.md |
 | F-PRD-007 | 工序报工 | 工序报工、良品/不良/报废、工数（人员/设备）、报工审核、返工追加工单 | SCR-PRD-014〜015 | P1 | 設計済 | 同上 | PRD | 06-production/00-overview.md |
 | F-PRD-008 | 生产入库 | 成品/半成品完工入库、批次、超量检查、取消 | SCR-PRD-016 | P1 | 設計済 | 同上 | PRD | 06-production/00-overview.md |

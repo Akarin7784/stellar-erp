@@ -92,7 +92,7 @@
 | PRT-MDM-013 | 库位一覧表・库位标签 | 手動 | MDM | 02-mdm/00-overview.md |
 | PRT-MDM-014 | 主数据变更履历表 | 手動 | MDM | 02-mdm/00-overview.md |
 | PRT-MDM-015 | 主数据质量报告 | 月次/手動 | MDM | 02-mdm/00-overview.md |
-| PRT-PRD-001 | 生产订单（制造指示书） | 工单下达时（手動/自動） | PRD | 06-production/00-overview.md |
+| PRT-PRD-001 | 工单（制造指示书） | 工单下达时（手動/自動） | PRD | 06-production/00-overview.md |
 | PRT-PRD-002 | 生产领料要求書（MII は INV 帳票） | 領料要求確定時 | PRD | 06-production/00-overview.md |
 | PRT-PRD-003 | 生产退料要求書（MIR は INV 帳票） | 退料要求確定時 | PRD | 06-production/00-overview.md |
 | PRT-PRD-004 | 工序报工单 | 报工确定时（任意） | PRD | 06-production/00-overview.md |
