@@ -4,7 +4,7 @@
 |---|---|
 | 文書名 | 系统管理 API 设计书（系统管理 API 設計書） |
 | 文書番号 | DSN-SYS-091 |
-| 版数 | v1.0 |
+| 版数 | v1.6 |
 | 作成日 | 2026-10-20 |
 | 作成者 | system-workflow（域設計担当） |
 | 承認者 | 未承認（レビュー待ち） |
@@ -40,6 +40,14 @@
 | 10070 | MSG-SYS-060 | 監査期間超過 | 400 |
 | 10080 | MSG-SYS-080 | 帳票生成失敗 | 500 |
 | 10090 | MSG-SYS-086 | 初期化二重実行 | 409 |
+
+### 1.2 選択用（`/options`）API の共通規則（蓝色大肥鱼 2026-10-21 決定）
+
+- **適用範囲**：複数の業務画面で共有するマスタ・基礎データのドロップダウン用 `/options` API に限る。これらは**ログインのみ**を要件とし、権限コード（`@SaCheckPermission`）を付けない。
+- 管理画面専用の選択肢 API は対象外とし、当該画面の `view` 権限コードを維持する（反例：#108 `/api/system/maintenance/options` は `system:maintenance:view`）。
+- 未ログインは 401（認証インターセプタ導入後に有効）。
+- データ範囲は当前会社（ログインセッション `LoginContext`、`companyId` パラメータは無視）と RLS（テナント）で限定する。
+- 対象：#36a `/api/system/departments/options`。
 
 ## 2. API 一覧
 
@@ -81,6 +89,7 @@
 | 34 | PUT | /api/system/menus/{id} | `system:menu:update` | メニュー更新 | F-SYS-004 | 10022/4003 |
 | 35 | DELETE | /api/system/menus/{id} | `system:menu:delete` | メニュー無効化 | F-SYS-004 | 10023 |
 | 36 | GET | /api/system/departments/tree | `system:department:view` | 部門ツリー | F-SYS-005 | 3001 |
+| 36a | GET | /api/system/departments/options | 認証済（§1.2） | 部門選択用一覧（ドロップダウン、§3.7） | F-SYS-005 | 3001 |
 | 37 | GET | /api/system/departments/{id} | `system:department:view` | 部門詳細 | F-SYS-005 | 4001 |
 | 38 | POST | /api/system/departments | `system:department:create` | 部門登録 | F-SYS-005 | 10030/10033 |
 | 39 | PUT | /api/system/departments/{id} | `system:department:update` | 部門更新 | F-SYS-005 | 4003/10030 |
@@ -223,6 +232,19 @@ multipart。項目：`bizType`(string,○)、`bizId`(string,○)、`fileCategory
 
 Outbox 監視（`status`、`eventType`、`from`/`to`、ページング）。Paylaod は概要のみ返し、個人情報を含む可能性がある場合はマスキングする。
 
+### 3.7 GET /api/system/departments/options
+
+部門ドロップダウン用の選択一覧（API #36a、バックエンド PR #61）。
+
+| 項目 | 内容 |
+|---|---|
+| 権限 | ログインのみ（権限コードなし、§1.2 選択用 API 共通規則）。データ範囲は当前会社 + RLS で限定 |
+| リクエスト | パラメータなし。会社はログインセッション（`LoginContext`）の当前会社を使用し、`companyId` パラメータは指定されても無視する |
+| 絞り込み | `company_id = 当前会社`、`deleted = FALSE`、`status = 1`。テナントは RLS（`app.tenant_id`）で分離 |
+| 返却項目 | `id`（文字列）、`departmentCode`、`departmentName`（[02/91 §3.8](../02-mdm/91-api-design.md) 選択用 API 規則：ID・コード・名称が必須） |
+| 並び順 | `sort_no`、`department_code` の昇順 |
+| ページング | なし（全件） |
+
 ## 4. 内部 API（モジュール間公開 Service）
 
 | サービス（概念名） | メソッド | 提供内容 | 利用元 |
@@ -247,3 +269,4 @@ Outbox 監視（`status`、`eventType`、`from`/`to`、ページング）。Payl
 | v1.3 | 2026-10-21 | API 47a `POST /api/system/companies`（公司登録）を追加：`sys_company` INSERT と同一トランザクションで 90 §3.15 業務パラメータの既定行を当該会社（`company_id` = 新 `sys_company.id`）に冪等投入、全 114 API。権限は新設 `system:company:create`（テナント開設級操作、`update` と分離）。1001 は汎用入力検証のみ、公司代码・信用代码重複は新設 `10035`／`MSG-SYS-093`（409）（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.4 | 2026-10-21 | API 47a：会社登録と同一トランザクションで `SYSTEM_ADMIN` ロール（会社ごと 1 件）と `permission_code` を持つ全 `sys_menu` 行の付与を冪等投入（94 §2.10）（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.5 | 2026-10-21 | API 1 の `permissions[]` はコードで重複排除。API 47a は同一 TX で `sys_init_company` を呼ぶ（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.6 | 2026-10-21 | API #36a `GET /api/system/departments/options`（部門選択用一覧、§3.7）を追加：当前会社は LoginContext（`companyId` 無視）、有効・未削除のみ、`id`（文字列）/`departmentCode`/`departmentName`、`sort_no`→`department_code` 順、権限はログインのみ（§1.2 `/options` 共通規則を新設：複数業務画面共有のマスタ・基礎データ選択に限る。管理画面専用の #108 は `system:maintenance:view` を維持）（バックエンド PR #61、蓝色大肥鱼 2026-10-21 決定：パスは `/api/system/**` 配下） | 业务分析 |

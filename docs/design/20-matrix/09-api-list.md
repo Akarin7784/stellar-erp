@@ -8,7 +8,7 @@
 | 作成日 | 2026-10-20 |
 | 作成者 | Lead（生成工具 gen_matrix.py） |
 | 状態 | ドラフト（自动生成・最終レビュー前） |
-| 備考 | 全 1231 件。メソッド/パス/概要/権限/域/提取元 |
+| 備考 | 全 1232 件。メソッド/パス/概要/権限/域/提取元 |
 
 > 本文件由 `20-matrix/tools/gen_matrix.py` 从各域设计书中自动提取生成。修改设计书后重新运行即可更新。
 
@@ -1053,6 +1053,7 @@
 | POST | /api/system/companies | 公司登録（同一 TX で sys_init_company を呼び sys_param 既定行と SYSTEM_ADMIN ロール＋全権限付与を投入、90 §3.1・94 §2.10） | system:company:create | SYS | 01-system/91-api-design.md |
 | PUT | /api/system/companies/{id} | 公司更新 | system:company:update | SYS | 01-system/91-api-design.md |
 | POST | /api/system/departments | 部門登録 | system:department:create | SYS | 01-system/91-api-design.md |
+| GET | /api/system/departments/options | 部門選択用一覧（ドロップダウン、§3.7） | 認証済（§1.2） | SYS | 01-system/91-api-design.md |
 | GET | /api/system/departments/tree | 部門ツリー（有効のみ/全部） | system:department:view | SYS | 01-system/03-org-position.md |
 | GET | /api/system/departments/tree | 部門ツリー | system:department:view | SYS | 01-system/91-api-design.md |
 | DELETE | /api/system/departments/{id} | 部門無効化 | system:department:delete | SYS | 01-system/91-api-design.md |
