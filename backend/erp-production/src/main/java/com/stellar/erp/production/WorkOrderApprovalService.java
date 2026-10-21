@@ -1,5 +1,8 @@
 package com.stellar.erp.production;
 
+import java.time.Clock;
+import java.time.LocalDate;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,9 +34,20 @@ public class WorkOrderApprovalService {
     private final ProductionRepository repo;
     private final WorkOrderQueryService query;
 
-    public WorkOrderApprovalService(ProductionRepository repo, WorkOrderQueryService query) {
+    private final WorkOrderMaterials materials;
+    private Clock clock = Clock.system(java.time.ZoneId.of("Asia/Shanghai"));
+
+    @org.springframework.beans.factory.annotation.Autowired
+    WorkOrderApprovalService(ProductionRepository repo, WorkOrderQueryService query, WorkOrderMaterials materials) {
         this.repo = repo;
         this.query = query;
+        this.materials = materials;
+    }
+
+    WorkOrderApprovalService(ProductionRepository repo, WorkOrderQueryService query, WorkOrderMaterials materials,
+                             Clock clock) {
+        this(repo, query, materials);
+        this.clock = clock;
     }
 
     @Transactional
@@ -41,6 +55,9 @@ public class WorkOrderApprovalService {
         LoginContext.LoginUser login = LoginContext.require();
         long company = login.companyId();
         WorkOrderForApproval wo = lockAndCheck(company, workOrderId, DRAFT, cmd);
+        // CHK-PRD-002-10：提出時は全材料行の単位整合を確認（基準日＝planned_start_date、なければ Asia/Shanghai 当日）
+        LocalDate baseDate = repo.findPlannedStartDate(company, wo.id()).orElse(LocalDate.now(clock));
+        materials.checkAll(company, wo.id(), baseDate);
         // 材料行 0 件でも提出可（Lead 2026-10-21 最終決定、AC-PRD-12）。BOM 展開は下达時に行う。
         if (repo.markSubmitted(company, wo.id(), wo.version(), login.userId()) != 1) {
             throw versionConflict();

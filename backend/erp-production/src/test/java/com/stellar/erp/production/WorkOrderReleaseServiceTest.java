@@ -40,7 +40,14 @@ class WorkOrderReleaseServiceTest {
     ProductionRepository repo = mock(ProductionRepository.class);
     SalesOrderLineLookup lines = mock(SalesOrderLineLookup.class);
     BomQueryService boms = mock(BomQueryService.class);
-    WorkOrderReleaseService service = new WorkOrderReleaseService(repo, lines, boms, CLOCK);
+    com.stellar.erp.production.internal.UomConverter uoms = mock(com.stellar.erp.production.internal.UomConverter.class);
+
+    @BeforeEach
+    void uomIdentity() {
+        when(repo.findBaseUom(anyLong(), anyLong())).thenReturn(Optional.of("PCE"));
+        when(uoms.toBase(anyLong(), any(), any(), any(), any())).thenAnswer(inv -> inv.getArgument(3));
+    }
+    WorkOrderReleaseService service = new WorkOrderReleaseService(repo, lines, boms, new WorkOrderMaterials(repo, uoms), CLOCK);
 
     @BeforeEach
     void login() {
@@ -107,6 +114,45 @@ class WorkOrderReleaseServiceTest {
         assertThat(c.getValue().lossQty()).isEqualByComparingTo("0.0754");
         assertThat(c.getValue().bomLineId()).isEqualTo(601);
         assertThat(c.getValue().materialId()).isEqualTo(900);
+        assertThat(c.getValue().uomCode()).isEqualTo("PCE");
+        assertThat(c.getValue().bomUomCode()).isEqualTo("PCE");
+        assertThat(c.getValue().bomQty()).isEqualByComparingTo("15.0000");
+    }
+
+    @Test
+    void zeroLinesUomMismatchIs60022AndNotReleased() {
+        stubWo(wo(null, (short) 25, false, 0));
+        when(repo.countWorkOrderMaterials(CO, WO)).thenReturn(0L);
+        when(boms.find(CO, MAT, FACTORY, PLANNED_START)).thenReturn(Optional.of(bom(
+                new BomQueryService.Line(601, 10, 900, "C1", "部品", "KGM", BigDecimal.ONE, BigDecimal.ZERO,
+                        BigDecimal.ONE, 10, false, null))));
+        when(uoms.toBase(CO, "KGM", "PCE", new BigDecimal("5.0000"), PLANNED_START)).thenThrow(
+                new BizException(60022, "MSG-PRD-022", "x"));
+        assertThatThrownBy(() -> service.release(WO, new WorkOrderReleaseCommand(0)))
+                .isInstanceOfSatisfying(BizException.class, e -> assertThat(e.getCode()).isEqualTo(60022));
+        verify(repo, never()).insertMaterialLine(any());
+        verify(repo, never()).markReleased(anyLong(), anyLong(), anyInt(), anyLong(), any(), any(), anyBoolean());
+    }
+
+    @Test
+    void existingLinesAreRecheckedAndMismatchIs60022() {
+        stubWo(wo(null, (short) 25, false, 0));
+        when(repo.listMaterialLineUoms(CO, WO)).thenReturn(java.util.List.of(
+                new ProductionRepository.MaterialLineUom(1, 10, 900, "PCE", "BOX", "PCE")));
+        org.mockito.Mockito.doThrow(new BizException(60022, "MSG-PRD-022", "x"))
+                .when(uoms).check(CO, "BOX", "PCE", PLANNED_START);
+        assertThatThrownBy(() -> service.release(WO, new WorkOrderReleaseCommand(0)))
+                .isInstanceOfSatisfying(BizException.class, e -> assertThat(e.getCode()).isEqualTo(60022));
+        verify(repo, never()).markReleased(anyLong(), anyLong(), anyInt(), anyLong(), any(), any(), anyBoolean());
+    }
+
+    @Test
+    void existingManualLineWithNonBaseUomIs60022() {
+        stubWo(wo(null, (short) 25, false, 0));
+        when(repo.listMaterialLineUoms(CO, WO)).thenReturn(java.util.List.of(
+                new ProductionRepository.MaterialLineUom(1, 10, 900, "KGM", null, "PCE")));
+        assertThatThrownBy(() -> service.release(WO, new WorkOrderReleaseCommand(0)))
+                .isInstanceOfSatisfying(BizException.class, e -> assertThat(e.getCode()).isEqualTo(60022));
     }
 
     @Test

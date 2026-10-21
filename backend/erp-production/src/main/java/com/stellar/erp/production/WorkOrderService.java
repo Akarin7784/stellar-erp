@@ -3,6 +3,7 @@ package com.stellar.erp.production;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,10 +38,13 @@ public class WorkOrderService {
 
     private final ProductionRepository repo;
     private final BomQueryService boms;
+    private final WorkOrderMaterials materials;
     private final SalesOrderLineLookup salesOrderLines;
 
-    public WorkOrderService(ProductionRepository repo, SalesOrderLineLookup salesOrderLines, BomQueryService boms) {
+    WorkOrderService(ProductionRepository repo, SalesOrderLineLookup salesOrderLines, BomQueryService boms,
+                     WorkOrderMaterials materials) {
         this.boms = boms;
+        this.materials = materials;
         this.repo = repo;
         this.salesOrderLines = salesOrderLines;
     }
@@ -112,10 +116,12 @@ public class WorkOrderService {
                 Boolean.TRUE.equals(cmd.isBackflush()),
                 rate, cmd.remark()));
 
-        // 02 §6.1 第 3 項（AC-PRD-12）：有効 BOM がなくても登録は続行（材料明細 0 件）し、60020 を警告で返す。
-        // 基準日＝plannedStartDate（必須項目）。材料展開は下达時（WorkOrderReleaseService）。
-        List<WorkOrderReleased.Warning> warnings = boms.find(company, cmd.materialId(), cmd.factoryId(),
-                        cmd.plannedStartDate()).isPresent()
+        // 02 §6.1 第 3 項（AC-PRD-12）：有効 BOM があればその場で展開・基本単位へ換算（不整合 60022 は全体ロールバック）。
+        // なくても登録は続行（材料明細 0 件）し、60020 を警告で返す。基準日＝plannedStartDate（必須項目）。
+        Optional<BomQueryService.EffectiveBom> bom = boms.find(company, cmd.materialId(), cmd.factoryId(),
+                cmd.plannedStartDate());
+        bom.ifPresent(b -> materials.expand(company, login.userId(), id, cmd.orderQty(), b, cmd.plannedStartDate()));
+        List<WorkOrderReleased.Warning> warnings = bom.isPresent()
                 ? List.of()
                 : List.of(new WorkOrderReleased.Warning(ProductionErrorCode.BOM_NOT_FOUND,
                         ProductionErrorCode.MSG_BOM_NOT_FOUND, "有効な BOM がありません。BOM を登録・承認してください。"));
