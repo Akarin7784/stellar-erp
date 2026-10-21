@@ -183,7 +183,12 @@
         }}</el-descriptions-item>
       </el-descriptions>
       <el-form label-width="80px" @submit.prevent>
-        <el-form-item label="驳回理由">
+        <el-form-item
+          label="驳回理由"
+          required
+          :error="rejectReasonError"
+          data-test="reject-reason-item"
+        >
           <el-input
             v-model="rejectReason"
             data-test="reject-reason"
@@ -258,6 +263,7 @@ import {
 } from '@/api/production/overproduction'
 import { useAuthStore } from '@/stores/auth'
 import { formatDateTime } from '@/utils/format'
+import { msgRequired, msgTooLong } from '@/views/system/loginRules'
 
 /** el-table 插槽的 row 类型为 DefaultRow，转回 API 类型 */
 const asRow = (r: unknown) => r as OverproductionApproval
@@ -402,10 +408,23 @@ async function onCancel(row: OverproductionApproval) {
 const approveVisible = ref(false)
 const target = ref<OverproductionApproval | null>(null)
 const rejectReason = ref('')
+const rejectReasonError = ref('')
+/** 驳回理由必填、≤500 字（BA 2026-10-21 决定；与后端 @Size(max=500) 一致）。文案同 MSG-COM-040 / 041 */
+const REJECT_REASON_LABEL = '驳回理由'
+const REJECT_REASON_MAX = 500
+function validateRejectReason(): boolean {
+  const v = rejectReason.value.trim()
+  if (!v) rejectReasonError.value = msgRequired(REJECT_REASON_LABEL)
+  else if (v.length > REJECT_REASON_MAX)
+    rejectReasonError.value = msgTooLong(REJECT_REASON_LABEL, REJECT_REASON_MAX)
+  else rejectReasonError.value = ''
+  return !rejectReasonError.value
+}
 function openApprove(row: OverproductionApproval) {
   errorText.value = ''
   target.value = row
   rejectReason.value = ''
+  rejectReasonError.value = ''
   approveVisible.value = true
 }
 /** 失败时保留对话框与驳回理由；若一览已重读，用最新行（version）更新对象 */
@@ -424,7 +443,7 @@ async function onApprove() {
 }
 async function onReject() {
   const t = target.value
-  if (!t) return
+  if (!t || !validateRejectReason()) return
   afterDialogAction(
     await run(() => rejectOverproductionApproval(t.id, t.version, rejectReason.value), '已驳回'),
   )

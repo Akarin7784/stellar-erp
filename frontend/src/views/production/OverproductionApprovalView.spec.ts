@@ -201,6 +201,40 @@ describe('OverproductionApprovalView（SCR-PRD-034）', () => {
     expect(t).not.toContain(MSG_CONFLICT)
   })
 
+  it('驳回理由为空（含空白）时不调用 API，显示 MSG-COM-040 文案', async () => {
+    api.list.mockResolvedValue(page([row('2', 20)]))
+    const w = await mountView()
+    await w.find('[data-test="approve"]').trigger('click')
+    await flushPromises()
+    const ta = field('reject-reason')
+    ta.value = '   '
+    ta.dispatchEvent(new Event('input'))
+    ;(body().querySelector('[data-test="do-reject"]') as HTMLElement).click()
+    await flushPromises()
+    await new Promise((r) => setTimeout(r, 150)) // el-form-item 错误显示有 debounce
+    await flushPromises()
+    expect(api.reject).not.toHaveBeenCalled()
+    expect(
+      body().querySelector('[data-test="reject-reason-item"] .el-form-item__error')!.textContent,
+    ).toBe('请输入必填项「驳回理由」。')
+    expect((w.vm as unknown as { approveVisible: boolean }).approveVisible).toBe(true)
+  })
+
+  it('驳回理由超过 500 字时不调用 API（MSG-COM-041 文案）', async () => {
+    api.list.mockResolvedValue(page([row('2', 20)]))
+    const w = await mountView()
+    await w.find('[data-test="approve"]').trigger('click')
+    await flushPromises()
+    ;(w.vm as unknown as { rejectReason: string }).rejectReason = 'a'.repeat(501)
+    await flushPromises()
+    ;(body().querySelector('[data-test="do-reject"]') as HTMLElement).click()
+    await flushPromises()
+    expect(api.reject).not.toHaveBeenCalled()
+    expect((w.vm as unknown as { rejectReasonError: string }).rejectReasonError).toBe(
+      '「驳回理由」不能超过 500 个字符。',
+    )
+  })
+
   it('审批成功后关闭对话框', async () => {
     api.list.mockResolvedValue(page([row('2', 20)]))
     api.approve.mockResolvedValue({})
