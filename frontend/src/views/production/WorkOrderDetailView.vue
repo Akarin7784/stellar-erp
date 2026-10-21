@@ -2,7 +2,7 @@
   <el-card v-loading="loading" shadow="never">
     <template #header>
       <div class="toolbar">
-        <span>生产订单詳細（SCR-PRD-010）</span>
+        <span>生产订单详细（SCR-PRD-010）</span>
         <span>
           <el-tag v-if="detail">{{ statusLabel }}</el-tag>
           <!-- 06/02 §4.7：order_status=25 时显示下达按钮 -->
@@ -41,23 +41,23 @@
     <!-- 最小实现：仅基本信息。用料/工序/报工/入库等页签见后续 PR -->
     <el-descriptions v-if="detail" :column="3" border>
       <el-descriptions-item label="工单号">{{ detail.workOrderNo }}</el-descriptions-item>
-      <el-descriptions-item label="品目"
+      <el-descriptions-item label="物料"
         >{{ detail.materialCode }} {{ detail.materialName }}</el-descriptions-item
       >
-      <el-descriptions-item label="注文数量"
+      <el-descriptions-item label="订单数量"
         >{{ detail.orderQty }} {{ detail.uomCode }}</el-descriptions-item
       >
       <el-descriptions-item label="计划着手日">{{ detail.plannedStartDate }}</el-descriptions-item>
       <el-descriptions-item label="计划完成日">{{ detail.plannedEndDate }}</el-descriptions-item>
-      <el-descriptions-item label="優先度">{{ detail.priorityNo }}</el-descriptions-item>
-      <el-descriptions-item label="完工超収容差">{{
+      <el-descriptions-item label="优先级">{{ detail.priorityNo }}</el-descriptions-item>
+      <el-descriptions-item label="完工超收容差">{{
         formatRatePercent(detail.overReceiptRate)
       }}</el-descriptions-item>
-      <el-descriptions-item label="許容完工上限">{{
+      <el-descriptions-item label="允许完工上限">{{
         detail.allowedQty ?? '—'
       }}</el-descriptions-item>
-      <el-descriptions-item label="受注">{{ detail.salesOrderNo ?? '—' }}</el-descriptions-item>
-      <el-descriptions-item label="備考" :span="3">{{ detail.remark ?? '' }}</el-descriptions-item>
+      <el-descriptions-item label="销售订单">{{ detail.salesOrderNo ?? '—' }}</el-descriptions-item>
+      <el-descriptions-item label="备注" :span="3">{{ detail.remark ?? '' }}</el-descriptions-item>
     </el-descriptions>
   </el-card>
 </template>

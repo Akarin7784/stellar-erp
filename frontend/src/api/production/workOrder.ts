@@ -58,13 +58,13 @@ export const WORK_ORDER_TYPES = [
 /** 工单状态（90-db-design prd_work_order.order_status）。 */
 export const ORDER_STATUS_LABELS: Record<number, string> = {
   10: '草稿',
-  20: '承認待ち',
-  25: '承認済',
-  30: '下达済',
-  35: '製造中',
+  20: '待审批',
+  25: '已批准',
+  30: '已下达',
+  35: '生产中',
   40: '完工',
-  90: '取消',
-  95: '却下',
+  90: '已取消',
+  95: '已驳回',
 }
 
 export const DEFAULT_ORDER_STATUS = 10
