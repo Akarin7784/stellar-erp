@@ -1,7 +1,7 @@
 -- pgTAP：sys_user 正式化（sys/V202610211408；01-system/90-db-design.md §3.6）+ 登录前查询函数 sys_auth_find_login_user。
 -- owner 连接执行（superuser，绕过 RLS），最后 ROLLBACK。
 BEGIN;
-SELECT plan(85);
+SELECT plan(103);
 
 -- 1. 列存在与类型（90 §3.6 :333-364）
 SELECT columns_are('public', 'sys_user', ARRAY[
@@ -137,6 +137,42 @@ SELECT ok((SELECT proretset FROM pg_proc WHERE oid = 'public.sys_auth_find_login
           AND NOT EXISTS (SELECT 1 FROM unnest((SELECT proargnames FROM pg_proc WHERE oid = 'public.sys_auth_find_login_user(varchar, varchar)'::regprocedure)) n
                           WHERE n IN ('real_name', 'nickname', 'mobile', 'email', 'username')),
           '返回列不含姓名/联系方式');
+
+-- 9. tenant_code 大写（#75 决定）
+SELECT throws_ok($$INSERT INTO sys_tenant (id, tenant_id, tenant_code, tenant_name) VALUES (9408, 9408, 'lower', 'x')$$,
+                 '23514', NULL, '小写 tenant_code → ck_sys_tenant_code_upper 23514');
+SELECT is((SELECT count(*)::int FROM sys_tenant WHERE tenant_code <> upper(tenant_code)), 0, '现有 tenant_code 均为大写');
+SET ROLE erp_app;
+SELECT is((SELECT user_id FROM sys_auth_find_login_user('tapa', 'alice')), 94011::bigint, '小写企业代码输入也能查到（upper 匹配）');
+SELECT is_empty($$SELECT * FROM sys_auth_find_login_user('TAPA', 'ALICE')$$, 'username 区分大小写：ALICE ≠ alice');
+RESET ROLE;
+
+-- 10. gender CHECK
+SELECT throws_ok($$UPDATE sys_user SET gender = 3 WHERE id = 94011$$, '23514', NULL, 'ck_sys_user_gender：3 → 23514');
+SELECT lives_ok($$UPDATE sys_user SET gender = 2 WHERE id = 94011$$, 'gender=2 可');
+SELECT is_empty($$SELECT conname FROM pg_constraint WHERE conrelid = 'public.sys_user'::regclass AND contype = 'c' AND pg_get_constraintdef(oid) LIKE '%employee_type%'$$, 'employee_type 无 CHECK（#75 决定）');
+
+-- 11. 外键（可空、同租户 2 列）
+INSERT INTO sys_department (id, tenant_id, company_id, department_code, department_name) VALUES (94101, 9401, 940101, 'D001', 'd'), (94201, 9402, 940201, 'D001', 'd');
+INSERT INTO sys_position (id, tenant_id, company_id, position_code, position_name) VALUES (94102, 9401, 940101, 'P1', 'p'), (94202, 9402, 940201, 'P1', 'p');
+INSERT INTO mdm_factory (id, tenant_id, company_id, factory_code, factory_name) VALUES (94103, 9401, 940101, 'F1', 'f'), (94203, 9402, 940201, 'F1', 'f');
+SELECT is((SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'fk_sys_user_department'),
+          'FOREIGN KEY (tenant_id, department_id) REFERENCES sys_department(tenant_id, id)', 'fk_sys_user_department 2 列');
+SELECT is((SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'fk_sys_user_position'),
+          'FOREIGN KEY (tenant_id, position_id) REFERENCES sys_position(tenant_id, id)', 'fk_sys_user_position 2 列');
+SELECT is((SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'fk_sys_user_factory'),
+          'FOREIGN KEY (tenant_id, factory_id) REFERENCES mdm_factory(tenant_id, id)', 'fk_sys_user_factory 2 列');
+SELECT is((SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'fk_sys_user_manager'),
+          'FOREIGN KEY (tenant_id, manager_user_id) REFERENCES sys_user(tenant_id, id)', 'fk_sys_user_manager 自引用 2 列');
+SELECT lives_ok($$UPDATE sys_user SET department_id = 94101, position_id = 94102, factory_id = 94103, manager_user_id = 94011 WHERE id = 94011$$,
+                '同租户引用部门/岗位/工厂/上级 → 可');
+SELECT throws_ok($$UPDATE sys_user SET department_id = 94201 WHERE id = 94011$$, '23503', NULL, '引用其他租户的部门 → 23503');
+SELECT throws_ok($$UPDATE sys_user SET position_id = 94202 WHERE id = 94011$$, '23503', NULL, '引用其他租户的岗位 → 23503');
+SELECT throws_ok($$UPDATE sys_user SET factory_id = 94203 WHERE id = 94011$$, '23503', NULL, '引用其他租户的工厂 → 23503');
+SELECT throws_ok($$UPDATE sys_user SET manager_user_id = 94021 WHERE id = 94011$$, '23503', NULL, '上级为其他租户用户 → 23503');
+SELECT throws_ok($$UPDATE sys_user SET department_id = 0 WHERE id = 94011$$, '23503', NULL, '0 不再作为“未设置”（应为 NULL）→ 23503');
+SELECT lives_ok($$UPDATE sys_user SET department_id = NULL, position_id = NULL, factory_id = NULL, manager_user_id = NULL WHERE id = 94011$$,
+                '四个外键列均可为 NULL');
 
 SELECT * FROM finish();
 ROLLBACK;

@@ -70,7 +70,7 @@ BEGIN
     END IF;
 
     UPDATE sys_user u
-       SET company_id = (SELECT c.id FROM sys_company c WHERE c.tenant_id = u.tenant_id AND c.deleted = FALSE),
+       SET company_id = (SELECT c.company_id FROM sys_company c WHERE c.tenant_id = u.tenant_id AND c.deleted = FALSE),
            user_code  = u.username,
            real_name  = left(coalesce(nullif(u.nickname, ''), u.username), 50),
            account_status = CASE WHEN u.status = 0 THEN 3 ELSE 1 END;
@@ -86,7 +86,8 @@ ALTER TABLE sys_user
 ALTER TABLE sys_user
     ADD CONSTRAINT ck_sys_user_status           CHECK (status IN (0, 1, 2)),
     ADD CONSTRAINT ck_sys_user_account_status   CHECK (account_status IN (1, 2, 3, 4)),
-    ADD CONSTRAINT ck_sys_user_login_fail_count CHECK (login_fail_count >= 0);
+    ADD CONSTRAINT ck_sys_user_login_fail_count CHECK (login_fail_count >= 0),
+    ADD CONSTRAINT ck_sys_user_gender           CHECK (gender IN (0, 1, 2));
 
 -- 5. 索引（90 §3.6 :367-373）
 ALTER INDEX uk_sys_user_tenant_username RENAME TO uk_sys_user_username;
@@ -96,6 +97,22 @@ CREATE INDEX idx_sys_user_name_trgm ON sys_user USING gin (real_name gin_trgm_op
 CREATE INDEX idx_sys_user_mobile ON sys_user (tenant_id, company_id, mobile);
 -- 复合外键被引用用（04 §6.2 项 2；04-purchase/90 等以 (tenant_id, x_id) → sys_user (tenant_id, id) 引用）
 ALTER TABLE sys_user ADD CONSTRAINT uk_sys_user_tenant_id UNIQUE (tenant_id, id);
+
+-- 5a. 外键：可空、同租户 2 列 (tenant_id, x_id) → (tenant_id, id)（蓝色大肥鱼 2026-10-21 #75 决定）
+--     目标表 sys_department / sys_position / mdm_factory / sys_user 在 main 上均已存在。0 视为“未设置”，先置 NULL。
+UPDATE sys_user SET department_id = NULLIF(department_id, 0), position_id = NULLIF(position_id, 0),
+                    factory_id = NULLIF(factory_id, 0), manager_user_id = NULLIF(manager_user_id, 0)
+ WHERE 0 IN (department_id, position_id, factory_id, manager_user_id);
+ALTER TABLE sys_position ADD CONSTRAINT uk_sys_position_tenant_id UNIQUE (tenant_id, id);
+ALTER TABLE sys_user
+    ADD CONSTRAINT fk_sys_user_department FOREIGN KEY (tenant_id, department_id) REFERENCES sys_department (tenant_id, id),
+    ADD CONSTRAINT fk_sys_user_position   FOREIGN KEY (tenant_id, position_id)   REFERENCES sys_position (tenant_id, id),
+    ADD CONSTRAINT fk_sys_user_factory    FOREIGN KEY (tenant_id, factory_id)    REFERENCES mdm_factory (tenant_id, id),
+    ADD CONSTRAINT fk_sys_user_manager    FOREIGN KEY (tenant_id, manager_user_id) REFERENCES sys_user (tenant_id, id);
+-- 04 §7：FK 列加索引（tenant_id 打头）
+CREATE INDEX idx_sys_user_position ON sys_user (tenant_id, position_id);
+CREATE INDEX idx_sys_user_factory  ON sys_user (tenant_id, factory_id);
+CREATE INDEX idx_sys_user_manager  ON sys_user (tenant_id, manager_user_id);
 
 -- 6. 注释
 COMMENT ON TABLE sys_user IS '用户（登录账号＋员工属性）';
@@ -150,6 +167,20 @@ BEGIN
     END IF;
 END
 $$;
+-- tenant_code 统一大写（#75 决定）：先确认 upper() 后未删除租户无重复
+DO $$
+DECLARE v_dup TEXT;
+BEGIN
+    SELECT string_agg(c, ',') INTO v_dup FROM (
+        SELECT upper(tenant_code) c FROM sys_tenant WHERE deleted = FALSE GROUP BY upper(tenant_code) HAVING count(*) > 1) d;
+    IF v_dup IS NOT NULL THEN
+        RAISE EXCEPTION 'tenant_code 大写化中止：未删除租户中 upper(tenant_code) 重复：%', v_dup;
+    END IF;
+END
+$$;
+UPDATE sys_tenant SET tenant_code = upper(tenant_code) WHERE tenant_code <> upper(tenant_code);
+ALTER TABLE sys_tenant ADD CONSTRAINT ck_sys_tenant_code_upper CHECK (tenant_code = upper(tenant_code));
+COMMENT ON COLUMN sys_tenant.tenant_code IS '租户代码（企业代码，全体唯一，统一大写）';
 DROP INDEX uk_sys_tenant_code;
 CREATE UNIQUE INDEX uk_sys_tenant_code ON sys_tenant (tenant_code) WHERE deleted = FALSE;
 
@@ -157,7 +188,7 @@ CREATE UNIQUE INDEX uk_sys_tenant_code ON sys_tenant (tenant_code) WHERE deleted
 --    登录时尚无 app.tenant_id，erp_app 受 FORCE RLS 约束无法查 sys_user；本函数以 owner（BYPASSRLS）执行，
 --    函数内显式按 tenant_id 过滤。租户须 status=1、未删除、未过期（expire_date IS NULL OR >= current_date）。
 --    租户不存在/无效/过期、用户不存在/已删除：一律 0 行（不可区分）。只返回认证所需最少字段（不含姓名、联系方式）。
---    tenant_code、username 精确匹配（不做大小写折叠）。
+--    tenant_code 按 upper(p_tenant_code) 匹配（库内统一大写）；username 精确匹配、区分大小写。
 CREATE FUNCTION public.sys_auth_find_login_user(p_tenant_code VARCHAR, p_username VARCHAR)
 RETURNS TABLE (
     tenant_id               BIGINT,
@@ -181,7 +212,7 @@ AS $$
            u.lock_until, u.login_fail_count, u.password_reset_required, u.password_expire_at, u.version
       FROM public.sys_tenant t
       JOIN public.sys_user u ON u.tenant_id = t.tenant_id
-     WHERE t.tenant_code = p_tenant_code
+     WHERE t.tenant_code = upper(p_tenant_code)
        AND t.deleted = FALSE
        AND t.status = 1
        AND (t.expire_date IS NULL OR t.expire_date >= current_date)
