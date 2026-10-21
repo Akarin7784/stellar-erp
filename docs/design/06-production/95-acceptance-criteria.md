@@ -137,6 +137,18 @@
 - G：状態 10。W：`remark` 501 文字。T：**400 / `1001` / `MSG-COM-041`**。
 - 画面（SCR-PRD-034）：修正は状態 10 のみ表示。
 
+## AC-PRD-19 工单承認の WF 連携（蓝色大肥鱼 2026-10-21 決定）
+
+- G：工单 `order_status=20`、流程 `prd_work_order_release`。W：E32 承認。T：`order_status=25`、`approved_by/at` 設定。
+- G：同上。W：E32 却下。T：`order_status=10`（95 にしない）、再編集・再提出可。
+- G：同一 `taskId`＋`result` の E32 を再受信。T：状態・`version` 不変（冪等）。
+
+## AC-PRD-20 超産申請の WF 回調マッピング（蓝色大肥鱼 2026-10-21 決定）
+
+- G：超産申請 `approval_status=20`、流程 `prd_overproduction_approval`。W：E32 承認。T：`approval_status=30`、`allowed_qty` +`request_qty`（§3.14 案 B と同一）。
+- G：同上。W：E32 却下。T：`approval_status=40`、`allowed_qty` 不変。
+- G：同上。W：E32 強制終了（TERMINATED）。T：`approval_status=90`、`allowed_qty` 不変。
+
 ## 改訂履歴
 
 | 版数 | 日付 | 変更内容 | 変更者 |
@@ -155,3 +167,4 @@
 | v1.11 | 2026-10-21 | HTTP 409 を `version` 競合（4003）専用とし、状態不整合（4002）・二重処理/処理中（4005）・同時実行・確定済変更不可・二重実行等の 409 も 422 に統一し、409 は `version` 競合（4003）のみとする（蓝色大肥鱼 2026-10-21 決定）。対象：:32、:67、:91 | 业务分析 |
 | v1.12 | 2026-10-21 | 超産却下の rejectReason を必須化（共通 03 §284 に追随）。AC-PRD-17 を追加（未入力 400／1001／MSG-COM-040、501 文字 400／1001／MSG-COM-041、500 文字は成功） | 业务分析 |
 | v1.13 | 2026-10-21 | 超産申請の草稿修正 API を追加（状態 10 のみ、version 必須、allowed_qty 不変）（蓝色大肥鱼 2026-10-21 決定）。AC-PRD-18 を追加（可変 requestQty・workOrderId・remark、状態不正 422／60101）（v1.12 は #104） | 业务分析 |
+| v1.14 | 2026-10-21 | AC-PRD-19（工单 WF：承認→25、却下→10、冪等）・AC-PRD-20（超産回調マッピング：承認→30、却下→40、強制終了→90）を追加（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

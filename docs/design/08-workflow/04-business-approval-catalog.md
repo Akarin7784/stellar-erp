@@ -54,7 +54,7 @@
 | INV | 移库（`inv_transfer`） | `approval_status` **0 不要/10 待ち/20 承認/30 却下** | 20 | 30 | 未登録 | 05-inventory/90-db-design.md:654、:671、:688 |
 | INV | 盘点（`inv_stocktake`） | `take_status` 10/20/30/**35 承認待ち/40 承認済**/90 | 40 | — | `INVENTORY_COUNT`／`APR-STKADJ-L1..L2` | 05-inventory/90-db-design.md:810、94:72 |
 | INV | 成本调整（`inv_cost_adjustment`） | `adjustment_status` 10/20/25/30/90 | 25 | — | 未登録 | 05-inventory/90-db-design.md:1265 |
-| PRD | 生产工单（`prd_work_order`） | `order_status` 10/20/25/30/35/40/90/95 | 25 | 95 | `WORK_ORDER`／`WO_STANDARD`（流程キーは PRD 定義） | 06-production/90-db-design.md:994、02-work-order.md:111-112、91-api-design.md:72-73、94:73、94:98 |
+| PRD | 生产工单（`prd_work_order`） | `order_status` 10/20/25/30/35/40/90/95 | 25 | 10（却下は草稿へ戻す（蓝色大肥鱼 2026-10-21 決定）） | `WORK_ORDER`／`prd_work_order_release` | 06-production/90-db-design.md:994、02-work-order.md:111-112、91-api-design.md:72-73、94:73、94:98 |
 | PRD | 超产申请（`prd_overproduction_approval`） | `approval_status` 10/20/**30 承認済/40 却下**/90、`process_instance_id` | 30 | 40 | 未登録（「Flowable 接入後は提出を WF 起動に置換」） | 06-production/90-db-design.md:1086-1094、:1108、91-api-design.md:88 |
 | PRD | 工单变更（`prd_work_order_change`） | `change_status` 10 申請中/25/95 | 25 | 95 | 未登録 | 06-production/90-db-design.md:1276 |
 | PRD | 委外订单（`prd_outsourcing_order`） | `os_status` 10/20/25/30/35/40/90/95 | 25 | 95 | 未登録 | 06-production/90-db-design.md:1686 |
@@ -80,14 +80,14 @@
 
 | # | 事項 | 現状（出典） | 選択肢 | 起票者の提案 | 決定者 |
 |---|---|---|---|---|---|
-| 1 | 超产申请の承認済・却下コードが共通と不一致 | `prd_overproduction_approval` は 30 承認済／40 却下（06-production/90-db-design.md:1086、:1094）。共通は 25／95（00-common/08:106、:111）、WF 状態遷移も 25／95（02:70-71） | A：現行維持し WF 連携時にマッピング／B：25／95 へ移行迁移 | A（実装・テスト済のため、E32 受信側でマッピング表を持つ） | 蓝色大肥鱼 |
+| 1 | 超产申请の承認済・却下コードが共通と不一致 | `prd_overproduction_approval` は 30 承認済／40 却下（06-production/90-db-design.md:1086、:1094）。共通は 25／95（00-common/08:106、:111）、WF 状態遷移も 25／95（02:70-71） | A：現行維持し WF 連携時にマッピング／B：25／95 へ移行迁移 | **已定（蓝色大肥鱼 2026-10-21）**：A。30／40 を維持し E32 受信側で承認→30・却下→40・強制終了→90。 A（実装・テスト済のため、E32 受信側でマッピング表を持つ） | 蓝色大肥鱼 |
 | 2 | 报价 `quotation_status=25` が「承認待ち」 | 03-sales/90-db-design.md:246。共通では 25＝承認済、20＝承認待ち | A：20 承認待ち・25 承認済へ注記修正／B：現行維持 | A（`approval_status` 側は既に 20/25 で共通準拠：:247） | 蓝色大肥鱼／sales |
 | 3 | 移库 `inv_transfer.approval_status` が独自コード | 0 不要／10 待ち／20 承認／30 却下（05-inventory/90-db-design.md:654、CHECK :671） | A：共通 10/20/25/95 へ移行／B：現行維持し対応表を明記 | B（CHECK 制約付きで実装済の可能性が高いため、まず実装状況を確認） | 蓝色大肥鱼／inventory |
 | 4 | 盘点の承認待ち 35・承認済 40 | 05-inventory/90-db-design.md:810。共通は 20／25 | A：共通へ統一／B：盘点固有として維持 | B（実盤・差異確認の段階を持つため）＋本書に対応表を明記 | 蓝色大肥鱼／inventory |
-| 5 | 工单の共通規定が 20 を飛ばしている | 00-common/08:125 は WO「10→25→30…」。PRD 側は 10→20→25（06-production/02-work-order.md:111-112、90:994） | A：00-common/08:125 を 10→20→25 に修正／B：現行維持 | A（PRD 側が実装済・PR #32 決定） | 蓝色大肥鱼 |
-| 6 | WF 未接続の承認伝票 | 超产申请・工单变更・委外・NCR・报价・开票申请・在庫取引・成本调整・移库・BOM 系・MPS 等は 08/94 の業務類型・流程定義に無い（94:60-75） | A：各域で業務類型を追加／B：域内簡易承認（WF 不使用）として明記 | 伝票ごとに要判断。まず超产申请（`process_instance_id` 列あり）と工单（業務類型登録済・流程キー未定）を優先 | 蓝色大肥鱼 |
-| 7 | 工单の流程キー未定 | 94:73「PRD 域定義」、94:98 `WO_STANDARD` の proc_def_key も `WORK_ORDER`。approval-matrix に APR-WO なし | A：`APR-WO` を approval-matrix に追加／B：`WORK_ORDER` をキーとして確定 | 決定待ち（新規経路は本書で定義しない） | 蓝色大肥鱼 |
-| 8 | 状態不正のエラーコード | 共通は 4002（00-common/03:290、06-production/91-api-design.md:27）。超产申请は域コード 60101（91:587-590） | A：域ごとに許容／B：4002 に統一 | A（超产申请は大肥鱼 2026-10-21 決定で 60101 確定済。他域は 4002 既定） | 蓝色大肥鱼 |
+| 5 | 工单の共通規定が 20 を飛ばしている | 00-common/08:125 は WO「10→25→30…」。PRD 側は 10→20→25（06-production/02-work-order.md:111-112、90:994） | A：00-common/08:125 を 10→20→25 に修正／B：現行維持 | **已定（蓝色大肥鱼 2026-10-21）**：A。00-common/08:125 を 10→20→25 に修正済。 A（PRD 側が実装済・PR #32 決定） | 蓝色大肥鱼 |
+| 6 | WF 未接続の承認伝票 | 超产申请・工单变更・委外・NCR・报价・开票申请・在庫取引・成本调整・移库・BOM 系・MPS 等は 08/94 の業務類型・流程定義に無い（94:60-75） | A：各域で業務類型を追加／B：域内簡易承認（WF 不使用）として明記 | **一部已定（蓝色大肥鱼 2026-10-21）**：工单（`prd_work_order_release`）・超产申请（`prd_overproduction_approval`）を接続。他伝票は待確認。 伝票ごとに要判断。まず超产申请（`process_instance_id` 列あり）と工单（業務類型登録済・流程キー未定）を優先 | 蓝色大肥鱼 |
+| 7 | 工单の流程キー未定 | 94:73「PRD 域定義」、94:98 `WO_STANDARD` の proc_def_key も `WORK_ORDER`。approval-matrix に APR-WO なし | A：`APR-WO` を approval-matrix に追加／B：`WORK_ORDER` をキーとして確定 | **已定（蓝色大肥鱼 2026-10-21）**：流程 key `prd_work_order_release`（一級・生产主管）。 決定待ち（新規経路は本書で定義しない） | 蓝色大肥鱼 |
+| 8 | 状態不正のエラーコード | 共通は 4002（00-common/03:290、06-production/91-api-design.md:27）。超产申请は域コード 60101（91:588-592） | A：域ごとに許容／B：4002 に統一 | **已定（蓝色大肥鱼 2026-10-21）**：A。超产申请は 60101、他域は 4002。 A（超产申请は大肥鱼 2026-10-21 決定で 60101 確定済。他域は 4002 既定） | 蓝色大肥鱼 |
 | 9 | MDM 供应商・信用额度の `approval_status` 値の注記なし | 02-mdm/90-db-design.md:711、:1284 | 物料・客户（10/20/25/90/95）と同一と注記 | 同一値を注記（DDL 本体は変更なし） | mdm |
 | 10 | 業務伝票の `process_instance_id` 保持の有無 | PUR 3 表・超产申请のみ列あり。SAL/INV/FIN/他 PRD 表は無い（`wf_business_process` で引ける） | A：`wf_business_process` を正とし業務表に持たない／B：全承認表に追加 | A（08 の正本表は `wf_business_process`：90-db-design.md:290） | 蓝色大肥鱼 |
 
@@ -96,3 +96,4 @@
 | 版数 | 日付 | 変更内容 | 変更者 |
 |---|---|---|---|
 | v1.0 | 2026-10-21 | 初版：共通規定 7 項、承認対象伝票 26 行の横断一覧（状態コード・WF 接続・出典）、状態操作の統一表、待確認 10 件（既存定義の集約のみ、新規業務ルールなし） | 业务分析 |
+| v1.1 | 2026-10-21 | §3 工单の却下を 10 へ戻すに変更、流程 key を `prd_work_order_release` に。§5 #8 の出典を 91:588-592 に訂正。§5 #1・#5・#7・#8 を已定、#6 を一部已定に更新（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
