@@ -4,7 +4,7 @@
 |---|---|
 | 文書名 | 系统管理 DB 设计书（系统管理 DB 設計書） |
 | 文書番号 | DSN-SYS-090 |
-| 版数 | v1.18 |
+| 版数 | v1.19 |
 | 作成日 | 2026-10-20 |
 | 作成者 | system-workflow（域設計担当） |
 | 承認者 | 未承認（レビュー待ち） |
@@ -381,7 +381,7 @@ COMMENT ON TABLE sys_user IS '用户（ログインアカウント＋社員属�
 **外部キー（2026-10-21 決定）**：#43 規則（[00-common/04](../00-common/04-common-db-spec.md) §6.2 項 2a）に従い、参照先が `company_id` を持つため 4 本とも**三列複合外键** `(tenant_id, company_id, x)` → 参照先 `(tenant_id, company_id, id)`（`uk_<table>_tenant_company_id`）とする。いずれも NULL 可。`sys_user` に命名例外は設けない。
   - `department_id` → `sys_department`（`sys/V202610210104`、`company_id` あり）
   - `position_id` → `sys_position`（`sys/V202610210104`、`company_id` あり）
-  - `factory_id` → `mdm_factory`（`mdm/V202610210201`、`company_id` あり）。跨域参照だが硬外键を維持する（先例：`fk_inv_stock_balance_material`）
+  - `factory_id` → `mdm_factory`（`mdm/V202610210201`、`company_id` あり）。跨域参照だが硬外键を維持し、参照先が `company_id` を持つため三列とする（[04](../00-common/04-common-db-spec.md) §6.2 項 2a「跨域・sys/mdm 参照の列構成」）
   - `manager_user_id` → `sys_user` 自己参照。NULL 可のためルート＝0 の問題はない（`parent_id` の 04 §6.2 項 2a 例外とは異なる）。循環参照の禁止は引き続きアプリで検査する
   参照先 4 表は main 上に存在するため後続 TODO はない（蓝色大肥鱼 2026-10-21 #75 決定）。
 
@@ -1645,3 +1645,4 @@ COMMENT ON TABLE sys_data_maintenance_log IS '数据维护历史（初期化・�
 | v1.16 | 2026-10-21 | §1 に種データの主キーは `sys_seed_id` のハッシュで生成され、理論上アプリ層の雪花 ID と衝突しうること、発番器変更時に考慮することを追記（測試与評審 #64 指摘、蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.17 | 2026-10-21 | §3.3 `uk_sys_tenant_code` を `(tenant_id, tenant_code)` → `(tenant_code) WHERE deleted=FALSE` の全体一意に変更（04 §6.1 第 4 条 (c) 具名例外）、ログイン参照関数 `sys_auth_find_login_user` を追記。§3.x `uk_sys_user_username` の目的をログイン＝企業代码＋`username` に修正。DB 迁移は DBA の `sys_user` 正式迁移で実施（蓝色大肥鱼 2026-10-21 #71 決定） | 业务分析 |
 | v1.18 | 2026-10-21 | §3.3 `tenant_code` は大文字小文字を区別せず大文字で保存、`CHECK (tenant_code = upper(tenant_code))`、照合前に `upper()`。§3.6 `username` は完全一致（区別あり）のまま、`gender` に `CHECK IN (0,1,2)`、`employee_type` に `CHECK IN (1,2,3,4)`、`department_id`/`position_id`/`factory_id`/`manager_user_id` に三列複合 FK `(tenant_id, company_id, x)`（NULL 可、例外なし、factory は跨域硬 FK）、`company_id`=`sys_company.id` を追記（蓝色大肥鱼 2026-10-21 #75 決定） | 业务分析 |
+| v1.19 | 2026-10-21 | §3.6 `factory_id` FK の列数根拠を 04 §6.2 項 2a の新規則（参照先に `company_id` があれば三列）に変更（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
