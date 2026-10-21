@@ -8,7 +8,7 @@
 | 作成日 | 2026-10-20 |
 | 作成者 | Lead（生成工具 gen_matrix.py） |
 | 状態 | ドラフト（自动生成・最終レビュー前） |
-| 備考 | 全 328 件。物理名/論理名/域/提取元 |
+| 備考 | 全 329 件。物理名/論理名/域/提取元 |
 
 > 本文件由 `20-matrix/tools/gen_matrix.py` 从各域设计书中自动提取生成。修改设计书后重新运行即可更新。
 
@@ -105,6 +105,7 @@
 | inv_stock_balance | 库存余额 | INV | 05-inventory/90-db-design.md |
 | inv_stock_summary | 收发存汇总 | INV | 05-inventory/90-db-design.md |
 | inv_stock_txn | 库存事务（头） | INV | 05-inventory/90-db-design.md |
+| inv_stock_txn_key | 在庫事務一意キー台帳 | INV | 05-inventory/90-db-design.md |
 | inv_stock_txn_line | 库存事务明细 | INV | 05-inventory/90-db-design.md |
 | inv_stocktake | 盘点单 | INV | 05-inventory/90-db-design.md |
 | inv_stocktake_line | 盘点单明细 | INV | 05-inventory/90-db-design.md |

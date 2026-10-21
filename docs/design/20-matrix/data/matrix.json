@@ -53,7 +53,7 @@
       "folder": "05-inventory",
       "functions": 23,
       "screens": 26,
-      "tables": 23,
+      "tables": 24,
       "reports": 17,
       "batches": 9,
       "interfaces": 0,
@@ -6639,6 +6639,12 @@
     {
       "name": "inv_event_wait",
       "logical": "品質イベント保留",
+      "domain": "INV",
+      "source": "05-inventory/90-db-design.md"
+    },
+    {
+      "name": "inv_stock_txn_key",
+      "logical": "在庫事務一意キー台帳",
       "domain": "INV",
       "source": "05-inventory/90-db-design.md"
     },
