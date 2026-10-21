@@ -325,7 +325,7 @@
 | 36 | `SCR-SYS-012` | 公司/工厂设置 | 2 菜单 | `system` | `DIR-SYS` | `system/companies` | `system:company:view` | 110 |  |
 | 37 | `BTN-SYSTEM-COMPANY-CREATE` | create | 3 按钮 | `system` | `SCR-SYS-012` | — | `system:company:create` | 1 |  |
 | 38 | `BTN-SYSTEM-COMPANY-UPDATE` | update | 3 按钮 | `system` | `SCR-SYS-012` | — | `system:company:update` | 2 |  |
-| 39 | `SCR-SYS-013` | 租户设置（予約） | 2 菜单 | `system` | `DIR-SYS` | `system/tenants` | `system:tenant:view` | 120 |  |
+| 39 | `SCR-SYS-013` | 租户设置（预留） | 2 菜单 | `system` | `DIR-SYS` | `system/tenants` | `system:tenant:view` | 120 |  |
 | 40 | `BTN-SYSTEM-TENANT-UPDATE` | update | 3 按钮 | `system` | `SCR-SYS-013` | — | `system:tenant:update` | 1 |  |
 | 41 | `SCR-SYS-014` | 菜单管理 | 2 菜单 | `system` | `DIR-SYS` | `system/menus` | `system:menu:view` | 130 |  |
 | 42 | `BTN-SYSTEM-MENU-CREATE` | create | 3 按钮 | `system` | `SCR-SYS-014` | — | `system:menu:create` | 1 |  |
@@ -363,7 +363,7 @@
 | 74 | `SCR-SYS-029` | 系统初始化与数据维护 | 2 菜单 | `system` | `DIR-SYS` | `system/maintenances` | `system:maintenance:view` | 280 |  |
 | 75 | `BTN-SYSTEM-MAINTENANCE-APPROVE` | approve | 3 按钮 | `system` | `SCR-SYS-029` | — | `system:maintenance:approve` | 1 |  |
 | 76 | `BTN-SYSTEM-MAINTENANCE-EXECUTE` | execute | 3 按钮 | `system` | `SCR-SYS-029` | — | `system:maintenance:execute` | 2 |  |
-| 77 | `SCR-SYS-030` | 通知发送履歴 | 2 菜单 | `system` | `DIR-SYS` | `system/notification-logs` | `system:notification-log:view` | 290 | 非表示ルート（is_visible=FALSE） |
+| 77 | `SCR-SYS-030` | 通知发送历史 | 2 菜单 | `system` | `DIR-SYS` | `system/notification-logs` | `system:notification-log:view` | 290 | 非表示ルート（is_visible=FALSE） |
 | 78 | `DIR-MDM` | 主数据管理 | 1 目录 | `mdm` | —（ルート） | `mdm` | — | 20 | 目录 |
 | 79 | `SCR-MDM-001` | 物料一览 | 2 菜单 | `mdm` | `DIR-MDM` | `mdm/materials` | `mdm:material:view` | 10 |  |
 | 80 | `BTN-MDM-MATERIAL-DELETE` | delete | 3 按钮 | `mdm` | `SCR-MDM-001` | — | `mdm:material:delete` | 1 |  |
@@ -458,7 +458,7 @@
 | 169 | `BTN-SALES-QUOTATION-PRINT` | print | 3 按钮 | `sales` | `SCR-SAL-004` | — | `sales:quotation:print` | 3 |  |
 | 170 | `SCR-SAL-005` | 报价单登记编辑 | 2 菜单 | `sales` | `DIR-SAL` | `sales/quotations/new` | `sales:quotation:create` | 50 | 非表示ルート（is_visible=FALSE） |
 | 171 | `SCR-SAL-006` | 报价单查看详细 | 2 菜单 | `sales` | `DIR-SAL` | `sales/quotations/:id` | `sales:quotation:view` | 60 | 非表示ルート（is_visible=FALSE） |
-| 172 | `SCR-SAL-007` | 报价单版本比較 | 2 菜单 | `sales` | `DIR-SAL` | `sales/quotations/:id/scr-sal-007` | `sales:quotation:view` | 70 | 非表示ルート（is_visible=FALSE） |
+| 172 | `SCR-SAL-007` | 报价单版本比较 | 2 菜单 | `sales` | `DIR-SAL` | `sales/quotations/:id/scr-sal-007` | `sales:quotation:view` | 70 | 非表示ルート（is_visible=FALSE） |
 | 173 | `SCR-SAL-008` | 销售订单一览 | 2 菜单 | `sales` | `DIR-SAL` | `sales/orders` | `sales:order:view` | 80 |  |
 | 174 | `BTN-SALES-ORDER-CANCEL` | cancel | 3 按钮 | `sales` | `SCR-SAL-008` | — | `sales:order:cancel` | 1 |  |
 | 175 | `BTN-SALES-ORDER-CHANGE` | change | 3 按钮 | `sales` | `SCR-SAL-008` | — | `sales:order:change` | 2 |  |
@@ -468,9 +468,9 @@
 | 179 | `BTN-SALES-ORDER-SUBMIT` | submit | 3 按钮 | `sales` | `SCR-SAL-008` | — | `sales:order:submit` | 6 |  |
 | 180 | `SCR-SAL-009` | 销售订单登记编辑 | 2 菜单 | `sales` | `DIR-SAL` | `sales/orders/new` | `sales:order:create` | 90 | 非表示ルート（is_visible=FALSE） |
 | 181 | `SCR-SAL-010` | 销售订单查看详细 | 2 菜单 | `sales` | `DIR-SAL` | `sales/orders/:id` | `sales:order:view` | 100 | 非表示ルート（is_visible=FALSE） |
-| 182 | `SCR-SAL-011` | 订单承认画面（WF） | 2 菜单 | `sales` | `DIR-SAL` | `sales/orders/approve` | `sales:order:approve` | 110 | 非表示ルート（is_visible=FALSE） |
+| 182 | `SCR-SAL-011` | 订单审批处理（工作流） | 2 菜单 | `sales` | `DIR-SAL` | `sales/orders/approve` | `sales:order:approve` | 110 | 非表示ルート（is_visible=FALSE） |
 | 183 | `SCR-SAL-012` | 订单变更向导 | 2 菜单 | `sales` | `DIR-SAL` | `sales/orders/update` | `sales:order:update` | 120 | 非表示ルート（is_visible=FALSE） |
-| 184 | `SCR-SAL-013` | 订单变更履歴 | 2 菜单 | `sales` | `DIR-SAL` | `sales/orders/:id/scr-sal-013` | `sales:order:view` | 130 | 非表示ルート（is_visible=FALSE） |
+| 184 | `SCR-SAL-013` | 订单变更历史 | 2 菜单 | `sales` | `DIR-SAL` | `sales/orders/:id/scr-sal-013` | `sales:order:view` | 130 | 非表示ルート（is_visible=FALSE） |
 | 185 | `SCR-SAL-014` | 发货通知一览 | 2 菜单 | `sales` | `DIR-SAL` | `sales/deliveries` | `sales:delivery:view` | 140 |  |
 | 186 | `BTN-SALES-DELIVERY-CANCEL` | cancel | 3 按钮 | `sales` | `SCR-SAL-014` | — | `sales:delivery:cancel` | 1 |  |
 | 187 | `BTN-SALES-DELIVERY-UPDATE` | update | 3 按钮 | `sales` | `SCR-SAL-014` | — | `sales:delivery:update` | 2 |  |
@@ -499,7 +499,7 @@
 | 210 | `SCR-SAL-031` | 账龄分析 | 2 菜单 | `sales` | `DIR-SAL` | `sales/receivables/view` | `sales:receivable:view` | 310 | 非表示ルート（is_visible=FALSE） |
 | 211 | `SCR-SAL-032` | 信用额度查询 | 2 菜单 | `sales` | `DIR-SAL` | `sales/credits` | `sales:credit:view` | 320 |  |
 | 212 | `BTN-SALES-CREDIT-APPROVE` | approve | 3 按钮 | `sales` | `SCR-SAL-032` | — | `sales:credit:approve` | 1 |  |
-| 213 | `SCR-SAL-033` | 与信台帳明細（FIN 投影） | 2 菜单 | `sales` | `DIR-SAL` | `sales/credits/view` | `sales:credit:view` | 330 | 非表示ルート（is_visible=FALSE） |
+| 213 | `SCR-SAL-033` | 信用台账明细（财务投影） | 2 菜单 | `sales` | `DIR-SAL` | `sales/credits/view` | `sales:credit:view` | 330 | 非表示ルート（is_visible=FALSE） |
 | 214 | `SCR-SAL-034` | 信用超限审批申请 | 2 菜单 | `sales` | `DIR-SAL` | `sales/credits/approval-requests` | `sales:credit:submit` | 340 | 非表示ルート（is_visible=FALSE） |
 | 215 | `SCR-SAL-035` | 价格表查询 | 2 菜单 | `sales` | `DIR-SAL` | `sales/prices` | `sales:price:view` | 350 |  |
 | 216 | `SCR-SAL-036` | 特价申请一览 | 2 菜单 | `sales` | `DIR-SAL` | `sales/price-overrides` | `sales:price-override:view` | 360 |  |
@@ -586,7 +586,7 @@
 | 297 | `BTN-INVENTORY-STOCK-TXN-REVERSE` | reverse | 3 按钮 | `inventory` | `SCR-INV-002` | — | `inventory:stock-txn:reverse` | 4 |  |
 | 298 | `BTN-INVENTORY-STOCK-TXN-SUBMIT` | submit | 3 按钮 | `inventory` | `SCR-INV-002` | — | `inventory:stock-txn:submit` | 5 |  |
 | 299 | `BTN-INVENTORY-STOCK-TXN-UPDATE` | update | 3 按钮 | `inventory` | `SCR-INV-002` | — | `inventory:stock-txn:update` | 6 |  |
-| 300 | `SCR-INV-003` | 库存明细账（台帳） | 2 菜单 | `inventory` | `DIR-INV` | `inventory/stock-txns/view` | `inventory:stock-txn:view` | 30 | 非表示ルート（is_visible=FALSE） |
+| 300 | `SCR-INV-003` | 库存明细账（台账） | 2 菜单 | `inventory` | `DIR-INV` | `inventory/stock-txns/view` | `inventory:stock-txn:view` | 30 | 非表示ルート（is_visible=FALSE） |
 | 301 | `SCR-INV-004` | 采购入库单（GRI）登记 | 2 菜单 | `inventory` | `DIR-INV` | `inventory/stock-txns/gri/new` | `inventory:stock-txn:create` | 40 | 非表示ルート（is_visible=FALSE） |
 | 302 | `SCR-INV-005` | 销售出库单（SDO）登记 | 2 菜单 | `inventory` | `DIR-INV` | `inventory/stock-txns/sdo/new` | `inventory:stock-txn:create` | 50 | 非表示ルート（is_visible=FALSE） |
 | 303 | `SCR-INV-006` | 生产领料/退料单（MII/MIR）登记 | 2 菜单 | `inventory` | `DIR-INV` | `inventory/stock-txns/mii-mir/new` | `inventory:stock-txn:create` | 60 | 非表示ルート（is_visible=FALSE） |
@@ -799,7 +799,7 @@
 | 510 | `BTN-WORKFLOW-TASK-TRANSFER` | transfer | 3 按钮 | `workflow` | `SCR-WF-006` | — | `workflow:task:transfer` | 3 |  |
 | 511 | `BTN-WORKFLOW-TASK-URGE` | urge | 3 按钮 | `workflow` | `SCR-WF-006` | — | `workflow:task:urge` | 4 |  |
 | 512 | `BTN-WORKFLOW-TASK-WITHDRAW` | withdraw | 3 按钮 | `workflow` | `SCR-WF-006` | — | `workflow:task:withdraw` | 5 |  |
-| 513 | `SCR-WF-007` | 审批界面 | 2 菜单 | `workflow` | `DIR-WF` | `workflow/tasks/approve` | `workflow:task:approve` | 70 | 非表示ルート（is_visible=FALSE） |
+| 513 | `SCR-WF-007` | 审批处理 | 2 菜单 | `workflow` | `DIR-WF` | `workflow/tasks/approve` | `workflow:task:approve` | 70 | 非表示ルート（is_visible=FALSE） |
 | 514 | `SCR-WF-008` | 已办一览 | 2 菜单 | `workflow` | `DIR-WF` | `workflow/tasks/view` | `workflow:task:view` | 80 |  |
 | 515 | `SCR-WF-009` | 我发起的 | 2 菜单 | `workflow` | `DIR-WF` | `workflow/tasks/view/scr-wf-009` | `workflow:task:view` | 90 |  |
 | 516 | `SCR-WF-010` | 抄送我的 | 2 菜单 | `workflow` | `DIR-WF` | `workflow/tasks/view/scr-wf-010` | `workflow:task:view` | 100 |  |
@@ -839,11 +839,11 @@
 | 550 | `BTN-INTEGRATION-BANK-PAYMENT-SUBMIT` | submit | 3 按钮 | `integration` | `SCR-INT-012` | — | `integration:bank-payment:submit` | 2 |  |
 | 551 | `SCR-INT-013` | 付款指令详细・回单 | 2 菜单 | `integration` | `DIR-INT` | `integration/bank-payments/:id` | `integration:bank-payment:create` | 130 | 非表示ルート（is_visible=FALSE） |
 | 552 | `SCR-INT-014` | 银行对账单导入 | 2 菜单 | `integration` | `DIR-INT` | `integration/bank-statements` | `integration:bank-statement:import` | 140 |  |
-| 553 | `SCR-INT-015` | 对账单导入结果・移交 FIN | 2 菜单 | `integration` | `DIR-INT` | `integration/bank-statements/:id` | `integration:bank-statement:view` | 150 | 非表示ルート（is_visible=FALSE） |
-| 554 | `SCR-INT-016` | MES/WMS 連携状況 | 2 菜单 | `integration` | `DIR-INT` | `integration/meses` | `integration:mes:view` | 160 |  |
+| 553 | `SCR-INT-015` | 对账单导入结果・移交财务 | 2 菜单 | `integration` | `DIR-INT` | `integration/bank-statements/:id` | `integration:bank-statement:view` | 150 | 非表示ルート（is_visible=FALSE） |
+| 554 | `SCR-INT-016` | MES/WMS 集成状况 | 2 菜单 | `integration` | `DIR-INT` | `integration/meses` | `integration:mes:view` | 160 |  |
 | 555 | `BTN-INTEGRATION-MES-RECEIVE` | receive | 3 按钮 | `integration` | `SCR-INT-016` | — | `integration:mes:receive` | 1 |  |
 | 556 | `BTN-INTEGRATION-MES-RETRY` | retry | 3 按钮 | `integration` | `SCR-INT-016` | — | `integration:mes:retry` | 2 |  |
-| 557 | `SCR-INT-017` | PLM 同期状況 | 2 菜单 | `integration` | `DIR-INT` | `integration/plms` | `integration:plm:view` | 170 |  |
+| 557 | `SCR-INT-017` | PLM 同步状况 | 2 菜单 | `integration` | `DIR-INT` | `integration/plms` | `integration:plm:view` | 170 |  |
 | 558 | `BTN-INTEGRATION-PLM-APPROVE` | approve | 3 按钮 | `integration` | `SCR-INT-017` | — | `integration:plm:approve` | 1 |  |
 | 559 | `BTN-INTEGRATION-PLM-IMPORT` | import | 3 按钮 | `integration` | `SCR-INT-017` | — | `integration:plm:import` | 2 |  |
 | 560 | `SCR-INT-018` | 开放 API 客户端管理 | 2 菜单 | `integration` | `DIR-INT` | `integration/api-clients` | `integration:api-client:view` | 180 |  |
@@ -854,7 +854,7 @@
 | 565 | `BTN-INTEGRATION-FILE-TRANSFER-IMPORT` | import | 3 按钮 | `integration` | `SCR-INT-020` | — | `integration:file-transfer:import` | 1 |  |
 | 566 | `SCR-INT-021` | 通知渠道设置 | 2 菜单 | `integration` | `DIR-INT` | `integration/notification-channels` | `integration:notification-channel:update` | 210 |  |
 | 567 | `BTN-INTEGRATION-NOTIFICATION-CHANNEL-VIEW` | view | 3 按钮 | `integration` | `SCR-INT-021` | — | `integration:notification-channel:view` | 1 |  |
-| 568 | `SCR-INT-022` | 通知送信履歴 | 2 菜单 | `integration` | `DIR-INT` | `integration/notification-logs` | `integration:notification-log:view` | 220 | 非表示ルート（is_visible=FALSE） |
+| 568 | `SCR-INT-022` | 通知发送历史 | 2 菜单 | `integration` | `DIR-INT` | `integration/notification-logs` | `integration:notification-log:view` | 220 | 非表示ルート（is_visible=FALSE） |
 | 569 | `SCR-INT-023` | PDA 端末管理 | 2 菜单 | `integration` | `DIR-INT` | `integration/pda-devices` | `integration:pda-device:view` | 230 |  |
 | 570 | `BTN-INTEGRATION-PDA-DEVICE-UPDATE` | update | 3 按钮 | `integration` | `SCR-INT-023` | — | `integration:pda-device:update` | 1 |  |
 | 571 | `SCR-INT-024` | 每日对账结果 | 2 菜单 | `integration` | `DIR-INT` | `integration/reconciles` | `integration:reconcile:view` | 240 | 非表示ルート（is_visible=FALSE） |
@@ -896,4 +896,4 @@
 | v1.7 | 2026-10-21 | §2.10 (7) G-7 を改訂：`sys_menu.parent_id` に自己参照 FK を付けないことを明記（0＝ルート、親子はアプリ `MSG-SYS-021` と pgTAP で検査。#65、蓝色大肥鱼 2026-10-21 決定、案 A） | 业务分析 |
 | v1.8 | 2026-10-21 | G-11 を追加：超産承認の菜单 `SCR-PRD-034` と按钮 4 行（`production:overproduction-approval:*`、reject は approve と共用）を付録 A #397〜#401 に追加し後続行を繰下げ（画面は 06 §5 SCR-PRD-034）。増分迁移の要件（既存 SYSTEM_ADMIN へ新 5 コードのみ一度付与・撤销済み付与は戻さない・新規会社は sys_init_company で取得、pgTAP で両方を断言）を明記。件数を 594 行／付与 584／異なるコード 518 に更新（V202610211405 は 589／579／513 のまま、5 行は後続の増分迁移で投入。蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.9 | 2026-10-21 | §2.10 (7) G-12 を追加：一度だけの回填用関数は定義した同じ迁移で実行後に `DROP FUNCTION` する規則（手動再実行で撤销済み付与が戻るのを防ぐ）。V202610211406 の `sys_apply_overproduction_menu()` は次の sys 迁移で DROP（#70、蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
-| v1.10 | 2026-10-21 | 付録 A の `menu_name` を中文に統一（日文表記を含む 152 行。「生产订单」は「工单」、例：SCR-PRD-008 工单一览・009 工单登记编辑・010 工单详细（工序/用料/报工/入库标签）・011 工单下达・拆分・合并。一覧→一览、登録編集→登记编辑、詳細→详细、照会→查询、設定→设置、赤伝→红冲单、ウィザード→向导、ダッシュボード→仪表盘、承認マトリクス→审批矩阵 等）。界面は中文を標準とする。`sys_menu` は後続迁移で UPDATE し対齐（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.10 | 2026-10-21 | 付録 A の `menu_name` を中文に統一（日文表記を含む 162 行。「生产订单」は「工单」、例：SCR-PRD-008 工单一览・009 工单登记编辑・010 工单详细（工序/用料/报工/入库标签）・011 工单下达・拆分・合并。一覧→一览、登録編集→登记编辑、詳細→详细、照会→查询、設定→设置、履歴→历史、赤伝→红冲单、ウィザード→向导、ダッシュボード→仪表盘、承認マトリクス→审批矩阵、承認画面→审批处理 等）。菜单名に模块缩写（SAL/FIN/WF 等）を用いず中文模块名とする（API・PDA・外部システム名 MES/WMS/PLM は保持）。界面は中文を標準とする。`sys_menu` は後続迁移で UPDATE し対齐（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
