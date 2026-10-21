@@ -172,6 +172,10 @@ COMMENT ON TABLE sys_company IS '公司（会计主体）';
 | uk_sys_company_code | UNIQUE | (tenant_id, company_code) | WHERE deleted=FALSE | 公司代码一意 |
 | uk_sys_company_credit | UNIQUE | (tenant_id, unified_social_credit_code) | WHERE deleted=FALSE AND unified_social_credit_code IS NOT NULL | 信用代码一意 |
 
+**`company_id` の値（2026-10-21 決定）**：全業務テーブルの `company_id`（`sys_param.company_id` を含む）は `sys_company.id` と同値とする。ログインセッションの現在会社 ID（`LoginContext.companyId`）も `sys_company.id` を保持する。`sys_company` 自身の共通カラム `company_id` は自行の `id` と同値で登録する（迁移 `sys/V202610210103:7,9,75,77`）（蓝色大肥鱼 2026-10-21 決定）。
+
+**会社登録時の既定パラメータ（2026-10-21 決定）**：会社を登録する処理（`POST /api/system/companies`、PRC-SYS-014-03）は、`sys_company` の INSERT と**同一トランザクション**で、§3.15「業務パラメータ」表の全キーを当該会社の `sys_param` 行（`company_id` = 新しい `sys_company.id`、`param_value` = `default_value`）として投入する。既存行はスキップする（`ON CONFLICT (tenant_id, company_id, param_key) WHERE deleted = FALSE DO NOTHING`）。投入に失敗した場合は会社登録全体をロールバックする（蓝色大肥鱼 2026-10-21 決定）。
+
 **更新仕様**：F-SYS-014 のみが INSERT/UPDATE。削除は無効化（`status=0`）で表現し、`company_id` が参照されている場合は削除不可（`MSG-SYS-014`）。
 
 ### 3.2 sys_factory_setting 工厂组织设置
@@ -216,7 +220,7 @@ COMMENT ON TABLE sys_factory_setting IS '工厂组织设置（工厂主数据は
 | データ量見積 | `id=0` はシステムテナント。テナント数に応じて増加 |
 | 保存期間 | 無期限 |
 
-**概要**：マルチテナントの契約単位。画面・API は参照のみ。第一版から RLS（`tenant_id = current_setting('app.tenant_id')::bigint`）を有効化しており、その親テーブルとなる（[04 §14](../00-common/04-common-db-spec.md)）。テナント作成時は同一トランザクションで `sys_init_tenant(tenant_id)` を呼び出し、テナント単位の既定パラメータ（§3.15「業務パラメータ」の一覧）を投入する（関数は DBA の T1 マイグレーションで定義、本書は参照のみ）。
+**概要**：マルチテナントの契約単位。画面・API は参照のみ。第一版から RLS（`tenant_id = current_setting('app.tenant_id')::bigint`）を有効化しており、その親テーブルとなる（[04 §14](../00-common/04-common-db-spec.md)）。テナント作成時は**先に初期会社（`sys_company`）を登録し、その後**同一トランザクションで `sys_init_tenant(tenant_id)` を呼び出し、既存会社ごとの既定パラメータ（§3.15「業務パラメータ」の一覧）を投入する（関数は DBA の T1 マイグレーションで定義、本書は参照のみ）。テナント開設後に追加する会社は §3.1 の会社登録時投入で補う（蓝色大肥鱼 2026-10-21 決定）。
 
 ```sql
 CREATE TABLE sys_tenant (
@@ -697,6 +701,10 @@ COMMENT ON TABLE sys_param IS '系统参数';
 - `sys_param` はテナント単位（`tenant_id` + RLS）。既定値は**テナント作成時**に `sys_init_tenant(tenant_id)` を呼び出して投入する。既存の種テナントにはマイグレーションで明示的に行を投入する。関数・DDL は DBA の T1 マイグレーションで定義（本書は参照のみ）。
 - `sys_init_tenant` が投入する既定パラメータ：`prd.completion_over_rate = 0.05`、`prd.overproduction_max_rate = 1.0000`（今後追加する既定パラメータもこの表に列挙する）。
 - 値が存在しない場合は既定値で補わず、エラー `5000` を返す。
+- **会社登録時の既定行投入**：`sys_param` は会社単位（`uk_sys_param_key (tenant_id, company_id, param_key)`、`company_id` = `sys_company.id`。RLS は `tenant_id`）（蓝色大肥鱼 2026-10-21 決定）。既定値の投入経路は次の 2 つで、いずれも既存行はスキップ（冪等）：
+  1. **会社登録時**：`sys_company` の INSERT と同一トランザクションで当該会社の既定行を投入する（§3.1、PRC-SYS-014-03）。開設後に追加した会社も読取り時に `5000` にならない。
+  2. **テナント開設時**：先に初期会社を登録し、その後 `sys_init_tenant(tenant_id)` を呼び出す（会社がない状態で呼んでも会社別の行は作られない）。`sys_init_tenant` だけに依存しない。
+  既存の会社にはマイグレーションで明示的に行を投入する。関数・DDL は DBA の T1 マイグレーションで定義（本書は参照のみ）。
 - **参照範囲（2026-10-21 決定）**：パラメータは**当該会社のみ**を参照する（`tenant_id`・`company_id` はログインコンテキストから取得）。`company_id = 0` へのフォールバックは行わず、当該会社に行がなければ `5000`。迁移 `V202610210103__sys_t1_core_tables.sql:165` の `--` 注釈（「租户级默认使用 company_id = 0」）は廃止扱いとし、本書を正とする。
 - `sys_init_tenant` のセキュリティ要件（関数定義は DBA の T1 マイグレーション）：`SECURITY DEFINER`、`search_path` を固定（`SET search_path = pg_catalog, public`）、処理の最初に `set_config('app.tenant_id', 対象 tenant_id, true)` を設定してから投入する。`REVOKE EXECUTE ... FROM PUBLIC` とし、`erp_app` には付与しない。実行権限はテナント払い出し用ロールのみ。
 - 完工超収の容差チェーン：受注行 > 物料 > 物料分類 > 会社既定（本パラメータ）。購買受入の容差チェーン（物料 > 分類 > 仕入先 > 会社）とは別系統。
@@ -1609,3 +1617,4 @@ COMMENT ON TABLE sys_data_maintenance_log IS '数据维护历史（初期化・�
 | v1.8 | 2026-10-21 | 非一意 btree 索引（`idx_`）52 箇所を `tenant_id` 先頭（`company_id` がある表は次に `company_id`）に変更（DDL・索引一覧。既存迁移の索引は sys/V202610210707 と同一列。GIN は対象外。蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.9 | 2026-10-21 | main（#31）取込み後の再整合：一意索引・非一意 btree 索引を `tenant_id`（＋`company_id`）先頭に再適用、テナント級一意は 00-common/04 §6.1 第 4 条に従う（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.10 | 2026-10-21 | §3.15 業務パラメータに `prd.overproduction_max_rate`（既定 1.0000、`sys_init_tenant` シード）を追加（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.11 | 2026-10-21 | §3.1 に `company_id` = `sys_company.id`（`LoginContext.companyId` も同値、`sys_company.company_id` は自行 `id` と同値）を明記。会社登録時に同一トランザクションで §3.15 業務パラメータの既定行を冪等投入、テナント開設は会社登録→`sys_init_tenant` の順、§3.3・§3.15 の「テナント単位」を会社単位に修正（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

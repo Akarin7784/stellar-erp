@@ -193,6 +193,7 @@ stateDiagram-v2
 | PRC-SYS-005-02 | 部門移動（組織改編） | ドラッグ保存 | 要 | `FOR UPDATE`（対象部門と子孫） |
 | PRC-SYS-005-03 | 部門無効化 | 削除 | 要 | `FOR UPDATE` |
 | PRC-SYS-014-01 | 公司更新 | 保存 | 要 | 楽観排他 |
+| PRC-SYS-014-03 | 公司登録（既定パラメータ投入） | 保存（新規） | 要 | 一意索引 |
 | PRC-SYS-014-02 | 工厂登録・更新 | 保存 | 要 | 楽観排他、默认排他 |
 | PRC-SYS-006-01 | 岗位登録・更新 | 保存 | 要 | 楽観排他 |
 | PRC-SYS-017-01 | 租户参照 | 画面表示 | 不要 | — |
@@ -216,6 +217,13 @@ stateDiagram-v2
 3. 未完了伝票（各域の `department_id` 参照）は域を跨ぐため、SYS は「参照チェック API」を公開せず、無効化後も参照可能（名称スナップショット）とする。新規選択のみ不可とする。
 4. 子部門が存在する場合は無効化不可（先に子を処理）。
 5. `status=0` に更新し、監査ログを記録する。
+
+**PRC-SYS-014-03 公司登録**（蓝色大肥鱼 2026-10-21 決定）
+
+1. 権限チェック（`system:company:update`）と入力チェック（会社コード・信用代码の一意）。
+2. `sys_company` を INSERT する（共通カラム `company_id` は自行 `id` と同値）。
+3. 同一トランザクションで、[90 §3.15](90-db-design.md)「業務パラメータ」表の全キー（現時点 `prd.completion_over_rate = 0.05`、`prd.overproduction_max_rate = 1.0000`）を `sys_param` に `company_id` = 新しい `sys_company.id` で INSERT する。既存行はスキップ（`ON CONFLICT ... DO NOTHING`）。失敗時は会社登録ごとロールバック。
+4. 監査ログを記録する。以後、当該会社でのパラメータ読取りは `company_id = 0` へフォールバックせず、行がなければ `5000`。
 
 **PRC-SYS-014-02 工厂組織設定 登録・更新**
 
@@ -257,6 +265,7 @@ stateDiagram-v2
 | 10 | PUT | /api/system/positions/{id} | `system:position:update` | 岗位更新 |
 | 11 | DELETE | /api/system/positions/{id} | `system:position:delete` | 岗位無効化 |
 | 12 | GET | /api/system/companies | `system:company:view` | 公司一覧 |
+| 12a | POST | /api/system/companies | `system:company:update` | 公司登録（PRC-SYS-014-03） |
 | 13 | PUT | /api/system/companies/{id} | `system:company:update` | 公司更新 |
 | 14 | GET | /api/system/factories | `system:company:view` | 工厂组织設合一覧（MDM の `mdm_factory` を参照） |
 | 15 | POST | /api/system/factories | `system:company:update` | 工厂组织設定登録（有効化・既定割当） |
@@ -359,3 +368,4 @@ stateDiagram-v2
 | v1.0 | 2026-10-20 | 初版：F-SYS-005/006/014/017 の業務ルール、画面 4、画面項目定義、処理 7 件、API 17 件、メッセージ 7 件、テスト観点 11 件 | system-workflow |
 | v1.1 | 2026-10-20 | Lead 裁决反映：工厂主データは MDM（`mdm_factory`）へ移管。F-SYS-014 は公司主体＋工厂组织設定（`sys_factory_setting`：有効化・既定割当・責任者）に限定し、画面項目定義・処理手順・API・更新仕様を修正 | system-workflow |
 | v1.2 | 2026-10-20 | Lead 追補 E38 `system.department.changed` を反映：組織変更イベントの発行を E38 契約に確定し、未決 #1 を已裁决に更新 | system-workflow（validator） |
+| v1.3 | 2026-10-21 | PRC-SYS-014-03 公司登録・API 12a `POST /api/system/companies` を追加：同一トランザクションで 90 §3.15 業務パラメータの既定行を当該会社に冪等投入（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

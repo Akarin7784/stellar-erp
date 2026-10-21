@@ -173,7 +173,7 @@ DO UPDATE SET material_name = EXCLUDED.material_name;
 PostgreSQL の一意制約チェックは RLS を経由しないため、`tenant_id` を含まない一意キーは租户間の衝突と、重複エラーによる他租户データの存在探知を許す。以下を必須とする。
 
 1. すべての業務一意キー（`UNIQUE` 制約・一意インデックス・部分一意インデックスを含む。主キーを除く）の**先頭列は `tenant_id`**。`(tenant_id, company_id, 業務キー...)` を必須とする（項 4 の租户共有データを除く。例外登録は認めない）。
-2. `company_id` は `NOT NULL`、**既定値なし（`DEFAULT 1` 禁止）**。アプリが明示的に設定する。
+2. `company_id` は `NOT NULL`、**既定値なし（`DEFAULT 1` 禁止）**。アプリが明示的に設定する。値は常に `sys_company.id`（ログインセッションの `LoginContext.companyId` も `sys_company.id`。`sys_company` 自身の `company_id` は自行 `id` と同値。01-system/90 §3.1、蓝色大肥鱼 2026-10-21 決定）。
 3. `ON CONFLICT` の衝突対象列・`WHERE` 条件は対応する一意インデックスと**完全一致**させ、`tenant_id` を含める。
 4. **例外（以下に限る。追加は蓝色大肥鱼の決定による）**：
    - (a) `company_id` 列を持たない租户内全公司共有テーブル：一意キーは `(tenant_id, ...)`。
@@ -456,3 +456,4 @@ V{yyyyMMdd}{NNNN}__{module}_{description}.sql     # バージョンは 12 桁
 - 表の解決は接続ごとの `search_path = public, flowable`（`spring.datasource.hikari.connection-init-sql`）で行う。`flowable.database-schema` は設定しない（Flowable が接続に `setSchema()` を発行し、プール接続の `search_path` が `flowable` のみになるため）。
 - Flowable のバージョンアップ時は、新しい jar の `org/flowable/**/db/upgrade/*.postgres.upgradestep.*.sql` を新規 Flyway 迁移として追加する（`database-schema-update=true` に戻さない）。
 - RLS は業務 schema（`public`）の業務表のみ対象。Flowable 表は `tenant_id` を持たず RLS 対象外。
+| v1.12 | 2026-10-21 | §6.1 項 2：`company_id` の値は `sys_company.id`（`LoginContext.companyId` 同値、`sys_company.company_id` = 自行 `id`）と明記（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

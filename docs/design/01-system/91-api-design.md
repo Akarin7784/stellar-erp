@@ -91,6 +91,7 @@
 | 45 | PUT | /api/system/positions/{id} | `system:position:update` | 岗位更新 | F-SYS-006 | 4003 |
 | 46 | DELETE | /api/system/positions/{id} | `system:position:delete` | 岗位無効化 | F-SYS-006 | 10036 |
 | 47 | GET | /api/system/companies | `system:company:view` | 公司一覧 | F-SYS-014 | 3001 |
+| 47a | POST | /api/system/companies | `system:company:update` | 公司登録（同一 TX で `sys_param` 既定行を投入、[90 §3.1](90-db-design.md)） | F-SYS-014 | 1001 |
 | 48 | PUT | /api/system/companies/{id} | `system:company:update` | 公司更新 | F-SYS-014 | 4003 |
 | 49 | GET | /api/system/factories | `system:company:view` | 工厂组织設合一覧（MDM の `mdm_factory` を参照） | F-SYS-014 | 3001 |
 | 50 | POST | /api/system/factories | `system:company:update` | 工厂組織設定登録（有効化・既定割当） | F-SYS-014 | 10034 |
@@ -158,7 +159,7 @@
 | 112 | GET | /api/system/outbox-events | `system:outbox:view` | Outbox 監視 | F-SYS-020 | 3001 |
 | 113 | POST | /api/system/outbox-events/{id}/retry | `system:outbox:retry` | イベント再送 | F-SYS-020 | 4002 |
 
-> 全 113 API。リクエスト/レスポンスの詳細は各機能文書（01〜07）の第 7 章を正とし、本章は横断一覧と固有エラーコードを定義する。
+> 全 114 API（47a は 2026-10-21 追加）。リクエスト/レスポンスの詳細は各機能文書（01〜07）の第 7 章を正とし、本章は横断一覧と固有エラーコードを定義する。
 
 ## 3. API 詳細（主要 API）
 
@@ -242,3 +243,4 @@ Outbox 監視（`status`、`eventType`、`from`/`to`、ページング）。Payl
 | v1.0 | 2026-10-20 | 初版：本域固有エラーコード 19、API 一覧 113、主要 API 詳細 6、内部 Service 7 | system-workflow |
 | v1.1 | 2026-10-20 | Lead 裁决反映：工厂主データを MDM へ移管したため、`/api/system/factories` 3 API を「工厂組織設定（MDM 参照）」に変更 | system-workflow |
 | v1.2 | 2026-10-20 | 红队第 2 轮修复：データ範囲 API に工場/倉庫次元（`factoryIds`/`warehouseIds`、scopeType 1〜7）を追加。ユーザ再開 API の権限を `system:user:reopen` に変更 | system-workflow |
+| v1.3 | 2026-10-21 | API 47a `POST /api/system/companies`（公司登録）を追加：`sys_company` INSERT と同一トランザクションで 90 §3.15 業務パラメータの既定行を当該会社（`company_id` = 新 `sys_company.id`）に冪等投入、全 114 API（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

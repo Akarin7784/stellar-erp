@@ -10,7 +10,7 @@
       "batches": 12,
       "interfaces": 7,
       "messages": 99,
-      "apis": 143
+      "apis": 145
     },
     "MDM": {
       "name": "主数据管理",
@@ -21869,6 +21869,14 @@
       "source": "01-system/91-api-design.md"
     },
     {
+      "method": "POST",
+      "path": "/api/system/companies",
+      "name": "公司登録（PRC-SYS-014-03）",
+      "permission": "system:company:update",
+      "domain": "SYS",
+      "source": "01-system/03-org-position.md"
+    },
+    {
       "method": "PUT",
       "path": "/api/system/companies/{id}",
       "name": "公司更新",
@@ -22513,6 +22521,14 @@
       "path": "/api/system/departments/{id}/users",
       "name": "所属ユーザ",
       "permission": "system:user:view",
+      "domain": "SYS",
+      "source": "01-system/91-api-design.md"
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/companies",
+      "name": "公司登録（同一 TX で sys_param 既定行を投入、[90 §3.1](90-db-design.md)）",
+      "permission": "system:company:update",
       "domain": "SYS",
       "source": "01-system/91-api-design.md"
     },
