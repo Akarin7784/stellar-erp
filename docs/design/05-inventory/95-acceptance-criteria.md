@@ -68,7 +68,7 @@
 
 ## AC-INV-10 迁移番号
 
-- W：`.github/scripts/check-migrations.sh`（`MIGRATION_BASE_REF`=PR の base）。T：`inv/V{yyyyMMdd}{NNNN}__inv_*.sql` の版数が base 上の最大版（本書時点 `V202610210708`）より大きく、ファイル名の `inv` がディレクトリと一致。
+- W：`.github/scripts/check-migrations.sh`（`MIGRATION_BASE_REF`=PR の base）。T：`inv/V{yyyyMMdd}{NNNN}__inv_*.sql` の版数が PR 作成時・マージ時の base（main）上の最大版より大きく（具体版数は文書に固定しない）、ファイル名の `inv` がディレクトリと一致。
 
 ## AC-INV-11 パーティションと全期間一意
 
@@ -116,3 +116,4 @@
 | v1.3 | 2026-10-21 | 05 迁移の受入基準を追加：AC-INV-09 RLS・複合 FK、10 迁移番号、11 パーティション・全期間一意、12 明細トリガー、13 計価方法（08 §6/BC-01）、14 区分値 CHECK・期間、15 一意/索引の自動検査 | 业务分析 |
 | v1.4 | 2026-10-21 | AC-INV-09/15：同域親子 FK を `(tenant_id, company_id, x_id)`・被参照キー `uk_<table>_tenant_company_id` に変更（PR #43） | 业务分析 |
 | v1.5 | 2026-10-21 | AC-INV-16 追加（MTO 批次引当・OSR 保留・J31・月初版切替再評価）（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.6 | 2026-10-21 | AC-INV-10 から具体版数を削除 | 业务分析 |

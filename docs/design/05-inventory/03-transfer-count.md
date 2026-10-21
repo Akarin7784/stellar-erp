@@ -511,7 +511,7 @@ SELECT COALESCE(SUM(l.direction * l.qty), 0) AS net_movement
 
 | 対象 | 仕様 |
 |---|---|
-| 調撥出庫・受入 | `TR_OUT`/`TR_IN` は `(source_type, source_id, txn_type)` の過账済一意制約で二重計上防止。部分受入は `txn_type` が同一のため、**受入ごとに別 `txn_no` を採番**し、`source_type='TRANSFER'` + `source_id` + `txn_type='TR_IN'` の一意制約は**付けない**（部分受入を許容）。代わりに `transfer_line.received_qty` の楽観排他で二重受入を防ぐ |
+| 調撥出庫・受入 | `TR_OUT`/`TR_IN` は `(source_type, source_id, txn_type)` の過账済一意制約で二重計上防止。部分受入は `txn_type` が同一のため、**受入ごとに別 `txn_no` を採番**し、`source_type='TRANSFER'` + `source_id` + `txn_type='TR_IN'` の一意制約は**付けない**（部分受入を許容）。代わりに `transfer_line.received_qty` の楽観排他で二重受入を防ぐ。なお `TRANSFER` は `inv_stock_txn` の来源二重計上一意（[90](90-db-design.md) 参照）の**対象外**のため、`TR_OUT` の二重過账は DB 制約ではなくサービス層の状態チェック（調撥単が出庫済でないこと、同一 TX で `SELECT … FOR UPDATE`）で阻止する |
 | 同倉移庫 | `pair_key` の一意制約で二重実行防止 |
 | 盘点生成 | `pg_advisory_xact_lock` + 計画状態（`30` なら生成済み）で二重生成防止 |
 | 調整実行 | `stocktake.take_status=40` + `stocktake_line.adjust_txn_line_id` の設定で二重調整防止。API は `Idempotency-Key` 必須 |
@@ -814,3 +814,4 @@ SELECT COALESCE(SUM(l.direction * l.qty), 0) AS net_movement
 | v1.2 | 2026-10-20 | 08 §8.1 追補を反映：BR-TR-09 を跨倉調撥 10,000 元閾値（倉庫主管／倉庫主管→財務経理）に修正し、未決 #1 を「已追補」に更新 | inventory-designer |
 | v1.3 | 2026-10-20 | 红队第 2 轮：在庫状態コード改訂（出庫可能=20 可用、待検=10 待検）に伴う記載修正 | inventory-designer |
 | v1.4 | 2026-10-21 | `uomCode` 画面項目を VARCHAR(16) に修正（05/90・`mdm_uom` と一致） | 业务分析 |
+| v1.5 | 2026-10-21 | §6.4：TRANSFER は来源二重計上一意の対象外、TR_OUT 二重過账はサービス層の状態チェックで阻止と明記 | 业务分析 |

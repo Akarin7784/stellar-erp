@@ -1700,7 +1700,6 @@ COMMENT ON COLUMN inv_event_wait.waiting_for IS 'PI=入荷待ち、FGI=完工入
 | `work_order_id`・`sales_order_line_id`・`outsourcing_order_id`・`source_id`・`partner_id`・`customer_id`（`inv_serial_txn`） | 他業務域（prd/sal/pur）または多態参照。[04 §6.2](../00-common/04-common-db-spec.md) 項 1 により FK なし、同一 TX で存在・租户一致を検証 |
 | `created_by`/`updated_by`/`posted_by` 等 → `sys_user` | `0`＝システムの番兵（06/07 迁移と同じく FK なし） |
 
----|---|---|
 | `inv_stock_txn` → `inv_stock_txn_line`（親子） | ○ `RESTRICT` | 域内の親子。CASCADE 禁止 |
 | `inv_transfer` → `inv_transfer_line` | ○ | 同上 |
 | `inv_stocktake_plan` → `inv_stocktake` → `inv_stocktake_line` | ○ | 同上 |
@@ -1761,13 +1760,13 @@ COMMENT ON COLUMN inv_event_wait.waiting_for IS 'PI=入荷待ち、FGI=完工入
 
 ## 9. Flyway マイグレーション計画（2026-10-21 改訂）
 
-旧計画の `V202610210501`〜`0512` は main 上の最大版（`sys/V202610210708`）より小さく、`.github/scripts/check-migrations.sh` の単調増加チェックで不合格になるため廃止する。
+旧計画の `V202610210501`〜`0512` は main 上の最大版より小さく、`.github/scripts/check-migrations.sh` の単調増加チェックで不合格になるため廃止する。
 
 | 項目 | 規則 |
 |---|---|
 | 配置 | `backend/erp-boot/src/main/resources/db/migration/inv/`（新規ディレクトリ。`{module}`=`inv`、[04 §10.1](../00-common/04-common-db-spec.md)） |
-| 版数 | `V{yyyyMMdd}{NNNN}__inv_{desc}.sql`。`NNNN` は**マージ時点の main 上の最大版の次**から取る。本書改訂時点の main（`871dc93`）の最大は `V202610210708`、よって次は `V202610210709`（同日）または作成日付の `0001`。DB の先行 PR（同域複合 FK・`fin_period` 修正）が先に入った場合は rebase して振り直す |
-| ファイル構成 | 06 と同じく**1 ファイル**で全 24 表を作成（表の DDL → RLS → 索引 → COMMENT の順、表は本書 §4 の順）。例：`inv/V202610210709__inv_create_tables.sql` |
+| 版数 | `V{yyyyMMdd}{NNNN}__inv_{desc}.sql`。版数は **PR 作成時・マージ時の main 上の最大版より大きく**なければならない。迁移を作成する前に `.github/scripts/check-migrations.sh` で確認する（本書には具体的な版数を記載しない） |
+| ファイル構成 | 06 と同じく**1 ファイル**で全 24 表を作成（表の DDL → RLS → 索引 → COMMENT の順、表は本書 §4 の順）。例：`inv/V{yyyyMMdd}{NNNN}__inv_create_tables.sql` |
 | 依存 | `mdm/V202610210201`〜`0203`（`mdm_material` 等）、`sys/V202610210707`（`uk_mdm_*_tenant_id`）、PR #43 `sys/V202610211401`（同域複合 FK 規則。マージ後は inv の版数をこれより大きくする）。`fin_standard_cost` は FK なし（软引用） |
 | パーティション | 同ファイル内で `inv_stock_txn` の 2026-01〜2027-12 の月次パーティションと `inv_stock_txn_default` を作成 |
 | トリガー | `trg_inv_stock_txn_line_head`（表頭存在・`txn_type` 一致・`direction` 符号）を同ファイルで作成（関数は `inv_` 接頭辞、`SECURITY INVOKER`） |
@@ -1824,3 +1823,4 @@ COMMENT ON COLUMN inv_event_wait.waiting_for IS 'PI=入荷待ち、FGI=完工入
 | v1.6 | 2026-10-21 | 05 迁移準備の欠落補完：§1.1/§3.4 RLS・`uk_<table>_tenant_id`・域内/MDM 複合 FK（§6.3 一覧）、`inv_stock_txn` 月次パーティション（PK `(id, txn_date)`）と全期間一意台帳 `inv_stock_txn_key`（4.2.6、24 表）、`inv_stock_txn` に `reason_type`/`work_order_id`/`sales_order_line_id` と来源・相手・原因 CHECK、TRANSFER を来源二重計上一意の対象外に、明細に `valuation_method`/`std_unit_cost`/`variance_amount`（08 §6 標準原価計価）と `txn_type` CHECK、明細 FK→トリガー、`uom_code` を VARCHAR(16)、集計 3 表に監査列、CHECK 追加（調撥承認・系譜自己参照・序列号履歴・予約明細状態・調整来源・スキャン区分・保留来源）、`fin_period` 状態写像、§9 迁移計画を main 最大版 `V202610210708` 以降へ改訂、未決 #7〜#11 | 业务分析 |
 | v1.7 | 2026-10-21 | PR #43（sys/V202610211401）の規則に合わせ、同域親子 FK 6 本を `(tenant_id, company_id, x_id)` → 親 `(tenant_id, company_id, id)` に、親 6 表の被参照キーを `uk_<table>_tenant_company_id` に変更（`uk_<table>_tenant_id` は跨域被参照のみ＝本域 0 件）。mdm 向け跨域 FK は `(tenant_id, x_id)` のまま。§3.4・§6.3・§9 依存を更新 | 业务分析 |
 | v1.8 | 2026-10-21 | 未決 #7〜#12 を決定済に（蓝色大肥鱼 2026-10-21 決定）：`inv_stock_txn_key` 正式化、標準原価差異・月初版切替・月結後再評価、MTO は工单単位批次で受注別引当、E19→J31、`inv_event_wait` に OSR/OUTSOURCING_ORDER、mdm 硬 FK（04 §6 改訂） | 业务分析 |
+| v1.9 | 2026-10-21 | §9 版数規則から具体版数を削除（main 最大版より大きいこと、check-migrations で確認）、§6.3 の余分な表区切り行を削除 | 业务分析 |
