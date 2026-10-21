@@ -73,7 +73,13 @@
         />
       </el-form-item>
       <el-form-item label="工厂">
-        <el-select v-model="form.factoryId" clearable placeholder="全部" style="width: 160px">
+        <el-select
+          v-model="form.factoryId"
+          data-test="f-factory"
+          clearable
+          placeholder="全部"
+          style="width: 160px"
+        >
           <el-option
             v-for="f in factories"
             :key="f.id"
@@ -81,6 +87,15 @@
             :value="String(f.id)"
           />
         </el-select>
+        <el-alert
+          v-if="factoryLoadFailed"
+          data-test="factory-load-warning"
+          :title="MSG_FACTORY_LOAD_FAILED"
+          type="warning"
+          show-icon
+          :closable="false"
+          class="inline-warning"
+        />
       </el-form-item>
       <el-form-item label="部门">
         <el-select v-model="form.departmentId" clearable placeholder="全部" style="width: 160px">
@@ -100,9 +115,6 @@
           placeholder="部分一致"
           style="width: 150px"
         />
-      </el-form-item>
-      <el-form-item label="客户ID">
-        <el-input v-model="form.customerId" clearable style="width: 120px" />
       </el-form-item>
       <el-form-item label="优先级">
         <el-select v-model="form.priorityNo" clearable placeholder="全部" style="width: 90px">
@@ -261,13 +273,15 @@ interface FilterForm {
   factoryId: string | undefined
   departmentId: string | undefined
   salesOrderNo: string
-  customerId: string
   priorityNo: number | undefined
   sourceType: number | undefined
   isHold: boolean | undefined
 }
 
-/** 默认条件：状态 10〜35、计划完成日 当天〜+90 天（上海时区）。工厂默认见 PR 说明（未定）。 */
+/**
+ * 默认条件：状态 10〜35、计划完成日 当天〜+90 天（上海时区）；
+ * 工厂：可选工厂恰好 1 个时默认选中，0 个或多个时不指定（蓝色大肥鱼 2026-10-21 决定）。
+ */
 function defaults(): FilterForm {
   return {
     workOrderNo: '',
@@ -276,16 +290,23 @@ function defaults(): FilterForm {
     workOrderType: undefined,
     plannedEnd: [shanghaiDate(0), shanghaiDate(LIST_DEFAULT_END_DAYS)],
     plannedStart: null,
-    factoryId: undefined,
+    factoryId: defaultFactoryId.value,
     departmentId: undefined,
     salesOrderNo: '',
-    customerId: '',
     priorityNo: undefined,
     sourceType: undefined,
     isHold: undefined,
   }
 }
 
+const factories = ref<FactoryOption[]>([])
+const defaultFactoryId = computed(() =>
+  factories.value.length === 1 ? String(factories.value[0]!.id) : undefined,
+)
+/** 工厂下拉加载失败：下拉旁警告，不弹全局提示，一览仍可查询（同工单登记的部门下拉） */
+const factoryLoadFailed = ref(false)
+// TODO: 待 BA 在 06/93 登记 msgId 后替换为正式文案（参照 MSG-PRD-105 部门加载失败的处理）
+const MSG_FACTORY_LOAD_FAILED = '工厂列表加载失败，可暂不选择工厂继续查询，或刷新页面重试。'
 const form = reactive<FilterForm>(defaults())
 const sort = ref<WorkOrderListQuery['sort']>()
 const pageNum = ref(1)
@@ -294,7 +315,6 @@ const rows = ref<WorkOrderListRow[]>([])
 const total = ref(0)
 const loading = ref(false)
 const errorText = ref('')
-const factories = ref<FactoryOption[]>([])
 const departments = ref<DeptOption[]>([])
 
 function toQuery(): WorkOrderListQuery {
@@ -310,7 +330,6 @@ function toQuery(): WorkOrderListQuery {
     factoryId: form.factoryId,
     departmentId: form.departmentId,
     salesOrderNo: form.salesOrderNo,
-    customerId: form.customerId,
     priorityNo: form.priorityNo,
     sourceType: form.sourceType,
     isHold: form.isHold,
@@ -370,11 +389,21 @@ function goDetail(r: WorkOrderListRow) {
   void router.push({ name: 'production-work-order-detail', params: { id: r.id } })
 }
 
-onMounted(() => {
+async function loadFactories() {
+  try {
+    factories.value = await listFactories({ silent: true })
+    factoryLoadFailed.value = false
+  } catch {
+    factories.value = []
+    factoryLoadFailed.value = true
+  }
+}
+
+onMounted(async () => {
+  // 先取工厂（唯一时作为默认条件），再做初次查询；失败也照常查询
+  await loadFactories()
+  form.factoryId = defaultFactoryId.value
   void load()
-  listFactories()
-    .then((f) => (factories.value = f))
-    .catch(() => undefined)
   listDeptOptions({ silent: true })
     .then((d) => (departments.value = d))
     .catch(() => undefined)
@@ -389,6 +418,10 @@ onMounted(() => {
 }
 .mb {
   margin-bottom: 12px;
+}
+.inline-warning {
+  margin-left: 8px;
+  width: auto;
 }
 .pager {
   margin-top: 12px;

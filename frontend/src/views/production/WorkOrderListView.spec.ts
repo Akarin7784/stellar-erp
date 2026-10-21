@@ -8,7 +8,10 @@ vi.mock('@/api/production/workOrder', async (orig) => ({
   ...(await orig<typeof import('@/api/production/workOrder')>()),
   listWorkOrders: (...a: unknown[]) => listWorkOrders(...a),
 }))
-vi.mock('@/api/mdm/lookup', () => ({ listFactories: vi.fn().mockResolvedValue([]) }))
+const listFactories = vi.fn()
+vi.mock('@/api/mdm/lookup', () => ({
+  listFactories: (...a: unknown[]) => listFactories(...a),
+}))
 vi.mock('@/api/system/dept', () => ({ listDeptOptions: vi.fn().mockResolvedValue([]) }))
 const push = vi.fn()
 vi.mock('vue-router', async (orig) => ({
@@ -75,6 +78,7 @@ describe('WorkOrderListView（SCR-PRD-008）', () => {
   beforeEach(() => {
     listWorkOrders.mockReset()
     push.mockReset()
+    listFactories.mockReset().mockResolvedValue([])
   })
 
   it('挂载时按默认条件查询：状态 10〜35、计划完成日 当天〜+90 天、第 1 页 20 条', async () => {
@@ -88,6 +92,43 @@ describe('WorkOrderListView（SCR-PRD-008）', () => {
     expect(q.pageNum).toBe(1)
     expect(q.pageSize).toBe(20)
     expect(q.sort).toBeUndefined()
+    expect(q.factoryId).toBeUndefined()
+    expect(q).not.toHaveProperty('customerId')
+    expect(listFactories).toHaveBeenCalledWith({ silent: true })
+  })
+
+  const F = (id: string) => ({
+    id,
+    factoryCode: `F${id}`,
+    factoryName: `工厂${id}`,
+    plantType: null,
+  })
+
+  it('工厂恰好 1 个：默认选中并带入初次查询与重置', async () => {
+    listFactories.mockResolvedValue([F('3')])
+    listWorkOrders.mockResolvedValue(page([]))
+    const w = await mountView()
+    expect(listWorkOrders.mock.calls[0]![0].factoryId).toBe('3')
+    await w.find('[data-test="reset"]').trigger('click')
+    await flushPromises()
+    expect(listWorkOrders.mock.lastCall![0].factoryId).toBe('3')
+  })
+
+  it('工厂多个：不指定默认工厂', async () => {
+    listFactories.mockResolvedValue([F('1'), F('2')])
+    listWorkOrders.mockResolvedValue(page([]))
+    await mountView()
+    expect(listWorkOrders.mock.calls[0]![0].factoryId).toBeUndefined()
+  })
+
+  it('工厂加载失败：下拉旁显示警告，一览照常查询', async () => {
+    listFactories.mockRejectedValue(new Error('x'))
+    listWorkOrders.mockResolvedValue(page([row('1')]))
+    const w = await mountView()
+    expect(w.find('[data-test="factory-load-warning"]').text()).toContain('工厂列表加载失败')
+    expect(listWorkOrders).toHaveBeenCalledTimes(1)
+    expect(listWorkOrders.mock.calls[0]![0].factoryId).toBeUndefined()
+    expect(w.find('[data-test="table"]').text()).toContain('WO-1')
   })
 
   it('状态名用前端字典显示；销售订单号为空显示 MTS', async () => {

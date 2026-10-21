@@ -376,7 +376,6 @@ export interface WorkOrderListQuery {
   factoryId?: string
   departmentId?: string
   salesOrderNo?: string
-  customerId?: string
   priorityNo?: number
   sourceType?: number
   isHold?: boolean

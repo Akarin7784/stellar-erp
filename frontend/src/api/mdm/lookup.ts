@@ -40,8 +40,12 @@ export interface PageResult<T> {
 }
 
 /** GET /api/mdm/factories */
-export async function listFactories(): Promise<FactoryOption[]> {
-  const res = await http.get<ApiResult<FactoryOption[]>>('/mdm/factories')
+/** silent：失败时不弹全局提示，由画面自行显示（工单一览用下拉旁警告）。 */
+export async function listFactories(opts: { silent?: boolean } = {}): Promise<FactoryOption[]> {
+  const res = await http.get<ApiResult<FactoryOption[]>>(
+    '/mdm/factories',
+    opts.silent ? { silent: true } : undefined,
+  )
   return res.data.data
 }
 
