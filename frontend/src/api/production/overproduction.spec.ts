@@ -4,7 +4,10 @@ import http, { ApiError, MSG_CONFLICT } from '../http'
 import {
   approveOverproductionApproval,
   createOverproductionApproval,
+  fieldErrorsOf,
   listOverproductionApprovals,
+  searchSalesOrderLines,
+  updateOverproductionApproval,
   rejectOverproductionApproval,
   toOpaErrorView,
 } from './overproduction'
@@ -41,6 +44,40 @@ describe('overproduction API 请求', () => {
       { salesOrderLineId: '9', requestQty: '5.5' },
       { silent: true },
     )
+  })
+
+  it('草稿修正：PUT /{id}，带 version；空工单/备注传 null', async () => {
+    const put = vi.spyOn(http, 'put').mockResolvedValue(ok({}))
+    await updateOverproductionApproval('7', {
+      version: 3,
+      workOrderId: ' ',
+      requestQty: ' 8 ',
+      remark: '',
+    })
+    expect(put).toHaveBeenCalledWith(
+      '/production/overproduction-approvals/7',
+      { version: 3, workOrderId: null, requestQty: '8', remark: null },
+      { silent: true },
+    )
+  })
+
+  it('销售订单行选择器：条件 trim、size 不超过 200', async () => {
+    const get = vi.spyOn(http, 'get').mockResolvedValue(ok({ list: [], total: 0 }))
+    await searchSalesOrderLines({ salesOrderNo: ' SO1 ', material: '', page: 2, size: 500 })
+    expect(get).toHaveBeenCalledWith('/production/overproduction-approvals/sales-order-lines', {
+      params: { salesOrderNo: 'SO1', page: 2, size: 200 },
+      silent: true,
+    })
+  })
+
+  it('fieldErrorsOf：仅 1001 取 data.fieldErrors', () => {
+    const fe = [{ field: 'remark', message: 'm' }]
+    expect(
+      fieldErrorsOf(
+        new ApiError('x', { status: 400, code: 1001, data: { data: { fieldErrors: fe } } }),
+      ),
+    ).toEqual(fe)
+    expect(fieldErrorsOf(new ApiError('x', { status: 422, code: 60101 }))).toEqual([])
   })
 
   it('批准 / 驳回 body', async () => {
