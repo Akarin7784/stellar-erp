@@ -9,8 +9,11 @@ SELECT is((SELECT count(*)::int FROM pg_constraint k JOIN pg_class r ON r.oid = 
             JOIN pg_attribute a ON a.attrelid = k.conrelid AND a.attnum = k.conkey[1]
             JOIN pg_attribute b ON b.attrelid = k.confrelid AND b.attnum = k.confkey[1]
             WHERE k.contype = 'f' AND r.relname ~ '^(sys|mdm)_'
-              AND NOT (array_length(k.conkey, 1) = 2 AND a.attname = 'tenant_id' AND b.attname = 'tenant_id')),
-          0, '指向 sys_/mdm_ 的外键全部以 (tenant_id, …) → (tenant_id, id)');
+              AND NOT (array_length(k.conkey, 1) = 2 AND a.attname = 'tenant_id' AND b.attname = 'tenant_id')
+              -- sys 同域外键为三列 (tenant_id, company_id, x_id)（04 §6.2 2a，sys/V202610211408），形态由 same_domain_parent_fk.sql 检查
+              AND NOT (array_length(k.conkey, 1) = 3 AND a.attname = 'tenant_id' AND b.attname = 'tenant_id'
+                       AND split_part((SELECT relname FROM pg_class WHERE oid = k.conrelid), '_', 1) = split_part(r.relname, '_', 1))),
+          0, '指向 sys_/mdm_ 的外键全部以 (tenant_id, …) → (tenant_id, id)（同域三列除外）');
 SELECT ok(EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uk_mdm_material_tenant_id' AND contype = 'u'),
           'mdm_material 有 uk_mdm_material_tenant_id UNIQUE (tenant_id, id)');
 

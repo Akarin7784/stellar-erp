@@ -1,7 +1,7 @@
 -- pgTAP：sys_user 正式化（sys/V202610211408；01-system/90-db-design.md §3.6）+ 登录前查询函数 sys_auth_find_login_user。
 -- owner 连接执行（superuser，绕过 RLS），最后 ROLLBACK。
 BEGIN;
-SELECT plan(103);
+SELECT plan(108);
 
 -- 1. 列存在与类型（90 §3.6 :333-364）
 SELECT columns_are('public', 'sys_user', ARRAY[
@@ -150,29 +150,40 @@ RESET ROLE;
 -- 10. gender CHECK
 SELECT throws_ok($$UPDATE sys_user SET gender = 3 WHERE id = 94011$$, '23514', NULL, 'ck_sys_user_gender：3 → 23514');
 SELECT lives_ok($$UPDATE sys_user SET gender = 2 WHERE id = 94011$$, 'gender=2 可');
-SELECT is_empty($$SELECT conname FROM pg_constraint WHERE conrelid = 'public.sys_user'::regclass AND contype = 'c' AND pg_get_constraintdef(oid) LIKE '%employee_type%'$$, 'employee_type 无 CHECK（#75 决定）');
 
--- 11. 外键（可空、同租户 2 列）
-INSERT INTO sys_department (id, tenant_id, company_id, department_code, department_name) VALUES (94101, 9401, 940101, 'D001', 'd'), (94201, 9402, 940201, 'D001', 'd');
-INSERT INTO sys_position (id, tenant_id, company_id, position_code, position_name) VALUES (94102, 9401, 940101, 'P1', 'p'), (94202, 9402, 940201, 'P1', 'p');
+-- 11. 外键：sys 同域三列（跨公司拒绝）、mdm_factory 二列；均可空
+INSERT INTO sys_department (id, tenant_id, company_id, department_code, department_name) VALUES
+       (94101, 9401, 940101, 'D001', 'd'), (94111, 9401, 940102, 'D001', 'd other co'), (94201, 9402, 940201, 'D001', 'd');
+INSERT INTO sys_position (id, tenant_id, company_id, position_code, position_name) VALUES
+       (94102, 9401, 940101, 'P1', 'p'), (94112, 9401, 940102, 'P1', 'p other co'), (94202, 9402, 940201, 'P1', 'p');
 INSERT INTO mdm_factory (id, tenant_id, company_id, factory_code, factory_name) VALUES (94103, 9401, 940101, 'F1', 'f'), (94203, 9402, 940201, 'F1', 'f');
+INSERT INTO sys_user (id, tenant_id, company_id, user_code, username, real_name, password_hash)
+VALUES (94019, 9401, 940102, 'E000019', 'otherco', '其他公司', 'h');
 SELECT is((SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'fk_sys_user_department'),
-          'FOREIGN KEY (tenant_id, department_id) REFERENCES sys_department(tenant_id, id)', 'fk_sys_user_department 2 列');
+          'FOREIGN KEY (tenant_id, company_id, department_id) REFERENCES sys_department(tenant_id, company_id, id)', 'fk_sys_user_department 三列');
 SELECT is((SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'fk_sys_user_position'),
-          'FOREIGN KEY (tenant_id, position_id) REFERENCES sys_position(tenant_id, id)', 'fk_sys_user_position 2 列');
-SELECT is((SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'fk_sys_user_factory'),
-          'FOREIGN KEY (tenant_id, factory_id) REFERENCES mdm_factory(tenant_id, id)', 'fk_sys_user_factory 2 列');
+          'FOREIGN KEY (tenant_id, company_id, position_id) REFERENCES sys_position(tenant_id, company_id, id)', 'fk_sys_user_position 三列');
 SELECT is((SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'fk_sys_user_manager'),
-          'FOREIGN KEY (tenant_id, manager_user_id) REFERENCES sys_user(tenant_id, id)', 'fk_sys_user_manager 自引用 2 列');
+          'FOREIGN KEY (tenant_id, company_id, manager_user_id) REFERENCES sys_user(tenant_id, company_id, id)', 'fk_sys_user_manager 自引用三列');
+SELECT is((SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'fk_sys_user_factory'),
+          'FOREIGN KEY (tenant_id, factory_id) REFERENCES mdm_factory(tenant_id, id)', 'fk_sys_user_factory 二列（跨域 sys→mdm）');
 SELECT lives_ok($$UPDATE sys_user SET department_id = 94101, position_id = 94102, factory_id = 94103, manager_user_id = 94011 WHERE id = 94011$$,
-                '同租户引用部门/岗位/工厂/上级 → 可');
-SELECT throws_ok($$UPDATE sys_user SET department_id = 94201 WHERE id = 94011$$, '23503', NULL, '引用其他租户的部门 → 23503');
-SELECT throws_ok($$UPDATE sys_user SET position_id = 94202 WHERE id = 94011$$, '23503', NULL, '引用其他租户的岗位 → 23503');
-SELECT throws_ok($$UPDATE sys_user SET factory_id = 94203 WHERE id = 94011$$, '23503', NULL, '引用其他租户的工厂 → 23503');
+                '同租户同公司引用部门/岗位/上级、同租户工厂 → 可');
+SELECT throws_ok($$UPDATE sys_user SET department_id = 94111 WHERE id = 94011$$, '23503', NULL, '同租户其他公司的部门 → 23503');
+SELECT throws_ok($$UPDATE sys_user SET position_id = 94112 WHERE id = 94011$$, '23503', NULL, '同租户其他公司的岗位 → 23503');
+SELECT throws_ok($$UPDATE sys_user SET manager_user_id = 94019 WHERE id = 94011$$, '23503', NULL, '上级为同租户其他公司用户 → 23503');
+SELECT throws_ok($$UPDATE sys_user SET department_id = 94201 WHERE id = 94011$$, '23503', NULL, '其他租户的部门 → 23503');
+SELECT throws_ok($$UPDATE sys_user SET position_id = 94202 WHERE id = 94011$$, '23503', NULL, '其他租户的岗位 → 23503');
+SELECT throws_ok($$UPDATE sys_user SET factory_id = 94203 WHERE id = 94011$$, '23503', NULL, '其他租户的工厂 → 23503');
 SELECT throws_ok($$UPDATE sys_user SET manager_user_id = 94021 WHERE id = 94011$$, '23503', NULL, '上级为其他租户用户 → 23503');
 SELECT throws_ok($$UPDATE sys_user SET department_id = 0 WHERE id = 94011$$, '23503', NULL, '0 不再作为“未设置”（应为 NULL）→ 23503');
 SELECT lives_ok($$UPDATE sys_user SET department_id = NULL, position_id = NULL, factory_id = NULL, manager_user_id = NULL WHERE id = 94011$$,
                 '四个外键列均可为 NULL');
+
+-- 12. employee_type CHECK（90:347）
+SELECT throws_ok($$UPDATE sys_user SET employee_type = 5 WHERE id = 94011$$, '23514', NULL, 'ck_sys_user_employee_type：5 → 23514');
+SELECT throws_ok($$UPDATE sys_user SET employee_type = 0 WHERE id = 94011$$, '23514', NULL, 'ck_sys_user_employee_type：0 → 23514');
+SELECT lives_ok($$UPDATE sys_user SET employee_type = 4 WHERE id = 94011$$, 'employee_type=4 可');
 
 SELECT * FROM finish();
 ROLLBACK;
