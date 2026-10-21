@@ -106,4 +106,4 @@ ALTER TABLE inv_transfer DROP CONSTRAINT fk_inv_transfer_to_wh;
 ALTER TABLE inv_transfer ADD CONSTRAINT fk_inv_transfer_to_wh FOREIGN KEY (tenant_id, company_id, to_warehouse_id) REFERENCES mdm_warehouse (tenant_id, company_id, id);
 
 -- 附带（蓝色大肥鱼 2026-10-21 指示）：sys_login_log.session_id 的含义改为 token 摘要，列类型 VARCHAR(100) 不变
-COMMENT ON COLUMN sys_login_log.session_id IS 'ログイン成功時の Sa-Token token の SHA-256（16 進 64 桁）。token 平文は保存しない';
+COMMENT ON COLUMN sys_login_log.session_id IS 'トークンの SHA-256 16 進完全値（64 桁、成功時）。平文トークンは保存しない。Redis 上のセッションとの対応付け用で、認証情報として使用不可';
