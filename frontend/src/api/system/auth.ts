@@ -18,14 +18,18 @@ export interface RoleInfo {
   roleName: string
 }
 
-/** /auth/me 的 menus[]：扁平数组，parentId '0' 为根（01-auth-login.md §7.1）。 */
+/** /auth/me 的 menus[]：扁平数组，parentId '0' 为根（01-auth-login.md §7.1；backend AuthMeService.MenuInfo）。 */
 export interface MenuInfo {
   id: string
   parentId: string
   menuType: number
   menuCode: string
+  /** sys_menu.menu_name（侧边栏显示名） */
+  menuName: string
   routePath: string | null
   sortNo: number
+  /** sys_menu.is_visible；false 时不在侧边栏显示（路由与权限检查不变） */
+  isVisible: boolean
 }
 
 export interface LoginResult {

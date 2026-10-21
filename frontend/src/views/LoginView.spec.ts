@@ -34,8 +34,10 @@ const ME = {
       parentId: '0',
       menuType: 2,
       menuCode: 'SYS_USER',
+      menuName: '用户一览',
       routePath: 'system/users',
       sortNo: 1,
+      isVisible: true,
     },
   ],
 }

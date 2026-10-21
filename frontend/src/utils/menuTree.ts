@@ -4,7 +4,10 @@ export interface MenuNode extends MenuInfo {
   children: MenuNode[]
 }
 
-/** 把 /auth/me 的扁平 menus[] 组装成树：parentId 为 '0'/0/null 或父节点不在列表中时视为根；同级按 sortNo、id 排序。 */
+/**
+ * 把 /auth/me 的扁平 menus[] 组装成侧边栏树：parentId 为 '0'/0/null 或父节点不在列表中时视为根；同级按 sortNo、id 排序。
+ * isVisible=false 的菜单及其下级不进入树（只影响侧边栏显示；路由守卫按 permissions 检查，不受影响）。
+ */
 export function buildMenuTree(menus: readonly MenuInfo[]): MenuNode[] {
   const nodes = new Map<string, MenuNode>()
   for (const m of menus) nodes.set(String(m.id), { ...m, children: [] })
@@ -19,8 +22,12 @@ export function buildMenuTree(menus: readonly MenuInfo[]): MenuNode[] {
     list.sort((a, b) => a.sortNo - b.sortNo || String(a.id).localeCompare(String(b.id)))
     list.forEach((n) => sort(n.children))
   }
+  const prune = (list: MenuNode[]): MenuNode[] =>
+    list
+      .filter((n) => n.isVisible !== false)
+      .map((n) => Object.assign(n, { children: prune(n.children) }))
   sort(roots)
-  return roots
+  return prune(roots)
 }
 
 /** route_path 无前导斜杠（90 §3.12），转为路由路径。 */
