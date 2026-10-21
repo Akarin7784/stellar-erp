@@ -36,6 +36,17 @@ function deferred<T>() {
   return { promise, resolve }
 }
 
+const listDeptOptions = vi.fn()
+vi.mock('@/api/system/dept', () => ({
+  listDeptOptions: (...a: unknown[]) => listDeptOptions(...a),
+}))
+// GET /api/system/departments/options 的真实形状（#61：id 为字符串，按 sort_no, department_code）
+const DEPTS = [
+  { id: '12', departmentCode: 'D002', departmentName: '机加工车间' },
+  { id: '13', departmentCode: 'D003', departmentName: '装配车间' },
+  { id: '11', departmentCode: 'D001', departmentName: '生产部' },
+]
+
 const getEffectiveBom = vi.fn()
 vi.mock('@/api/production/bom', () => ({
   getEffectiveBom: (...a: unknown[]) => getEffectiveBom(...a),
@@ -48,6 +59,7 @@ vi.mock('@/api/production/workOrder', async (orig) => ({
 }))
 
 import { ApiError } from '@/api/http'
+import { buildCreateRequest } from '@/api/production/workOrder'
 import WorkOrderCreateView from './WorkOrderCreateView.vue'
 
 type VM = {
@@ -83,18 +95,17 @@ describe('WorkOrderCreateView', () => {
   beforeEach(() => {
     push.mockReset()
     createWorkOrder.mockReset()
+    listDeptOptions.mockReset().mockResolvedValue([])
     searchMaterials.mockReset().mockResolvedValue(page([M1]))
-    listWarehouseOptions
-      .mockReset()
-      .mockResolvedValue([
-        {
-          id: '3',
-          warehouseCode: 'W01',
-          warehouseName: '成品库',
-          warehouseType: 1,
-          factoryId: '1',
-        },
-      ])
+    listWarehouseOptions.mockReset().mockResolvedValue([
+      {
+        id: '3',
+        warehouseCode: 'W01',
+        warehouseName: '成品库',
+        warehouseType: 1,
+        factoryId: '1',
+      },
+    ])
     getEffectiveBom.mockReset().mockResolvedValue({ bomNo: 'BOM-1', versionNo: 2 })
   })
 
@@ -236,8 +247,41 @@ describe('WorkOrderCreateView', () => {
     expect(w.text()).toContain('M-001 轴')
   })
 
-  it('部门：后端无部门选项接口，保留手填 ID', async () => {
+  it('部门：挂载时调用部门下拉，按后端顺序显示「编码 名称」', async () => {
+    listDeptOptions.mockResolvedValue(DEPTS)
     const w = await mountView()
+    expect(listDeptOptions).toHaveBeenCalledWith()
+    const depts = (w.vm as unknown as { departments: typeof DEPTS }).departments
+    expect(depts.map((d) => d.departmentCode)).toEqual(['D002', 'D003', 'D001'])
     expect(w.find('[data-test="department"]').exists()).toBe(true)
+  })
+
+  it('部门：选中后提交字符串 departmentId；未选则不传', async () => {
+    listDeptOptions.mockResolvedValue(DEPTS)
+    createWorkOrder.mockResolvedValue({ id: '900', workOrderNo: 'WO-9', orderStatus: 10 })
+    const w = await mountView()
+    await fillAll(w)
+    ;(w.vm as unknown as VM).form.departmentId = '13'
+    await flushPromises()
+    await w.get('[data-test="save"]').trigger('click')
+    await flushPromises()
+    expect(createWorkOrder.mock.calls.at(-1)![0]).toMatchObject({ departmentId: '13' })
+
+    const w2 = await mountView()
+    await fillAll(w2)
+    await w2.get('[data-test="save"]').trigger('click')
+    await flushPromises()
+    // createWorkOrder 内部经 buildCreateRequest 去掉空串
+    expect(buildCreateRequest(createWorkOrder.mock.calls.at(-1)![0])).not.toHaveProperty(
+      'departmentId',
+    )
+  })
+
+  it('部门：接口失败时下拉为空，不阻塞画面', async () => {
+    listDeptOptions.mockRejectedValue(new Error('net'))
+    const w = await mountView()
+    expect((w.vm as unknown as { departments: unknown[] }).departments).toEqual([])
+    await fillAll(w)
+    expect(saveBtn(w).disabled).toBe(false)
   })
 })

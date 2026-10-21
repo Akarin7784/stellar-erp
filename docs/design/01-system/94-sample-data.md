@@ -4,7 +4,7 @@
 |---|---|
 | 文書名 | 系统管理 样例数据说明（系统管理 サンプルデータ説明） |
 | 文書番号 | DSN-SYS-094 |
-| 版数 | v1.5 |
+| 版数 | v1.6 |
 | 作成日 | 2026-10-20 |
 | 作成者 | system-workflow（域設計担当） |
 | 承認者 | 未承認（レビュー待ち） |
@@ -205,6 +205,7 @@
   - 詳細は `<res>/:id`、既存データの編集は `<res>/:id/edit`。
   - 子画面（マスタの子表）と既存伝票への操作は `<res>/:id/<子または操作>`（例 `mdm/customers/:id/contacts`、`purchase/orders/:id/change`、`finance/vouchers/:id/reverse`）。
   - 伝票種別ごとに分かれた新規登録画面は `<res>/<種別>/new`（例 `inventory/stock-txns/sdo/new`）。
+  - 1 画面で複数の伝票種別を扱う場合、`<種別>` は種別コード（小文字）を[09 §7.1](../00-common/09-cross-domain-flow.md) 取引種別一覧の順にハイフンで連結する（例 `inventory/stock-txns/mii-mir/new`（MII→MIR）、`inventory/stock-txns/osi-osr/new`（OSI→OSR））。
   - 設定・管理・実行画面はリソース名（`<module>/<res>`）または `<res>/<操作>`（例 `finance/periods/closing`、`system/profile/password`）。
   - 全 `route_path` は一意。衝突時のみ末尾に `/<画面 ID 小文字>` を付ける。
 - 導出値はフロント実装時に確定し、変更時は本表を更新する。
@@ -243,7 +244,7 @@
 | G-4 | 複数画面が同じ権限コードを使う（66 画面） | 解決（蓝色大肥鱼 2026-10-21）：`permission_code` の重複を許可し全菜单行に設定。`menu_code` は一意のまま。一意索引は普通索引に変更（DBA が種マイグレーションで実施） |
 | G-5 | 目录行は `permission_code` を持たない | 解決：目录は付与対象外。判定はコードのみ（§2.10 (3)） |
 | G-6 | `sys_role_permission` に `deleted` 列がない | 解決：付与は会社登録時と初回回填（`SYSTEM_ADMIN` 未作成時）のみ。再実行で戻らない（§2.10 (6)） |
-| G-7 | 同域複合 FK の規則（`(tenant_id, company_id, x_id)`）は `sys_menu`（`company_id=0`）に適用できない | 解決：`sys_menu` を参照する FK（`sys_role_permission.menu_id`・`sys_menu.parent_id`）は `(tenant_id, menu_id)` 2 列の命名例外（[04 §6.2](../00-common/04-common-db-spec.md) 項 2a） |
+| G-7 | 同域複合 FK の規則（`(tenant_id, company_id, x_id)`）は `sys_menu`（`company_id=0`）に適用できない | 解決：`sys_menu` を参照する FK は `sys_role_permission.menu_id` の 1 本のみ（`fk_sys_role_permission_menu`、`(tenant_id, menu_id)` 2 列の命名例外、[04 §6.2](../00-common/04-common-db-spec.md) 項 2a）。`sys_menu.parent_id` には FK を付けない（`parent_id` は 0＝ルート（V202610210104、01/90 §3.12）、ルート行は `parent_id=0` だが `id=0` の行は存在しないため、自己参照 FK を付けるとルート行の投入が 23503 で失敗する）。親子関係はアプリで検査（`MSG-SYS-021`）、種データは pgTAP で検査（`parent_id<>0` の行は同一テナントに `id=parent_id` の菜单が存在、`parent_id=0` は目录 10 行のみ）（蓝色大肥鱼 2026-10-21 決定、案 A） |
 | G-8 | `route_path` の DDL 列コメント例が `/system/users`（sys/V202610210104:428） | 解決：先頭スラッシュなしを正とし、迁移コメントは DBA が種マイグレーションで修正 |
 | G-9 | 系统管理员以外のロール（`ROLE-*` 17 件）は示例値 | 解決：本種マイグレーションの対象外 |
 | G-10 | `component_path`・`icon` の値は設計書に定義がない | 解決：`NULL` で投入、フロント実装時に設定 |
@@ -884,3 +885,4 @@
 | v1.3 | 2026-10-21 | 系统管理员のロールコードを `SYSTEM_ADMIN` に確定し未決 #2 を削除。§2.10 メニュー・権限・`SYSTEM_ADMIN` の種データ仕様（`sys_menu` は `company_id=0` のテナント単位、会社ごとに `SYSTEM_ADMIN` と全権限付与、テナント開設・会社登録・既存回填、冪等・上書き禁止、ギャップ G-1〜G-10）と付録 A（589 行、`route_path` は先頭スラッシュなし）を追加（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.4 | 2026-10-21 | #58 決定反映：`permission_code` の重複を許可し全菜单行に設定（付与 579 行）、判定はコードのみ・目录は付与対象外。`sys_init_tenant`（メニュー投入＋各社 `sys_init_company`）／`sys_init_company(p_tenant_id, p_company_id)`（`sys_param`＋`SYSTEM_ADMIN` 未作成時のみ作成・全付与、`erp_app` にも EXECUTE、テナント・会社の検査）の分担と pgTAP。`route_path` 規則（`/new` は新規登録のみ）と 32 画面の訂正。ギャップ G-1〜G-10 を解決済みに更新（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.5 | 2026-10-21 | 付録 A の `route_path` 20 件を訂正（子表・既存伝票操作は `<res>/:id/<子または操作>`、種別別新規は `<res>/<種別>/new`）、§2.10 (4) に規則を追記（蓝色大肥鱼 2026-10-21 承認） | 业务分析 |
+| v1.6 | 2026-10-21 | §2.10 (4)：複数伝票種別を扱う画面の `route_path` は種別コードを 09 §7.1 の順にハイフン連結（`mii-mir`、`osi-osr`）と明記 | 业务分析 |
