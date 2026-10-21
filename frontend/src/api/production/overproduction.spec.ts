@@ -96,8 +96,8 @@ describe('toOpaErrorView', () => {
     })
     expect(toOpaErrorView(e(422, 4002, '状态不允许')).message).toBe('[MSG-COM-034] 状态不允许')
   })
-  it('1001 显示后端 msgId', () => {
-    expect(toOpaErrorView(e(200, 1001, '受注行必须指定。', 'MSG-COM-040')).message).toBe(
+  it('1001（HTTP 400）显示后端 msgId', () => {
+    expect(toOpaErrorView(e(400, 1001, '受注行必须指定。', 'MSG-COM-040')).message).toBe(
       '[MSG-COM-040] 受注行必须指定。',
     )
   })
