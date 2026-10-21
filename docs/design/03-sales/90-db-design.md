@@ -1515,3 +1515,8 @@ CREATE INDEX idx_sal_forecast_line_material ON sal_sales_forecast_line (tenant_i
 
 
 
+| v1.7 | 2026-10-21 | sal 明細・版表 15 件を 一意索引を `(tenant_id, company_id, …)` 先頭に統一（sys/V202610210707・0708 と整合）、「親 ID 先頭」例外一覧を削除。例外は 00-common/04 §6.1 第 4 条のテナント共有表のみ（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.8 | 2026-10-21 | 例外一覧に `uk_sys_user_username`（`(tenant_id, username)`、テナント単位）を追加（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.9 | 2026-10-21 | §制約一覧 #1〜#7 の UNIQUE を `(tenant_id, company_id, …)` 先頭に修正（95:26 と整合、蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.10 | 2026-10-21 | 非一意 btree 索引（`idx_`）60 箇所を `tenant_id` 先頭（`company_id` がある表は次に `company_id`）に変更（DDL・索引一覧。既存迁移の索引は sys/V202610210707 と同一列。GIN は対象外。蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.11 | 2026-10-21 | main（#31）取込み後の再整合：一意索引・非一意 btree 索引を `tenant_id`（＋`company_id`）先頭に再適用、テナント級一意は 00-common/04 §6.1 第 4 条に従う（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

@@ -21,13 +21,13 @@
 ## AC-PUR-02 tenant_id / company_id
 
 - W：[90-db-design.md](90-db-design.md) の全 DDL を確認。T：`tenant_id` は `NOT NULL DEFAULT current_setting('app.tenant_id')::bigint`、字面量默认租户（`DEFAULT 0` 等）なし。`scripts/check-tenant-default.sh` が OK。
-- T：`company_id` を持つテーブル（ヘッダ・設定・集計）では `NOT NULL` かつ既定値なし（`DEFAULT 1` なし）。明細・関連テーブルは `company_id` を持たず親行で保証する（90 §3 監査カラム）。
+- T：全テーブル（ヘッダ・設定・集計・明細・関連・履歴）が `company_id BIGINT NOT NULL` を持ち、既定値なし（`DEFAULT 1` なし）（蓝色大肥鱼 2026-10-21 決定）。
 
 ## AC-PUR-03 一意索引は tenant_id 先頭
 
 - W：業務一意索引（`uk_`）を DDL 本文・§4 テーブル一覧・§6 索引一覧・§7 制約一覧で確認。T：`(tenant_id, company_id, …)` で始まり、4 箇所の列順が一致する（`uk_pur_*_no`、`uk_pur_invoice_number`、`uk_pur_statement_period`、`uk_pur_tolerance_rule`、`uk_pur_supplier_performance`）。
-- T：親 ID 先頭の一意索引は 90 §6.1 の例外一覧に全て列挙され、理由（親行が tenant/company を保証）が書かれている。一覧外の非 tenant 先頭 `uk_` は 0 件。
-- T（G2-20）：`company_id` 先頭は非一意 `idx_` のみ（例：`idx_pur_tolerance_rule_lookup`）。
+- T：`company_id` を持つ表の `uk_` はすべて `(tenant_id, company_id, …)` 先頭。親 ID 先頭の例外一覧は存在しない。明細・関連・履歴の一意制約 12 件も `(tenant_id, company_id, 親 ID, …)` 先頭。非 tenant 先頭 `uk_` は 0 件。
+- T（G2-20）：非一意 btree 索引（`idx_`）も `tenant_id` 先頭（次に `company_id`）。GIN 索引は対象外（蓝色大肥鱼 2026-10-21 決定）。
 
 ## AC-PUR-04 RLS
 
@@ -86,3 +86,10 @@
 | 1 | E14 に `inspectionFlag` を載せるか | **決定済（蓝色大肥鱼 2026-10-21）**：E14 明細ごとに後方互換追加 | — | 蓝色大肥鱼 |
 | 2 | PRD IQC 起票の `sourceType` | **決定済（同上）**：`PURCHASE_RECEIPT` に統一 | — | 蓝色大肥鱼 |
 | 3 | `pur_receipt.inspection_flag`（ヘッダ）の要否 | **決定済（同上）**：ヘッダ列を削除、明細のみ。一覧表示は `bool_or(line.inspection_flag)` で導出 | — | 蓝色大肥鱼 |
+
+## 改訂履歴
+
+| 版数 | 日付 | 変更内容 | 変更者 |
+|---|---|---|---|
+| v1.1 | 2026-10-21 | 親 ID 先頭の例外一覧の前提を削除（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.2 | 2026-10-21 | AC-PUR-02：全表 company_id 必須・明細も (tenant_id, company_id, …) 先頭、G2-20：非一意 btree `idx_` も `tenant_id` 先頭（次に `company_id`）、GIN 除外に修正（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

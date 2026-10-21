@@ -100,24 +100,24 @@ erDiagram
 | # | 物理名 | 論理名 | 種別 | 主キー以外の一意キー | 更新元機能 | 件数見積（5 年） |
 |---|---|---|---|---|---|---|
 | 1 | `pur_purchase_requisition` | 请购单 | 伝票ヘッダ | `(tenant_id, company_id, pr_no)` | F-PUR-001/002/003 | 17,000 |
-| 2 | `pur_purchase_requisition_line` | 请购单明细 | 伝票明細 | `(tenant_id, purchase_requisition_id, line_no)` | 同上 | 68,000 |
+| 2 | `pur_purchase_requisition_line` | 请购单明细 | 伝票明細 | `(tenant_id, company_id, purchase_requisition_id, line_no)` | 同上 | 68,000 |
 | 3 | `pur_rfq` | 询价单 | 伝票ヘッダ | `(tenant_id, company_id, rfq_no)` | F-PUR-004 | 3,300 |
-| 4 | `pur_rfq_line` | 询价单明细 | 伝票明細 | `(tenant_id, rfq_id, line_no)` | F-PUR-004 | 13,200 |
-| 5 | `pur_rfq_supplier` | 询价供应商 | 関連 | `(tenant_id, rfq_id, supplier_id)` | F-PUR-004/005 | 16,500 |
-| 6 | `pur_supplier_quotation` | 供应商报价 | 伝票ヘッダ | `(tenant_id, rfq_id, supplier_id)` | F-PUR-005 | 27,500 |
-| 7 | `pur_supplier_quotation_line` | 供应商报价明细 | 伝票明細 | `(tenant_id, quotation_id, rfq_line_id)` | F-PUR-005/006 | 110,000 |
+| 4 | `pur_rfq_line` | 询价单明细 | 伝票明細 | `(tenant_id, company_id, rfq_id, line_no)` | F-PUR-004 | 13,200 |
+| 5 | `pur_rfq_supplier` | 询价供应商 | 関連 | `(tenant_id, company_id, rfq_id, supplier_id)` | F-PUR-004/005 | 16,500 |
+| 6 | `pur_supplier_quotation` | 供应商报价 | 伝票ヘッダ | `(tenant_id, company_id, rfq_id, supplier_id)` | F-PUR-005 | 27,500 |
+| 7 | `pur_supplier_quotation_line` | 供应商报价明细 | 伝票明細 | `(tenant_id, company_id, quotation_id, rfq_line_id)` | F-PUR-005/006 | 110,000 |
 | 8 | `pur_purchase_order` | 采购订单 | 伝票ヘッダ | `(tenant_id, company_id, po_no)` | F-PUR-007～010 | 80,000 |
-| 9 | `pur_purchase_order_line` | 采购订单明细 | 伝票明細 | `(tenant_id, purchase_order_id, line_no)` | F-PUR-007～011 | 400,000 |
-| 10 | `pur_purchase_order_his` | 采购订单变更履历 | 履歴 | `(tenant_id, purchase_order_id, version_no)` | F-PUR-009 | 40,000 |
+| 9 | `pur_purchase_order_line` | 采购订单明细 | 伝票明細 | `(tenant_id, company_id, purchase_order_id, line_no)` | F-PUR-007～011 | 400,000 |
+| 10 | `pur_purchase_order_his` | 采购订单变更履历 | 履歴 | `(tenant_id, company_id, purchase_order_id, version_no)` | F-PUR-009 | 40,000 |
 | 11 | `pur_receipt` | 收货单 | 伝票ヘッダ | `(tenant_id, company_id, receipt_no)` | F-PUR-011/012 | 120,000 |
-| 12 | `pur_receipt_line` | 收货单明细 | 伝票明細 | `(tenant_id, receipt_id, line_no)` | F-PUR-011～014 | 600,000 |
+| 12 | `pur_receipt_line` | 收货单明细 | 伝票明細 | `(tenant_id, company_id, receipt_id, line_no)` | F-PUR-011～014 | 600,000 |
 | 13 | `pur_return` | 采购退货单 | 伝票ヘッダ | `(tenant_id, company_id, return_no)` | F-PUR-015/016 | 6,000 |
-| 14 | `pur_return_line` | 采购退货单明细 | 伝票明細 | `(tenant_id, return_id, line_no)` | F-PUR-015/016 | 13,000 |
+| 14 | `pur_return_line` | 采购退货单明细 | 伝票明細 | `(tenant_id, company_id, return_id, line_no)` | F-PUR-015/016 | 13,000 |
 | 15 | `pur_invoice` | 采购发票登记 | 伝票ヘッダ | `(tenant_id, company_id, invoice_no)`／`(tenant_id, company_id, supplier_id, COALESCE(invoice_code,''), invoice_number)` | F-PUR-017/018 | 60,000 |
-| 16 | `pur_invoice_line` | 采购发票明细 | 伝票明細 | `(tenant_id, invoice_id, line_no)` | F-PUR-017/018 | 360,000 |
-| 17 | `pur_invoice_match` | 三单匹配结果 | 履歴 | `(tenant_id, invoice_line_id, receipt_line_id)` | F-PUR-018 | 360,000 |
+| 16 | `pur_invoice_line` | 采购发票明细 | 伝票明細 | `(tenant_id, company_id, invoice_id, line_no)` | F-PUR-017/018 | 360,000 |
+| 17 | `pur_invoice_match` | 三单匹配结果 | 履歴 | `(tenant_id, company_id, invoice_line_id, receipt_line_id)` | F-PUR-018 | 360,000 |
 | 18 | `pur_statement` | 采购对账单 | 伝票ヘッダ | `(tenant_id, company_id, statement_no)`／`(tenant_id, company_id, supplier_id, period_code)` | F-PUR-019 | 14,000 |
-| 19 | `pur_statement_line` | 采购对账单明细 | 伝票明細 | `(tenant_id, statement_id, line_no)` | F-PUR-019 | 210,000 |
+| 19 | `pur_statement_line` | 采购对账单明细 | 伝票明細 | `(tenant_id, company_id, statement_id, line_no)` | F-PUR-019 | 210,000 |
 | 20 | `pur_tolerance_rule` | 容差规则 | 設定 | `(tenant_id, company_id, rule_type, scope_level, scope_id, valid_from)` | F-PUR-011/018 | 50（マスタ相当） |
 | 21 | `pur_delivery_followup` | 催货记录 | ログ（追記） | `(id)` のみ | F-PUR-023 | 30,000 |
 | 22 | `pur_supplier_performance` | 供应商绩效快照 | 集計 | `(tenant_id, company_id, period_code, supplier_id)` | F-PUR-026 | 48,000 |
@@ -178,10 +178,10 @@ CREATE TABLE pur_purchase_requisition (
     updated_by            BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_pur_purchase_requisition PRIMARY KEY (id),
     CONSTRAINT uk_pur_purchase_requisition_no UNIQUE (tenant_id, company_id, pr_no),
-    CONSTRAINT fk_pur_purchase_requisition_dept FOREIGN KEY (department_id) REFERENCES sys_department (id),
-    CONSTRAINT fk_pur_purchase_requisition_applicant FOREIGN KEY (applicant_id) REFERENCES sys_user (id),
-    CONSTRAINT fk_pur_purchase_requisition_factory FOREIGN KEY (factory_id) REFERENCES mdm_factory (id),
-    CONSTRAINT fk_pur_purchase_requisition_wh FOREIGN KEY (warehouse_id) REFERENCES mdm_warehouse (id),
+    CONSTRAINT fk_pur_purchase_requisition_dept FOREIGN KEY (tenant_id, department_id) REFERENCES sys_department (tenant_id, id),
+    CONSTRAINT fk_pur_purchase_requisition_applicant FOREIGN KEY (tenant_id, applicant_id) REFERENCES sys_user (tenant_id, id),
+    CONSTRAINT fk_pur_purchase_requisition_factory FOREIGN KEY (tenant_id, factory_id) REFERENCES mdm_factory (tenant_id, id),
+    CONSTRAINT fk_pur_purchase_requisition_wh FOREIGN KEY (tenant_id, warehouse_id) REFERENCES mdm_warehouse (tenant_id, id),
     CONSTRAINT ck_pur_purchase_requisition_status CHECK (pr_status IN (10,20,25,30,35,40,90,95)),
     CONSTRAINT ck_pur_purchase_requisition_amount CHECK (total_amount >= 0 AND tax_amount >= 0)
 );
@@ -220,10 +220,10 @@ CREATE TABLE pur_purchase_requisition (
 | No | 索引名 | 種別 | 対象列 | 目的 |
 |---|---|---|---|---|
 | 1 | `uk_pur_purchase_requisition_no` | UNIQUE | (`tenant_id`, `company_id`, `pr_no`) | 伝票番号一意 |
-| 2 | `idx_pur_purchase_requisition_status_date` | B-Tree | (`pr_status`, `required_date` DESC) | 状態別一覧・未完了検索 |
-| 3 | `idx_pur_purchase_requisition_dept` | B-Tree | (`department_id`, `pr_status`) | 部門別一覧・データ権限 |
-| 4 | `idx_pur_purchase_requisition_applicant` | B-Tree | (`applicant_id`) | 申請者検索 |
-| 5 | `idx_pur_purchase_requisition_source` | B-Tree | (`source_type`, `source_id`) | MRP 由来自動請購の重複チェック |
+| 2 | `idx_pur_purchase_requisition_status_date` | B-Tree | (`tenant_id`, `company_id`, `pr_status`, `required_date` DESC) | 状態別一覧・未完了検索 |
+| 3 | `idx_pur_purchase_requisition_dept` | B-Tree | (`tenant_id`, `company_id`, `department_id`, `pr_status`) | 部門別一覧・データ権限 |
+| 4 | `idx_pur_purchase_requisition_applicant` | B-Tree | (`tenant_id`, `company_id`, `applicant_id`) | 申請者検索 |
+| 5 | `idx_pur_purchase_requisition_source` | B-Tree | (`tenant_id`, `company_id`, `source_type`, `source_id`) | MRP 由来自動請購の重複チェック |
 
 **制約・整合性**
 
@@ -280,11 +280,11 @@ CREATE TABLE pur_purchase_requisition_line (
     updated_at              TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_by              BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_pur_purchase_requisition_line PRIMARY KEY (id),
-    CONSTRAINT uk_pur_purchase_requisition_line_no UNIQUE (tenant_id, purchase_requisition_id, line_no),
+    CONSTRAINT uk_pur_purchase_requisition_line_no UNIQUE (tenant_id, company_id, purchase_requisition_id, line_no),
     CONSTRAINT fk_pur_purchase_requisition_line_pr FOREIGN KEY (purchase_requisition_id)
         REFERENCES pur_purchase_requisition (id) ON DELETE RESTRICT,
-    CONSTRAINT fk_pur_purchase_requisition_line_material FOREIGN KEY (material_id) REFERENCES mdm_material (id),
-    CONSTRAINT fk_pur_purchase_requisition_line_supplier FOREIGN KEY (supplier_suggest_id) REFERENCES mdm_supplier (id),
+    CONSTRAINT fk_pur_purchase_requisition_line_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
+    CONSTRAINT fk_pur_purchase_requisition_line_supplier FOREIGN KEY (tenant_id, supplier_suggest_id) REFERENCES mdm_supplier (tenant_id, id),
     CONSTRAINT ck_pur_purchase_requisition_line_qty CHECK (quantity > 0 AND converted_qty >= 0),
     CONSTRAINT ck_pur_purchase_requisition_line_status CHECK (line_status IN (10,30,35,40,90))
 );
@@ -312,7 +312,7 @@ CREATE TABLE pur_purchase_requisition_line (
 | 18 | `line_status` | 行状态 | SMALLINT | NOT NULL | — | — | 10 | 10/30/35/40/90 |
 | 19 | `line_remark` | 行备注 | VARCHAR(500) | NULL | — | — | NULL | — |
 
-**索引**：`uk_pur_purchase_requisition_line_no`（一意）、`idx_pur_purchase_requisition_line_material`（`material_id`）、`idx_pur_purchase_requisition_line_status`（`line_status`）。
+**索引**：`uk_pur_purchase_requisition_line_no`（一意）、`idx_pur_purchase_requisition_line_material`（`tenant_id`, `company_id`, `material_id`）、`idx_pur_purchase_requisition_line_status`（`tenant_id`, `company_id`, `line_status`）。
 **更新仕様**：INSERT は请购登録・計画変換。UPDATE は `converted_qty`／`line_status`（転単・戻し）。
 
 ---
@@ -360,7 +360,7 @@ CREATE TABLE pur_rfq (
     CONSTRAINT pk_pur_rfq PRIMARY KEY (id),
     CONSTRAINT uk_pur_rfq_no UNIQUE (tenant_id, company_id, rfq_no),
     CONSTRAINT fk_pur_rfq_pr FOREIGN KEY (purchase_requisition_id) REFERENCES pur_purchase_requisition (id),
-    CONSTRAINT fk_pur_rfq_dept FOREIGN KEY (department_id) REFERENCES sys_department (id),
+    CONSTRAINT fk_pur_rfq_dept FOREIGN KEY (tenant_id, department_id) REFERENCES sys_department (tenant_id, id),
     CONSTRAINT ck_pur_rfq_status CHECK (rfq_status IN (10,30,35,40,90)),
     CONSTRAINT ck_pur_rfq_deadline CHECK (quote_deadline > created_at)
 );
@@ -383,7 +383,7 @@ CREATE TABLE pur_rfq (
 | 13 | `awarded_at`/`awarded_by` | 中选日時・者 | TIMESTAMPTZ/BIGINT | NULL | `sys_user.id` | — |
 | 14 | `total_award_amount` | 中选金额（税込） | NUMERIC(18,2) | NULL | — | — |
 
-**索引**：`uk_pur_rfq_no`、`idx_pur_rfq_status_deadline`（`rfq_status`, `quote_deadline`）、`idx_pur_rfq_pr`（`purchase_requisition_id`）。
+**索引**：`uk_pur_rfq_no`、`idx_pur_rfq_status_deadline`（`tenant_id`, `company_id`, `rfq_status`, `quote_deadline`）、`idx_pur_rfq_pr`（`tenant_id`, `company_id`, `purchase_requisition_id`）。
 
 ---
 
@@ -424,11 +424,11 @@ CREATE TABLE pur_rfq_line (
     updated_at          TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_by          BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_pur_rfq_line PRIMARY KEY (id),
-    CONSTRAINT uk_pur_rfq_line_no UNIQUE (tenant_id, rfq_id, line_no),
+    CONSTRAINT uk_pur_rfq_line_no UNIQUE (tenant_id, company_id, rfq_id, line_no),
     CONSTRAINT fk_pur_rfq_line_rfq FOREIGN KEY (rfq_id) REFERENCES pur_rfq (id) ON DELETE RESTRICT,
     CONSTRAINT fk_pur_rfq_line_pr_line FOREIGN KEY (purchase_requisition_line_id) REFERENCES pur_purchase_requisition_line (id),
-    CONSTRAINT fk_pur_rfq_line_material FOREIGN KEY (material_id) REFERENCES mdm_material (id),
-    CONSTRAINT fk_pur_rfq_line_supplier FOREIGN KEY (selected_supplier_id) REFERENCES mdm_supplier (id),
+    CONSTRAINT fk_pur_rfq_line_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
+    CONSTRAINT fk_pur_rfq_line_supplier FOREIGN KEY (tenant_id, selected_supplier_id) REFERENCES mdm_supplier (tenant_id, id),
     CONSTRAINT ck_pur_rfq_line_qty CHECK (quantity > 0),
     CONSTRAINT ck_pur_rfq_line_status CHECK (line_status IN (10,30,35,40,90))
 );
@@ -448,7 +448,7 @@ CREATE TABLE pur_rfq_line (
 | 10 | `selected_supplier_id` | 中选供应商 | BIGINT | NULL | `mdm_supplier.id` | 中选後 |
 | 11 | `line_status` | 行状态 | SMALLINT | NOT NULL | — | 10/30/35/40/90 |
 
-**索引**：`uk_pur_rfq_line_no`、`idx_pur_rfq_line_material`（`material_id`）、`idx_pur_rfq_line_pr_line`（`purchase_requisition_line_id`）。
+**索引**：`uk_pur_rfq_line_no`、`idx_pur_rfq_line_material`（`tenant_id`, `company_id`, `material_id`）、`idx_pur_rfq_line_pr_line`（`tenant_id`, `company_id`, `purchase_requisition_line_id`）。
 
 ---
 
@@ -482,9 +482,9 @@ CREATE TABLE pur_rfq_supplier (
     updated_by      BIGINT       NOT NULL DEFAULT 0,
     version         INT          NOT NULL DEFAULT 0,
     CONSTRAINT pk_pur_rfq_supplier PRIMARY KEY (id),
-    CONSTRAINT uk_pur_rfq_supplier UNIQUE (tenant_id, rfq_id, supplier_id),
+    CONSTRAINT uk_pur_rfq_supplier UNIQUE (tenant_id, company_id, rfq_id, supplier_id),
     CONSTRAINT fk_pur_rfq_supplier_rfq FOREIGN KEY (rfq_id) REFERENCES pur_rfq (id) ON DELETE RESTRICT,
-    CONSTRAINT fk_pur_rfq_supplier_supplier FOREIGN KEY (supplier_id) REFERENCES mdm_supplier (id),
+    CONSTRAINT fk_pur_rfq_supplier_supplier FOREIGN KEY (tenant_id, supplier_id) REFERENCES mdm_supplier (tenant_id, id),
     CONSTRAINT ck_pur_rfq_supplier_status CHECK (response_status IN (0,1,2,3,4))
 );
 ```
@@ -498,7 +498,7 @@ CREATE TABLE pur_rfq_supplier (
 | 5 | `sent_at` | 送信日時 | TIMESTAMPTZ | NULL | — | 发出時 |
 | 6 | `response_status` | 回答状態 | SMALLINT | NOT NULL | — | 0 未送信/1 送信済/2 報価済/3 拒否/4 期限切れ |
 
-**索引**：`uk_pur_rfq_supplier`、`idx_pur_rfq_supplier_supplier`（`supplier_id`）。
+**索引**：`uk_pur_rfq_supplier`、`idx_pur_rfq_supplier_supplier`（`tenant_id`, `company_id`, `supplier_id`）。
 
 ---
 
@@ -540,9 +540,9 @@ CREATE TABLE pur_supplier_quotation (
     updated_at          TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_by          BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_pur_supplier_quotation PRIMARY KEY (id),
-    CONSTRAINT uk_pur_supplier_quotation UNIQUE (tenant_id, rfq_id, supplier_id),
+    CONSTRAINT uk_pur_supplier_quotation UNIQUE (tenant_id, company_id, rfq_id, supplier_id),
     CONSTRAINT fk_pur_supplier_quotation_rfq FOREIGN KEY (rfq_id) REFERENCES pur_rfq (id) ON DELETE RESTRICT,
-    CONSTRAINT fk_pur_supplier_quotation_supplier FOREIGN KEY (supplier_id) REFERENCES mdm_supplier (id),
+    CONSTRAINT fk_pur_supplier_quotation_supplier FOREIGN KEY (tenant_id, supplier_id) REFERENCES mdm_supplier (tenant_id, id),
     CONSTRAINT ck_pur_supplier_quotation_valid CHECK (valid_to >= valid_from),
     CONSTRAINT ck_pur_supplier_quotation_rate CHECK (exchange_rate > 0)
 );
@@ -560,7 +560,7 @@ CREATE TABLE pur_supplier_quotation (
 | 8 | `valid_from`/`valid_to` | 報価有効期間 | DATE | NOT NULL | — | 期限切れは中选不可 |
 | 9 | `total_amount`/`tax_amount`/`total_amount_with_tax` | 合計 | NUMERIC(18,2) | NOT NULL | — | 税抜・税額・税込 |
 
-**索引**：`uk_pur_supplier_quotation`、`idx_pur_supplier_quotation_supplier`（`supplier_id`, `quote_date`）。
+**索引**：`uk_pur_supplier_quotation`、`idx_pur_supplier_quotation_supplier`（`tenant_id`, `company_id`, `supplier_id`, `quote_date`）。
 
 ---
 
@@ -610,10 +610,10 @@ CREATE TABLE pur_supplier_quotation_line (
     updated_at           TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_by           BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_pur_supplier_quotation_line PRIMARY KEY (id),
-    CONSTRAINT uk_pur_supplier_quotation_line UNIQUE (tenant_id, quotation_id, rfq_line_id),
+    CONSTRAINT uk_pur_supplier_quotation_line UNIQUE (tenant_id, company_id, quotation_id, rfq_line_id),
     CONSTRAINT fk_pur_supplier_quotation_line_q FOREIGN KEY (quotation_id) REFERENCES pur_supplier_quotation (id) ON DELETE RESTRICT,
     CONSTRAINT fk_pur_supplier_quotation_line_rfq_line FOREIGN KEY (rfq_line_id) REFERENCES pur_rfq_line (id),
-    CONSTRAINT fk_pur_supplier_quotation_line_material FOREIGN KEY (material_id) REFERENCES mdm_material (id),
+    CONSTRAINT fk_pur_supplier_quotation_line_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
     CONSTRAINT ck_pur_supplier_quotation_line_price CHECK (quoted_unit_price >= 0 AND quoted_qty > 0),
     CONSTRAINT ck_pur_supplier_quotation_line_score CHECK (total_score IS NULL OR total_score >= 0)
 );
@@ -634,7 +634,7 @@ CREATE TABLE pur_supplier_quotation_line (
 | 11 | `is_selected`/`selected_qty`/`selected_reason` | 中选 | BOOLEAN/NUMERIC/VARCHAR | NULL | 行単位 1 社 |
 | 12 | `price_diff_reason` | 価格差異理由 | VARCHAR(500) | NULL | 目安比 > 10% |
 
-**索引**：`uk_pur_supplier_quotation_line`、`idx_pur_supplier_quotation_line_rfq_line`（`rfq_line_id`）、`idx_pur_supplier_quotation_line_selected`（`is_selected`）。
+**索引**：`uk_pur_supplier_quotation_line`、`idx_pur_supplier_quotation_line_rfq_line`（`tenant_id`, `company_id`, `rfq_line_id`）、`idx_pur_supplier_quotation_line_selected`（`tenant_id`, `company_id`, `is_selected`）。
 
 ---
 
@@ -704,11 +704,11 @@ CREATE TABLE pur_purchase_order (
     updated_by             BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_pur_purchase_order PRIMARY KEY (id),
     CONSTRAINT uk_pur_purchase_order_no UNIQUE (tenant_id, company_id, po_no),
-    CONSTRAINT fk_pur_purchase_order_supplier FOREIGN KEY (supplier_id) REFERENCES mdm_supplier (id),
-    CONSTRAINT fk_pur_purchase_order_dept FOREIGN KEY (department_id) REFERENCES sys_department (id),
-    CONSTRAINT fk_pur_purchase_order_buyer FOREIGN KEY (buyer_id) REFERENCES sys_user (id),
-    CONSTRAINT fk_pur_purchase_order_factory FOREIGN KEY (factory_id) REFERENCES mdm_factory (id),
-    CONSTRAINT fk_pur_purchase_order_wh FOREIGN KEY (warehouse_id) REFERENCES mdm_warehouse (id),
+    CONSTRAINT fk_pur_purchase_order_supplier FOREIGN KEY (tenant_id, supplier_id) REFERENCES mdm_supplier (tenant_id, id),
+    CONSTRAINT fk_pur_purchase_order_dept FOREIGN KEY (tenant_id, department_id) REFERENCES sys_department (tenant_id, id),
+    CONSTRAINT fk_pur_purchase_order_buyer FOREIGN KEY (tenant_id, buyer_id) REFERENCES sys_user (tenant_id, id),
+    CONSTRAINT fk_pur_purchase_order_factory FOREIGN KEY (tenant_id, factory_id) REFERENCES mdm_factory (tenant_id, id),
+    CONSTRAINT fk_pur_purchase_order_wh FOREIGN KEY (tenant_id, warehouse_id) REFERENCES mdm_warehouse (tenant_id, id),
     CONSTRAINT ck_pur_purchase_order_status CHECK (po_status IN (10,20,25,30,35,40,90,95)),
     CONSTRAINT ck_pur_purchase_order_prepay CHECK (prepay_ratio >= 0 AND prepay_ratio <= 100),
     CONSTRAINT ck_pur_purchase_order_amount CHECK (total_amount >= 0)
@@ -744,10 +744,10 @@ CREATE TABLE pur_purchase_order (
 | No | 索引名 | 種別 | 対象列 | 目的 |
 |---|---|---|---|---|
 | 1 | `uk_pur_purchase_order_no` | UNIQUE | (`tenant_id`, `company_id`, `po_no`) | 伝票番号一意 |
-| 2 | `idx_pur_purchase_order_status_date` | B-Tree | (`po_status`, `order_date` DESC) | 一覧・未完了 |
-| 3 | `idx_pur_purchase_order_supplier` | B-Tree | (`supplier_id`, `po_status`) | 供应商別・対账 |
-| 4 | `idx_pur_purchase_order_buyer` | B-Tree | (`buyer_id`, `po_status`) | 購買担当別 |
-| 5 | `idx_pur_purchase_order_source` | B-Tree | (`source_type`, `source_id`) | 请购・询价由来の追跡 |
+| 2 | `idx_pur_purchase_order_status_date` | B-Tree | (`tenant_id`, `company_id`, `po_status`, `order_date` DESC) | 一覧・未完了 |
+| 3 | `idx_pur_purchase_order_supplier` | B-Tree | (`tenant_id`, `company_id`, `supplier_id`, `po_status`) | 供应商別・対账 |
+| 4 | `idx_pur_purchase_order_buyer` | B-Tree | (`tenant_id`, `company_id`, `buyer_id`, `po_status`) | 購買担当別 |
+| 5 | `idx_pur_purchase_order_source` | B-Tree | (`tenant_id`, `company_id`, `source_type`, `source_id`) | 请购・询价由来の追跡 |
 
 ---
 
@@ -809,12 +809,12 @@ CREATE TABLE pur_purchase_order_line (
     updated_at               TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_by               BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_pur_purchase_order_line PRIMARY KEY (id),
-    CONSTRAINT uk_pur_purchase_order_line_no UNIQUE (tenant_id, purchase_order_id, line_no),
+    CONSTRAINT uk_pur_purchase_order_line_no UNIQUE (tenant_id, company_id, purchase_order_id, line_no),
     CONSTRAINT fk_pur_purchase_order_line_po FOREIGN KEY (purchase_order_id) REFERENCES pur_purchase_order (id) ON DELETE RESTRICT,
     CONSTRAINT fk_pur_purchase_order_line_pr_line FOREIGN KEY (purchase_requisition_line_id) REFERENCES pur_purchase_requisition_line (id),
     CONSTRAINT fk_pur_purchase_order_line_quote_line FOREIGN KEY (rfq_quotation_line_id) REFERENCES pur_supplier_quotation_line (id),
-    CONSTRAINT fk_pur_purchase_order_line_material FOREIGN KEY (material_id) REFERENCES mdm_material (id),
-    CONSTRAINT fk_pur_purchase_order_line_wh FOREIGN KEY (warehouse_id) REFERENCES mdm_warehouse (id),
+    CONSTRAINT fk_pur_purchase_order_line_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
+    CONSTRAINT fk_pur_purchase_order_line_wh FOREIGN KEY (tenant_id, warehouse_id) REFERENCES mdm_warehouse (tenant_id, id),
     CONSTRAINT ck_pur_purchase_order_line_qty CHECK (quantity > 0 AND received_qty >= 0 AND cancelled_qty >= 0),
     CONSTRAINT ck_pur_purchase_order_line_price CHECK (unit_price >= 0),
     CONSTRAINT ck_pur_purchase_order_line_status CHECK (line_status IN (10,30,35,40,90))
@@ -839,7 +839,7 @@ CREATE TABLE pur_purchase_order_line (
 | 14 | `is_batch_managed` | 批次管理 | BOOLEAN | NOT NULL | 收货時批次必須 |
 | 15 | `line_status` | 行状态 | SMALLINT | NOT NULL | 10/30/35/40/90 |
 
-**索引**：`uk_pur_purchase_order_line_no`、`idx_pur_purchase_order_line_material`（`material_id`, `line_status`）、`idx_pur_purchase_order_line_delivery`（`delivery_date`, `line_status`）、`idx_pur_purchase_order_line_pr_line`（`purchase_requisition_line_id`）。
+**索引**：`uk_pur_purchase_order_line_no`、`idx_pur_purchase_order_line_material`（`tenant_id`, `company_id`, `material_id`, `line_status`）、`idx_pur_purchase_order_line_delivery`（`tenant_id`, `company_id`, `delivery_date`, `line_status`）、`idx_pur_purchase_order_line_pr_line`（`tenant_id`, `company_id`, `purchase_requisition_line_id`）。
 
 ---
 
@@ -872,7 +872,7 @@ CREATE TABLE pur_purchase_order_his (
     changed_at       TIMESTAMPTZ  NOT NULL DEFAULT now(),
     changed_by       BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_pur_purchase_order_his PRIMARY KEY (id),
-    CONSTRAINT uk_pur_purchase_order_his UNIQUE (tenant_id, purchase_order_id, version_no),
+    CONSTRAINT uk_pur_purchase_order_his UNIQUE (tenant_id, company_id, purchase_order_id, version_no),
     CONSTRAINT fk_pur_purchase_order_his_po FOREIGN KEY (purchase_order_id) REFERENCES pur_purchase_order (id) ON DELETE RESTRICT,
     CONSTRAINT ck_pur_purchase_order_his_type CHECK (change_type IN (1,2,3,4,5,9))
 );
@@ -888,7 +888,7 @@ CREATE TABLE pur_purchase_order_his (
 | 6 | `approval_status`/`approved_at`/`approved_by` | 承認情報 | SMALLINT/TIMESTAMPTZ/BIGINT | NOT NULL/NULL | — |
 | 7 | `changed_at`/`changed_by` | 変更日時・者 | TIMESTAMPTZ/BIGINT | NOT NULL | — |
 
-**索引**：`uk_pur_purchase_order_his`、`idx_pur_purchase_order_his_date`（`changed_at` DESC）。
+**索引**：`uk_pur_purchase_order_his`、`idx_pur_purchase_order_his_date`（`tenant_id`, `company_id`, `changed_at` DESC）。
 
 ### 5.11 pur_receipt（收货单）
 
@@ -934,9 +934,9 @@ CREATE TABLE pur_receipt (
     CONSTRAINT pk_pur_receipt PRIMARY KEY (id),
     CONSTRAINT uk_pur_receipt_no UNIQUE (tenant_id, company_id, receipt_no),
     CONSTRAINT fk_pur_receipt_po FOREIGN KEY (purchase_order_id) REFERENCES pur_purchase_order (id) ON DELETE RESTRICT,
-    CONSTRAINT fk_pur_receipt_supplier FOREIGN KEY (supplier_id) REFERENCES mdm_supplier (id),
-    CONSTRAINT fk_pur_receipt_wh FOREIGN KEY (warehouse_id) REFERENCES mdm_warehouse (id),
-    CONSTRAINT fk_pur_receipt_user FOREIGN KEY (receiving_user_id) REFERENCES sys_user (id),
+    CONSTRAINT fk_pur_receipt_supplier FOREIGN KEY (tenant_id, supplier_id) REFERENCES mdm_supplier (tenant_id, id),
+    CONSTRAINT fk_pur_receipt_wh FOREIGN KEY (tenant_id, warehouse_id) REFERENCES mdm_warehouse (tenant_id, id),
+    CONSTRAINT fk_pur_receipt_user FOREIGN KEY (tenant_id, receiving_user_id) REFERENCES sys_user (tenant_id, id),
     CONSTRAINT ck_pur_receipt_status CHECK (receipt_status IN (25,30,35,40,90))
 );
 ```
@@ -955,7 +955,7 @@ CREATE TABLE pur_receipt (
 | 11 | `total_received_amount` | 入荷金額（税抜） | NUMERIC(18,2) | NOT NULL | — | 暂估基準 |
 | 12 | `cancel_reason`/`cancelled_at`/`cancelled_by` | 取消情報 | VARCHAR(500)/TIMESTAMPTZ/BIGINT | NULL | — | E35 発行時 |
 
-**索引**：`uk_pur_receipt_no`、`idx_pur_receipt_status_date`（`receipt_status`, `receipt_date` DESC）、`idx_pur_receipt_po`（`purchase_order_id`）、`idx_pur_receipt_supplier`（`supplier_id`, `receipt_date`）。
+**索引**：`uk_pur_receipt_no`、`idx_pur_receipt_status_date`（`tenant_id`, `company_id`, `receipt_status`, `receipt_date` DESC）、`idx_pur_receipt_po`（`tenant_id`, `company_id`, `purchase_order_id`）、`idx_pur_receipt_supplier`（`tenant_id`, `company_id`, `supplier_id`, `receipt_date`）。
 
 ---
 
@@ -1022,11 +1022,11 @@ CREATE TABLE pur_receipt_line (
     updated_at            TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_by            BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_pur_receipt_line PRIMARY KEY (id),
-    CONSTRAINT uk_pur_receipt_line_no UNIQUE (tenant_id, receipt_id, line_no),
+    CONSTRAINT uk_pur_receipt_line_no UNIQUE (tenant_id, company_id, receipt_id, line_no),
     CONSTRAINT fk_pur_receipt_line_receipt FOREIGN KEY (receipt_id) REFERENCES pur_receipt (id) ON DELETE RESTRICT,
     CONSTRAINT fk_pur_receipt_line_po_line FOREIGN KEY (purchase_order_line_id) REFERENCES pur_purchase_order_line (id),
-    CONSTRAINT fk_pur_receipt_line_material FOREIGN KEY (material_id) REFERENCES mdm_material (id),
-    CONSTRAINT fk_pur_receipt_line_wh FOREIGN KEY (warehouse_id) REFERENCES mdm_warehouse (id),
+    CONSTRAINT fk_pur_receipt_line_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
+    CONSTRAINT fk_pur_receipt_line_wh FOREIGN KEY (tenant_id, warehouse_id) REFERENCES mdm_warehouse (tenant_id, id),
     CONSTRAINT ck_pur_receipt_line_qty CHECK (received_qty > 0 AND accepted_qty >= 0 AND rejected_qty >= 0),
     CONSTRAINT ck_pur_receipt_line_inspection CHECK (inspection_status IN (0,1,2,3,4,5))
 );
@@ -1050,7 +1050,7 @@ CREATE TABLE pur_receipt_line (
 | 14 | `early_flag`/`late_days` | 早入荷・遅延日数 | BOOLEAN/INT | NOT NULL | 绩效連携 |
 | 15 | `disposition` | 不合格処置 | SMALLINT | NULL | 1 返品/2 廃棄/3 換貨/4 選別 |
 
-**索引**：`uk_pur_receipt_line_no`、`idx_pur_receipt_line_po_line`（`purchase_order_line_id`, `inspection_status`）、`idx_pur_receipt_line_material`（`material_id`, `receipt_id`）、`idx_pur_receipt_line_inspection`（`inspection_status`, `stocked_qty`）、`idx_pur_receipt_line_batch`（`batch_no`）。
+**索引**：`uk_pur_receipt_line_no`、`idx_pur_receipt_line_po_line`（`tenant_id`, `company_id`, `purchase_order_line_id`, `inspection_status`）、`idx_pur_receipt_line_material`（`tenant_id`, `company_id`, `material_id`, `receipt_id`）、`idx_pur_receipt_line_inspection`（`tenant_id`, `company_id`, `inspection_status`, `stocked_qty`）、`idx_pur_receipt_line_batch`（`tenant_id`, `company_id`, `batch_no`）。
 
 ---
 
@@ -1104,8 +1104,8 @@ CREATE TABLE pur_return (
     updated_by           BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_pur_return PRIMARY KEY (id),
     CONSTRAINT uk_pur_return_no UNIQUE (tenant_id, company_id, return_no),
-    CONSTRAINT fk_pur_return_supplier FOREIGN KEY (supplier_id) REFERENCES mdm_supplier (id),
-    CONSTRAINT fk_pur_return_wh FOREIGN KEY (warehouse_id) REFERENCES mdm_warehouse (id),
+    CONSTRAINT fk_pur_return_supplier FOREIGN KEY (tenant_id, supplier_id) REFERENCES mdm_supplier (tenant_id, id),
+    CONSTRAINT fk_pur_return_wh FOREIGN KEY (tenant_id, warehouse_id) REFERENCES mdm_warehouse (tenant_id, id),
     CONSTRAINT fk_pur_return_orig_invoice FOREIGN KEY (original_invoice_id) REFERENCES pur_invoice (id),
     CONSTRAINT ck_pur_return_type CHECK (return_type IN (1,2,3,4,5)),
     CONSTRAINT ck_pur_return_status CHECK (return_status IN (10,20,25,30,40,90,95)),
@@ -1128,7 +1128,7 @@ CREATE TABLE pur_return (
 | 11 | `total_amount`/`tax_amount`/`total_amount_with_tax` | 合計 | NUMERIC(18,2) | NOT NULL | 税抜・税額・税込 |
 | 12 | `reason`/`cancel_reason` | 理由 | VARCHAR(500) | NOT NULL/NULL | 取消時必須 |
 
-**索引**：`uk_pur_return_no`、`idx_pur_return_status_date`（`return_status`, `return_date` DESC）、`idx_pur_return_supplier`（`supplier_id`）、`idx_pur_return_credit`（`credit_note_status`, `return_status`）。
+**索引**：`uk_pur_return_no`、`idx_pur_return_status_date`（`tenant_id`, `company_id`, `return_status`, `return_date` DESC）、`idx_pur_return_supplier`（`tenant_id`, `company_id`, `supplier_id`）、`idx_pur_return_credit`（`tenant_id`, `company_id`, `credit_note_status`, `return_status`）。
 
 ---
 
@@ -1176,10 +1176,10 @@ CREATE TABLE pur_return_line (
     updated_at            TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_by            BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_pur_return_line PRIMARY KEY (id),
-    CONSTRAINT uk_pur_return_line_no UNIQUE (tenant_id, return_id, line_no),
+    CONSTRAINT uk_pur_return_line_no UNIQUE (tenant_id, company_id, return_id, line_no),
     CONSTRAINT fk_pur_return_line_return FOREIGN KEY (return_id) REFERENCES pur_return (id) ON DELETE RESTRICT,
     CONSTRAINT fk_pur_return_line_receipt_line FOREIGN KEY (receipt_line_id) REFERENCES pur_receipt_line (id),
-    CONSTRAINT fk_pur_return_line_material FOREIGN KEY (material_id) REFERENCES mdm_material (id),
+    CONSTRAINT fk_pur_return_line_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
     CONSTRAINT fk_pur_return_line_replacement FOREIGN KEY (replacement_receipt_id) REFERENCES pur_receipt (id),
     CONSTRAINT fk_pur_return_line_orig_invoice_line FOREIGN KEY (original_invoice_line_id) REFERENCES pur_invoice_line (id),
     CONSTRAINT ck_pur_return_line_qty CHECK (return_qty > 0 AND replacement_qty >= 0),
@@ -1199,7 +1199,7 @@ CREATE TABLE pur_return_line (
 | 8 | `replacement_qty`/`replacement_receipt_id` | 換貨 | NUMERIC/BIGINT | NOT NULL/NULL | 補貨 GR |
 | 9 | `invoice_status`/`original_invoice_line_id` | 発票状態・原発票行 | SMALLINT/BIGINT | NOT NULL/NULL | 已開票→紅字 |
 
-**索引**：`uk_pur_return_line_no`、`idx_pur_return_line_receipt_line`（`receipt_line_id`）、`idx_pur_return_line_material`（`material_id`）。
+**索引**：`uk_pur_return_line_no`、`idx_pur_return_line_receipt_line`（`tenant_id`, `company_id`, `receipt_line_id`）、`idx_pur_return_line_material`（`tenant_id`, `company_id`, `material_id`）。
 
 ---
 
@@ -1254,7 +1254,7 @@ CREATE TABLE pur_invoice (
     updated_by             BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_pur_invoice PRIMARY KEY (id),
     CONSTRAINT uk_pur_invoice_no UNIQUE (tenant_id, company_id, invoice_no),
-    CONSTRAINT fk_pur_invoice_supplier FOREIGN KEY (supplier_id) REFERENCES mdm_supplier (id),
+    CONSTRAINT fk_pur_invoice_supplier FOREIGN KEY (tenant_id, supplier_id) REFERENCES mdm_supplier (tenant_id, id),
     CONSTRAINT fk_pur_invoice_original FOREIGN KEY (original_invoice_id) REFERENCES pur_invoice (id),
     CONSTRAINT ck_pur_invoice_type CHECK (invoice_type IN (10,20,30,40,50)),
     CONSTRAINT ck_pur_invoice_matched CHECK (matched_status IN (0,1,2,3,4,5,6,9)),
@@ -1281,7 +1281,7 @@ CREATE UNIQUE INDEX uk_pur_invoice_number ON pur_invoice
 | 12 | `verified_flag` | 発票査験 | BOOLEAN | NOT NULL | INT 査験連携で自動化（第一版） |
 | 13 | `ap_posted_at`/`ap_posted_by` | 計上日時・者 | TIMESTAMPTZ/BIGINT | NULL | E17 発行時 |
 
-**索引**：`uk_pur_invoice_no`、`uk_pur_invoice_number`、`idx_pur_invoice_match_status`（`matched_status`, `invoice_date` DESC）、`idx_pur_invoice_supplier`（`supplier_id`, `invoice_date`）、`idx_pur_invoice_ap`（`ap_status`, `registration_date`）。
+**索引**：`uk_pur_invoice_no`、`uk_pur_invoice_number`、`idx_pur_invoice_match_status`（`tenant_id`, `company_id`, `matched_status`, `invoice_date` DESC）、`idx_pur_invoice_supplier`（`tenant_id`, `company_id`, `supplier_id`, `invoice_date`）、`idx_pur_invoice_ap`（`tenant_id`, `company_id`, `ap_status`, `registration_date`）。
 
 ---
 
@@ -1326,11 +1326,11 @@ CREATE TABLE pur_invoice_line (
     updated_at             TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_by             BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_pur_invoice_line PRIMARY KEY (id),
-    CONSTRAINT uk_pur_invoice_line_no UNIQUE (tenant_id, invoice_id, line_no),
+    CONSTRAINT uk_pur_invoice_line_no UNIQUE (tenant_id, company_id, invoice_id, line_no),
     CONSTRAINT fk_pur_invoice_line_invoice FOREIGN KEY (invoice_id) REFERENCES pur_invoice (id) ON DELETE RESTRICT,
     CONSTRAINT fk_pur_invoice_line_po_line FOREIGN KEY (purchase_order_line_id) REFERENCES pur_purchase_order_line (id),
     CONSTRAINT fk_pur_invoice_line_receipt_line FOREIGN KEY (receipt_line_id) REFERENCES pur_receipt_line (id),
-    CONSTRAINT fk_pur_invoice_line_material FOREIGN KEY (material_id) REFERENCES mdm_material (id),
+    CONSTRAINT fk_pur_invoice_line_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
     CONSTRAINT fk_pur_invoice_line_orig_line FOREIGN KEY (original_invoice_line_id) REFERENCES pur_invoice_line (id),
     CONSTRAINT ck_pur_invoice_line_qty CHECK (invoice_qty <> 0),
     CONSTRAINT ck_pur_invoice_line_tax CHECK (tax_rate >= 0 AND tax_rate <= 100)
@@ -1349,7 +1349,7 @@ CREATE TABLE pur_invoice_line (
 | 8 | `invoice_amount`/`total_amount` | 税抜金額・税込金額 | NUMERIC(18,2) | NOT NULL | — |
 | 9 | `original_invoice_line_id` | 原発票行 | BIGINT | NULL | 紅字時 |
 
-**索引**：`uk_pur_invoice_line_no`、`idx_pur_invoice_line_po_line`（`purchase_order_line_id`）、`idx_pur_invoice_line_receipt_line`（`receipt_line_id`）、`idx_pur_invoice_line_material`（`material_id`）。
+**索引**：`uk_pur_invoice_line_no`、`idx_pur_invoice_line_po_line`（`tenant_id`, `company_id`, `purchase_order_line_id`）、`idx_pur_invoice_line_receipt_line`（`tenant_id`, `company_id`, `receipt_line_id`）、`idx_pur_invoice_line_material`（`tenant_id`, `company_id`, `material_id`）。
 
 ### 5.17 pur_invoice_match（三单匹配结果）
 
@@ -1405,12 +1405,12 @@ CREATE TABLE pur_invoice_match (
     updated_at            TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_by            BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_pur_invoice_match PRIMARY KEY (id),
-    CONSTRAINT uk_pur_invoice_match UNIQUE (tenant_id, invoice_line_id, receipt_line_id),
+    CONSTRAINT uk_pur_invoice_match UNIQUE (tenant_id, company_id, invoice_line_id, receipt_line_id),
     CONSTRAINT fk_pur_invoice_match_invoice FOREIGN KEY (invoice_id) REFERENCES pur_invoice (id) ON DELETE RESTRICT,
     CONSTRAINT fk_pur_invoice_match_invoice_line FOREIGN KEY (invoice_line_id) REFERENCES pur_invoice_line (id),
     CONSTRAINT fk_pur_invoice_match_po_line FOREIGN KEY (purchase_order_line_id) REFERENCES pur_purchase_order_line (id),
     CONSTRAINT fk_pur_invoice_match_receipt_line FOREIGN KEY (receipt_line_id) REFERENCES pur_receipt_line (id),
-    CONSTRAINT fk_pur_invoice_match_material FOREIGN KEY (material_id) REFERENCES mdm_material (id),
+    CONSTRAINT fk_pur_invoice_match_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
     CONSTRAINT ck_pur_invoice_match_status CHECK (match_status IN (1,2,3,4,5,6)),
     CONSTRAINT ck_pur_invoice_match_type CHECK (diff_type IN (0,1,2,3,4,5)),
     CONSTRAINT ck_pur_invoice_match_treatment CHECK (accounting_treatment IS NULL OR accounting_treatment BETWEEN 1 AND 5)
@@ -1434,7 +1434,7 @@ CREATE TABLE pur_invoice_match (
 | 13 | `auto_matched` | 自動匹配 | BOOLEAN | NOT NULL | — |
 | 14 | `approved_by`/`approved_at` | 差異承認 | BIGINT/TIMESTAMPTZ | NULL | — |
 
-**索引**：`uk_pur_invoice_match`、`idx_pur_invoice_match_invoice`（`invoice_id`, `match_status`）、`idx_pur_invoice_match_po_line`（`purchase_order_line_id`）、`idx_pur_invoice_match_status`（`match_status`, `created_at`）、`idx_pur_invoice_match_receipt_line`（`receipt_line_id`）。
+**索引**：`uk_pur_invoice_match`、`idx_pur_invoice_match_invoice`（`tenant_id`, `company_id`, `invoice_id`, `match_status`）、`idx_pur_invoice_match_po_line`（`tenant_id`, `company_id`, `purchase_order_line_id`）、`idx_pur_invoice_match_status`（`tenant_id`, `company_id`, `match_status`, `created_at`）、`idx_pur_invoice_match_receipt_line`（`tenant_id`, `company_id`, `receipt_line_id`）。
 
 ---
 
@@ -1481,7 +1481,7 @@ CREATE TABLE pur_statement (
     CONSTRAINT pk_pur_statement PRIMARY KEY (id),
     CONSTRAINT uk_pur_statement_no UNIQUE (tenant_id, company_id, statement_no),
     CONSTRAINT uk_pur_statement_period UNIQUE (tenant_id, company_id, supplier_id, period_code),
-    CONSTRAINT fk_pur_statement_supplier FOREIGN KEY (supplier_id) REFERENCES mdm_supplier (id),
+    CONSTRAINT fk_pur_statement_supplier FOREIGN KEY (tenant_id, supplier_id) REFERENCES mdm_supplier (tenant_id, id),
     CONSTRAINT ck_pur_statement_status CHECK (statement_status IN (10,30,40,90)),
     CONSTRAINT ck_pur_statement_period CHECK (period_code ~ '^[0-9]{4}-[0-9]{2}$')
 );
@@ -1499,7 +1499,7 @@ CREATE TABLE pur_statement (
 | 8 | `statement_status` | 状態 | SMALLINT | NOT NULL | 10/30/40/90 |
 | 9 | `sent_at`/`confirmed_at`/`confirmed_by` | 送付・確認 | TIMESTAMPTZ/BIGINT | NULL | — |
 
-**索引**：`uk_pur_statement_no`、`uk_pur_statement_period`、`idx_pur_statement_status`（`statement_status`, `period_code`）。
+**索引**：`uk_pur_statement_no`、`uk_pur_statement_period`、`idx_pur_statement_status`（`tenant_id`, `company_id`, `statement_status`, `period_code`）。
 
 ---
 
@@ -1535,9 +1535,9 @@ CREATE TABLE pur_statement_line (
     created_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),
     created_by        BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_pur_statement_line PRIMARY KEY (id),
-    CONSTRAINT uk_pur_statement_line_no UNIQUE (tenant_id, statement_id, line_no),
+    CONSTRAINT uk_pur_statement_line_no UNIQUE (tenant_id, company_id, statement_id, line_no),
     CONSTRAINT fk_pur_statement_line_statement FOREIGN KEY (statement_id) REFERENCES pur_statement (id) ON DELETE RESTRICT,
-    CONSTRAINT fk_pur_statement_line_material FOREIGN KEY (material_id) REFERENCES mdm_material (id),
+    CONSTRAINT fk_pur_statement_line_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
     CONSTRAINT ck_pur_statement_line_amount CHECK (debit_amount >= 0 AND credit_amount >= 0)
 );
 ```
@@ -1551,7 +1551,7 @@ CREATE TABLE pur_statement_line (
 | 5 | `debit_amount`/`credit_amount`/`balance_amount` | 増・減・残 | NUMERIC(18,2) | NOT NULL | 買挂増減 |
 | 6 | `diff_flag`/`diff_reason` | 差異 | BOOLEAN/VARCHAR(500) | NOT NULL/NULL | 差異確認 |
 
-**索引**：`uk_pur_statement_line_no`、`idx_pur_statement_line_source`（`source_type`, `source_id`）。
+**索引**：`uk_pur_statement_line_no`、`idx_pur_statement_line_source`（`tenant_id`, `company_id`, `source_type`, `source_id`）。
 
 ---
 
@@ -1612,7 +1612,7 @@ CREATE UNIQUE INDEX uk_pur_tolerance_rule ON pur_tolerance_rule
 | 8 | `priority` | 優先度 | INT | NOT NULL | 小さいほど優先 |
 | 9 | `is_active` | 有効 | BOOLEAN | NOT NULL | 無効化は false |
 
-**索引**：`uk_pur_tolerance_rule`、`idx_pur_tolerance_rule_lookup`（`company_id`, `rule_type`, `scope_level`, `is_active`, `valid_from`）。
+**索引**：`uk_pur_tolerance_rule`、`idx_pur_tolerance_rule_lookup`（`tenant_id`, `company_id`, `rule_type`, `scope_level`, `is_active`, `valid_from`）。
 
 **既定データ（例）**
 
@@ -1671,7 +1671,7 @@ CREATE TABLE pur_delivery_followup (
 | 7 | `followup_by` | 担当者 | BIGINT | NOT NULL | `sys_user.id` |
 | 8 | `correct_flag` | 訂正フラグ | BOOLEAN | NOT NULL | 追記専用のため訂正は新規行 |
 
-**索引**：`idx_pur_delivery_followup_po_line`（`purchase_order_line_id`, `followup_date` DESC）、`idx_pur_delivery_followup_next`（`next_followup_date`）、`idx_pur_delivery_followup_date`（`followup_date` DESC）。
+**索引**：`idx_pur_delivery_followup_po_line`（`tenant_id`, `company_id`, `purchase_order_line_id`, `followup_date` DESC）、`idx_pur_delivery_followup_next`（`tenant_id`, `company_id`, `next_followup_date`）、`idx_pur_delivery_followup_date`（`tenant_id`, `company_id`, `followup_date` DESC）。
 
 ---
 
@@ -1721,7 +1721,7 @@ CREATE TABLE pur_supplier_performance (
     updated_by             BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT pk_pur_supplier_performance PRIMARY KEY (id),
     CONSTRAINT uk_pur_supplier_performance UNIQUE (tenant_id, company_id, period_code, supplier_id),
-    CONSTRAINT fk_pur_supplier_performance_supplier FOREIGN KEY (supplier_id) REFERENCES mdm_supplier (id),
+    CONSTRAINT fk_pur_supplier_performance_supplier FOREIGN KEY (tenant_id, supplier_id) REFERENCES mdm_supplier (tenant_id, id),
     CONSTRAINT ck_pur_supplier_performance_period CHECK (period_code ~ '^[0-9]{4}-[0-9]{2}$'),
     CONSTRAINT ck_pur_supplier_performance_score CHECK (total_score >= 0 AND total_score <= 100),
     CONSTRAINT ck_pur_supplier_performance_grade CHECK (grade IS NULL OR grade IN ('A','B','C','D'))
@@ -1740,7 +1740,7 @@ CREATE TABLE pur_supplier_performance (
 | 8 | `insufficient_data` | データ不足 | BOOLEAN | NOT NULL | 基準点補完 |
 | 9 | `calc_at`/`confirmed_at`/`confirmed_by`/`adjust_reason` | 計算・確定 | TIMESTAMPTZ/BIGINT/VARCHAR(500) | NOT NULL/NULL | 購買经理確定 |
 
-**索引**：`uk_pur_supplier_performance`、`idx_pur_supplier_performance_supplier`（`supplier_id`, `period_code` DESC）、`idx_pur_supplier_performance_grade`（`period_code`, `grade`）。
+**索引**：`uk_pur_supplier_performance`、`idx_pur_supplier_performance_supplier`（`tenant_id`, `company_id`, `supplier_id`, `period_code` DESC）、`idx_pur_supplier_performance_grade`（`tenant_id`, `company_id`, `period_code`, `grade`）。
 
 ---
 
@@ -1749,14 +1749,14 @@ CREATE TABLE pur_supplier_performance (
 | # | テーブル | 索引名 | 種別 | 対象列 | 目的 |
 |---|---|---|---|---|---|
 | 1 | 全ヘッダ | `uk_*_no` | UNIQUE | (`tenant_id`, `company_id`, 伝票番号) | 伝票番号一意 |
-| 2 | `pur_purchase_order` | `idx_pur_purchase_order_status_date` | B-Tree | (`po_status`, `order_date` DESC) | 未完了 PO 一覧 |
-| 3 | `pur_purchase_order_line` | `idx_pur_purchase_order_line_delivery` | B-Tree | (`delivery_date`, `line_status`) | 交期跟踪・未入荷抽出 |
-| 4 | `pur_receipt_line` | `idx_pur_receipt_line_po_line` | B-Tree | (`purchase_order_line_id`, `inspection_status`) | 三单匹配・待検一覧 |
-| 5 | `pur_invoice_match` | `idx_pur_invoice_match_status` | B-Tree | (`match_status`, `created_at`) | 差異滞留監視（BAT-PUR-004） |
-| 6 | `pur_receipt` | `idx_pur_receipt_status_date` | B-Tree | (`receipt_status`, `receipt_date` DESC) | 收货一覧・月結照合 |
-| 7 | `pur_return` | `idx_pur_return_credit` | B-Tree | (`credit_note_status`, `return_status`) | 紅字待ち抽出 |
+| 2 | `pur_purchase_order` | `idx_pur_purchase_order_status_date` | B-Tree | (`tenant_id`, `company_id`, `po_status`, `order_date` DESC) | 未完了 PO 一覧 |
+| 3 | `pur_purchase_order_line` | `idx_pur_purchase_order_line_delivery` | B-Tree | (`tenant_id`, `company_id`, `delivery_date`, `line_status`) | 交期跟踪・未入荷抽出 |
+| 4 | `pur_receipt_line` | `idx_pur_receipt_line_po_line` | B-Tree | (`tenant_id`, `company_id`, `purchase_order_line_id`, `inspection_status`) | 三单匹配・待検一覧 |
+| 5 | `pur_invoice_match` | `idx_pur_invoice_match_status` | B-Tree | (`tenant_id`, `company_id`, `match_status`, `created_at`) | 差異滞留監視（BAT-PUR-004） |
+| 6 | `pur_receipt` | `idx_pur_receipt_status_date` | B-Tree | (`tenant_id`, `company_id`, `receipt_status`, `receipt_date` DESC) | 收货一覧・月結照合 |
+| 7 | `pur_return` | `idx_pur_return_credit` | B-Tree | (`tenant_id`, `company_id`, `credit_note_status`, `return_status`) | 紅字待ち抽出 |
 | 8 | `pur_statement` | `uk_pur_statement_period` | UNIQUE | (`tenant_id`, `company_id`, `supplier_id`, `period_code`) | 対账重複防止 |
-| 9 | `pur_delivery_followup` | `idx_pur_delivery_followup_next` | B-Tree | (`next_followup_date`) | 日次リマインド |
+| 9 | `pur_delivery_followup` | `idx_pur_delivery_followup_next` | B-Tree | (`tenant_id`, `company_id`, `next_followup_date`) | 日次リマインド |
 | 10 | `pur_supplier_performance` | `uk_pur_supplier_performance` | UNIQUE | (`tenant_id`, `company_id`, `period_code`, `supplier_id`) | 月次 UPSERT |
 | 11 | `pur_invoice` | `uk_pur_invoice_number` | UNIQUE | §5 `pur_invoice` DDL のとおり（`tenant_id`, `company_id` 先頭） | 発票二重登録防止（BR-08） |
 | 12 | `pur_tolerance_rule` | `uk_pur_tolerance_rule` | UNIQUE | (`tenant_id`, `company_id`, `rule_type`, `scope_level`, `scope_id`, `valid_from`) NULLS NOT DISTINCT | 上書き規則重複防止 |
@@ -1766,9 +1766,9 @@ CREATE TABLE pur_supplier_performance (
 ### 6.1 一意索引の先頭列ルールと例外（2026-10-21、05-inventory と同一方針）
 
 - 業務一意索引（`uk_`）は DDL 本文・本一覧とも `(tenant_id, company_id, 業務キー)` で始める。
-- `tenant_id` は `NOT NULL DEFAULT current_setting('app.tenant_id')::bigint`（字面量默认租户禁止）。`company_id` は NOT NULL・既定値なし（ヘッダ・設定・集計テーブル）。
-- **例外なし**（2026-10-21 決定）：明細・関連・履歴テーブルの一意制約も `(tenant_id, 親 ID, …)` 先頭とする（例：`UNIQUE (tenant_id, purchase_requisition_id, line_no)`）。全テーブルが `tenant_id` を持つ。06-production の「親 ID 先頭」例外方式は新規域では採用しない。明細・関連・履歴テーブルも `company_id` を保持する（2026-10-21 決定、#31）。
-- **G2-20**：非一意の照会索引（`idx_`）は `(company_id, …)` 先頭としてよい。`uk_` を company_id 先頭と書いてはならない。
+- `tenant_id` は `NOT NULL DEFAULT current_setting('app.tenant_id')::bigint`（字面量默认租户禁止）。`company_id` は NOT NULL・既定値なし（全テーブル。明細・関連・履歴を含む）。
+- **例外なし**：「親 ID 先頭」の例外は全域で廃止（蓝色大肥鱼 2026-10-21 決定）。明細・関連・履歴テーブル 13 表（`pur_delivery_followup` を含む）も `company_id BIGINT NOT NULL` を持ち、旧「親 ID 先頭」一意制約 12 件は `(tenant_id, company_id, 親 ID, …)` 先頭（例：`UNIQUE (tenant_id, company_id, purchase_requisition_id, line_no)`）。テナント級一意の例外は [00-common/04](../00-common/04-common-db-spec.md) §6.1 第 4 条のとおり（本域は該当なし）。
+- **G2-20**：非一意の btree 索引（`idx_`）も `tenant_id` 先頭（次に `company_id`）とする（sys/V202610210707）。GIN 索引は対象外。`uk_` を company_id 先頭と書いてはならない（蓝色大肥鱼 2026-10-21 決定）。
 
 ---
 
@@ -1784,9 +1784,9 @@ CREATE TABLE pur_supplier_performance (
 | 6 | 退货数量 ≤ 可退数量 | アプリ検証 | `pur_return_line` |
 | 7 | 状態値の妥当性 | CHECK | 各伝票 |
 | 8 | 親子の参照整合（CASCADE 禁止） | FK `ON DELETE RESTRICT` | 明細 |
-| 9 | マスタ参照整合 | FK（`mdm_*`、`sys_*`） | 各テーブル |
+| 9 | マスタ参照整合 | 複合 FK `(tenant_id, x_id) REFERENCES mdm_*/sys_* (tenant_id, id)`（sys/V202610210707 と同一規約。単列 FK 禁止、跨租户参照は 23503） | 各テーブル |
 | 10 | 二重計上防止 | E17 の `(source_type, source_id)` 一意（`sys_outbox_event` と FIN 側） | イベント |
-| 11 | 二重マッチ防止 | UNIQUE (`tenant_id`, `invoice_line_id`, `receipt_line_id`) | `pur_invoice_match` |
+| 11 | 二重マッチ防止 | UNIQUE (`tenant_id`, `company_id`, `invoice_line_id`, `receipt_line_id`) | `pur_invoice_match` |
 | 12 | 期間締切 | アプリ検証（`fin_period.status`） | 全登録系 |
 | 13 | 批次管理物料の批次号必須 | アプリ検証（PO 明細 `is_batch_managed` を継承。他テーブル参照のため DB CHECK 不可） | `pur_receipt_line`・`pur_return_line` |
 | 14 | 超収上限（累計） | アプリ検証（`pur_tolerance_rule`、[04](04-receipt-iqc.md) CALC-02） | `pur_receipt_line` |
@@ -1863,3 +1863,7 @@ CREATE TABLE pur_supplier_performance (
 | v1.2 | 2026-10-21 | 第一版全量化：`company_id` 既定値 1 を削除、業務一意索引を `(tenant_id, company_id, …)` 先頭に統一（DDL・一覧）、§6.1 例外一覧追加、段階表記を削除 | 业务分析 |
 | v1.3 | 2026-10-21 | 明細・関連・履歴 12 一意制約を `(tenant_id, …)` 先頭に変更し §6.1 例外を廃止；PO ヘッダに `change_approved_at` 追加；ER 図列名を DDL に統一；`uk_pur_tolerance_rule` を `scope_id` NULLS NOT DISTINCT に変更；`prd_planned_order`→`prd_mrp_plan_order` | 业务分析 |
 | v1.4 | 2026-10-21 | 明細・関連・履歴 13 テーブルに `company_id` を付与（明細も親と同値を冗長保持、06 と同じ書き方に全域統一） | 业务分析 |
+| v1.5 | 2026-10-21 | sys/mdm への単列 FK 33 件を複合 FK `(tenant_id, x_id) → (tenant_id, id)` に変更（0707 規約）、§6.1 例外記述を更新、§7 #9 を複合 FK に（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.6 | 2026-10-21 | 明細・関連・履歴 13 表に `company_id BIGINT NOT NULL` を追加、親 ID 先頭の一意制約 12 件を `(tenant_id, company_id, …)` 先頭に変更（§4 一覧・§7 #11 含む）、§6.1 注記削除・例外一覧に `uk_sys_user_username`（`(tenant_id, username)`、テナント単位）を追加（蓝色大肥鱼 2026-10-21 決定）。G2-20：非一意 btree `idx_` も `tenant_id` 先頭（次に `company_id`）、GIN 除外に修正 | 业务分析 |
+| v1.7 | 2026-10-21 | 非一意 btree 索引（`idx_`）35 箇所を `tenant_id` 先頭（`company_id` がある表は次に `company_id`）に変更（DDL・索引一覧。既存迁移の索引は sys/V202610210707 と同一列。GIN は対象外。蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.8 | 2026-10-21 | main（#31）取込み後の再整合：一意索引・非一意 btree 索引を `tenant_id`（＋`company_id`）先頭に再適用、テナント級一意は 00-common/04 §6.1 第 4 条に従う（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

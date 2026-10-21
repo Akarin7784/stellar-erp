@@ -16,7 +16,7 @@
 ## AC1-1 業務キー一意は会社を含む（Refs #31）
 
 - G：company 1 に物料 `3001000001` が存在。W：company 1 に同じコード（`deleted=FALSE`）を INSERT。T：`uk_mdm_material_company_code` 違反。W：company 2 に同じコードを INSERT。T：成功。
-- W：`pg_indexes` で T1 表の非主キー索引を確認。T：先頭列はすべて `company_id`（`uk_mdm_uom_base` は `(company_id, conversion_group)`）。
+- W：`pg_indexes` で T1 表の非主キー索引を確認。T：一意索引（`uk_`）の先頭列はすべて `(tenant_id, company_id)`（`uk_mdm_uom_base` は `(tenant_id, company_id, conversion_group)`。例外は `uk_mdm_exchange_rate` の `(tenant_id, …)` のみ）。非一意 btree 索引（`idx_`）は `tenant_id` 先頭（GIN 除外、sys/V202610210707）。
 
 ## AC1-2 論理削除後のコード再利用
 
@@ -63,3 +63,9 @@
 ## AC1-10 検査フラグの導出
 
 - W：`information_schema.columns` を照会。T：`mdm_material.inspection_required` は存在しない。入庫明細の `inspection_flag` 既定値は `inspection_stage` から導出（規則は 05-inventory、**待確認**）。
+
+## 改訂履歴
+
+| 版数 | 日付 | 変更内容 | 変更者 |
+|---|---|---|---|
+| v1.1 | 2026-10-21 | 一意索引の先頭列を `(tenant_id, company_id)` に修正（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

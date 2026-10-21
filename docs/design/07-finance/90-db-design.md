@@ -1909,3 +1909,8 @@ COMMENT ON TABLE fin_cash_plan IS '资金计划（実装順 P2）';
 | v1.8 | 2026-10-21 | §7.1 例外登記を廃止し残り 12 本の一意索引（明細行番号 9 本、`uk_fin_account_aux`、`uk_fin_voucher_reversal`、`uk_fin_auto_voucher_log_event`）を `(tenant_id, company_id, …)` 先頭へ変更（全表 company_id 保有を確認済み）、§7 一覧同期 | 业务分析 |
 | v1.9 | 2026-10-21 | G2-20 を改訂：btree 索引は `tenant_id` 先頭（続けて `company_id`）、GIN 除く。`company_id` 先頭を許容していた記述を削除。§4〜§6 DDL と §7 索引一覧の非一意 btree 索引 40 本（`idx_fin_voucher_period_status`・`idx_fin_standard_cost_lookup` ほか）を `(tenant_id, company_id, …)` 先頭に変更（蓝色大肥鱼 2026-10-21 決定、#31 評審） | 业务分析 |
 | v1.10 | 2026-10-21 | #35 迁移に整合：`fk_fin_standard_cost_material` を複合外键 `(tenant_id, material_id)`→`mdm_material (tenant_id, id)` に変更 | 业务分析 |
+| v1.11 | 2026-10-21 | fin 明細・子設定・自己参照・イベント ID 14 件を 一意索引を `(tenant_id, company_id, …)` 先頭に統一（sys/V202610210707・0708 と整合）、「親 ID 先頭」例外一覧を削除。例外は 00-common/04 §6.1 第 4 条のテナント共有表のみ（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.12 | 2026-10-21 | 例外一覧に `uk_sys_user_username`（`(tenant_id, username)`、テナント単位）を追加（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.13 | 2026-10-21 | `idx_fin_standard_cost_lookup` を 0707:347 と同じ `(tenant_id, company_id, material_id, status, period_from DESC)` に修正、§7.1 G2-20 を btree tenant_id 先頭・GIN 除外に修正（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.14 | 2026-10-21 | 非一意 btree 索引（`idx_`）46 箇所を `tenant_id` 先頭（`company_id` がある表は次に `company_id`）に変更（DDL・索引一覧。既存迁移の索引は sys/V202610210707 と同一列。GIN は対象外。蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.15 | 2026-10-21 | main（#31）取込み後の再整合：一意索引・非一意 btree 索引を `tenant_id`（＋`company_id`）先頭に再適用、テナント級一意は 00-common/04 §6.1 第 4 条に従う（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

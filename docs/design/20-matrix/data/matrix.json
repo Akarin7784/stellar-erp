@@ -15013,7 +15013,7 @@
       "id": "MSG-PRD-021",
       "type": "E",
       "body": "有効な工艺路线がありません。工艺路线を登録してください。",
-      "condition": "工艺なし",
+      "condition": "工艺なし。品目選択・保存では警告（warnings[]、処理続行）、承認で工序明細 0 行時はエラー（422／60021）（蓝色大肥鱼 2026-10-21 決定）",
       "action": "工艺登録",
       "domain": "PRD",
       "source": "06-production/93-messages.md"
@@ -31286,11 +31286,6 @@
       "detail": "冒頭に文書情報（文書番号）がありません"
     },
     {
-      "type": "revision",
-      "file": "02-mdm/95-acceptance-criteria.md",
-      "detail": "改訂履歴がありません"
-    },
-    {
       "type": "doc_info",
       "file": "03-sales/95-acceptance-criteria.md",
       "detail": "冒頭に文書情報（文書番号）がありません"
@@ -31301,19 +31296,9 @@
       "detail": "冒頭に文書情報（文書番号）がありません"
     },
     {
-      "type": "revision",
-      "file": "04-purchase/95-acceptance-criteria.md",
-      "detail": "改訂履歴がありません"
-    },
-    {
       "type": "doc_info",
       "file": "05-inventory/95-acceptance-criteria.md",
       "detail": "冒頭に文書情報（文書番号）がありません"
-    },
-    {
-      "type": "revision",
-      "file": "05-inventory/95-acceptance-criteria.md",
-      "detail": "改訂履歴がありません"
     },
     {
       "type": "doc_info",
