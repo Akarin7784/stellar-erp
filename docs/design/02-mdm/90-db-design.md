@@ -188,7 +188,7 @@ CREATE TABLE mdm_material_category (
     remark          VARCHAR(500) NULL,
     ext_data        JSONB        NULL,
     CONSTRAINT pk_mdm_material_category PRIMARY KEY (id),
-    CONSTRAINT fk_mdm_material_category_parent FOREIGN KEY (tenant_id, parent_id) REFERENCES mdm_material_category (tenant_id, id)
+    CONSTRAINT fk_mdm_material_category_parent FOREIGN KEY (tenant_id, company_id, parent_id) REFERENCES mdm_material_category (tenant_id, company_id, id)
 );
 CREATE UNIQUE INDEX uk_mdm_material_category_code ON mdm_material_category (tenant_id, company_id, category_code) WHERE deleted = FALSE;
 CREATE INDEX idx_mdm_material_category_parent ON mdm_material_category (tenant_id, company_id, parent_id);
@@ -315,7 +315,7 @@ CREATE TABLE mdm_material (
     remark                VARCHAR(500) NULL,
     ext_data              JSONB        NULL,
     CONSTRAINT pk_mdm_material PRIMARY KEY (id),
-    CONSTRAINT fk_mdm_material_category FOREIGN KEY (tenant_id, category_id) REFERENCES mdm_material_category (tenant_id, id),
+    CONSTRAINT fk_mdm_material_category FOREIGN KEY (tenant_id, company_id, category_id) REFERENCES mdm_material_category (tenant_id, company_id, id),
     CONSTRAINT ck_mdm_material_stage CHECK (inspection_stage IN (0,10,20,30,40)),
     CONSTRAINT ck_mdm_material_cost_method CHECK (cost_method IN (1,2)),
     CONSTRAINT ck_mdm_material_valuation_method CHECK (valuation_method IN (10,20)),
@@ -402,7 +402,7 @@ CREATE TABLE mdm_material_factory (
     remark              VARCHAR(500) NULL,
     ext_data            JSONB        NULL,
     CONSTRAINT pk_mdm_material_factory PRIMARY KEY (id),
-    CONSTRAINT fk_mdm_material_factory_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id)
+    CONSTRAINT fk_mdm_material_factory_material FOREIGN KEY (tenant_id, company_id, material_id) REFERENCES mdm_material (tenant_id, company_id, id)
 );
 CREATE UNIQUE INDEX uk_mdm_material_factory ON mdm_material_factory (tenant_id, company_id, material_id, factory_id) WHERE deleted = FALSE;
 CREATE INDEX idx_mdm_material_factory_factory ON mdm_material_factory (tenant_id, company_id, factory_id);
@@ -466,8 +466,8 @@ CREATE TABLE mdm_material_substitute (
     remark               VARCHAR(500) NULL,
     ext_data             JSONB       NULL,
     CONSTRAINT pk_mdm_material_substitute PRIMARY KEY (id),
-    CONSTRAINT fk_mdm_substitute_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
-    CONSTRAINT fk_mdm_substitute_target FOREIGN KEY (tenant_id, substitute_material_id) REFERENCES mdm_material (tenant_id, id),
+    CONSTRAINT fk_mdm_substitute_material FOREIGN KEY (tenant_id, company_id, material_id) REFERENCES mdm_material (tenant_id, company_id, id),
+    CONSTRAINT fk_mdm_substitute_target FOREIGN KEY (tenant_id, company_id, substitute_material_id) REFERENCES mdm_material (tenant_id, company_id, id),
     CONSTRAINT ck_mdm_substitute_diff CHECK (material_id <> substitute_material_id),
     CONSTRAINT ck_mdm_substitute_type CHECK (substitute_type IN (10,20,30,40)),
     CONSTRAINT ck_mdm_substitute_ratio CHECK (conversion_ratio > 0)
@@ -499,7 +499,7 @@ CREATE TABLE mdm_material_barcode (
     version         INT          NOT NULL DEFAULT 0,
     deleted         BOOLEAN      NOT NULL DEFAULT FALSE,
     CONSTRAINT pk_mdm_material_barcode PRIMARY KEY (id),
-    CONSTRAINT fk_mdm_barcode_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id)
+    CONSTRAINT fk_mdm_barcode_material FOREIGN KEY (tenant_id, company_id, material_id) REFERENCES mdm_material (tenant_id, company_id, id)
 );
 CREATE UNIQUE INDEX uk_mdm_material_barcode_value ON mdm_material_barcode (tenant_id, company_id, barcode_value) WHERE deleted = FALSE;
 CREATE INDEX idx_mdm_material_barcode_material ON mdm_material_barcode (tenant_id, company_id, material_id, is_active);
@@ -642,7 +642,7 @@ CREATE TABLE mdm_customer_contact (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by BIGINT NOT NULL DEFAULT 0,
     version INT NOT NULL DEFAULT 0, deleted BOOLEAN NOT NULL DEFAULT FALSE, remark VARCHAR(500) NULL,
     CONSTRAINT pk_mdm_customer_contact PRIMARY KEY (id),
-    CONSTRAINT fk_mdm_customer_contact_customer FOREIGN KEY (tenant_id, customer_id) REFERENCES mdm_customer (tenant_id, id)
+    CONSTRAINT fk_mdm_customer_contact_customer FOREIGN KEY (tenant_id, company_id, customer_id) REFERENCES mdm_customer (tenant_id, company_id, id)
 );
 CREATE INDEX idx_mdm_customer_contact_customer ON mdm_customer_contact (tenant_id, company_id, customer_id, deleted);
 
@@ -661,7 +661,7 @@ CREATE TABLE mdm_customer_address (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by BIGINT NOT NULL DEFAULT 0,
     version INT NOT NULL DEFAULT 0, deleted BOOLEAN NOT NULL DEFAULT FALSE, remark VARCHAR(500) NULL,
     CONSTRAINT pk_mdm_customer_address PRIMARY KEY (id),
-    CONSTRAINT fk_mdm_customer_address_customer FOREIGN KEY (tenant_id, customer_id) REFERENCES mdm_customer (tenant_id, id)
+    CONSTRAINT fk_mdm_customer_address_customer FOREIGN KEY (tenant_id, company_id, customer_id) REFERENCES mdm_customer (tenant_id, company_id, id)
 );
 CREATE INDEX idx_mdm_customer_address_customer ON mdm_customer_address (tenant_id, company_id, customer_id, deleted);
 
@@ -739,7 +739,7 @@ CREATE TABLE mdm_supplier_contact (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by BIGINT NOT NULL DEFAULT 0,
     version INT NOT NULL DEFAULT 0, deleted BOOLEAN NOT NULL DEFAULT FALSE,
     CONSTRAINT pk_mdm_supplier_contact PRIMARY KEY (id),
-    CONSTRAINT fk_mdm_supplier_contact_supplier FOREIGN KEY (tenant_id, supplier_id) REFERENCES mdm_supplier (tenant_id, id)
+    CONSTRAINT fk_mdm_supplier_contact_supplier FOREIGN KEY (tenant_id, company_id, supplier_id) REFERENCES mdm_supplier (tenant_id, company_id, id)
 );
 CREATE INDEX idx_mdm_supplier_contact_supplier ON mdm_supplier_contact (tenant_id, company_id, supplier_id, deleted);
 
@@ -753,7 +753,7 @@ CREATE TABLE mdm_supplier_address (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by BIGINT NOT NULL DEFAULT 0,
     version INT NOT NULL DEFAULT 0, deleted BOOLEAN NOT NULL DEFAULT FALSE,
     CONSTRAINT pk_mdm_supplier_address PRIMARY KEY (id),
-    CONSTRAINT fk_mdm_supplier_address_supplier FOREIGN KEY (tenant_id, supplier_id) REFERENCES mdm_supplier (tenant_id, id)
+    CONSTRAINT fk_mdm_supplier_address_supplier FOREIGN KEY (tenant_id, company_id, supplier_id) REFERENCES mdm_supplier (tenant_id, company_id, id)
 );
 CREATE INDEX idx_mdm_supplier_address_supplier ON mdm_supplier_address (tenant_id, company_id, supplier_id, deleted);
 
@@ -768,7 +768,7 @@ CREATE TABLE mdm_supplier_qualification (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by BIGINT NOT NULL DEFAULT 0,
     version INT NOT NULL DEFAULT 0, deleted BOOLEAN NOT NULL DEFAULT FALSE, remark VARCHAR(500) NULL,
     CONSTRAINT pk_mdm_supplier_qualification PRIMARY KEY (id),
-    CONSTRAINT fk_mdm_supplier_qualification_supplier FOREIGN KEY (tenant_id, supplier_id) REFERENCES mdm_supplier (tenant_id, id)
+    CONSTRAINT fk_mdm_supplier_qualification_supplier FOREIGN KEY (tenant_id, company_id, supplier_id) REFERENCES mdm_supplier (tenant_id, company_id, id)
 );
 CREATE INDEX idx_mdm_supplier_qual_supplier ON mdm_supplier_qualification (tenant_id, company_id, supplier_id, valid_to);
 CREATE INDEX idx_mdm_supplier_qual_expiry ON mdm_supplier_qualification (tenant_id, company_id, valid_to) WHERE deleted = FALSE;
@@ -786,7 +786,7 @@ CREATE TABLE mdm_supplier_material (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by BIGINT NOT NULL DEFAULT 0,
     version INT NOT NULL DEFAULT 0, deleted BOOLEAN NOT NULL DEFAULT FALSE, remark VARCHAR(500) NULL,
     CONSTRAINT pk_mdm_supplier_material PRIMARY KEY (id),
-    CONSTRAINT fk_mdm_supplier_material_supplier FOREIGN KEY (tenant_id, supplier_id) REFERENCES mdm_supplier (tenant_id, id),
+    CONSTRAINT fk_mdm_supplier_material_supplier FOREIGN KEY (tenant_id, company_id, supplier_id) REFERENCES mdm_supplier (tenant_id, company_id, id),
     CONSTRAINT ck_mdm_supplier_material_target CHECK (material_id IS NOT NULL OR category_code IS NOT NULL)
 );
 CREATE INDEX idx_mdm_supplier_material_material ON mdm_supplier_material (tenant_id, company_id, material_id, is_active);
@@ -844,7 +844,7 @@ CREATE TABLE mdm_partner_bank_account (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by BIGINT NOT NULL DEFAULT 0,
     version INT NOT NULL DEFAULT 0, deleted BOOLEAN NOT NULL DEFAULT FALSE, remark VARCHAR(500) NULL,
     CONSTRAINT pk_mdm_partner_bank_account PRIMARY KEY (id),
-    CONSTRAINT fk_mdm_bank_account_bank FOREIGN KEY (tenant_id, bank_id) REFERENCES mdm_bank (tenant_id, id),
+    CONSTRAINT fk_mdm_bank_account_bank FOREIGN KEY (tenant_id, company_id, bank_id) REFERENCES mdm_bank (tenant_id, company_id, id),
     CONSTRAINT ck_mdm_bank_account_type CHECK (account_type IN (10,20,30,40))
 );
 CREATE INDEX idx_mdm_bank_account_owner ON mdm_partner_bank_account (tenant_id, company_id, owner_type, owner_id, deleted);
@@ -907,7 +907,7 @@ CREATE TABLE mdm_warehouse (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by BIGINT NOT NULL DEFAULT 0,
     version INT NOT NULL DEFAULT 0, deleted BOOLEAN NOT NULL DEFAULT FALSE, remark VARCHAR(500) NULL,
     CONSTRAINT pk_mdm_warehouse PRIMARY KEY (id),
-    CONSTRAINT fk_mdm_warehouse_factory FOREIGN KEY (tenant_id, factory_id) REFERENCES mdm_factory (tenant_id, id),
+    CONSTRAINT fk_mdm_warehouse_factory FOREIGN KEY (tenant_id, company_id, factory_id) REFERENCES mdm_factory (tenant_id, company_id, id),
     CONSTRAINT ck_mdm_warehouse_type CHECK (warehouse_type IN (10,20,30,40,50,60,70,80))
 );
 CREATE UNIQUE INDEX uk_mdm_warehouse_code ON mdm_warehouse (tenant_id, company_id, warehouse_code) WHERE deleted = FALSE;
@@ -922,7 +922,7 @@ CREATE TABLE mdm_warehouse_zone (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by BIGINT NOT NULL DEFAULT 0,
     version INT NOT NULL DEFAULT 0, deleted BOOLEAN NOT NULL DEFAULT FALSE, remark VARCHAR(500) NULL,
     CONSTRAINT pk_mdm_warehouse_zone PRIMARY KEY (id),
-    CONSTRAINT fk_mdm_warehouse_zone_warehouse FOREIGN KEY (tenant_id, warehouse_id) REFERENCES mdm_warehouse (tenant_id, id)
+    CONSTRAINT fk_mdm_warehouse_zone_warehouse FOREIGN KEY (tenant_id, company_id, warehouse_id) REFERENCES mdm_warehouse (tenant_id, company_id, id)
 );
 CREATE UNIQUE INDEX uk_mdm_warehouse_zone_code ON mdm_warehouse_zone (tenant_id, company_id, warehouse_id, zone_code) WHERE deleted = FALSE;
 
@@ -945,8 +945,8 @@ CREATE TABLE mdm_warehouse_bin (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by BIGINT NOT NULL DEFAULT 0,
     version INT NOT NULL DEFAULT 0, deleted BOOLEAN NOT NULL DEFAULT FALSE, remark VARCHAR(500) NULL,
     CONSTRAINT pk_mdm_warehouse_bin PRIMARY KEY (id),
-    CONSTRAINT fk_mdm_warehouse_bin_warehouse FOREIGN KEY (tenant_id, warehouse_id) REFERENCES mdm_warehouse (tenant_id, id),
-    CONSTRAINT fk_mdm_warehouse_bin_zone FOREIGN KEY (tenant_id, zone_id) REFERENCES mdm_warehouse_zone (tenant_id, id)
+    CONSTRAINT fk_mdm_warehouse_bin_warehouse FOREIGN KEY (tenant_id, company_id, warehouse_id) REFERENCES mdm_warehouse (tenant_id, company_id, id),
+    CONSTRAINT fk_mdm_warehouse_bin_zone FOREIGN KEY (tenant_id, company_id, zone_id) REFERENCES mdm_warehouse_zone (tenant_id, company_id, id)
 );
 CREATE UNIQUE INDEX uk_mdm_warehouse_bin_code ON mdm_warehouse_bin (tenant_id, company_id, bin_code) WHERE deleted = FALSE;
 CREATE INDEX idx_mdm_warehouse_bin_warehouse ON mdm_warehouse_bin (tenant_id, company_id, warehouse_id, zone_id, is_active);
@@ -1048,7 +1048,7 @@ CREATE TABLE mdm_tax_rate (
     effective_from DATE NOT NULL, effective_to DATE NULL, legal_basis VARCHAR(200) NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(), created_by BIGINT NOT NULL DEFAULT 0,
     CONSTRAINT pk_mdm_tax_rate PRIMARY KEY (id),
-    CONSTRAINT fk_mdm_tax_rate_code FOREIGN KEY (tenant_id, tax_code_id) REFERENCES mdm_tax_code (tenant_id, id)
+    CONSTRAINT fk_mdm_tax_rate_code FOREIGN KEY (tenant_id, company_id, tax_code_id) REFERENCES mdm_tax_code (tenant_id, company_id, id)
 );
 CREATE INDEX idx_mdm_tax_rate_code ON mdm_tax_rate (tenant_id, company_id, tax_code_id, effective_from DESC);
 
@@ -1110,7 +1110,7 @@ CREATE TABLE mdm_price_list_line (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by BIGINT NOT NULL DEFAULT 0,
     version INT NOT NULL DEFAULT 0, deleted BOOLEAN NOT NULL DEFAULT FALSE, remark VARCHAR(500) NULL,
     CONSTRAINT pk_mdm_price_list_line PRIMARY KEY (id),
-    CONSTRAINT fk_mdm_price_line_list FOREIGN KEY (tenant_id, price_list_id) REFERENCES mdm_price_list (tenant_id, id),
+    CONSTRAINT fk_mdm_price_line_list FOREIGN KEY (tenant_id, company_id, price_list_id) REFERENCES mdm_price_list (tenant_id, company_id, id),
     CONSTRAINT ck_mdm_price_line_qty CHECK (min_qty >= 0 AND (max_qty IS NULL OR max_qty > min_qty)),
     CONSTRAINT ck_mdm_price_line_scope CHECK (
         (scope_type = 10 AND customer_id IS NOT NULL AND material_id IS NOT NULL) OR
@@ -1161,8 +1161,8 @@ CREATE TABLE mdm_purchase_price (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by BIGINT NOT NULL DEFAULT 0,
     version INT NOT NULL DEFAULT 0, deleted BOOLEAN NOT NULL DEFAULT FALSE, remark VARCHAR(500) NULL,
     CONSTRAINT pk_mdm_purchase_price PRIMARY KEY (id),
-    CONSTRAINT fk_mdm_purchase_price_supplier FOREIGN KEY (tenant_id, supplier_id) REFERENCES mdm_supplier (tenant_id, id),
-    CONSTRAINT fk_mdm_purchase_price_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id)
+    CONSTRAINT fk_mdm_purchase_price_supplier FOREIGN KEY (tenant_id, company_id, supplier_id) REFERENCES mdm_supplier (tenant_id, company_id, id),
+    CONSTRAINT fk_mdm_purchase_price_material FOREIGN KEY (tenant_id, company_id, material_id) REFERENCES mdm_material (tenant_id, company_id, id)
 );
 CREATE INDEX idx_mdm_purchase_price_lookup ON mdm_purchase_price (tenant_id, company_id, supplier_id, material_id, min_qty, valid_from);
 CREATE INDEX idx_mdm_purchase_price_material ON mdm_purchase_price (tenant_id, company_id, material_id, status);
@@ -1178,7 +1178,7 @@ CREATE TABLE mdm_supplier_quotation (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by BIGINT NOT NULL DEFAULT 0,
     version INT NOT NULL DEFAULT 0, deleted BOOLEAN NOT NULL DEFAULT FALSE, remark VARCHAR(500) NULL,
     CONSTRAINT pk_mdm_supplier_quotation PRIMARY KEY (id),
-    CONSTRAINT fk_mdm_quotation_supplier FOREIGN KEY (tenant_id, supplier_id) REFERENCES mdm_supplier (tenant_id, id)
+    CONSTRAINT fk_mdm_quotation_supplier FOREIGN KEY (tenant_id, company_id, supplier_id) REFERENCES mdm_supplier (tenant_id, company_id, id)
 );
 CREATE UNIQUE INDEX uk_mdm_quotation_no ON mdm_supplier_quotation (tenant_id, company_id, quotation_no) WHERE deleted = FALSE;
 CREATE INDEX idx_mdm_quotation_supplier ON mdm_supplier_quotation (tenant_id, company_id, supplier_id, quotation_date DESC);
@@ -1193,8 +1193,8 @@ CREATE TABLE mdm_supplier_quotation_line (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by BIGINT NOT NULL DEFAULT 0,
     version INT NOT NULL DEFAULT 0, deleted BOOLEAN NOT NULL DEFAULT FALSE, remark VARCHAR(500) NULL,
     CONSTRAINT pk_mdm_supplier_quotation_line PRIMARY KEY (id),
-    CONSTRAINT fk_mdm_quotation_line_quotation FOREIGN KEY (tenant_id, quotation_id) REFERENCES mdm_supplier_quotation (tenant_id, id),
-    CONSTRAINT fk_mdm_quotation_line_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id)
+    CONSTRAINT fk_mdm_quotation_line_quotation FOREIGN KEY (tenant_id, company_id, quotation_id) REFERENCES mdm_supplier_quotation (tenant_id, company_id, id),
+    CONSTRAINT fk_mdm_quotation_line_material FOREIGN KEY (tenant_id, company_id, material_id) REFERENCES mdm_material (tenant_id, company_id, id)
 );
 CREATE UNIQUE INDEX uk_mdm_quotation_line_no ON mdm_supplier_quotation_line (tenant_id, company_id, quotation_id, line_no) WHERE deleted = FALSE;
 ```
@@ -1245,7 +1245,7 @@ CREATE TABLE mdm_payment_term_line (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by BIGINT NOT NULL DEFAULT 0,
     version INT NOT NULL DEFAULT 0, deleted BOOLEAN NOT NULL DEFAULT FALSE, remark VARCHAR(500) NULL,
     CONSTRAINT pk_mdm_payment_term_line PRIMARY KEY (id),
-    CONSTRAINT fk_mdm_payment_term_line_term FOREIGN KEY (tenant_id, payment_term_id) REFERENCES mdm_payment_term (tenant_id, id)
+    CONSTRAINT fk_mdm_payment_term_line_term FOREIGN KEY (tenant_id, company_id, payment_term_id) REFERENCES mdm_payment_term (tenant_id, company_id, id)
 );
 CREATE UNIQUE INDEX uk_mdm_payment_term_line ON mdm_payment_term_line (tenant_id, company_id, payment_term_id, seq_no) WHERE deleted = FALSE;
 
@@ -1286,8 +1286,8 @@ CREATE TABLE mdm_credit_limit (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by BIGINT NOT NULL DEFAULT 0,
     version INT NOT NULL DEFAULT 0, deleted BOOLEAN NOT NULL DEFAULT FALSE, remark VARCHAR(500) NULL,
     CONSTRAINT pk_mdm_credit_limit PRIMARY KEY (id),
-    CONSTRAINT fk_mdm_credit_limit_customer FOREIGN KEY (tenant_id, customer_id) REFERENCES mdm_customer (tenant_id, id),
-    CONSTRAINT fk_mdm_credit_limit_rule FOREIGN KEY (tenant_id, check_rule_id) REFERENCES mdm_credit_check_rule (tenant_id, id)
+    CONSTRAINT fk_mdm_credit_limit_customer FOREIGN KEY (tenant_id, company_id, customer_id) REFERENCES mdm_customer (tenant_id, company_id, id),
+    CONSTRAINT fk_mdm_credit_limit_rule FOREIGN KEY (tenant_id, company_id, check_rule_id) REFERENCES mdm_credit_check_rule (tenant_id, company_id, id)
 );
 CREATE INDEX idx_mdm_credit_limit_customer ON mdm_credit_limit (tenant_id, company_id, customer_id, valid_from DESC);
 CREATE INDEX idx_mdm_credit_limit_status ON mdm_credit_limit (tenant_id, company_id, credit_status);
@@ -1314,7 +1314,7 @@ CREATE TABLE mdm_supplier_admission (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by BIGINT NOT NULL DEFAULT 0,
     version INT NOT NULL DEFAULT 0, deleted BOOLEAN NOT NULL DEFAULT FALSE, remark VARCHAR(500) NULL,
     CONSTRAINT pk_mdm_supplier_admission PRIMARY KEY (id),
-    CONSTRAINT fk_mdm_admission_supplier FOREIGN KEY (tenant_id, supplier_id) REFERENCES mdm_supplier (tenant_id, id)
+    CONSTRAINT fk_mdm_admission_supplier FOREIGN KEY (tenant_id, company_id, supplier_id) REFERENCES mdm_supplier (tenant_id, company_id, id)
 );
 CREATE UNIQUE INDEX uk_mdm_admission_no ON mdm_supplier_admission (tenant_id, company_id, admission_no) WHERE deleted = FALSE;
 
@@ -1332,7 +1332,7 @@ CREATE TABLE mdm_supplier_evaluation (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by BIGINT NOT NULL DEFAULT 0,
     version INT NOT NULL DEFAULT 0, deleted BOOLEAN NOT NULL DEFAULT FALSE, remark VARCHAR(500) NULL,
     CONSTRAINT pk_mdm_supplier_evaluation PRIMARY KEY (id),
-    CONSTRAINT fk_mdm_evaluation_supplier FOREIGN KEY (tenant_id, supplier_id) REFERENCES mdm_supplier (tenant_id, id)
+    CONSTRAINT fk_mdm_evaluation_supplier FOREIGN KEY (tenant_id, company_id, supplier_id) REFERENCES mdm_supplier (tenant_id, company_id, id)
 );
 CREATE UNIQUE INDEX uk_mdm_evaluation ON mdm_supplier_evaluation (tenant_id, company_id, supplier_id, evaluation_period) WHERE deleted = FALSE;
 CREATE INDEX idx_mdm_evaluation_period ON mdm_supplier_evaluation (tenant_id, company_id, evaluation_period, total_score DESC);
@@ -1344,7 +1344,7 @@ CREATE TABLE mdm_supplier_eval_item (
     data_source SMALLINT NOT NULL DEFAULT 10,          -- 10系统/20手动
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(), created_by BIGINT NOT NULL DEFAULT 0,
     CONSTRAINT pk_mdm_supplier_eval_item PRIMARY KEY (id),
-    CONSTRAINT fk_mdm_eval_item_evaluation FOREIGN KEY (tenant_id, evaluation_id) REFERENCES mdm_supplier_evaluation (tenant_id, id)
+    CONSTRAINT fk_mdm_eval_item_evaluation FOREIGN KEY (tenant_id, company_id, evaluation_id) REFERENCES mdm_supplier_evaluation (tenant_id, company_id, id)
 );
 CREATE UNIQUE INDEX uk_mdm_eval_item ON mdm_supplier_eval_item (tenant_id, company_id, evaluation_id, dimension_code);
 ```
@@ -1396,7 +1396,7 @@ CREATE TABLE mdm_change_request_line (
     before_data JSONB NULL, after_data JSONB NULL,     -- 复杂值（JSON）
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(), created_by BIGINT NOT NULL DEFAULT 0,
     CONSTRAINT pk_mdm_change_request_line PRIMARY KEY (id),
-    CONSTRAINT fk_mdm_change_line_request FOREIGN KEY (tenant_id, request_id) REFERENCES mdm_change_request (tenant_id, id)
+    CONSTRAINT fk_mdm_change_line_request FOREIGN KEY (tenant_id, company_id, request_id) REFERENCES mdm_change_request (tenant_id, company_id, id)
 );
 CREATE UNIQUE INDEX uk_mdm_change_line_no ON mdm_change_request_line (tenant_id, company_id, request_id, line_no);
 
@@ -1425,7 +1425,7 @@ CREATE TABLE mdm_data_quality_issue (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by BIGINT NOT NULL DEFAULT 0,
     version INT NOT NULL DEFAULT 0, deleted BOOLEAN NOT NULL DEFAULT FALSE,
     CONSTRAINT pk_mdm_data_quality_issue PRIMARY KEY (id),
-    CONSTRAINT fk_mdm_dq_issue_rule FOREIGN KEY (tenant_id, rule_id) REFERENCES mdm_data_quality_rule (tenant_id, id)
+    CONSTRAINT fk_mdm_dq_issue_rule FOREIGN KEY (tenant_id, company_id, rule_id) REFERENCES mdm_data_quality_rule (tenant_id, company_id, id)
 );
 CREATE INDEX idx_mdm_dq_issue_object ON mdm_data_quality_issue (tenant_id, company_id, object_type, object_id, status);
 CREATE INDEX idx_mdm_dq_issue_status ON mdm_data_quality_issue (tenant_id, company_id, status, severity, detected_at DESC);
@@ -1548,3 +1548,4 @@ CREATE UNIQUE INDEX uk_mdm_data_scope_policy ON mdm_data_scope_policy (tenant_id
 | v1.7 | 2026-10-21 | `mdm_uom_conversion` に排他制約 `ex_mdm_uom_conversion_period`（`EXCLUDE USING gist`：`tenant_id`・`company_id`・`conversion_group`・`from_uom_code`・`to_uom_code` が同一で `daterange(valid_from, valid_to, '[]')` が重なる行を禁止、`WHERE (deleted = FALSE)`、`valid_to` NULL は無期限）を追加（DB は追加迁移で制約のみ追加、btree_gist は fin/V202610210701 で導入済）。基準日に有効な換算率が複数件・0 件なら工单の単位換算は `60022`（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.8 | 2026-10-21 | `ex_mdm_uom_conversion_period` の WHERE を `deleted = FALSE AND status = 1` に変更、閉区間（valid_to 当日有効）・NULL 無期限を明記、23P01 は 20077／MSG-MDM-178 に変換（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.9 | 2026-10-21 | `ex_mdm_uom_conversion_period` コメントに 20077 の変換条件（制約名限定、標準原価公開は 70134）を明記（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.10 | 2026-10-21 | mdm 内 FK 32 本を三列 `(tenant_id, company_id, x_id)` → `(tenant_id, company_id, id)` に変更（`mdm/V202610211414`、原制約名・NO ACTION 維持、被参照 11 表に `uk_<table>_tenant_company_id`、子表側 FK 索引 7 本追加。00-common/04 §6.2 項 2a） | DBA |
