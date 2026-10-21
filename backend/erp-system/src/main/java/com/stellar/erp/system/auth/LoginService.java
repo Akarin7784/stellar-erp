@@ -36,11 +36,8 @@ import cn.dev33.satoken.stp.StpUtil;
 @Service
 public class LoginService {
 
-    /**
-     * 账号停用/离职（MSG-SYS-001）の業務コード。SYS 帯（10000-19999）の新規コードで、番号は BA の docs PR で確定する。
-     * 確定後はこの 1 行のみ差し替える（10001 は「ユーザ重複」で使用済みのため使わない）。
-     */
-    public static final int ACCOUNT_DISABLED = 10900; // TODO(#71): BA docs PR で確定した番号に差し替え
+    /** 账号停用/离职（MSG-SYS-001）の業務コード（SYS 帯、docs #77 で確定）。 */
+    public static final int ACCOUNT_DISABLED = 10900;
 
     static final int MAX_FAILS = 5;
     static final Duration LOCK = Duration.ofMinutes(30);
