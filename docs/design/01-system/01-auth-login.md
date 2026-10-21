@@ -4,7 +4,7 @@
 |---|---|
 | 文書名 | 认证与登录 详细设计书（認証・ログイン 詳細設計書） |
 | 文書番号 | DSN-SYS-001 |
-| 版数 | v1.3 |
+| 版数 | v1.8 |
 | 作成日 | 2026-10-20 |
 | 作成者 | system-workflow（域設計担当） |
 | 承認者 | 未承認（レビュー待ち） |
@@ -56,7 +56,7 @@
 | BR-12 | 認証・ログアウト・失敗・パスワード変更はすべて監査ログ（`sys_audit_log`）とログインログ（`sys_login_log`）に記録 | [共通項目定義](../00-common/01-common-item-definitions.md) 第 12 章 | — |
 | BR-13 | ログインは「企業代码（`tenantCode`）＋ 账号（`username`）＋ 密码」で行い、3 項目とも必須。`username` は租户内でのみ一意（`uk_sys_user_username (tenant_id, username)`）のため、企業代码で租户を特定してからユーザを引く。企業代码は大文字小文字を区別しない（照合前に `upper()`、DB は大文字で保存）、`username` は完全一致（区別あり）。子域名による租户判定は第一版対象外（将来は子域名からフロントが `tenantCode` を自動入力するのみで API は変えない） | 多テナント運用（蓝色大肥鱼 2026-10-21 #71 決定） | `tenantCode`、`sys_tenant.tenant_code` |
 | BR-14 | 企業代码不存在・租户無効/期限切れ・ユーザ不存在・パスワード不一致は、同一のエラー（HTTP 200 + `code=2002`、`MSG-COM-021`）と同等の応答時間（ダミー BCrypt 照合）で返し、どれに該当したかを応答から判別できないようにする | 租户・アカウント列挙対策（蓝色大肥鱼 2026-10-21 #71 決定） | — |
-| BR-15 | ログイン系エラーの HTTP ステータス：HTTP 401 は `code=2001`（未認証・期限切れ）のみ。`2002`（ログイン失敗）・`2003`（ロック）・`2004`（パスワード期限切れ）・`2005`（検証コード不一致）は HTTP 200 で返し、`code` を body に載せる | 蓝色大肥鱼 2026-10-21 決定（[03](../00-common/03-common-api-spec.md) §6.1） | — |
+| BR-15 | ログイン API の HTTP ステータス：HTTP 401 は `code=2001`（未認証・期限切れ）のみ。ログイン API の失敗は**例外なく** HTTP 200 で返し、`code` を body に載せる：`1001`（入力チェック失敗：`tenantCode`・`username`・`password` の欠落・超長、蓝色大肥鱼 16:18 決定。`tenantCode`・`username` が半角英数以外の場合も 1001＋MSG-COM-087、CHK-SYS-001-12/02、蓝色大肥鱼 2026-10-21 決定）・`2002`（ログイン失敗）・`2003`（ロック）・`2004`（パスワード期限切れ）・`2005`（検証コード不一致）・`10900`（账号停用/离职、MSG-SYS-001）・`4003`（楽観排他競合を 1 回再読込・リトライしても解消しない、MSG-COM-033。フロントはログイン画面に `message` をそのまま表示）。ログイン以外の API の業務エラーは 422（改密の楽観排他競合は 409）。リクエストボディが不正な JSON である等のプロトコル層エラーは全体規則どおり HTTP 400 とする。「401 は 2001 のみ、その他は 200」は業務エラーと入力チェック（パラメータ）エラーにのみ適用する（蓝色大肥鱼 2026-10-21 16:25 決定）。入力チェック失敗（`1001`）の `message` は標準文案のみとし英語の項目名を連結しない（MSG-COM-040「请输入必填项「{0}」。」・MSG-COM-041・MSG-COM-087「「{0}」只能输入半角英数字。」の `{0}` は画面ラベル「企业代码」「账号」「密码」で埋める）。項目名は `data` に入れ、形式は [03](../00-common/03-common-api-spec.md) §5.3 の共通形式 `data.fieldErrors[]`（`{field, message}`）に従う（`field` は `tenantCode`/`username`/`password`）。複数項目が失敗した場合は全件を `tenantCode`・`username`・`password` の順で返す（半角英数違反の MSG-COM-087 も同じ `fieldErrors[]` に入れる）。`msgId` を付ける（03 §5.1）（蓝色大肥鱼 2026-10-21 16:30 決定）。 | 蓝色大肥鱼 2026-10-21 16:15/16:16 決定（[03](../00-common/03-common-api-spec.md) §6.1） | — |
 
 ### 2.3 計算式・判定式
 
@@ -212,9 +212,9 @@ stateDiagram-v2
 
 | No | チェック ID | 対象項目 | 種別 | 条件 | タイミング | メッセージ ID |
 |---|---|---|---|---|---|---|
-| 0 | CHK-SYS-001-12 | `tenantCode` | 必須・桁数 | 空でない、≤32 字、半角英数 | ログイン | MSG-COM-040 / MSG-COM-041 |
+| 0 | CHK-SYS-001-12 | `tenantCode` | 必須・桁数 | 空でない、≤32 字、半角英数 | ログイン | MSG-COM-040 / MSG-COM-041 / MSG-COM-087 |
 | 1 | CHK-SYS-001-01 | `username` | 必須 | 空でない | ログイン | MSG-COM-040 |
-| 2 | CHK-SYS-001-02 | `username` | 桁数 | ≤64 字、半角英数 | ログイン | MSG-COM-041 |
+| 2 | CHK-SYS-001-02 | `username` | 桁数 | ≤64 字、半角英数 | ログイン | MSG-COM-041 / MSG-COM-087 |
 | 3 | CHK-SYS-001-03 | `password` | 必須 | 空でない | ログイン | MSG-COM-040 |
 | 4 | CHK-SYS-001-04 | `captcha` | 必須（条件付） | 失敗 3 回以上は必須 | ログイン | MSG-COM-022（code=2005） |
 | 5 | CHK-SYS-001-05 | `captcha` | 一致 | Redis 値と大文字小文字無視で一致・期限内 | ログイン | MSG-COM-022（code=2005） |
@@ -262,11 +262,11 @@ stateDiagram-v2
 2a. 1 行取得できたら、以降のトランザクションで `app.tenant_id`（＋`app.company_id`）を設定し、ユーザ更新・ログインログは RLS 範囲内で行う。
 3. `status`・`account_status` を判定する。`account_status=2` かつ `lock_until > now()` は `MSG-COM-023`（残り分数）。期限切れの場合はロック解除状態に戻す。
 4. `BCrypt.checkpw(password, password_hash)` で照合する。不一致時は `login_fail_count+1`、5 回目で `account_status=2`・`lock_until=now()+30 分` に更新し、`sys_login_log` に失敗を記録して `MSG-COM-021` を返す。
-5. 成功時、`login_fail_count=0`、`last_login_at/ip` を更新する（`version` 楽観排他。競合時はリトライ 1 回）。
+5. 成功時、`login_fail_count=0`、`last_login_at/ip` を更新する（`version` 楽観排他。競合時は再読込してリトライ 1 回、なお競合なら HTTP 200 + `code=4003`／`MSG-COM-033`、BR-15）。
 6. `password_reset_required=true` または `account_status=4` または `password_expire_at < now()` の場合、`passwordResetRequired=true` を返す（トークンは発行するが業務 API は 403 で制限）。
 7. Sa-Token でトークンを発行する（`loginId=userId`、端末種別、`tenantId`/`companyId`/`factoryId` をセッションに格納）。トークン・セッションは Sa-Token の Redis DAO で Redis に保存する（検証コードも Redis。メモリ保存は不可）。BR-08 により多重ログイン不可設定時は既存セッションを失効させる。
 8. ロール・権限コード・メニューを解決し、セッション（Redis）とレスポンスに格納する（詳細は F-SYS-003）。権限・メニューは**当前会社分のみ**：`sys_user_role.company_id = セッションの company_id` かつ租户一致のロールに付与されたもの。会社切替時は再計算する。データ範囲（`dataScopes`）は別 PR で設計・実装する。
-9. `sys_login_log` に成功を記録し、`sys_audit_log` に `LOGIN` を記録する（非同期）。
+9. `sys_login_log` に成功を記録し（`session_id` はトークンの SHA-256 16 進完全値〔64 桁〕。平文トークンは記録しない。Redis セッションとの対応付け用で認証情報として使用不可、90 §3.19）、`sys_audit_log` に `LOGIN` を記録する（非同期）。
 10. `{token, tokenName, expiresIn, userInfo, roles, permissions, menus, passwordResetRequired}` を返す。
 
 **PRC-SYS-001-04 パスワード変更**
@@ -301,10 +301,10 @@ stateDiagram-v2
 | 1 | Redis 断 | 検証コード/トークン | 503 を返す。DB フォールバック禁止 | — | MSG-COM-083 |
 | 2 | 企業代码不存在・租户無効/期限切れ・ユーザ不存在 | 認証（`sys_auth_find_login_user` が 0 行） | ダミー照合後、パスワード不一致と同一の失敗として返す（列挙防止、BR-14） | — | MSG-COM-021（code=2002） |
 | 3 | アカウントロック中 | 認証 | 残り時間を返す | — | MSG-COM-023 |
-| 4 | アカウント停用/退職 | 認証 | ログイン拒否 | — | MSG-SYS-001 |
+| 4 | アカウント停用/退職 | 認証 | ログイン拒否（HTTP 200、BR-15） | — | MSG-SYS-001（code=10900） |
 | 5 | 検証コード不一致・期限切れ・使用済み | 認証 | 再取得を促す。失敗回数は増やさない | — | MSG-COM-022（code=2005） |
 | 6 | パスワード履歴再利用 | 改密 | 拒否 | 全体 | MSG-SYS-006 |
-| 7 | 楽観排他競合（ユーザ更新） | ログイン/改密 | 1 回リトライ。失敗時 409 | 全体 | MSG-COM-033 |
+| 7 | 楽観排他競合（ユーザ更新） | ログイン/改密 | 再読込して 1 回リトライ。なお競合ならログインは HTTP 200 + `code=4003`（BR-15、フロントは `message` を表示）、改密は 409 + `code=4003` | 全体 | MSG-COM-033（code=4003） |
 | 8 | 他セッション失効失敗 | 改密後処理 | 業務は成功扱い。ログ WARN、次回認可時に失効 | なし | — |
 | 9 | 監査ログ書込失敗 | AOP | 業務は成功。アプリログ ERROR に退避 | なし | — |
 
@@ -349,6 +349,8 @@ stateDiagram-v2
     "menus": [{ "id": "1", "parentId": "0", "menuType": 1, "menuCode": "system", "routePath": "system", "sortNo": 10 }]
   }
 }
+// レスポンス（失敗：入力チェック 1001、HTTP 200。message は標準文案のみ、項目名は data.fieldErrors、BR-15）
+{ "code": 1001, "message": "请输入必填项「企业代码」。", "msgId": "MSG-COM-040", "data": { "fieldErrors": [ { "field": "tenantCode", "message": "请输入必填项「企业代码」。" } ] } }
 // レスポンス（失敗：企業代码不存在・ユーザ不存在・パスワード誤りはすべて同一）
 { "code": 2002, "message": "企业代码、用户名或密码错误。", "data": null }
 // レスポンス（失敗：検証コード）
@@ -362,7 +364,7 @@ stateDiagram-v2
 ```json
 { "oldPassword": "Init@1234", "newPassword": "St@r2026erp" }
 // 成功：{ "code": 0, "message": "保存しました。", "data": null }
-// 強度不足：{ "code": 10001, "message": "密码强度不符合要求（8〜20 位，且包含大写字母、小写字母、数字、符号中至少 3 类）。", "data": null }
+// 強度不足（HTTP 422）：{ "code": 10005, "message": "密码强度不符合要求（8〜20 位，且包含大写字母、小写字母、数字、符号中至少 3 类）。", "data": null }
 ```
 
 **POST /api/system/auth/logout**：免ログイン。ヘッダ `Authorization` のトークンを失効。トークンなし・無効・期限切れでも 200 `{code:0}`（冪等、繰り返し可）（蓝色大肥鱼 2026-10-21 #71 決定）。
@@ -395,7 +397,8 @@ stateDiagram-v2
 | MSG-COM-026 | E | 密码强度不符合要求（8〜20 位，且包含大写字母、小写字母、数字、符号中至少 3 类）。 | 強度不足 | 再入力 | INFO |
 | MSG-COM-027 | E | 原密码不正确。 | 旧パスワード不一致 | 再入力 | WARN |
 | MSG-COM-028 | E | 该账号已在其他终端登录，已被强制下线。 | 多重ログイン制限 | 再ログイン | INFO |
-| MSG-SYS-001 | E | 该账号已停用或已离职，请联系管理员。 | `status=0` or `account_status=3` | 管理者へ連絡 | WARN |
+| MSG-COM-033 | E | 数据已被其他用户更新，请重新获取最新信息后再操作。 | 楽観排他競合が 1 回リトライ後も解消しない（code=4003。ログインは HTTP 200、改密は 409） | ログイン画面は `message` を表示 | WARN |
+| MSG-SYS-001 | E | 该账号已停用或已离职，请联系管理员。 | `status=0` or `account_status=3`（code=10900、ログインは HTTP 200） | 管理者へ連絡 | WARN |
 | MSG-SYS-002 | E | 内置账号不能执行此操作。 | builtin ユーザ | 別アカウント使用 | WARN |
 | MSG-SYS-003 | E | 原密码不正确，请重新输入。连续 5 次错误将锁定账号 30 分钟。 | 改密の旧パスワード不一致 | 再入力 | WARN |
 | MSG-SYS-004 | E | 两次输入的新密码不一致。 | 確認不一致 | 再入力 | INFO |
@@ -475,3 +478,8 @@ stateDiagram-v2
 | v1.1 | 2026-10-21 | ログインに必須項目「企业代码」`tenantCode` を追加（前提 #5、BR-13/14、§4.3〜4.7、CHK-SYS-001-12/06、PRC-SYS-001-02 手順 2/2a/7/8、§6.3、§7.1、§10、テスト 14〜20）。今朝（#41、main `de517e8`）の「ログイン ID は `username` のみ（租户単位一意）」を「`tenantCode`＋`username`」に改め、`username` は租户内一意のまま。ログイン前のユーザ参照は SECURITY DEFINER `sys_auth_find_login_user(tenant_code, username)`（最小項目・`erp_app` のみ EXECUTE、租户は有効・未削除・期限内）。企業代码不存在・ユーザ不存在・パスワード誤りは同一エラー（code=2002／MSG-COM-021）。MSG-COM-022 に code=2005。トークン・検証コードは Sa-Token Redis DAO で Redis。logout は免ログイン・冪等。`/auth/me` の `menus` を id/parentId/menuType/menuCode/routePath/sortNo（当前会社の権限メニュー＋祖先目录）に確定、`dataScopes` は別 PR（蓝色大肥鱼 2026-10-21 #71 決定） | 业务分析 |
 | v1.2 | 2026-10-21 | BR-13・PRC-SYS-001-02 手順 2：企業代码は大文字小文字を区別せず照合前に `upper()`、`username` は完全一致。§10 にロック後の 2003/MSG-COM-023 がアカウント存在を露呈するリスクを受容済みと追記（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.3 | 2026-10-21 | 前提 #4：ロールなしでもログイン成功、`/auth/me` `menus`=`[]`、フロントは「暂无权限，请联系管理员」（前提表 #4/#5 の列ずれも修正）。BR-15：HTTP 401 は 2001 のみ、2002〜2005 は 200＋body `code`。§7.1 `/auth/me` に同旨（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.4 | 2026-10-21 | BR-15：ログイン API の失敗は例外なく HTTP 200（入力チェック 1001・10900・4003 を含む）、401 は 2001 のみ、他 API の業務エラーは 422。PRC-SYS-001-02 手順 5・§6.3 #4/#7・§7.1 強度不足 10001→10005・§9 MSG-SYS-001 に code=10900・MSG-COM-033 行を追加（蓝色大肥鱼 2026-10-21 16:15/16:16 決定） | 业务分析 |
+| v1.5 | 2026-10-21 | BR-15：不正 JSON 等のプロトコル層エラーは HTTP 400、「401 は 2001 のみ・他は 200」は業務・入力チェックエラーに限ると追記（蓝色大肥鱼 2026-10-21 16:25 決定） | 业务分析 |
+| v1.6 | 2026-10-21 | PRC-SYS-001-02 手順 9：`sys_login_log.session_id` はトークンの SHA-256 16 進完全値（64 桁）、平文トークンは記録しない（蓝色大肥鱼 2026-10-21 16:29 決定） | 业务分析 |
+| v1.7 | 2026-10-21 | BR-15：1001 の `message` は標準文案のみ（英語項目名を連結しない）、項目名は 03 §5.3 の `data.fieldErrors[]`、`msgId` 付与。§7.1 に 1001 の応答例を追加（蓝色大肥鱼 2026-10-21 16:30 決定） | 业务分析 |
+| v1.8 | 2026-10-21 | BR-15：`tenantCode`・`username` は半角英数必須、違反時は 1001＋MSG-COM-087 を `data.fieldErrors[]` に入れる（順序は tenantCode・username・password）。BR-15 に `username` 半角英数が漏れていたため CHK-SYS-001-02 に合わせて補完。§5 CHK-SYS-001-12/02 のメッセージ列に MSG-COM-087 を追加（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
