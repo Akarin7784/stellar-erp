@@ -71,8 +71,9 @@ class RlsCoverageTest {
         assertThat(violations).as("以下策略缺少 USING 或 WITH CHECK").isEmpty();
     }
 
-    /** 一意インデックス先頭列規則の例外。sys/V202610210708 で親 id 先頭の例外は全廃（現在なし）。 */
-    static final Set<String> UNIQUE_INDEX_EXCEPTIONS = Set.of();
+    /** 一意インデックス先頭列規則の例外。sys/V202610210708 で親 id 先頭の例外は全廃。
+     *  04 §6.1 第 4 条 (c) 全体一意の具名例外：uk_sys_tenant_code (tenant_code)（sys/V202610211408、#71 決定）。 */
+    static final Set<String> UNIQUE_INDEX_EXCEPTIONS = Set.of("uk_sys_tenant_code");
 
     /** 业务 schema 中所有非主键唯一索引的第一列必须是 tenant_id（唯一约束检查不经过 RLS）。 */
     @Test

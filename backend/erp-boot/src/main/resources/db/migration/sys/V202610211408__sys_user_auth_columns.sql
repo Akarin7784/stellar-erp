@@ -1,5 +1,5 @@
 -- sys_user 正式化：V1__baseline 的基线字段 → 01-system/90-db-design.md §3.6 正式定义；
--- 并新增登录前查询函数 sys_auth_find_login_user(tenant_code, username)（蓝色大肥鱼 2026-10-21 决定：租户靠 tenantCode 识别）。
+-- uk_sys_tenant_code 全体唯一化；新增登录前查询函数 sys_auth_find_login_user（docs #74 ebb4f3c，蓝色大肥鱼 2026-10-21 #71 决定）。
 -- 来源：
 --   01-system/90-db-design.md:333-364（列定义）、:367-373（索引）、:375（制约）、:880（登录更新规格）
 --   00-common/04-common-db-spec.md:181-190（§6.1 第 4 条 (b)：uk_sys_user_username 改名、tenant_id 默认值、pgTAP 例外登録）
@@ -139,11 +139,25 @@ COMMENT ON COLUMN sys_user.last_login_ip IS '最后登录 IP';
 COMMENT ON COLUMN sys_user.is_builtin IS '内置账号（管理员初始化，不可删除）';
 COMMENT ON COLUMN sys_user.sort_no IS '显示顺序';
 
--- 7. 登录前查询：sys_auth_find_login_user(p_tenant_code, p_username)
+-- 7. uk_sys_tenant_code 改为全体唯一 (tenant_code) WHERE deleted=FALSE（#74：04 §6.1 第 4 条 (c) 具名例外、01/90 §3.3）
+DO $$
+DECLARE v_dup TEXT;
+BEGIN
+    SELECT string_agg(tenant_code, ',') INTO v_dup FROM (
+        SELECT tenant_code FROM sys_tenant WHERE deleted = FALSE GROUP BY tenant_code HAVING count(*) > 1) d;
+    IF v_dup IS NOT NULL THEN
+        RAISE EXCEPTION 'uk_sys_tenant_code 全体唯一化中止：未删除租户中 tenant_code 重复：%（请先人工处理）', v_dup;
+    END IF;
+END
+$$;
+DROP INDEX uk_sys_tenant_code;
+CREATE UNIQUE INDEX uk_sys_tenant_code ON sys_tenant (tenant_code) WHERE deleted = FALSE;
+
+-- 8. 登录前查询：sys_auth_find_login_user(p_tenant_code, p_username)（#74：01-auth-login PRC-SYS-001-02 手顺 2、01/90 §3.3）
 --    登录时尚无 app.tenant_id，erp_app 受 FORCE RLS 约束无法查 sys_user；本函数以 owner（BYPASSRLS）执行，
---    函数内所有查询显式带 tenant_id。只返回认证所需的最少字段（01-auth-login.md:253-258）。
---    租户不存在/已删除、租户代码命中多个租户、用户不存在/已删除：一律返回 0 行（不可区分，防枚举）。
---    tenant_code、username 按原样精确匹配（不做大小写折叠）。
+--    函数内显式按 tenant_id 过滤。租户须 status=1、未删除、未过期（expire_date IS NULL OR >= current_date）。
+--    租户不存在/无效/过期、用户不存在/已删除：一律 0 行（不可区分）。只返回认证所需最少字段（不含姓名、联系方式）。
+--    tenant_code、username 精确匹配（不做大小写折叠）。
 CREATE FUNCTION public.sys_auth_find_login_user(p_tenant_code VARCHAR, p_username VARCHAR)
 RETURNS TABLE (
     tenant_id               BIGINT,
@@ -154,29 +168,27 @@ RETURNS TABLE (
     account_status          SMALLINT,
     lock_until              TIMESTAMPTZ,
     login_fail_count        SMALLINT,
+    password_reset_required BOOLEAN,
     password_expire_at      TIMESTAMPTZ,
-    password_reset_required BOOLEAN
+    version                 INT
 )
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
 SET search_path = pg_catalog, public
 AS $$
-    WITH t AS (
-        SELECT st.tenant_id AS id
-          FROM public.sys_tenant st
-         WHERE st.tenant_code = p_tenant_code
-           AND st.deleted = FALSE
-    )
     SELECT u.tenant_id, u.id, u.company_id, u.password_hash, u.status, u.account_status,
-           u.lock_until, u.login_fail_count, u.password_expire_at, u.password_reset_required
-      FROM public.sys_user u
-     WHERE (SELECT count(*) FROM t) = 1
-       AND u.tenant_id = (SELECT id FROM t)
+           u.lock_until, u.login_fail_count, u.password_reset_required, u.password_expire_at, u.version
+      FROM public.sys_tenant t
+      JOIN public.sys_user u ON u.tenant_id = t.tenant_id
+     WHERE t.tenant_code = p_tenant_code
+       AND t.deleted = FALSE
+       AND t.status = 1
+       AND (t.expire_date IS NULL OR t.expire_date >= current_date)
        AND u.username = p_username
        AND u.deleted = FALSE
 $$;
 COMMENT ON FUNCTION public.sys_auth_find_login_user(VARCHAR, VARCHAR) IS
-    '登录前按 (tenant_code, username) 取认证所需最少字段；SECURITY DEFINER，显式按 tenant_id 过滤；租户/用户不存在均返回 0 行';
+    '登录前按 (tenant_code, username) 取认证所需最少字段；SECURITY DEFINER，显式按 tenant_id 过滤；租户无效/过期/不存在与用户不存在均返回 0 行';
 REVOKE ALL ON FUNCTION public.sys_auth_find_login_user(VARCHAR, VARCHAR) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.sys_auth_find_login_user(VARCHAR, VARCHAR) TO erp_app;

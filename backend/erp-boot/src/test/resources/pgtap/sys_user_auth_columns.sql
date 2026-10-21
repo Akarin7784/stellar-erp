@@ -1,7 +1,7 @@
 -- pgTAP：sys_user 正式化（sys/V202610211408；01-system/90-db-design.md §3.6）+ 登录前查询函数 sys_auth_find_login_user。
 -- owner 连接执行（superuser，绕过 RLS），最后 ROLLBACK。
 BEGIN;
-SELECT plan(79);
+SELECT plan(85);
 
 -- 1. 列存在与类型（90 §3.6 :333-364）
 SELECT columns_are('public', 'sys_user', ARRAY[
@@ -63,14 +63,18 @@ SELECT is((SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_sys_user_mobil
 SELECT col_is_unique('public', 'sys_user', ARRAY['tenant_id', 'id']::name[], 'UNIQUE (tenant_id, id)（复合 FK 被引用）');
 
 -- 5. 数据行为（owner 准备，显式 tenant_id）
-INSERT INTO sys_tenant (id, tenant_id, tenant_code, tenant_name) VALUES (9401, 9401, 'TAPA', 'tap A'), (9402, 9402, 'TAPB', 'tap B'),
-       (9403, 9403, 'TAPDEL', 'tap deleted');
+INSERT INTO sys_tenant (id, tenant_id, tenant_code, tenant_name, status, expire_date) VALUES
+       (9401, 9401, 'TAPA', 'tap A', 1, NULL), (9402, 9402, 'TAPB', 'tap B', 1, current_date),
+       (9403, 9403, 'TAPDEL', 'tap deleted', 1, NULL), (9405, 9405, 'TAPOFF', 'tap disabled', 0, NULL),
+       (9406, 9406, 'TAPEXP', 'tap expired', 1, current_date - 1);
 UPDATE sys_tenant SET deleted = TRUE WHERE id = 9403;
 INSERT INTO sys_user (id, tenant_id, company_id, user_code, username, real_name, password_hash)
 VALUES (94011, 9401, 940101, 'E000001', 'alice', '张三', '$2a$10$hashA'),
        (94021, 9402, 940201, 'E000001', 'bob',   '李四', '$2a$10$hashB'),
        (94031, 9403, 940301, 'E000001', 'alice', '王五', '$2a$10$hashC'),
-       (94012, 9401, 940101, 'E000002', 'gone',  '赵六', '$2a$10$hashD');
+       (94012, 9401, 940101, 'E000002', 'gone',  '赵六', '$2a$10$hashD'),
+       (94051, 9405, 940501, 'E000001', 'alice', '孙七', '$2a$10$hashE'),
+       (94061, 9406, 940601, 'E000001', 'alice', '周八', '$2a$10$hashF');
 UPDATE sys_user SET deleted = TRUE WHERE id = 94012;
 
 SELECT is((SELECT row(account_status, login_fail_count, password_reset_required, lock_until IS NULL)::text FROM sys_user WHERE id = 94011),
@@ -106,21 +110,33 @@ SELECT is((SELECT count(*)::int FROM aclexplode((SELECT proacl FROM pg_proc WHER
 
 -- 7. 以 erp_app、无租户上下文调用
 SET ROLE erp_app;
-SELECT results_eq($$SELECT tenant_id, user_id, company_id, password_hash::text, account_status::int, login_fail_count::int FROM sys_auth_find_login_user('TAPA', 'alice')$$,
-                  $$VALUES (9401::bigint, 94011::bigint, 940101::bigint, '$2a$10$hashA', 1, 0)$$,
+SELECT results_eq($$SELECT tenant_id, user_id, company_id, password_hash::text, account_status::int, login_fail_count::int, version FROM sys_auth_find_login_user('TAPA', 'alice')$$,
+                  $$VALUES (9401::bigint, 94011::bigint, 940101::bigint, '$2a$10$hashA', 1, 0, 0)$$,
                   'TAPA/alice：返回租户 9401 的 alice（无 app.tenant_id 也可查）');
 SELECT is_empty($$SELECT * FROM sys_auth_find_login_user('TAPA', 'bob')$$, '其他租户的 username（bob@TAPB）在 TAPA 下查不到');
 SELECT is_empty($$SELECT * FROM sys_auth_find_login_user('NOPE', 'alice')$$, '未知租户 → 0 行');
 SELECT is_empty($$SELECT * FROM sys_auth_find_login_user('TAPA', 'nobody')$$, '未知用户 → 0 行（与未知租户不可区分）');
 SELECT is_empty($$SELECT * FROM sys_auth_find_login_user('TAPA', 'gone')$$, '已删除用户 → 0 行');
 SELECT is_empty($$SELECT * FROM sys_auth_find_login_user('TAPDEL', 'alice')$$, '已删除租户 → 0 行');
+SELECT is_empty($$SELECT * FROM sys_auth_find_login_user('TAPOFF', 'alice')$$, '无效租户（status=0）→ 0 行');
+SELECT is_empty($$SELECT * FROM sys_auth_find_login_user('TAPEXP', 'alice')$$, '过期租户（expire_date < 今天）→ 0 行');
+SELECT is((SELECT count(*)::int FROM sys_auth_find_login_user('TAPB', 'bob')), 1, 'expire_date = 今天仍有效');
 SELECT is_empty($$SELECT * FROM sys_auth_find_login_user(NULL, 'alice')$$, 'tenant_code NULL → 0 行');
 SELECT throws_ok($$SELECT count(*) FROM sys_user$$, '42704', NULL, 'erp_app 无租户上下文直接查 sys_user 仍报错（RLS 未被放开）');
 RESET ROLE;
 
--- 8. 租户代码命中多个租户（uk_sys_tenant_code 只按 (tenant_id, tenant_code) 唯一）→ 0 行，不跨租户返回
-INSERT INTO sys_tenant (id, tenant_id, tenant_code, tenant_name) VALUES (9404, 9404, 'TAPA', 'dup code');
-SELECT is_empty($$SELECT * FROM sys_auth_find_login_user('TAPA', 'alice')$$, '同一 tenant_code 命中 2 个租户 → 0 行');
+-- 8. uk_sys_tenant_code 全体唯一（#74：04 §6.1 第 4 条 (c)）
+SELECT is((SELECT indexdef FROM pg_indexes WHERE indexname = 'uk_sys_tenant_code'),
+          'CREATE UNIQUE INDEX uk_sys_tenant_code ON public.sys_tenant USING btree (tenant_code) WHERE (deleted = false)',
+          'uk_sys_tenant_code = (tenant_code) WHERE deleted=FALSE');
+SELECT throws_ok($$INSERT INTO sys_tenant (id, tenant_id, tenant_code, tenant_name) VALUES (9404, 9404, 'TAPA', 'dup code')$$,
+                 '23505', NULL, '不同租户 tenant_code 重复 → 23505');
+SELECT lives_ok($$INSERT INTO sys_tenant (id, tenant_id, tenant_code, tenant_name) VALUES (9407, 9407, 'TAPDEL', 're-use')$$,
+                '已删除租户的 tenant_code 可复用');
+SELECT ok((SELECT proretset FROM pg_proc WHERE oid = 'public.sys_auth_find_login_user(varchar, varchar)'::regprocedure)
+          AND NOT EXISTS (SELECT 1 FROM unnest((SELECT proargnames FROM pg_proc WHERE oid = 'public.sys_auth_find_login_user(varchar, varchar)'::regprocedure)) n
+                          WHERE n IN ('real_name', 'nickname', 'mobile', 'email', 'username')),
+          '返回列不含姓名/联系方式');
 
 SELECT * FROM finish();
 ROLLBACK;

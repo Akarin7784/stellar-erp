@@ -35,7 +35,8 @@ SELECT is((SELECT count(*)::int FROM pg_index i
                     ('sys_menu', 'uk_sys_menu_code'),
                     ('sys_dict_type', 'uk_sys_dict_type_code'), ('sys_outbox_event', 'uk_sys_outbox_event_id'),
                     ('sys_idempotency', 'uk_sys_idempotency_key'), ('mdm_exchange_rate', 'uk_mdm_exchange_rate'),
-                    ('sys_user', 'uk_sys_user_username'))
+                    ('sys_user', 'uk_sys_user_username'),
+                    ('sys_tenant', 'uk_sys_tenant_code'))  -- 04 §6.1 第 4 条 (c) 全体一意（tenant_id 不打头）
               AND NOT (i.indnatts = 2 AND a0.attname = 'tenant_id' AND a1.attname = 'id')
               AND (a0.attname IS DISTINCT FROM 'tenant_id'
                    OR (EXISTS (SELECT 1 FROM pg_attribute c WHERE c.attrelid = tc.oid AND c.attname = 'company_id' AND NOT c.attisdropped)
