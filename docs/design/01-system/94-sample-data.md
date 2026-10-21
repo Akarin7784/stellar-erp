@@ -184,11 +184,11 @@
 
 1. 第 1 階層：業務域ごとに `menu_type=1`（目录）を 1 行。`menu_code` = `DIR-<域略号>`、`module_code` = 権限コードの第 1 セグメント（`system`/`mdm`/`sales`/`purchase`/`inventory`/`production`/`finance`/`workflow`/`integration`/`report`）。
 2. 第 2 階層：[画面一覧](../20-matrix/02-screen-list.md) の全 `SCR-*`（`SCR-SYS-001` 登录は公開画面のため除外）を `menu_type=2`（菜单）で 1 行ずつ。`menu_code` = 画面 ID（一意）、`menu_name` = 画面名、親 = 当該域の目录。例：`SCR-SYS-012` 公司/工厂设置の親は `DIR-SYS`（系统管理）。
-3. 各域 00-overview 画面一覧の「遷移元」に「メニュー」と書かれた画面は `is_visible=TRUE`（174 行）、それ以外は `is_visible=FALSE` の非表示ルート。
+3. 各域 00-overview 画面一覧の「遷移元」に「メニュー」と書かれた画面は `is_visible=TRUE`（174 行。G-11 の `SCR-PRD-034` を加えると 175 行）、それ以外は `is_visible=FALSE` の非表示ルート。
 4. 菜单行の `permission_code` は**全行必須**：画面一覧の権限コード（`a/b` 併記は分解し先頭、`:*` は同一リソースの具体コードで代替）。同じコードを複数の菜单行が持ってよい。
 5. 第 3 階層：設計書（docs/design 全域、20-matrix を除く）に出現する権限コードのうち、どの菜单行も持たないものを `menu_type=3`（按钮）で 1 行ずつ。`menu_code` = `BTN-` + コードの `:` を `-` に置換し大文字化。親 = 同一リソース（第 1・2 セグメント）を最初に使う画面。該当画面がなければ当該域の目录直下。
 6. `sort_no`：目录は 10 刻み（域順）、菜单は域内で画面 ID 順に 10 刻み、按钮は親内でコード昇順に 1 刻み。
-7. 件数：目录 10、菜单 339、按钮 240、計 589 行。`permission_code` を持つ行 579（菜单 339 + 按钮 240）、異なるコード 513。
+7. 件数：目录 10、菜单 340、按钮 244、計 594 行。`permission_code` を持つ行 584（菜单 340 + 按钮 244）、異なるコード 518。うち V202610211405 が投入するのは G-11 の 5 行を除く 589 行（菜单 339、按钮 240、付与 579、異なるコード 513）。G-11 の 5 行は後続の増分迁移で投入し、V202610211405 は変更しない。
 
 **(3) 認可の判定**
 
@@ -214,8 +214,8 @@
 
 | 関数 | 処理 | 呼出し元 | EXECUTE |
 |---|---|---|---|
-| `sys_init_tenant(p_tenant_id BIGINT)` | 付録 A の `sys_menu` 全 589 行を `company_id = 0` で冪等投入（`parent_id` は `menu_code` で解決、既存行は上書きしない）。続けて当該テナントの全会社について `sys_init_company` を呼ぶ | テナント開設（初期会社登録の後）、既存テナントの回填 | `erp_tenant_provisioner` のみ（既存どおり、sys/V202610211403:117） |
-| `sys_init_company(p_tenant_id BIGINT, p_company_id BIGINT)` | ① 当該会社の `sys_param` 既定行（[90 §3.15](90-db-design.md)、既存行スキップ）。② 当該会社に `SYSTEM_ADMIN` が**存在しない場合のみ** `sys_role` 1 行（`role_code='SYSTEM_ADMIN'`、`role_name='系统管理员'`、`role_type=1` 内置、`data_scope_type=1` 全社、`requires_approval=TRUE`）を作成し、`permission_code IS NOT NULL` の全 `sys_menu` 行（579 行、`system:company:create` を含む）を `sys_role_permission` に付与（`permission_code` は `sys_menu.permission_code` を写す）。既に `SYSTEM_ADMIN` があれば付与しない | 会社登録（`POST /api/system/companies`、[91 API 47a](91-api-design.md)。バックエンドが会社 INSERT と同一トランザクションで呼ぶ）、`sys_init_tenant`、既存会社の回填 | `erp_tenant_provisioner` と `erp_app` |
+| `sys_init_tenant(p_tenant_id BIGINT)` | 付録 A の `sys_menu` 全行（V202610211405 時点 589 行、G-11 の増分迁移後 594 行）を `company_id = 0` で冪等投入（`parent_id` は `menu_code` で解決、既存行は上書きしない）。続けて当該テナントの全会社について `sys_init_company` を呼ぶ | テナント開設（初期会社登録の後）、既存テナントの回填 | `erp_tenant_provisioner` のみ（既存どおり、sys/V202610211403:117） |
+| `sys_init_company(p_tenant_id BIGINT, p_company_id BIGINT)` | ① 当該会社の `sys_param` 既定行（[90 §3.15](90-db-design.md)、既存行スキップ）。② 当該会社に `SYSTEM_ADMIN` が**存在しない場合のみ** `sys_role` 1 行（`role_code='SYSTEM_ADMIN'`、`role_name='系统管理员'`、`role_type=1` 内置、`data_scope_type=1` 全社、`requires_approval=TRUE`）を作成し、`permission_code IS NOT NULL` の全 `sys_menu` 行（V202610211405 時点 579 行、G-11 の増分迁移後 584 行、`system:company:create` を含む）を `sys_role_permission` に付与（`permission_code` は `sys_menu.permission_code` を写す）。既に `SYSTEM_ADMIN` があれば付与しない | 会社登録（`POST /api/system/companies`、[91 API 47a](91-api-design.md)。バックエンドが会社 INSERT と同一トランザクションで呼ぶ）、`sys_init_tenant`、既存会社の回填 | `erp_tenant_provisioner` と `erp_app` |
 
 - 両関数とも `SECURITY DEFINER`、`SET search_path = pg_catalog, public`、`REVOKE EXECUTE … FROM PUBLIC`。
 - `sys_init_company` は処理の最初に次を検査し、満たさなければ例外を送出する（`erp_app` から呼べるため）：
@@ -230,7 +230,7 @@
 - `SYSTEM_ADMIN` と付与：作成・付与は「会社登録時」と「初回回填」の 2 回のみ。条件は「当該会社に `SYSTEM_ADMIN`（`deleted = FALSE`）がまだない」こと。再実行では付与しないため、管理者が外した付与は戻らない（`sys_role_permission` に `deleted` 列がなくても区別不要）。
 - pgTAP で断言する：
   - 再実行で行数が変わらない／既存値が変わらない。
-  - 全会社に `SYSTEM_ADMIN` が 1 件、付与数 = `permission_code` を持つ `sys_menu` 行数（579）、`system:company:create` が付与済み。
+  - 全会社に `SYSTEM_ADMIN` が 1 件、付与数 = `permission_code` を持つ `sys_menu` 行数（V202610211405 時点 579、G-11 の増分迁移後 584）、`system:company:create` が付与済み。
   - 付与を 1 件削除 → 種（`sys_init_tenant` / `sys_init_company`）を再実行 → 削除した付与は戻らない。
   - `erp_app` として：他テナントの `p_tenant_id` を渡すとエラー／自テナントの `p_tenant_id` で他テナントの会社 ID を渡すとエラー／自社なら成功し、2 回目の呼出しで行数が変わらない。
 
@@ -248,6 +248,7 @@
 | G-8 | `route_path` の DDL 列コメント例が `/system/users`（sys/V202610210104:428） | 解決：先頭スラッシュなしを正とし、迁移コメントは DBA が種マイグレーションで修正 |
 | G-9 | 系统管理员以外のロール（`ROLE-*` 17 件）は示例値 | 解決：本種マイグレーションの対象外 |
 | G-10 | `component_path`・`icon` の値は設計書に定義がない | 解決：`NULL` で投入、フロント実装時に設定 |
+| G-11 | 超産承認 API（[06/91](../06-production/91-api-design.md)、#66・#68）の権限コード `production:overproduction-approval:{view,create,submit,approve,cancel}`（reject は approve と共用）が V202610211405 の種にない | 解決（蓝色大肥鱼 2026-10-21 決定）：06 画面一覧に `SCR-PRD-034` 超产申请一覧を登録し（[06/00 §5](../06-production/00-overview.md)）、付録 A #397〜#401 に菜单 1 行（`production/overproduction-approvals`、`is_visible=TRUE`、view）と按钮 4 行（新規 create／提出 submit／承認・却下 approve／取消 cancel）を追加。DBA が**後続の増分迁移**（新バージョン。V202610211405 は変更しない）で投入する。増分迁移の要件：① `sys_menu` 5 行を全テナントに冪等投入（§2.10 (6) と同じ `ON CONFLICT DO NOTHING`）。② 既存会社の `SYSTEM_ADMIN`（`deleted = FALSE`）に**新しい 5 行（permission_code 付き）だけ**を一度だけ付与する（`ON CONFLICT DO NOTHING`）。既存の付与は変更せず、過去に撤销された付与も戻さない（既存 579 行分を再付与しない）。③ 以後に登録される会社は `sys_init_company` で 584 行全件（5 コードを含む）が付与される。pgTAP で次を断言する：既存会社の `SYSTEM_ADMIN` が 5 コードを得る／増分迁移前に撤销した既存付与が戻らない／増分迁移後の新規会社の `SYSTEM_ADMIN` が 5 コードを含む 584 行を持つ／再実行で行数が変わらない |
 
 ## 3. 仮定値の一覧
 
@@ -279,7 +280,7 @@
 | 3 | 初期管理者の初期パスワード配布方式 | セキュリティ要件未確定 | 初回起動時に自動生成し WARN ログへ一度だけ出力、変更強制 | 系统管理员 | 2026-11-10 |
 | 4 | 会社コード `HDJM` の採番 | README は公司を `1` と表記（ID）、コード体系は未定義 | `id=1`、`company_code='HDJM'`（示例値）。全社コード規則は第一版で確定（TODO） | Lead | 2026-11-17 |
 
-## 6. 付録 A：`sys_menu` 種データ全件（589 行）
+## 6. 付録 A：`sys_menu` 種データ全件（594 行。うち #397〜#401 の 5 行は G-11 の後続増分迁移で投入）
 
 §2.10 の規則で [画面一覧](../20-matrix/02-screen-list.md)・各域設計書の権限コードから導出した。`company_id = 0`、`status = 1`、`is_external = FALSE`。`parent_id` は「親 menu_code」で解決する。`permission_code` は複数行で重複しうる。
 
@@ -681,199 +682,204 @@
 | 394 | `SCR-PRD-032` | 设备台账 | 2 菜单 | `production` | `DIR-PRD` | `production/equipments` | `production:equipment:view` | 320 |  |
 | 395 | `BTN-PRODUCTION-EQUIPMENT-UPDATE` | update | 3 按钮 | `production` | `SCR-PRD-032` | — | `production:equipment:update` | 1 |  |
 | 396 | `SCR-PRD-033` | 生产报表 | 2 菜单 | `production` | `DIR-PRD` | `production/reports/view` | `production:report:view` | 330 |  |
-| 397 | `DIR-FIN` | 财务管理 | 1 目录 | `finance` | —（ルート） | `finance` | — | 70 | 目录 |
-| 398 | `SCR-FIN-001` | 会计科目一覧 | 2 菜单 | `finance` | `DIR-FIN` | `finance/accounts` | `finance:account:view` | 10 | 非表示ルート（is_visible=FALSE） |
-| 399 | `SCR-FIN-002` | 会计科目登録編集 | 2 菜单 | `finance` | `DIR-FIN` | `finance/accounts/new` | `finance:account:create` | 20 | 非表示ルート（is_visible=FALSE） |
-| 400 | `SCR-FIN-003` | 期初余额录入 | 2 菜单 | `finance` | `DIR-FIN` | `finance/opening-balances` | `finance:opening-balance:import` | 30 | 非表示ルート（is_visible=FALSE） |
-| 401 | `SCR-FIN-004` | 科目辅助核算设置 | 2 菜单 | `finance` | `DIR-FIN` | `finance/accounts/:id/aux` | `finance:account:update` | 40 | 非表示ルート（is_visible=FALSE） |
-| 402 | `SCR-FIN-005` | 记账凭证录入 | 2 菜单 | `finance` | `DIR-FIN` | `finance/vouchers/new` | `finance:voucher:create` | 50 | 非表示ルート（is_visible=FALSE） |
-| 403 | `BTN-FINANCE-VOUCHER-EXPORT` | export | 3 按钮 | `finance` | `SCR-FIN-005` | — | `finance:voucher:export` | 1 |  |
-| 404 | `BTN-FINANCE-VOUCHER-PRINT` | print | 3 按钮 | `finance` | `SCR-FIN-005` | — | `finance:voucher:print` | 2 |  |
-| 405 | `BTN-FINANCE-VOUCHER-SUBMIT` | submit | 3 按钮 | `finance` | `SCR-FIN-005` | — | `finance:voucher:submit` | 3 |  |
-| 406 | `BTN-FINANCE-VOUCHER-UPDATE` | update | 3 按钮 | `finance` | `SCR-FIN-005` | — | `finance:voucher:update` | 4 |  |
-| 407 | `SCR-FIN-006` | 凭证一覧 | 2 菜单 | `finance` | `DIR-FIN` | `finance/vouchers` | `finance:voucher:view` | 60 |  |
-| 408 | `SCR-FIN-007` | 凭证模板管理 | 2 菜单 | `finance` | `DIR-FIN` | `finance/voucher-templates` | `finance:voucher-template:view` | 70 | 非表示ルート（is_visible=FALSE） |
-| 409 | `BTN-FINANCE-VOUCHER-TEMPLATE-UPDATE` | update | 3 按钮 | `finance` | `SCR-FIN-007` | — | `finance:voucher-template:update` | 1 |  |
-| 410 | `SCR-FIN-008` | 凭证待审核一覧 | 2 菜单 | `finance` | `DIR-FIN` | `finance/vouchers/approve` | `finance:voucher:approve` | 80 |  |
-| 411 | `SCR-FIN-009` | 凭证审核详细 | 2 菜单 | `finance` | `DIR-FIN` | `finance/vouchers/:id` | `finance:voucher:approve` | 90 | 非表示ルート（is_visible=FALSE） |
-| 412 | `SCR-FIN-010` | 凭证记账处理 | 2 菜单 | `finance` | `DIR-FIN` | `finance/vouchers/post` | `finance:voucher:post` | 100 |  |
-| 413 | `SCR-FIN-011` | 凭证反记账 | 2 菜单 | `finance` | `DIR-FIN` | `finance/vouchers/unpost` | `finance:voucher:unpost` | 110 |  |
-| 414 | `SCR-FIN-012` | 红字冲销凭证 | 2 菜单 | `finance` | `DIR-FIN` | `finance/vouchers/:id/reverse` | `finance:voucher:reverse` | 120 | 非表示ルート（is_visible=FALSE） |
-| 415 | `SCR-FIN-013` | 凭证查询与附件 | 2 菜单 | `finance` | `DIR-FIN` | `finance/vouchers/view` | `finance:voucher:view` | 130 |  |
-| 416 | `SCR-FIN-014` | 总账查询 | 2 菜单 | `finance` | `DIR-FIN` | `finance/ledgers` | `finance:ledger:view` | 140 |  |
-| 417 | `SCR-FIN-015` | 明细账查询 | 2 菜单 | `finance` | `DIR-FIN` | `finance/ledgers/view` | `finance:ledger:view` | 150 | 非表示ルート（is_visible=FALSE） |
-| 418 | `SCR-FIN-016` | 序时账（日记账） | 2 菜单 | `finance` | `DIR-FIN` | `finance/ledgers/view/scr-fin-016` | `finance:ledger:view` | 160 |  |
-| 419 | `SCR-FIN-017` | 试算平衡表 | 2 菜单 | `finance` | `DIR-FIN` | `finance/trial-balances` | `finance:trial-balance:view` | 170 |  |
-| 420 | `SCR-FIN-018` | 应付单一覧 | 2 菜单 | `finance` | `DIR-FIN` | `finance/payables` | `finance:payable:view` | 180 |  |
-| 421 | `SCR-FIN-019` | 应付单确认/详细 | 2 菜单 | `finance` | `DIR-FIN` | `finance/payables/:id` | `finance:payable:update` | 190 | 非表示ルート（is_visible=FALSE） |
-| 422 | `SCR-FIN-020` | 采购发票三单匹配 | 2 菜单 | `finance` | `DIR-FIN` | `finance/invoices` | `finance:invoice:match` | 200 |  |
-| 423 | `BTN-FINANCE-INVOICE-UPDATE` | update | 3 按钮 | `finance` | `SCR-FIN-020` | — | `finance:invoice:update` | 1 |  |
-| 424 | `SCR-FIN-021` | 暂估余额与冲回 | 2 菜单 | `finance` | `DIR-FIN` | `finance/payables/view` | `finance:payable:view` | 210 |  |
-| 425 | `SCR-FIN-022` | 付款申请 | 2 菜单 | `finance` | `DIR-FIN` | `finance/payment-requests` | `finance:payment-request:create` | 220 |  |
-| 426 | `BTN-FINANCE-PAYMENT-REQUEST-APPROVE` | approve | 3 按钮 | `finance` | `SCR-FIN-022` | — | `finance:payment-request:approve` | 1 |  |
-| 427 | `BTN-FINANCE-PAYMENT-REQUEST-VIEW` | view | 3 按钮 | `finance` | `SCR-FIN-022` | — | `finance:payment-request:view` | 2 |  |
-| 428 | `SCR-FIN-023` | 付款执行 | 2 菜单 | `finance` | `DIR-FIN` | `finance/payments/execute` | `finance:payment:execute` | 230 | 非表示ルート（is_visible=FALSE） |
-| 429 | `BTN-FINANCE-PAYMENT-VIEW` | view | 3 按钮 | `finance` | `SCR-FIN-023` | — | `finance:payment:view` | 1 |  |
-| 430 | `SCR-FIN-024` | 应付核销 | 2 菜单 | `finance` | `DIR-FIN` | `finance/write-offs` | `finance:write-off:create` | 240 |  |
-| 431 | `BTN-FINANCE-WRITE-OFF-REVERSE` | reverse | 3 按钮 | `finance` | `SCR-FIN-024` | — | `finance:write-off:reverse` | 1 |  |
-| 432 | `SCR-FIN-025` | 应付账龄分析 | 2 菜单 | `finance` | `DIR-FIN` | `finance/agings` | `finance:aging:view` | 250 |  |
-| 433 | `SCR-FIN-026` | 应收单一覧 | 2 菜单 | `finance` | `DIR-FIN` | `finance/receivables` | `finance:receivable:view` | 260 |  |
-| 434 | `BTN-FINANCE-RECEIVABLE-CANCEL` | cancel | 3 按钮 | `finance` | `SCR-FIN-026` | — | `finance:receivable:cancel` | 1 |  |
-| 435 | `BTN-FINANCE-RECEIVABLE-CONFIRM` | confirm | 3 按钮 | `finance` | `SCR-FIN-026` | — | `finance:receivable:confirm` | 2 |  |
-| 436 | `BTN-FINANCE-RECEIVABLE-CREATE` | create | 3 按钮 | `finance` | `SCR-FIN-026` | — | `finance:receivable:create` | 3 |  |
-| 437 | `SCR-FIN-027` | 收款登记 | 2 菜单 | `finance` | `DIR-FIN` | `finance/receipts` | `finance:receipt:create` | 270 |  |
-| 438 | `BTN-FINANCE-RECEIPT-CONFIRM` | confirm | 3 按钮 | `finance` | `SCR-FIN-027` | — | `finance:receipt:confirm` | 1 |  |
-| 439 | `BTN-FINANCE-RECEIPT-REVERSE` | reverse | 3 按钮 | `finance` | `SCR-FIN-027` | — | `finance:receipt:reverse` | 2 |  |
-| 440 | `BTN-FINANCE-RECEIPT-VIEW` | view | 3 按钮 | `finance` | `SCR-FIN-027` | — | `finance:receipt:view` | 3 |  |
-| 441 | `SCR-FIN-028` | 应收核销 | 2 菜单 | `finance` | `DIR-FIN` | `finance/write-offs/receivables` | `finance:write-off:create` | 280 | 非表示ルート（is_visible=FALSE） |
-| 442 | `SCR-FIN-029` | 应收账龄分析 | 2 菜单 | `finance` | `DIR-FIN` | `finance/agings/view` | `finance:aging:view` | 290 |  |
-| 443 | `SCR-FIN-030` | 坏账准备计提（P2） | 2 菜单 | `finance` | `DIR-FIN` | `finance/receivables/update` | `finance:receivable:update` | 300 | 非表示ルート（is_visible=FALSE） |
-| 444 | `SCR-FIN-031` | 现金日记账 | 2 菜单 | `finance` | `DIR-FIN` | `finance/cash-journals` | `finance:cash-journal:view` | 310 |  |
-| 445 | `BTN-FINANCE-CASH-JOURNAL-CREATE` | create | 3 按钮 | `finance` | `SCR-FIN-031` | — | `finance:cash-journal:create` | 1 |  |
-| 446 | `SCR-FIN-032` | 银行日记账 | 2 菜单 | `finance` | `DIR-FIN` | `finance/bank-journals` | `finance:bank-journal:view` | 320 |  |
-| 447 | `SCR-FIN-033` | 银行对账单导入 | 2 菜单 | `finance` | `DIR-FIN` | `finance/bank-statements/import` | `finance:bank-statement:import` | 330 | 非表示ルート（is_visible=FALSE） |
-| 448 | `SCR-FIN-034` | 银行对账 | 2 菜单 | `finance` | `DIR-FIN` | `finance/bank-recons` | `finance:bank-recon:execute` | 340 | 非表示ルート（is_visible=FALSE） |
-| 449 | `BTN-FINANCE-BANK-RECON-ADJUST` | adjust | 3 按钮 | `finance` | `SCR-FIN-034` | — | `finance:bank-recon:adjust` | 1 |  |
-| 450 | `SCR-FIN-035` | 余额调节表 | 2 菜单 | `finance` | `DIR-FIN` | `finance/bank-recons/view` | `finance:bank-recon:view` | 350 | 非表示ルート（is_visible=FALSE） |
-| 451 | `SCR-FIN-036` | 资金日报 | 2 菜单 | `finance` | `DIR-FIN` | `finance/fund-reports` | `finance:fund-report:view` | 360 |  |
-| 452 | `SCR-FIN-037` | 进项发票台账 | 2 菜单 | `finance` | `DIR-FIN` | `finance/invoices/view` | `finance:invoice:view` | 370 |  |
-| 453 | `SCR-FIN-038` | 销项发票台账 | 2 菜单 | `finance` | `DIR-FIN` | `finance/invoices/view/scr-fin-038` | `finance:invoice:view` | 380 |  |
-| 454 | `SCR-FIN-039` | 增值税申报辅助表 | 2 菜单 | `finance` | `DIR-FIN` | `finance/vat-returns` | `finance:vat-return:view` | 390 |  |
-| 455 | `BTN-FINANCE-VAT-RETURN-EXPORT` | export | 3 按钮 | `finance` | `SCR-FIN-039` | — | `finance:vat-return:export` | 1 |  |
-| 456 | `BTN-FINANCE-VAT-RETURN-GENERATE` | generate | 3 按钮 | `finance` | `SCR-FIN-039` | — | `finance:vat-return:generate` | 2 |  |
-| 457 | `SCR-FIN-040` | 附加税/所得税计提 | 2 菜单 | `finance` | `DIR-FIN` | `finance/tax-accruals` | `finance:tax-accrual:generate` | 400 |  |
-| 458 | `BTN-FINANCE-TAX-ACCRUAL-VIEW` | view | 3 按钮 | `finance` | `SCR-FIN-040` | — | `finance:tax-accrual:view` | 1 |  |
-| 459 | `SCR-FIN-041` | 自动凭证规则管理 | 2 菜单 | `finance` | `DIR-FIN` | `finance/auto-vouchers` | `finance:auto-voucher:view` | 410 | 非表示ルート（is_visible=FALSE） |
-| 460 | `BTN-FINANCE-AUTO-VOUCHER-RETRY` | retry | 3 按钮 | `finance` | `SCR-FIN-041` | — | `finance:auto-voucher:retry` | 1 |  |
-| 461 | `BTN-FINANCE-AUTO-VOUCHER-UPDATE` | update | 3 按钮 | `finance` | `SCR-FIN-041` | — | `finance:auto-voucher:update` | 2 |  |
-| 462 | `SCR-FIN-042` | 自动凭证监控 | 2 菜单 | `finance` | `DIR-FIN` | `finance/auto-vouchers/view` | `finance:auto-voucher:view` | 420 |  |
-| 463 | `SCR-FIN-043` | 成本计算 | 2 菜单 | `finance` | `DIR-FIN` | `finance/costs` | `finance:cost:calculate` | 430 |  |
-| 464 | `BTN-FINANCE-COST-CONFIRM` | confirm | 3 按钮 | `finance` | `SCR-FIN-043` | — | `finance:cost:confirm` | 1 |  |
-| 465 | `SCR-FIN-044` | 成本计算结果 | 2 菜单 | `finance` | `DIR-FIN` | `finance/costs/:id` | `finance:cost:view` | 440 | 非表示ルート（is_visible=FALSE） |
-| 466 | `SCR-FIN-045` | 制造费用归集与分配 | 2 菜单 | `finance` | `DIR-FIN` | `finance/costs/calculate` | `finance:cost:calculate` | 450 |  |
-| 467 | `SCR-FIN-046` | 在制品与完工成本 | 2 菜单 | `finance` | `DIR-FIN` | `finance/costs/view` | `finance:cost:view` | 460 |  |
-| 468 | `SCR-FIN-047` | 成本差异分析 | 2 菜单 | `finance` | `DIR-FIN` | `finance/costs/view/scr-fin-047` | `finance:cost:view` | 470 |  |
-| 469 | `SCR-FIN-048` | 会计期间管理 | 2 菜单 | `finance` | `DIR-FIN` | `finance/periods` | `finance:period:view` | 480 | 非表示ルート（is_visible=FALSE） |
-| 470 | `BTN-FINANCE-PERIOD-REOPEN` | reopen | 3 按钮 | `finance` | `SCR-FIN-048` | — | `finance:period:reopen` | 1 |  |
-| 471 | `SCR-FIN-049` | 月结向导 | 2 菜单 | `finance` | `DIR-FIN` | `finance/periods/close` | `finance:period:close` | 490 | 非表示ルート（is_visible=FALSE） |
-| 472 | `SCR-FIN-050` | 损益结转 | 2 菜单 | `finance` | `DIR-FIN` | `finance/periods/closing` | `finance:period:close` | 500 | 非表示ルート（is_visible=FALSE） |
-| 473 | `SCR-FIN-051` | 年度结转 | 2 菜单 | `finance` | `DIR-FIN` | `finance/year-closes/execute` | `finance:year-close:execute` | 510 | 非表示ルート（is_visible=FALSE） |
-| 474 | `SCR-FIN-052` | 财务报表（三表） | 2 菜单 | `finance` | `DIR-FIN` | `finance/statements` | `finance:statement:view` | 520 |  |
-| 475 | `BTN-FINANCE-STATEMENT-EXPORT` | export | 3 按钮 | `finance` | `SCR-FIN-052` | — | `finance:statement:export` | 1 |  |
-| 476 | `BTN-FINANCE-STATEMENT-PRINT` | print | 3 按钮 | `finance` | `SCR-FIN-052` | — | `finance:statement:print` | 2 |  |
-| 477 | `SCR-FIN-053` | 科目余额表 | 2 菜单 | `finance` | `DIR-FIN` | `finance/reports` | `finance:report:view` | 530 |  |
-| 478 | `BTN-FINANCE-REPORT-EXPORT` | export | 3 按钮 | `finance` | `SCR-FIN-053` | — | `finance:report:export` | 1 |  |
-| 479 | `BTN-FINANCE-REPORT-PRINT` | print | 3 按钮 | `finance` | `SCR-FIN-053` | — | `finance:report:print` | 2 |  |
-| 480 | `SCR-FIN-054` | 费用报销（P2） | 2 菜单 | `finance` | `DIR-FIN` | `finance/expenses` | `finance:expense:create` | 540 |  |
-| 481 | `BTN-FINANCE-EXPENSE-VIEW` | view | 3 按钮 | `finance` | `SCR-FIN-054` | — | `finance:expense:view` | 1 |  |
-| 482 | `SCR-FIN-055` | 借款/还款（P2） | 2 菜单 | `finance` | `DIR-FIN` | `finance/expenses/create` | `finance:expense:create` | 550 |  |
-| 483 | `SCR-FIN-056` | 固定资产卡片（P2） | 2 菜单 | `finance` | `DIR-FIN` | `finance/assets` | `finance:asset:view` | 560 |  |
-| 484 | `BTN-FINANCE-ASSET-UPDATE` | update | 3 按钮 | `finance` | `SCR-FIN-056` | — | `finance:asset:update` | 1 |  |
-| 485 | `SCR-FIN-057` | 固定资产处置（P2） | 2 菜单 | `finance` | `DIR-FIN` | `finance/assets/disposal` | `finance:asset:dispose` | 570 | 非表示ルート（is_visible=FALSE） |
-| 486 | `SCR-FIN-058` | 预算管理（P2） | 2 菜单 | `finance` | `DIR-FIN` | `finance/budgets` | `finance:budget:update` | 580 |  |
-| 487 | `BTN-FINANCE-BUDGET-VIEW` | view | 3 按钮 | `finance` | `SCR-FIN-058` | — | `finance:budget:view` | 1 |  |
-| 488 | `SCR-FIN-059` | 汇兑损益调整（P2） | 2 菜单 | `finance` | `DIR-FIN` | `finance/vouchers/create` | `finance:voucher:create` | 590 |  |
-| 489 | `SCR-FIN-060` | 资金计划与付款排程（P2） | 2 菜单 | `finance` | `DIR-FIN` | `finance/fund-reports/view` | `finance:fund-report:view` | 600 |  |
-| 490 | `SCR-FIN-061` | 财务报表分析（P2） | 2 菜单 | `finance` | `DIR-FIN` | `finance/statements/view` | `finance:statement:view` | 610 | 非表示ルート（is_visible=FALSE） |
-| 491 | `SCR-FIN-062` | 標準原価メンテナンス | 2 菜单 | `finance` | `DIR-FIN` | `finance/standard-costs` | `finance:standard-cost:view` | 620 | 非表示ルート（is_visible=FALSE） |
-| 492 | `BTN-FINANCE-STANDARD-COST-PUBLISH` | publish | 3 按钮 | `finance` | `SCR-FIN-062` | — | `finance:standard-cost:publish` | 1 |  |
-| 493 | `BTN-FINANCE-STANDARD-COST-REGISTER` | register | 3 按钮 | `finance` | `SCR-FIN-062` | — | `finance:standard-cost:register` | 2 |  |
-| 494 | `DIR-WF` | 工作流 | 1 目录 | `workflow` | —（ルート） | `workflow` | — | 80 | 目录 |
-| 495 | `SCR-WF-001` | 流程模型一覧 | 2 菜单 | `workflow` | `DIR-WF` | `workflow/processes` | `workflow:process:view` | 10 |  |
-| 496 | `BTN-WORKFLOW-PROCESS-DEPLOY` | deploy | 3 按钮 | `workflow` | `SCR-WF-001` | — | `workflow:process:deploy` | 1 |  |
-| 497 | `SCR-WF-002` | 流程模型登録編集/デプロイ | 2 菜单 | `workflow` | `DIR-WF` | `workflow/processes/new` | `workflow:process:update` | 20 | 非表示ルート（is_visible=FALSE） |
-| 498 | `SCR-WF-003` | 业务类型映射設定 | 2 菜单 | `workflow` | `DIR-WF` | `workflow/mappings` | `workflow:mapping:view` | 30 |  |
-| 499 | `SCR-WF-004` | 承認マトリクス設定 | 2 菜单 | `workflow` | `DIR-WF` | `workflow/approval-matrices` | `workflow:mapping:update` | 40 | 非表示ルート（is_visible=FALSE） |
-| 500 | `SCR-WF-005` | 审批发起（提出ダイアログ） | 2 菜单 | `workflow` | `DIR-WF` | `workflow/instances/submit` | `workflow:instance:submit` | 50 | 非表示ルート（is_visible=FALSE） |
-| 501 | `BTN-WORKFLOW-INSTANCE-MANAGE` | manage | 3 按钮 | `workflow` | `SCR-WF-005` | — | `workflow:instance:manage` | 1 |  |
-| 502 | `SCR-WF-006` | 待办一覧 | 2 菜单 | `workflow` | `DIR-WF` | `workflow/tasks` | `workflow:task:view` | 60 |  |
-| 503 | `BTN-WORKFLOW-TASK-ADD-SIGN` | add-sign | 3 按钮 | `workflow` | `SCR-WF-006` | — | `workflow:task:add-sign` | 1 |  |
-| 504 | `BTN-WORKFLOW-TASK-REJECT` | reject | 3 按钮 | `workflow` | `SCR-WF-006` | — | `workflow:task:reject` | 2 |  |
-| 505 | `BTN-WORKFLOW-TASK-TRANSFER` | transfer | 3 按钮 | `workflow` | `SCR-WF-006` | — | `workflow:task:transfer` | 3 |  |
-| 506 | `BTN-WORKFLOW-TASK-URGE` | urge | 3 按钮 | `workflow` | `SCR-WF-006` | — | `workflow:task:urge` | 4 |  |
-| 507 | `BTN-WORKFLOW-TASK-WITHDRAW` | withdraw | 3 按钮 | `workflow` | `SCR-WF-006` | — | `workflow:task:withdraw` | 5 |  |
-| 508 | `SCR-WF-007` | 承認画面 | 2 菜单 | `workflow` | `DIR-WF` | `workflow/tasks/approve` | `workflow:task:approve` | 70 | 非表示ルート（is_visible=FALSE） |
-| 509 | `SCR-WF-008` | 已办一覧 | 2 菜单 | `workflow` | `DIR-WF` | `workflow/tasks/view` | `workflow:task:view` | 80 |  |
-| 510 | `SCR-WF-009` | 我发起的 | 2 菜单 | `workflow` | `DIR-WF` | `workflow/tasks/view/scr-wf-009` | `workflow:task:view` | 90 |  |
-| 511 | `SCR-WF-010` | 抄送我的 | 2 菜单 | `workflow` | `DIR-WF` | `workflow/tasks/view/scr-wf-010` | `workflow:task:view` | 100 |  |
-| 512 | `SCR-WF-011` | 审批历史/流程追踪 | 2 菜单 | `workflow` | `DIR-WF` | `workflow/tasks/:id` | `workflow:task:view` | 110 | 非表示ルート（is_visible=FALSE） |
-| 513 | `SCR-WF-012` | 代理委托设置 | 2 菜单 | `workflow` | `DIR-WF` | `workflow/delegations` | `workflow:delegation:update` | 120 |  |
-| 514 | `BTN-WORKFLOW-DELEGATION-ADMIN` | admin | 3 按钮 | `workflow` | `SCR-WF-012` | — | `workflow:delegation:admin` | 1 |  |
-| 515 | `SCR-WF-013` | 流程实例管理 | 2 菜单 | `workflow` | `DIR-WF` | `workflow/instances` | `workflow:instance:view` | 130 |  |
-| 516 | `SCR-WF-014` | 超时规则与自动审批设置 | 2 菜单 | `workflow` | `DIR-WF` | `workflow/timeouts` | `workflow:timeout:update` | 140 |  |
-| 517 | `SCR-WF-015` | 表单字段权限设置 | 2 菜单 | `workflow` | `DIR-WF` | `workflow/field-permissions` | `workflow:field-permission:update` | 150 | 非表示ルート（is_visible=FALSE） |
-| 518 | `SCR-WF-016` | 流程监控看板 | 2 菜单 | `workflow` | `DIR-WF` | `workflow/monitors` | `workflow:monitor:view` | 160 |  |
-| 519 | `DIR-INT` | 集成管理 | 1 目录 | `integration` | —（ルート） | `integration` | — | 90 | 目录 |
-| 520 | `BTN-INTEGRATION-CREDENTIAL-UPDATE` | update | 3 按钮 | `integration` | `DIR-INT` | — | `integration:credential:update` | 1 | 対応画面なし（ディレクトリ直下） |
-| 521 | `BTN-INTEGRATION-PDA-USE` | use | 3 按钮 | `integration` | `DIR-INT` | — | `integration:pda:use` | 2 | 対応画面なし（ディレクトリ直下） |
-| 522 | `BTN-INTEGRATION-PO-SEND-SUBMIT` | submit | 3 按钮 | `integration` | `DIR-INT` | — | `integration:po-send:submit` | 3 | 対応画面なし（ディレクトリ直下） |
-| 523 | `SCR-INT-001` | 接口配置一覧 | 2 菜单 | `integration` | `DIR-INT` | `integration/interface-configs` | `integration:interface-config:view` | 10 |  |
-| 524 | `BTN-INTEGRATION-INTERFACE-CONFIG-DELETE` | delete | 3 按钮 | `integration` | `SCR-INT-001` | — | `integration:interface-config:delete` | 1 |  |
-| 525 | `BTN-INTEGRATION-INTERFACE-CONFIG-DISABLE` | disable | 3 按钮 | `integration` | `SCR-INT-001` | — | `integration:interface-config:disable` | 2 |  |
-| 526 | `BTN-INTEGRATION-INTERFACE-CONFIG-ENABLE` | enable | 3 按钮 | `integration` | `SCR-INT-001` | — | `integration:interface-config:enable` | 3 |  |
-| 527 | `BTN-INTEGRATION-INTERFACE-CONFIG-UPDATE` | update | 3 按钮 | `integration` | `SCR-INT-001` | — | `integration:interface-config:update` | 4 |  |
-| 528 | `SCR-INT-002` | 接口配置登録編集 | 2 菜单 | `integration` | `DIR-INT` | `integration/interface-configs/new` | `integration:interface-config:create` | 20 | 非表示ルート（is_visible=FALSE） |
-| 529 | `SCR-INT-003` | 接続テスト/実行結果 | 2 菜单 | `integration` | `DIR-INT` | `integration/interface-configs/:id` | `integration:interface-config:test` | 30 | 非表示ルート（is_visible=FALSE） |
-| 530 | `SCR-INT-004` | 同步監視ダッシュボード | 2 菜单 | `integration` | `DIR-INT` | `integration/sync-tasks` | `integration:sync-task:view` | 40 |  |
-| 531 | `SCR-INT-005` | 同期タスク一覧（失敗・滞留） | 2 菜单 | `integration` | `DIR-INT` | `integration/sync-tasks/view` | `integration:sync-task:view` | 50 | 非表示ルート（is_visible=FALSE） |
-| 532 | `SCR-INT-006` | 手動再送/再処理 | 2 菜单 | `integration` | `DIR-INT` | `integration/sync-tasks/retry` | `integration:sync-task:retry` | 60 | 非表示ルート（is_visible=FALSE） |
-| 533 | `SCR-INT-007` | 接口呼出日志 | 2 菜单 | `integration` | `DIR-INT` | `integration/call-logs` | `integration:call-log:view` | 70 | 非表示ルート（is_visible=FALSE） |
-| 534 | `BTN-INTEGRATION-CALL-LOG-EXPORT` | export | 3 按钮 | `integration` | `SCR-INT-007` | — | `integration:call-log:export` | 1 |  |
-| 535 | `SCR-INT-008` | 数电票発行一覧 | 2 菜单 | `integration` | `DIR-INT` | `integration/tax-invoices` | `integration:tax-invoice:view` | 80 |  |
-| 536 | `BTN-INTEGRATION-TAX-INVOICE-APPROVE` | approve | 3 按钮 | `integration` | `SCR-INT-008` | — | `integration:tax-invoice:approve` | 1 |  |
-| 537 | `BTN-INTEGRATION-TAX-INVOICE-RED` | red | 3 按钮 | `integration` | `SCR-INT-008` | — | `integration:tax-invoice:red` | 2 |  |
-| 538 | `BTN-INTEGRATION-TAX-INVOICE-REQUEST` | request | 3 按钮 | `integration` | `SCR-INT-008` | — | `integration:tax-invoice:request` | 3 |  |
-| 539 | `SCR-INT-009` | 数电票詳細・赤伝 | 2 菜单 | `integration` | `DIR-INT` | `integration/tax-invoices/:id` | `integration:tax-invoice:create` | 90 | 非表示ルート（is_visible=FALSE） |
-| 540 | `SCR-INT-010` | 進項発票査験一覧 | 2 菜单 | `integration` | `DIR-INT` | `integration/input-invoices` | `integration:input-invoice:view` | 100 |  |
-| 541 | `BTN-INTEGRATION-INPUT-INVOICE-VERIFY` | verify | 3 按钮 | `integration` | `SCR-INT-010` | — | `integration:input-invoice:verify` | 1 |  |
-| 542 | `SCR-INT-011` | 銀企口座残高一覧 | 2 菜单 | `integration` | `DIR-INT` | `integration/bank-accounts` | `integration:bank-account:view` | 110 |  |
-| 543 | `SCR-INT-012` | 付款指令一覧 | 2 菜单 | `integration` | `DIR-INT` | `integration/bank-payments` | `integration:bank-payment:view` | 120 | 非表示ルート（is_visible=FALSE） |
-| 544 | `BTN-INTEGRATION-BANK-PAYMENT-APPROVE` | approve | 3 按钮 | `integration` | `SCR-INT-012` | — | `integration:bank-payment:approve` | 1 |  |
-| 545 | `BTN-INTEGRATION-BANK-PAYMENT-SUBMIT` | submit | 3 按钮 | `integration` | `SCR-INT-012` | — | `integration:bank-payment:submit` | 2 |  |
-| 546 | `SCR-INT-013` | 付款指令詳細・回单 | 2 菜单 | `integration` | `DIR-INT` | `integration/bank-payments/:id` | `integration:bank-payment:create` | 130 | 非表示ルート（is_visible=FALSE） |
-| 547 | `SCR-INT-014` | 銀行対账单取込 | 2 菜单 | `integration` | `DIR-INT` | `integration/bank-statements` | `integration:bank-statement:import` | 140 |  |
-| 548 | `SCR-INT-015` | 対账单取込結果・FIN 引渡 | 2 菜单 | `integration` | `DIR-INT` | `integration/bank-statements/:id` | `integration:bank-statement:view` | 150 | 非表示ルート（is_visible=FALSE） |
-| 549 | `SCR-INT-016` | MES/WMS 連携状況 | 2 菜单 | `integration` | `DIR-INT` | `integration/meses` | `integration:mes:view` | 160 |  |
-| 550 | `BTN-INTEGRATION-MES-RECEIVE` | receive | 3 按钮 | `integration` | `SCR-INT-016` | — | `integration:mes:receive` | 1 |  |
-| 551 | `BTN-INTEGRATION-MES-RETRY` | retry | 3 按钮 | `integration` | `SCR-INT-016` | — | `integration:mes:retry` | 2 |  |
-| 552 | `SCR-INT-017` | PLM 同期状況 | 2 菜单 | `integration` | `DIR-INT` | `integration/plms` | `integration:plm:view` | 170 |  |
-| 553 | `BTN-INTEGRATION-PLM-APPROVE` | approve | 3 按钮 | `integration` | `SCR-INT-017` | — | `integration:plm:approve` | 1 |  |
-| 554 | `BTN-INTEGRATION-PLM-IMPORT` | import | 3 按钮 | `integration` | `SCR-INT-017` | — | `integration:plm:import` | 2 |  |
-| 555 | `SCR-INT-018` | 開放 API クライアント管理 | 2 菜单 | `integration` | `DIR-INT` | `integration/api-clients` | `integration:api-client:view` | 180 |  |
-| 556 | `BTN-INTEGRATION-API-CLIENT-CREATE` | create | 3 按钮 | `integration` | `SCR-INT-018` | — | `integration:api-client:create` | 1 |  |
-| 557 | `BTN-INTEGRATION-API-CLIENT-UPDATE` | update | 3 按钮 | `integration` | `SCR-INT-018` | — | `integration:api-client:update` | 2 |  |
-| 558 | `SCR-INT-019` | API 利用状況・レート制限 | 2 菜单 | `integration` | `DIR-INT` | `integration/api-clients/view` | `integration:api-client:view` | 190 | 非表示ルート（is_visible=FALSE） |
-| 559 | `SCR-INT-020` | 外部ファイル取込ジョブ | 2 菜单 | `integration` | `DIR-INT` | `integration/file-transfers` | `integration:file-transfer:view` | 200 |  |
-| 560 | `BTN-INTEGRATION-FILE-TRANSFER-IMPORT` | import | 3 按钮 | `integration` | `SCR-INT-020` | — | `integration:file-transfer:import` | 1 |  |
-| 561 | `SCR-INT-021` | 通知チャネル設定 | 2 菜单 | `integration` | `DIR-INT` | `integration/notification-channels` | `integration:notification-channel:update` | 210 |  |
-| 562 | `BTN-INTEGRATION-NOTIFICATION-CHANNEL-VIEW` | view | 3 按钮 | `integration` | `SCR-INT-021` | — | `integration:notification-channel:view` | 1 |  |
-| 563 | `SCR-INT-022` | 通知送信履歴 | 2 菜单 | `integration` | `DIR-INT` | `integration/notification-logs` | `integration:notification-log:view` | 220 | 非表示ルート（is_visible=FALSE） |
-| 564 | `SCR-INT-023` | PDA 端末管理 | 2 菜单 | `integration` | `DIR-INT` | `integration/pda-devices` | `integration:pda-device:view` | 230 |  |
-| 565 | `BTN-INTEGRATION-PDA-DEVICE-UPDATE` | update | 3 按钮 | `integration` | `SCR-INT-023` | — | `integration:pda-device:update` | 1 |  |
-| 566 | `SCR-INT-024` | 日次対账結果 | 2 菜单 | `integration` | `DIR-INT` | `integration/reconciles` | `integration:reconcile:view` | 240 | 非表示ルート（is_visible=FALSE） |
-| 567 | `DIR-RPT` | 报表分析 | 1 目录 | `report` | —（ルート） | `report` | — | 100 | 目录 |
-| 568 | `BTN-REPORT-AUDIT-VIEW` | view | 3 按钮 | `report` | `DIR-RPT` | — | `report:audit:view` | 1 | 対応画面なし（ディレクトリ直下） |
-| 569 | `SCR-RPT-001` | 经营驾驶舱 | 2 菜单 | `report` | `DIR-RPT` | `report/dashboards` | `report:dashboard:view` | 10 |  |
-| 570 | `SCR-RPT-002` | 驾驶舱布局设置 | 2 菜单 | `report` | `DIR-RPT` | `report/dashboards/layout` | `report:dashboard:update` | 20 | 非表示ルート（is_visible=FALSE） |
-| 571 | `SCR-RPT-003` | 销售分析 | 2 菜单 | `report` | `DIR-RPT` | `report/saleses` | `report:sales:view` | 30 | 非表示ルート（is_visible=FALSE） |
-| 572 | `SCR-RPT-004` | 采购分析 | 2 菜单 | `report` | `DIR-RPT` | `report/purchases` | `report:purchase:view` | 40 | 非表示ルート（is_visible=FALSE） |
-| 573 | `SCR-RPT-005` | 生产分析 | 2 菜单 | `report` | `DIR-RPT` | `report/productions` | `report:production:view` | 50 | 非表示ルート（is_visible=FALSE） |
-| 574 | `SCR-RPT-006` | 财务分析 | 2 菜单 | `report` | `DIR-RPT` | `report/finances` | `report:finance:view` | 60 | 非表示ルート（is_visible=FALSE） |
-| 575 | `SCR-RPT-007` | 库存分析 | 2 菜单 | `report` | `DIR-RPT` | `report/inventories` | `report:inventory:view` | 70 | 非表示ルート（is_visible=FALSE） |
-| 576 | `SCR-RPT-008` | KPI 一覧 | 2 菜单 | `report` | `DIR-RPT` | `report/kpis` | `report:kpi:view` | 80 |  |
-| 577 | `SCR-RPT-009` | KPI 定义编辑 | 2 菜单 | `report` | `DIR-RPT` | `report/kpis/:id/edit` | `report:kpi:update` | 90 | 非表示ルート（is_visible=FALSE） |
-| 578 | `SCR-RPT-010` | KPI 详情/趋势 | 2 菜单 | `report` | `DIR-RPT` | `report/kpis/:id` | `report:kpi:view` | 100 | 非表示ルート（is_visible=FALSE） |
-| 579 | `SCR-RPT-011` | 预警中心 | 2 菜单 | `report` | `DIR-RPT` | `report/warnings` | `report:warning:view` | 110 |  |
-| 580 | `SCR-RPT-012` | 预警规则编辑 | 2 菜单 | `report` | `DIR-RPT` | `report/warnings/:id/edit` | `report:warning:update` | 120 | 非表示ルート（is_visible=FALSE） |
-| 581 | `SCR-RPT-013` | 预警历史 | 2 菜单 | `report` | `DIR-RPT` | `report/warnings/view` | `report:warning:view` | 130 | 非表示ルート（is_visible=FALSE） |
-| 582 | `SCR-RPT-014` | 报表订阅一覧 | 2 菜单 | `report` | `DIR-RPT` | `report/subscriptions` | `report:subscription:view` | 140 |  |
-| 583 | `SCR-RPT-015` | 订阅設定 | 2 菜单 | `report` | `DIR-RPT` | `report/subscriptions/settings` | `report:subscription:update` | 150 | 非表示ルート（is_visible=FALSE） |
-| 584 | `SCR-RPT-016` | 分析明细/钻取 | 2 菜单 | `report` | `DIR-RPT` | `report/analysises` | `report:analysis:view` | 160 | 非表示ルート（is_visible=FALSE） |
-| 585 | `SCR-RPT-017` | 分析导出/非同期ジョブ | 2 菜单 | `report` | `DIR-RPT` | `report/analysises/:id` | `report:analysis:export` | 170 | 非表示ルート（is_visible=FALSE） |
-| 586 | `SCR-RPT-018` | 分析数据抽取监视 | 2 菜单 | `report` | `DIR-RPT` | `report/etls` | `report:etl:view` | 180 |  |
-| 587 | `BTN-REPORT-ETL-RUN` | run | 3 按钮 | `report` | `SCR-RPT-018` | — | `report:etl:run` | 1 |  |
-| 588 | `SCR-RPT-019` | 数据质量检查 | 2 菜单 | `report` | `DIR-RPT` | `report/qualities` | `report:quality:view` | 190 |  |
-| 589 | `SCR-RPT-020` | 移动端/大屏（P2） | 2 菜单 | `report` | `DIR-RPT` | `report/dashboards/view` | `report:dashboard:view` | 200 | 非表示ルート（is_visible=FALSE） |
+| 397 | `SCR-PRD-034` | 超产申请一覧 | 2 菜单 | `production` | `DIR-PRD` | `production/overproduction-approvals` | `production:overproduction-approval:view` | 340 | G-11。後続増分迁移で投入 |
+| 398 | `BTN-PRODUCTION-OVERPRODUCTION-APPROVAL-APPROVE` | approve | 3 按钮 | `production` | `SCR-PRD-034` | — | `production:overproduction-approval:approve` | 1 | approve・reject 共用（G-11）。後続増分迁移で投入 |
+| 399 | `BTN-PRODUCTION-OVERPRODUCTION-APPROVAL-CANCEL` | cancel | 3 按钮 | `production` | `SCR-PRD-034` | — | `production:overproduction-approval:cancel` | 2 | 後続増分迁移で投入 |
+| 400 | `BTN-PRODUCTION-OVERPRODUCTION-APPROVAL-CREATE` | create | 3 按钮 | `production` | `SCR-PRD-034` | — | `production:overproduction-approval:create` | 3 | 後続増分迁移で投入 |
+| 401 | `BTN-PRODUCTION-OVERPRODUCTION-APPROVAL-SUBMIT` | submit | 3 按钮 | `production` | `SCR-PRD-034` | — | `production:overproduction-approval:submit` | 4 | 後続増分迁移で投入 |
+| 402 | `DIR-FIN` | 财务管理 | 1 目录 | `finance` | —（ルート） | `finance` | — | 70 | 目录 |
+| 403 | `SCR-FIN-001` | 会计科目一覧 | 2 菜单 | `finance` | `DIR-FIN` | `finance/accounts` | `finance:account:view` | 10 | 非表示ルート（is_visible=FALSE） |
+| 404 | `SCR-FIN-002` | 会计科目登録編集 | 2 菜单 | `finance` | `DIR-FIN` | `finance/accounts/new` | `finance:account:create` | 20 | 非表示ルート（is_visible=FALSE） |
+| 405 | `SCR-FIN-003` | 期初余额录入 | 2 菜单 | `finance` | `DIR-FIN` | `finance/opening-balances` | `finance:opening-balance:import` | 30 | 非表示ルート（is_visible=FALSE） |
+| 406 | `SCR-FIN-004` | 科目辅助核算设置 | 2 菜单 | `finance` | `DIR-FIN` | `finance/accounts/:id/aux` | `finance:account:update` | 40 | 非表示ルート（is_visible=FALSE） |
+| 407 | `SCR-FIN-005` | 记账凭证录入 | 2 菜单 | `finance` | `DIR-FIN` | `finance/vouchers/new` | `finance:voucher:create` | 50 | 非表示ルート（is_visible=FALSE） |
+| 408 | `BTN-FINANCE-VOUCHER-EXPORT` | export | 3 按钮 | `finance` | `SCR-FIN-005` | — | `finance:voucher:export` | 1 |  |
+| 409 | `BTN-FINANCE-VOUCHER-PRINT` | print | 3 按钮 | `finance` | `SCR-FIN-005` | — | `finance:voucher:print` | 2 |  |
+| 410 | `BTN-FINANCE-VOUCHER-SUBMIT` | submit | 3 按钮 | `finance` | `SCR-FIN-005` | — | `finance:voucher:submit` | 3 |  |
+| 411 | `BTN-FINANCE-VOUCHER-UPDATE` | update | 3 按钮 | `finance` | `SCR-FIN-005` | — | `finance:voucher:update` | 4 |  |
+| 412 | `SCR-FIN-006` | 凭证一覧 | 2 菜单 | `finance` | `DIR-FIN` | `finance/vouchers` | `finance:voucher:view` | 60 |  |
+| 413 | `SCR-FIN-007` | 凭证模板管理 | 2 菜单 | `finance` | `DIR-FIN` | `finance/voucher-templates` | `finance:voucher-template:view` | 70 | 非表示ルート（is_visible=FALSE） |
+| 414 | `BTN-FINANCE-VOUCHER-TEMPLATE-UPDATE` | update | 3 按钮 | `finance` | `SCR-FIN-007` | — | `finance:voucher-template:update` | 1 |  |
+| 415 | `SCR-FIN-008` | 凭证待审核一覧 | 2 菜单 | `finance` | `DIR-FIN` | `finance/vouchers/approve` | `finance:voucher:approve` | 80 |  |
+| 416 | `SCR-FIN-009` | 凭证审核详细 | 2 菜单 | `finance` | `DIR-FIN` | `finance/vouchers/:id` | `finance:voucher:approve` | 90 | 非表示ルート（is_visible=FALSE） |
+| 417 | `SCR-FIN-010` | 凭证记账处理 | 2 菜单 | `finance` | `DIR-FIN` | `finance/vouchers/post` | `finance:voucher:post` | 100 |  |
+| 418 | `SCR-FIN-011` | 凭证反记账 | 2 菜单 | `finance` | `DIR-FIN` | `finance/vouchers/unpost` | `finance:voucher:unpost` | 110 |  |
+| 419 | `SCR-FIN-012` | 红字冲销凭证 | 2 菜单 | `finance` | `DIR-FIN` | `finance/vouchers/:id/reverse` | `finance:voucher:reverse` | 120 | 非表示ルート（is_visible=FALSE） |
+| 420 | `SCR-FIN-013` | 凭证查询与附件 | 2 菜单 | `finance` | `DIR-FIN` | `finance/vouchers/view` | `finance:voucher:view` | 130 |  |
+| 421 | `SCR-FIN-014` | 总账查询 | 2 菜单 | `finance` | `DIR-FIN` | `finance/ledgers` | `finance:ledger:view` | 140 |  |
+| 422 | `SCR-FIN-015` | 明细账查询 | 2 菜单 | `finance` | `DIR-FIN` | `finance/ledgers/view` | `finance:ledger:view` | 150 | 非表示ルート（is_visible=FALSE） |
+| 423 | `SCR-FIN-016` | 序时账（日记账） | 2 菜单 | `finance` | `DIR-FIN` | `finance/ledgers/view/scr-fin-016` | `finance:ledger:view` | 160 |  |
+| 424 | `SCR-FIN-017` | 试算平衡表 | 2 菜单 | `finance` | `DIR-FIN` | `finance/trial-balances` | `finance:trial-balance:view` | 170 |  |
+| 425 | `SCR-FIN-018` | 应付单一覧 | 2 菜单 | `finance` | `DIR-FIN` | `finance/payables` | `finance:payable:view` | 180 |  |
+| 426 | `SCR-FIN-019` | 应付单确认/详细 | 2 菜单 | `finance` | `DIR-FIN` | `finance/payables/:id` | `finance:payable:update` | 190 | 非表示ルート（is_visible=FALSE） |
+| 427 | `SCR-FIN-020` | 采购发票三单匹配 | 2 菜单 | `finance` | `DIR-FIN` | `finance/invoices` | `finance:invoice:match` | 200 |  |
+| 428 | `BTN-FINANCE-INVOICE-UPDATE` | update | 3 按钮 | `finance` | `SCR-FIN-020` | — | `finance:invoice:update` | 1 |  |
+| 429 | `SCR-FIN-021` | 暂估余额与冲回 | 2 菜单 | `finance` | `DIR-FIN` | `finance/payables/view` | `finance:payable:view` | 210 |  |
+| 430 | `SCR-FIN-022` | 付款申请 | 2 菜单 | `finance` | `DIR-FIN` | `finance/payment-requests` | `finance:payment-request:create` | 220 |  |
+| 431 | `BTN-FINANCE-PAYMENT-REQUEST-APPROVE` | approve | 3 按钮 | `finance` | `SCR-FIN-022` | — | `finance:payment-request:approve` | 1 |  |
+| 432 | `BTN-FINANCE-PAYMENT-REQUEST-VIEW` | view | 3 按钮 | `finance` | `SCR-FIN-022` | — | `finance:payment-request:view` | 2 |  |
+| 433 | `SCR-FIN-023` | 付款执行 | 2 菜单 | `finance` | `DIR-FIN` | `finance/payments/execute` | `finance:payment:execute` | 230 | 非表示ルート（is_visible=FALSE） |
+| 434 | `BTN-FINANCE-PAYMENT-VIEW` | view | 3 按钮 | `finance` | `SCR-FIN-023` | — | `finance:payment:view` | 1 |  |
+| 435 | `SCR-FIN-024` | 应付核销 | 2 菜单 | `finance` | `DIR-FIN` | `finance/write-offs` | `finance:write-off:create` | 240 |  |
+| 436 | `BTN-FINANCE-WRITE-OFF-REVERSE` | reverse | 3 按钮 | `finance` | `SCR-FIN-024` | — | `finance:write-off:reverse` | 1 |  |
+| 437 | `SCR-FIN-025` | 应付账龄分析 | 2 菜单 | `finance` | `DIR-FIN` | `finance/agings` | `finance:aging:view` | 250 |  |
+| 438 | `SCR-FIN-026` | 应收单一覧 | 2 菜单 | `finance` | `DIR-FIN` | `finance/receivables` | `finance:receivable:view` | 260 |  |
+| 439 | `BTN-FINANCE-RECEIVABLE-CANCEL` | cancel | 3 按钮 | `finance` | `SCR-FIN-026` | — | `finance:receivable:cancel` | 1 |  |
+| 440 | `BTN-FINANCE-RECEIVABLE-CONFIRM` | confirm | 3 按钮 | `finance` | `SCR-FIN-026` | — | `finance:receivable:confirm` | 2 |  |
+| 441 | `BTN-FINANCE-RECEIVABLE-CREATE` | create | 3 按钮 | `finance` | `SCR-FIN-026` | — | `finance:receivable:create` | 3 |  |
+| 442 | `SCR-FIN-027` | 收款登记 | 2 菜单 | `finance` | `DIR-FIN` | `finance/receipts` | `finance:receipt:create` | 270 |  |
+| 443 | `BTN-FINANCE-RECEIPT-CONFIRM` | confirm | 3 按钮 | `finance` | `SCR-FIN-027` | — | `finance:receipt:confirm` | 1 |  |
+| 444 | `BTN-FINANCE-RECEIPT-REVERSE` | reverse | 3 按钮 | `finance` | `SCR-FIN-027` | — | `finance:receipt:reverse` | 2 |  |
+| 445 | `BTN-FINANCE-RECEIPT-VIEW` | view | 3 按钮 | `finance` | `SCR-FIN-027` | — | `finance:receipt:view` | 3 |  |
+| 446 | `SCR-FIN-028` | 应收核销 | 2 菜单 | `finance` | `DIR-FIN` | `finance/write-offs/receivables` | `finance:write-off:create` | 280 | 非表示ルート（is_visible=FALSE） |
+| 447 | `SCR-FIN-029` | 应收账龄分析 | 2 菜单 | `finance` | `DIR-FIN` | `finance/agings/view` | `finance:aging:view` | 290 |  |
+| 448 | `SCR-FIN-030` | 坏账准备计提（P2） | 2 菜单 | `finance` | `DIR-FIN` | `finance/receivables/update` | `finance:receivable:update` | 300 | 非表示ルート（is_visible=FALSE） |
+| 449 | `SCR-FIN-031` | 现金日记账 | 2 菜单 | `finance` | `DIR-FIN` | `finance/cash-journals` | `finance:cash-journal:view` | 310 |  |
+| 450 | `BTN-FINANCE-CASH-JOURNAL-CREATE` | create | 3 按钮 | `finance` | `SCR-FIN-031` | — | `finance:cash-journal:create` | 1 |  |
+| 451 | `SCR-FIN-032` | 银行日记账 | 2 菜单 | `finance` | `DIR-FIN` | `finance/bank-journals` | `finance:bank-journal:view` | 320 |  |
+| 452 | `SCR-FIN-033` | 银行对账单导入 | 2 菜单 | `finance` | `DIR-FIN` | `finance/bank-statements/import` | `finance:bank-statement:import` | 330 | 非表示ルート（is_visible=FALSE） |
+| 453 | `SCR-FIN-034` | 银行对账 | 2 菜单 | `finance` | `DIR-FIN` | `finance/bank-recons` | `finance:bank-recon:execute` | 340 | 非表示ルート（is_visible=FALSE） |
+| 454 | `BTN-FINANCE-BANK-RECON-ADJUST` | adjust | 3 按钮 | `finance` | `SCR-FIN-034` | — | `finance:bank-recon:adjust` | 1 |  |
+| 455 | `SCR-FIN-035` | 余额调节表 | 2 菜单 | `finance` | `DIR-FIN` | `finance/bank-recons/view` | `finance:bank-recon:view` | 350 | 非表示ルート（is_visible=FALSE） |
+| 456 | `SCR-FIN-036` | 资金日报 | 2 菜单 | `finance` | `DIR-FIN` | `finance/fund-reports` | `finance:fund-report:view` | 360 |  |
+| 457 | `SCR-FIN-037` | 进项发票台账 | 2 菜单 | `finance` | `DIR-FIN` | `finance/invoices/view` | `finance:invoice:view` | 370 |  |
+| 458 | `SCR-FIN-038` | 销项发票台账 | 2 菜单 | `finance` | `DIR-FIN` | `finance/invoices/view/scr-fin-038` | `finance:invoice:view` | 380 |  |
+| 459 | `SCR-FIN-039` | 增值税申报辅助表 | 2 菜单 | `finance` | `DIR-FIN` | `finance/vat-returns` | `finance:vat-return:view` | 390 |  |
+| 460 | `BTN-FINANCE-VAT-RETURN-EXPORT` | export | 3 按钮 | `finance` | `SCR-FIN-039` | — | `finance:vat-return:export` | 1 |  |
+| 461 | `BTN-FINANCE-VAT-RETURN-GENERATE` | generate | 3 按钮 | `finance` | `SCR-FIN-039` | — | `finance:vat-return:generate` | 2 |  |
+| 462 | `SCR-FIN-040` | 附加税/所得税计提 | 2 菜单 | `finance` | `DIR-FIN` | `finance/tax-accruals` | `finance:tax-accrual:generate` | 400 |  |
+| 463 | `BTN-FINANCE-TAX-ACCRUAL-VIEW` | view | 3 按钮 | `finance` | `SCR-FIN-040` | — | `finance:tax-accrual:view` | 1 |  |
+| 464 | `SCR-FIN-041` | 自动凭证规则管理 | 2 菜单 | `finance` | `DIR-FIN` | `finance/auto-vouchers` | `finance:auto-voucher:view` | 410 | 非表示ルート（is_visible=FALSE） |
+| 465 | `BTN-FINANCE-AUTO-VOUCHER-RETRY` | retry | 3 按钮 | `finance` | `SCR-FIN-041` | — | `finance:auto-voucher:retry` | 1 |  |
+| 466 | `BTN-FINANCE-AUTO-VOUCHER-UPDATE` | update | 3 按钮 | `finance` | `SCR-FIN-041` | — | `finance:auto-voucher:update` | 2 |  |
+| 467 | `SCR-FIN-042` | 自动凭证监控 | 2 菜单 | `finance` | `DIR-FIN` | `finance/auto-vouchers/view` | `finance:auto-voucher:view` | 420 |  |
+| 468 | `SCR-FIN-043` | 成本计算 | 2 菜单 | `finance` | `DIR-FIN` | `finance/costs` | `finance:cost:calculate` | 430 |  |
+| 469 | `BTN-FINANCE-COST-CONFIRM` | confirm | 3 按钮 | `finance` | `SCR-FIN-043` | — | `finance:cost:confirm` | 1 |  |
+| 470 | `SCR-FIN-044` | 成本计算结果 | 2 菜单 | `finance` | `DIR-FIN` | `finance/costs/:id` | `finance:cost:view` | 440 | 非表示ルート（is_visible=FALSE） |
+| 471 | `SCR-FIN-045` | 制造费用归集与分配 | 2 菜单 | `finance` | `DIR-FIN` | `finance/costs/calculate` | `finance:cost:calculate` | 450 |  |
+| 472 | `SCR-FIN-046` | 在制品与完工成本 | 2 菜单 | `finance` | `DIR-FIN` | `finance/costs/view` | `finance:cost:view` | 460 |  |
+| 473 | `SCR-FIN-047` | 成本差异分析 | 2 菜单 | `finance` | `DIR-FIN` | `finance/costs/view/scr-fin-047` | `finance:cost:view` | 470 |  |
+| 474 | `SCR-FIN-048` | 会计期间管理 | 2 菜单 | `finance` | `DIR-FIN` | `finance/periods` | `finance:period:view` | 480 | 非表示ルート（is_visible=FALSE） |
+| 475 | `BTN-FINANCE-PERIOD-REOPEN` | reopen | 3 按钮 | `finance` | `SCR-FIN-048` | — | `finance:period:reopen` | 1 |  |
+| 476 | `SCR-FIN-049` | 月结向导 | 2 菜单 | `finance` | `DIR-FIN` | `finance/periods/close` | `finance:period:close` | 490 | 非表示ルート（is_visible=FALSE） |
+| 477 | `SCR-FIN-050` | 损益结转 | 2 菜单 | `finance` | `DIR-FIN` | `finance/periods/closing` | `finance:period:close` | 500 | 非表示ルート（is_visible=FALSE） |
+| 478 | `SCR-FIN-051` | 年度结转 | 2 菜单 | `finance` | `DIR-FIN` | `finance/year-closes/execute` | `finance:year-close:execute` | 510 | 非表示ルート（is_visible=FALSE） |
+| 479 | `SCR-FIN-052` | 财务报表（三表） | 2 菜单 | `finance` | `DIR-FIN` | `finance/statements` | `finance:statement:view` | 520 |  |
+| 480 | `BTN-FINANCE-STATEMENT-EXPORT` | export | 3 按钮 | `finance` | `SCR-FIN-052` | — | `finance:statement:export` | 1 |  |
+| 481 | `BTN-FINANCE-STATEMENT-PRINT` | print | 3 按钮 | `finance` | `SCR-FIN-052` | — | `finance:statement:print` | 2 |  |
+| 482 | `SCR-FIN-053` | 科目余额表 | 2 菜单 | `finance` | `DIR-FIN` | `finance/reports` | `finance:report:view` | 530 |  |
+| 483 | `BTN-FINANCE-REPORT-EXPORT` | export | 3 按钮 | `finance` | `SCR-FIN-053` | — | `finance:report:export` | 1 |  |
+| 484 | `BTN-FINANCE-REPORT-PRINT` | print | 3 按钮 | `finance` | `SCR-FIN-053` | — | `finance:report:print` | 2 |  |
+| 485 | `SCR-FIN-054` | 费用报销（P2） | 2 菜单 | `finance` | `DIR-FIN` | `finance/expenses` | `finance:expense:create` | 540 |  |
+| 486 | `BTN-FINANCE-EXPENSE-VIEW` | view | 3 按钮 | `finance` | `SCR-FIN-054` | — | `finance:expense:view` | 1 |  |
+| 487 | `SCR-FIN-055` | 借款/还款（P2） | 2 菜单 | `finance` | `DIR-FIN` | `finance/expenses/create` | `finance:expense:create` | 550 |  |
+| 488 | `SCR-FIN-056` | 固定资产卡片（P2） | 2 菜单 | `finance` | `DIR-FIN` | `finance/assets` | `finance:asset:view` | 560 |  |
+| 489 | `BTN-FINANCE-ASSET-UPDATE` | update | 3 按钮 | `finance` | `SCR-FIN-056` | — | `finance:asset:update` | 1 |  |
+| 490 | `SCR-FIN-057` | 固定资产处置（P2） | 2 菜单 | `finance` | `DIR-FIN` | `finance/assets/disposal` | `finance:asset:dispose` | 570 | 非表示ルート（is_visible=FALSE） |
+| 491 | `SCR-FIN-058` | 预算管理（P2） | 2 菜单 | `finance` | `DIR-FIN` | `finance/budgets` | `finance:budget:update` | 580 |  |
+| 492 | `BTN-FINANCE-BUDGET-VIEW` | view | 3 按钮 | `finance` | `SCR-FIN-058` | — | `finance:budget:view` | 1 |  |
+| 493 | `SCR-FIN-059` | 汇兑损益调整（P2） | 2 菜单 | `finance` | `DIR-FIN` | `finance/vouchers/create` | `finance:voucher:create` | 590 |  |
+| 494 | `SCR-FIN-060` | 资金计划与付款排程（P2） | 2 菜单 | `finance` | `DIR-FIN` | `finance/fund-reports/view` | `finance:fund-report:view` | 600 |  |
+| 495 | `SCR-FIN-061` | 财务报表分析（P2） | 2 菜单 | `finance` | `DIR-FIN` | `finance/statements/view` | `finance:statement:view` | 610 | 非表示ルート（is_visible=FALSE） |
+| 496 | `SCR-FIN-062` | 標準原価メンテナンス | 2 菜单 | `finance` | `DIR-FIN` | `finance/standard-costs` | `finance:standard-cost:view` | 620 | 非表示ルート（is_visible=FALSE） |
+| 497 | `BTN-FINANCE-STANDARD-COST-PUBLISH` | publish | 3 按钮 | `finance` | `SCR-FIN-062` | — | `finance:standard-cost:publish` | 1 |  |
+| 498 | `BTN-FINANCE-STANDARD-COST-REGISTER` | register | 3 按钮 | `finance` | `SCR-FIN-062` | — | `finance:standard-cost:register` | 2 |  |
+| 499 | `DIR-WF` | 工作流 | 1 目录 | `workflow` | —（ルート） | `workflow` | — | 80 | 目录 |
+| 500 | `SCR-WF-001` | 流程模型一覧 | 2 菜单 | `workflow` | `DIR-WF` | `workflow/processes` | `workflow:process:view` | 10 |  |
+| 501 | `BTN-WORKFLOW-PROCESS-DEPLOY` | deploy | 3 按钮 | `workflow` | `SCR-WF-001` | — | `workflow:process:deploy` | 1 |  |
+| 502 | `SCR-WF-002` | 流程模型登録編集/デプロイ | 2 菜单 | `workflow` | `DIR-WF` | `workflow/processes/new` | `workflow:process:update` | 20 | 非表示ルート（is_visible=FALSE） |
+| 503 | `SCR-WF-003` | 业务类型映射設定 | 2 菜单 | `workflow` | `DIR-WF` | `workflow/mappings` | `workflow:mapping:view` | 30 |  |
+| 504 | `SCR-WF-004` | 承認マトリクス設定 | 2 菜单 | `workflow` | `DIR-WF` | `workflow/approval-matrices` | `workflow:mapping:update` | 40 | 非表示ルート（is_visible=FALSE） |
+| 505 | `SCR-WF-005` | 审批发起（提出ダイアログ） | 2 菜单 | `workflow` | `DIR-WF` | `workflow/instances/submit` | `workflow:instance:submit` | 50 | 非表示ルート（is_visible=FALSE） |
+| 506 | `BTN-WORKFLOW-INSTANCE-MANAGE` | manage | 3 按钮 | `workflow` | `SCR-WF-005` | — | `workflow:instance:manage` | 1 |  |
+| 507 | `SCR-WF-006` | 待办一覧 | 2 菜单 | `workflow` | `DIR-WF` | `workflow/tasks` | `workflow:task:view` | 60 |  |
+| 508 | `BTN-WORKFLOW-TASK-ADD-SIGN` | add-sign | 3 按钮 | `workflow` | `SCR-WF-006` | — | `workflow:task:add-sign` | 1 |  |
+| 509 | `BTN-WORKFLOW-TASK-REJECT` | reject | 3 按钮 | `workflow` | `SCR-WF-006` | — | `workflow:task:reject` | 2 |  |
+| 510 | `BTN-WORKFLOW-TASK-TRANSFER` | transfer | 3 按钮 | `workflow` | `SCR-WF-006` | — | `workflow:task:transfer` | 3 |  |
+| 511 | `BTN-WORKFLOW-TASK-URGE` | urge | 3 按钮 | `workflow` | `SCR-WF-006` | — | `workflow:task:urge` | 4 |  |
+| 512 | `BTN-WORKFLOW-TASK-WITHDRAW` | withdraw | 3 按钮 | `workflow` | `SCR-WF-006` | — | `workflow:task:withdraw` | 5 |  |
+| 513 | `SCR-WF-007` | 承認画面 | 2 菜单 | `workflow` | `DIR-WF` | `workflow/tasks/approve` | `workflow:task:approve` | 70 | 非表示ルート（is_visible=FALSE） |
+| 514 | `SCR-WF-008` | 已办一覧 | 2 菜单 | `workflow` | `DIR-WF` | `workflow/tasks/view` | `workflow:task:view` | 80 |  |
+| 515 | `SCR-WF-009` | 我发起的 | 2 菜单 | `workflow` | `DIR-WF` | `workflow/tasks/view/scr-wf-009` | `workflow:task:view` | 90 |  |
+| 516 | `SCR-WF-010` | 抄送我的 | 2 菜单 | `workflow` | `DIR-WF` | `workflow/tasks/view/scr-wf-010` | `workflow:task:view` | 100 |  |
+| 517 | `SCR-WF-011` | 审批历史/流程追踪 | 2 菜单 | `workflow` | `DIR-WF` | `workflow/tasks/:id` | `workflow:task:view` | 110 | 非表示ルート（is_visible=FALSE） |
+| 518 | `SCR-WF-012` | 代理委托设置 | 2 菜单 | `workflow` | `DIR-WF` | `workflow/delegations` | `workflow:delegation:update` | 120 |  |
+| 519 | `BTN-WORKFLOW-DELEGATION-ADMIN` | admin | 3 按钮 | `workflow` | `SCR-WF-012` | — | `workflow:delegation:admin` | 1 |  |
+| 520 | `SCR-WF-013` | 流程实例管理 | 2 菜单 | `workflow` | `DIR-WF` | `workflow/instances` | `workflow:instance:view` | 130 |  |
+| 521 | `SCR-WF-014` | 超时规则与自动审批设置 | 2 菜单 | `workflow` | `DIR-WF` | `workflow/timeouts` | `workflow:timeout:update` | 140 |  |
+| 522 | `SCR-WF-015` | 表单字段权限设置 | 2 菜单 | `workflow` | `DIR-WF` | `workflow/field-permissions` | `workflow:field-permission:update` | 150 | 非表示ルート（is_visible=FALSE） |
+| 523 | `SCR-WF-016` | 流程监控看板 | 2 菜单 | `workflow` | `DIR-WF` | `workflow/monitors` | `workflow:monitor:view` | 160 |  |
+| 524 | `DIR-INT` | 集成管理 | 1 目录 | `integration` | —（ルート） | `integration` | — | 90 | 目录 |
+| 525 | `BTN-INTEGRATION-CREDENTIAL-UPDATE` | update | 3 按钮 | `integration` | `DIR-INT` | — | `integration:credential:update` | 1 | 対応画面なし（ディレクトリ直下） |
+| 526 | `BTN-INTEGRATION-PDA-USE` | use | 3 按钮 | `integration` | `DIR-INT` | — | `integration:pda:use` | 2 | 対応画面なし（ディレクトリ直下） |
+| 527 | `BTN-INTEGRATION-PO-SEND-SUBMIT` | submit | 3 按钮 | `integration` | `DIR-INT` | — | `integration:po-send:submit` | 3 | 対応画面なし（ディレクトリ直下） |
+| 528 | `SCR-INT-001` | 接口配置一覧 | 2 菜单 | `integration` | `DIR-INT` | `integration/interface-configs` | `integration:interface-config:view` | 10 |  |
+| 529 | `BTN-INTEGRATION-INTERFACE-CONFIG-DELETE` | delete | 3 按钮 | `integration` | `SCR-INT-001` | — | `integration:interface-config:delete` | 1 |  |
+| 530 | `BTN-INTEGRATION-INTERFACE-CONFIG-DISABLE` | disable | 3 按钮 | `integration` | `SCR-INT-001` | — | `integration:interface-config:disable` | 2 |  |
+| 531 | `BTN-INTEGRATION-INTERFACE-CONFIG-ENABLE` | enable | 3 按钮 | `integration` | `SCR-INT-001` | — | `integration:interface-config:enable` | 3 |  |
+| 532 | `BTN-INTEGRATION-INTERFACE-CONFIG-UPDATE` | update | 3 按钮 | `integration` | `SCR-INT-001` | — | `integration:interface-config:update` | 4 |  |
+| 533 | `SCR-INT-002` | 接口配置登録編集 | 2 菜单 | `integration` | `DIR-INT` | `integration/interface-configs/new` | `integration:interface-config:create` | 20 | 非表示ルート（is_visible=FALSE） |
+| 534 | `SCR-INT-003` | 接続テスト/実行結果 | 2 菜单 | `integration` | `DIR-INT` | `integration/interface-configs/:id` | `integration:interface-config:test` | 30 | 非表示ルート（is_visible=FALSE） |
+| 535 | `SCR-INT-004` | 同步監視ダッシュボード | 2 菜单 | `integration` | `DIR-INT` | `integration/sync-tasks` | `integration:sync-task:view` | 40 |  |
+| 536 | `SCR-INT-005` | 同期タスク一覧（失敗・滞留） | 2 菜单 | `integration` | `DIR-INT` | `integration/sync-tasks/view` | `integration:sync-task:view` | 50 | 非表示ルート（is_visible=FALSE） |
+| 537 | `SCR-INT-006` | 手動再送/再処理 | 2 菜单 | `integration` | `DIR-INT` | `integration/sync-tasks/retry` | `integration:sync-task:retry` | 60 | 非表示ルート（is_visible=FALSE） |
+| 538 | `SCR-INT-007` | 接口呼出日志 | 2 菜单 | `integration` | `DIR-INT` | `integration/call-logs` | `integration:call-log:view` | 70 | 非表示ルート（is_visible=FALSE） |
+| 539 | `BTN-INTEGRATION-CALL-LOG-EXPORT` | export | 3 按钮 | `integration` | `SCR-INT-007` | — | `integration:call-log:export` | 1 |  |
+| 540 | `SCR-INT-008` | 数电票発行一覧 | 2 菜单 | `integration` | `DIR-INT` | `integration/tax-invoices` | `integration:tax-invoice:view` | 80 |  |
+| 541 | `BTN-INTEGRATION-TAX-INVOICE-APPROVE` | approve | 3 按钮 | `integration` | `SCR-INT-008` | — | `integration:tax-invoice:approve` | 1 |  |
+| 542 | `BTN-INTEGRATION-TAX-INVOICE-RED` | red | 3 按钮 | `integration` | `SCR-INT-008` | — | `integration:tax-invoice:red` | 2 |  |
+| 543 | `BTN-INTEGRATION-TAX-INVOICE-REQUEST` | request | 3 按钮 | `integration` | `SCR-INT-008` | — | `integration:tax-invoice:request` | 3 |  |
+| 544 | `SCR-INT-009` | 数电票詳細・赤伝 | 2 菜单 | `integration` | `DIR-INT` | `integration/tax-invoices/:id` | `integration:tax-invoice:create` | 90 | 非表示ルート（is_visible=FALSE） |
+| 545 | `SCR-INT-010` | 進項発票査験一覧 | 2 菜单 | `integration` | `DIR-INT` | `integration/input-invoices` | `integration:input-invoice:view` | 100 |  |
+| 546 | `BTN-INTEGRATION-INPUT-INVOICE-VERIFY` | verify | 3 按钮 | `integration` | `SCR-INT-010` | — | `integration:input-invoice:verify` | 1 |  |
+| 547 | `SCR-INT-011` | 銀企口座残高一覧 | 2 菜单 | `integration` | `DIR-INT` | `integration/bank-accounts` | `integration:bank-account:view` | 110 |  |
+| 548 | `SCR-INT-012` | 付款指令一覧 | 2 菜单 | `integration` | `DIR-INT` | `integration/bank-payments` | `integration:bank-payment:view` | 120 | 非表示ルート（is_visible=FALSE） |
+| 549 | `BTN-INTEGRATION-BANK-PAYMENT-APPROVE` | approve | 3 按钮 | `integration` | `SCR-INT-012` | — | `integration:bank-payment:approve` | 1 |  |
+| 550 | `BTN-INTEGRATION-BANK-PAYMENT-SUBMIT` | submit | 3 按钮 | `integration` | `SCR-INT-012` | — | `integration:bank-payment:submit` | 2 |  |
+| 551 | `SCR-INT-013` | 付款指令詳細・回单 | 2 菜单 | `integration` | `DIR-INT` | `integration/bank-payments/:id` | `integration:bank-payment:create` | 130 | 非表示ルート（is_visible=FALSE） |
+| 552 | `SCR-INT-014` | 銀行対账单取込 | 2 菜单 | `integration` | `DIR-INT` | `integration/bank-statements` | `integration:bank-statement:import` | 140 |  |
+| 553 | `SCR-INT-015` | 対账单取込結果・FIN 引渡 | 2 菜单 | `integration` | `DIR-INT` | `integration/bank-statements/:id` | `integration:bank-statement:view` | 150 | 非表示ルート（is_visible=FALSE） |
+| 554 | `SCR-INT-016` | MES/WMS 連携状況 | 2 菜单 | `integration` | `DIR-INT` | `integration/meses` | `integration:mes:view` | 160 |  |
+| 555 | `BTN-INTEGRATION-MES-RECEIVE` | receive | 3 按钮 | `integration` | `SCR-INT-016` | — | `integration:mes:receive` | 1 |  |
+| 556 | `BTN-INTEGRATION-MES-RETRY` | retry | 3 按钮 | `integration` | `SCR-INT-016` | — | `integration:mes:retry` | 2 |  |
+| 557 | `SCR-INT-017` | PLM 同期状況 | 2 菜单 | `integration` | `DIR-INT` | `integration/plms` | `integration:plm:view` | 170 |  |
+| 558 | `BTN-INTEGRATION-PLM-APPROVE` | approve | 3 按钮 | `integration` | `SCR-INT-017` | — | `integration:plm:approve` | 1 |  |
+| 559 | `BTN-INTEGRATION-PLM-IMPORT` | import | 3 按钮 | `integration` | `SCR-INT-017` | — | `integration:plm:import` | 2 |  |
+| 560 | `SCR-INT-018` | 開放 API クライアント管理 | 2 菜单 | `integration` | `DIR-INT` | `integration/api-clients` | `integration:api-client:view` | 180 |  |
+| 561 | `BTN-INTEGRATION-API-CLIENT-CREATE` | create | 3 按钮 | `integration` | `SCR-INT-018` | — | `integration:api-client:create` | 1 |  |
+| 562 | `BTN-INTEGRATION-API-CLIENT-UPDATE` | update | 3 按钮 | `integration` | `SCR-INT-018` | — | `integration:api-client:update` | 2 |  |
+| 563 | `SCR-INT-019` | API 利用状況・レート制限 | 2 菜单 | `integration` | `DIR-INT` | `integration/api-clients/view` | `integration:api-client:view` | 190 | 非表示ルート（is_visible=FALSE） |
+| 564 | `SCR-INT-020` | 外部ファイル取込ジョブ | 2 菜单 | `integration` | `DIR-INT` | `integration/file-transfers` | `integration:file-transfer:view` | 200 |  |
+| 565 | `BTN-INTEGRATION-FILE-TRANSFER-IMPORT` | import | 3 按钮 | `integration` | `SCR-INT-020` | — | `integration:file-transfer:import` | 1 |  |
+| 566 | `SCR-INT-021` | 通知チャネル設定 | 2 菜单 | `integration` | `DIR-INT` | `integration/notification-channels` | `integration:notification-channel:update` | 210 |  |
+| 567 | `BTN-INTEGRATION-NOTIFICATION-CHANNEL-VIEW` | view | 3 按钮 | `integration` | `SCR-INT-021` | — | `integration:notification-channel:view` | 1 |  |
+| 568 | `SCR-INT-022` | 通知送信履歴 | 2 菜单 | `integration` | `DIR-INT` | `integration/notification-logs` | `integration:notification-log:view` | 220 | 非表示ルート（is_visible=FALSE） |
+| 569 | `SCR-INT-023` | PDA 端末管理 | 2 菜单 | `integration` | `DIR-INT` | `integration/pda-devices` | `integration:pda-device:view` | 230 |  |
+| 570 | `BTN-INTEGRATION-PDA-DEVICE-UPDATE` | update | 3 按钮 | `integration` | `SCR-INT-023` | — | `integration:pda-device:update` | 1 |  |
+| 571 | `SCR-INT-024` | 日次対账結果 | 2 菜单 | `integration` | `DIR-INT` | `integration/reconciles` | `integration:reconcile:view` | 240 | 非表示ルート（is_visible=FALSE） |
+| 572 | `DIR-RPT` | 报表分析 | 1 目录 | `report` | —（ルート） | `report` | — | 100 | 目录 |
+| 573 | `BTN-REPORT-AUDIT-VIEW` | view | 3 按钮 | `report` | `DIR-RPT` | — | `report:audit:view` | 1 | 対応画面なし（ディレクトリ直下） |
+| 574 | `SCR-RPT-001` | 经营驾驶舱 | 2 菜单 | `report` | `DIR-RPT` | `report/dashboards` | `report:dashboard:view` | 10 |  |
+| 575 | `SCR-RPT-002` | 驾驶舱布局设置 | 2 菜单 | `report` | `DIR-RPT` | `report/dashboards/layout` | `report:dashboard:update` | 20 | 非表示ルート（is_visible=FALSE） |
+| 576 | `SCR-RPT-003` | 销售分析 | 2 菜单 | `report` | `DIR-RPT` | `report/saleses` | `report:sales:view` | 30 | 非表示ルート（is_visible=FALSE） |
+| 577 | `SCR-RPT-004` | 采购分析 | 2 菜单 | `report` | `DIR-RPT` | `report/purchases` | `report:purchase:view` | 40 | 非表示ルート（is_visible=FALSE） |
+| 578 | `SCR-RPT-005` | 生产分析 | 2 菜单 | `report` | `DIR-RPT` | `report/productions` | `report:production:view` | 50 | 非表示ルート（is_visible=FALSE） |
+| 579 | `SCR-RPT-006` | 财务分析 | 2 菜单 | `report` | `DIR-RPT` | `report/finances` | `report:finance:view` | 60 | 非表示ルート（is_visible=FALSE） |
+| 580 | `SCR-RPT-007` | 库存分析 | 2 菜单 | `report` | `DIR-RPT` | `report/inventories` | `report:inventory:view` | 70 | 非表示ルート（is_visible=FALSE） |
+| 581 | `SCR-RPT-008` | KPI 一覧 | 2 菜单 | `report` | `DIR-RPT` | `report/kpis` | `report:kpi:view` | 80 |  |
+| 582 | `SCR-RPT-009` | KPI 定义编辑 | 2 菜单 | `report` | `DIR-RPT` | `report/kpis/:id/edit` | `report:kpi:update` | 90 | 非表示ルート（is_visible=FALSE） |
+| 583 | `SCR-RPT-010` | KPI 详情/趋势 | 2 菜单 | `report` | `DIR-RPT` | `report/kpis/:id` | `report:kpi:view` | 100 | 非表示ルート（is_visible=FALSE） |
+| 584 | `SCR-RPT-011` | 预警中心 | 2 菜单 | `report` | `DIR-RPT` | `report/warnings` | `report:warning:view` | 110 |  |
+| 585 | `SCR-RPT-012` | 预警规则编辑 | 2 菜单 | `report` | `DIR-RPT` | `report/warnings/:id/edit` | `report:warning:update` | 120 | 非表示ルート（is_visible=FALSE） |
+| 586 | `SCR-RPT-013` | 预警历史 | 2 菜单 | `report` | `DIR-RPT` | `report/warnings/view` | `report:warning:view` | 130 | 非表示ルート（is_visible=FALSE） |
+| 587 | `SCR-RPT-014` | 报表订阅一覧 | 2 菜单 | `report` | `DIR-RPT` | `report/subscriptions` | `report:subscription:view` | 140 |  |
+| 588 | `SCR-RPT-015` | 订阅設定 | 2 菜单 | `report` | `DIR-RPT` | `report/subscriptions/settings` | `report:subscription:update` | 150 | 非表示ルート（is_visible=FALSE） |
+| 589 | `SCR-RPT-016` | 分析明细/钻取 | 2 菜单 | `report` | `DIR-RPT` | `report/analysises` | `report:analysis:view` | 160 | 非表示ルート（is_visible=FALSE） |
+| 590 | `SCR-RPT-017` | 分析导出/非同期ジョブ | 2 菜单 | `report` | `DIR-RPT` | `report/analysises/:id` | `report:analysis:export` | 170 | 非表示ルート（is_visible=FALSE） |
+| 591 | `SCR-RPT-018` | 分析数据抽取监视 | 2 菜单 | `report` | `DIR-RPT` | `report/etls` | `report:etl:view` | 180 |  |
+| 592 | `BTN-REPORT-ETL-RUN` | run | 3 按钮 | `report` | `SCR-RPT-018` | — | `report:etl:run` | 1 |  |
+| 593 | `SCR-RPT-019` | 数据质量检查 | 2 菜单 | `report` | `DIR-RPT` | `report/qualities` | `report:quality:view` | 190 |  |
+| 594 | `SCR-RPT-020` | 移动端/大屏（P2） | 2 菜单 | `report` | `DIR-RPT` | `report/dashboards/view` | `report:dashboard:view` | 200 | 非表示ルート（is_visible=FALSE） |
 
 ## 7. 改訂履歴
 
@@ -886,3 +892,5 @@
 | v1.4 | 2026-10-21 | #58 決定反映：`permission_code` の重複を許可し全菜单行に設定（付与 579 行）、判定はコードのみ・目录は付与対象外。`sys_init_tenant`（メニュー投入＋各社 `sys_init_company`）／`sys_init_company(p_tenant_id, p_company_id)`（`sys_param`＋`SYSTEM_ADMIN` 未作成時のみ作成・全付与、`erp_app` にも EXECUTE、テナント・会社の検査）の分担と pgTAP。`route_path` 規則（`/new` は新規登録のみ）と 32 画面の訂正。ギャップ G-1〜G-10 を解決済みに更新（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.5 | 2026-10-21 | 付録 A の `route_path` 20 件を訂正（子表・既存伝票操作は `<res>/:id/<子または操作>`、種別別新規は `<res>/<種別>/new`）、§2.10 (4) に規則を追記（蓝色大肥鱼 2026-10-21 承認） | 业务分析 |
 | v1.6 | 2026-10-21 | §2.10 (4)：複数伝票種別を扱う画面の `route_path` は種別コードを 09 §7.1 の順にハイフン連結（`mii-mir`、`osi-osr`）と明記 | 业务分析 |
+| v1.7 | 2026-10-21 | §2.10 (7) G-7 を改訂：`sys_menu.parent_id` に自己参照 FK を付けないことを明記（0＝ルート、親子はアプリ `MSG-SYS-021` と pgTAP で検査。#65、蓝色大肥鱼 2026-10-21 決定、案 A） | 业务分析 |
+| v1.8 | 2026-10-21 | G-11 を追加：超産承認の菜单 `SCR-PRD-034` と按钮 4 行（`production:overproduction-approval:*`、reject は approve と共用）を付録 A #397〜#401 に追加し後続行を繰下げ（画面は 06 §5 SCR-PRD-034）。増分迁移の要件（既存 SYSTEM_ADMIN へ新 5 コードのみ一度付与・撤销済み付与は戻さない・新規会社は sys_init_company で取得、pgTAP で両方を断言）を明記。件数を 594 行／付与 584／異なるコード 518 に更新（V202610211405 は 589／579／513 のまま、5 行は後続の増分迁移で投入。蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

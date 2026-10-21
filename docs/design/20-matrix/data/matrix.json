@@ -64,7 +64,7 @@
       "name": "生产管理",
       "folder": "06-production",
       "functions": 20,
-      "screens": 33,
+      "screens": 34,
       "tables": 48,
       "reports": 16,
       "batches": 11,
@@ -4525,6 +4525,15 @@
       "type": "帳票プレビュー",
       "function": "F-PRD-019",
       "permission": "production:report:view",
+      "domain": "PRD",
+      "source": "06-production/00-overview.md"
+    },
+    {
+      "id": "SCR-PRD-034",
+      "name": "超产申请一覧",
+      "type": "一覧検索",
+      "function": "F-PRD-008",
+      "permission": "production:overproduction-approval:view",
       "domain": "PRD",
       "source": "06-production/00-overview.md"
     },
@@ -20393,6 +20402,13 @@
       "source": "06-production/00-overview.md"
     },
     {
+      "code": "production:overproduction-approval:view",
+      "function": "F-PRD-008",
+      "scope": "",
+      "domain": "PRD",
+      "source": "06-production/00-overview.md"
+    },
+    {
       "code": "production:bom:approve",
       "function": "F-PRD-001（BOM 变更审批）",
       "scope": "所属工厂",
@@ -31489,7 +31505,7 @@
     },
     {
       "file": "06-production/00-overview.md",
-      "line": 510,
+      "line": 511,
       "text": "> 本文正文中不保留未処理の `【未決】` マーカー。決定が必要な事項は本表に集約し、レビュー後に回写・クローズする。"
     },
     {
