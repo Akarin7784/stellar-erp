@@ -70,7 +70,7 @@
       "batches": 11,
       "interfaces": 4,
       "messages": 101,
-      "apis": 121
+      "apis": 122
     },
     "FIN": {
       "name": "财务管理",
@@ -29104,6 +29104,14 @@
       "path": "/api/production/overproduction-approvals/{id}/cancel",
       "name": "取消（10/20→90。§3.14）",
       "permission": "production:overproduction-approval:cancel",
+      "domain": "PRD",
+      "source": "06-production/91-api-design.md"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/production/overproduction-approvals/{id}",
+      "name": "草稿修正（10 のみ、allowed_qty 不変。§3.14）。専用 update 権限は種子に未登録のため create を流用（蓝色大肥鱼確認待ち）",
+      "permission": "production:overproduction-approval:create",
       "domain": "PRD",
       "source": "06-production/91-api-design.md"
     },

@@ -89,6 +89,7 @@
 | 39e | POST | `/api/production/overproduction-approvals/{id}/approve` | `production:overproduction-approval:approve` | 承認（20→30、`allowed_qty` +`request_qty`。§3.14） | F-PRD-008 |
 | 39f | POST | `/api/production/overproduction-approvals/{id}/reject` | `production:overproduction-approval:approve` | 却下（20→40。§3.14） | F-PRD-008 |
 | 39g | POST | `/api/production/overproduction-approvals/{id}/cancel` | `production:overproduction-approval:cancel` | 取消（10/20→90。§3.14） | F-PRD-008 |
+| 39h | PUT | `/api/production/overproduction-approvals/{id}` | `production:overproduction-approval:create` | 草稿修正（10 のみ、`allowed_qty` 不変。§3.14）。専用 update 権限は種子に未登録のため create を流用（蓝色大肥鱼確認待ち） | F-PRD-008 |
 
 ### 2.3 領料・報工・完工入库（F-PRD-006〜008）
 
@@ -584,6 +585,7 @@
 | 操作 | リクエスト | 正常 | 状態条件・エラー |
 |---|---|---|---|
 | 登録 `POST /api/production/overproduction-approvals` | `salesOrderLineId`、`workOrderId`（任意、NULL＝受注行級）、`requestQty`（基本単位の増分） | **201** + 申請 DTO（`approvalStatus=10`） | `60103`（`requestQty` NULL・≤ 0・1 件 > 受注行基本数量 × `prd.overproduction_max_rate`（累計しない）・小数桁数 > 基本単位 `decimal_places`）／`60056`（工单が当該受注行または当前会社に属さない）／`60101`（工单級で工单が未下达、または工单 `allowed_qty` が NULL。登録時に拒否）／`5000`（`prd.overproduction_max_rate` 欠落） |
+| 草稿修正 `PUT /api/production/overproduction-approvals/{id}` | `{ "version": n, "requestQty": …, "workOrderId": …（任意、NULL＝受注行級） }`（可変項目は登録時の `requestQty`・`workOrderId` のみ。`salesOrderLineId` は変更不可。原因欄は DDL・登録 API に無いため対象外） | 200 + 申請 DTO（`approvalStatus=10` のまま、`version` +1） | 状態 10 以外（承認待ち 20・承認済 30・却下 40・取消 90）は 422／`4002`／`version` 不一致は 409／`4003`／入力検証は登録と同一（`60103`・`60056`・`60101`・`5000`）。`allowed_qty` は変更しない（承認時のみ +delta、[02-work-order.md:70](02-work-order.md) BR-WO-15）。承認済の調整は新規申請、未承認の撤回は取消 |
 | 提出 `POST /api/production/overproduction-approvals/{id}/submit` | `{ "version": n }` | 200（10→20） | 10 以外は `60101`／`4003` |
 | 承認 `POST /api/production/overproduction-approvals/{id}/approve` | `{ "version": n }` | 200（20→30） | 20 以外（10・承認済 30・却下 40・取消 90）は `60101`／申請者本人の承認は `60005`／`4003` |
 | 却下 `POST /api/production/overproduction-approvals/{id}/reject` | `{ "version": n, "rejectReason": "…" }` | 200（20→40） | 20 以外は `60101`／`4003` |
@@ -684,3 +686,4 @@
 | v1.20 | 2026-10-21 | HTTP 409 を `version` 競合（4003）専用とし、状態不整合（4002）・二重処理/処理中（4005）・同時実行・確定済変更不可・二重実行等の 409 も 422 に統一し、409 は `version` 競合（4003）のみとする（蓝色大肥鱼 2026-10-21 決定）。対象：:27、:28、:296、:547、:559、:605、:607、:616、:617、:647、:648 | 业务分析 |
 | v1.21 | 2026-10-21 | #28a 工单承認の「TODO：権限チェック未実装」を本文から削除（:73、§3.11 備考 :555）。#86 で `WorkOrderController.java:57` に `@RequirePermission("production:work-order:approve")` を付与・403 テスト済（蓝色大肥鱼 2026-10-21 指示）。v1.19 行は履歴のため変更しない | 业务分析 |
 | v1.22 | 2026-10-21 | 同時下达の後続 4002 を 422 に訂正（409 は 4003 専用、#83 に追随）。対象：:264（§3.2） | 业务分析 |
+| v1.24 | 2026-10-21 | 超産申請の草稿修正 API を追加（状態 10 のみ、version 必須、allowed_qty 不変）（蓝色大肥鱼 2026-10-21 決定）。§2.2 に #39h、§3.14 に草稿修正行を追加（v1.23 は #104） | 业务分析 |
