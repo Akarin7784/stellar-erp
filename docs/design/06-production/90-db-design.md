@@ -184,6 +184,7 @@ CREATE TABLE prd_bom (
     approved_at         TIMESTAMPTZ,                             -- 承認日時
     effective_status    SMALLINT      NOT NULL DEFAULT 0,        -- 有効判定キャッシュ 0:期間外 1:有効（バッチで更新）
     CONSTRAINT pk_prd_bom PRIMARY KEY (id),
+    CONSTRAINT uk_prd_bom_tenant_company_id UNIQUE (tenant_id, company_id, id),
     CONSTRAINT fk_prd_bom_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
     CONSTRAINT fk_prd_bom_factory FOREIGN KEY (tenant_id, factory_id) REFERENCES mdm_factory (tenant_id, id),
     CONSTRAINT ck_prd_bom_status CHECK (bom_status IN (10,25,30,90)),
@@ -243,7 +244,8 @@ CREATE TABLE prd_bom_line (
     position_no         VARCHAR(32),                             -- 装配位置（定子/转子/机座等）
     effective_status    SMALLINT      NOT NULL DEFAULT 1,        -- 0:期間外 1:有効（親に同期）
     CONSTRAINT pk_prd_bom_line PRIMARY KEY (id),
-    CONSTRAINT fk_prd_bom_line_bom FOREIGN KEY (bom_id) REFERENCES prd_bom (id) ON DELETE RESTRICT,
+    CONSTRAINT uk_prd_bom_line_tenant_company_id UNIQUE (tenant_id, company_id, id),
+    CONSTRAINT fk_prd_bom_line_bom FOREIGN KEY (tenant_id, company_id, bom_id) REFERENCES prd_bom (tenant_id, company_id, id) ON DELETE RESTRICT,
     CONSTRAINT fk_prd_bom_line_component FOREIGN KEY (tenant_id, component_material_id) REFERENCES mdm_material (tenant_id, id),
     CONSTRAINT ck_prd_bom_line_qty CHECK (component_qty > 0 AND required_qty > 0),
     CONSTRAINT ck_prd_bom_line_loss CHECK (loss_rate >= 0 AND loss_rate < 1),
@@ -289,7 +291,7 @@ CREATE TABLE prd_bom_substitute (
     substitute_reason   VARCHAR(200),                            -- 替代理由（缺料/成本/工艺）
     approval_status     SMALLINT      NOT NULL DEFAULT 10,       -- 10:未承認 25:承認済
     CONSTRAINT pk_prd_bom_substitute PRIMARY KEY (id),
-    CONSTRAINT fk_prd_bom_substitute_line FOREIGN KEY (bom_line_id) REFERENCES prd_bom_line (id) ON DELETE RESTRICT,
+    CONSTRAINT fk_prd_bom_substitute_line FOREIGN KEY (tenant_id, company_id, bom_line_id) REFERENCES prd_bom_line (tenant_id, company_id, id) ON DELETE RESTRICT,
     CONSTRAINT fk_prd_bom_substitute_material FOREIGN KEY (tenant_id, substitute_material_id) REFERENCES mdm_material (tenant_id, id),
     CONSTRAINT ck_prd_bom_substitute_qty CHECK (substitute_qty > 0 AND ratio > 0 AND ratio <= 1)
 );
@@ -331,6 +333,7 @@ CREATE TABLE prd_routing (
     approved_at         TIMESTAMPTZ,                             -- 承認日時
     effective_status    SMALLINT      NOT NULL DEFAULT 0,        -- 0:期間外 1:有効
     CONSTRAINT pk_prd_routing PRIMARY KEY (id),
+    CONSTRAINT uk_prd_routing_tenant_company_id UNIQUE (tenant_id, company_id, id),
     CONSTRAINT fk_prd_routing_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
     CONSTRAINT fk_prd_routing_factory FOREIGN KEY (tenant_id, factory_id) REFERENCES mdm_factory (tenant_id, id),
     CONSTRAINT ck_prd_routing_status CHECK (routing_status IN (10,25,30,90)),
@@ -379,8 +382,9 @@ CREATE TABLE prd_routing_operation (
     is_backflush        BOOLEAN       NOT NULL DEFAULT FALSE,    -- 当工序完了で材料倒冲
     work_instruction    TEXT,                                    -- 作业指导书（要点）
     CONSTRAINT pk_prd_routing_operation PRIMARY KEY (id),
-    CONSTRAINT fk_prd_routing_operation_routing FOREIGN KEY (routing_id) REFERENCES prd_routing (id) ON DELETE RESTRICT,
-    CONSTRAINT fk_prd_routing_operation_wc FOREIGN KEY (work_center_id) REFERENCES prd_work_center (id),
+    CONSTRAINT uk_prd_routing_operation_tenant_company_id UNIQUE (tenant_id, company_id, id),
+    CONSTRAINT fk_prd_routing_operation_routing FOREIGN KEY (tenant_id, company_id, routing_id) REFERENCES prd_routing (tenant_id, company_id, id) ON DELETE RESTRICT,
+    CONSTRAINT fk_prd_routing_operation_wc FOREIGN KEY (tenant_id, company_id, work_center_id) REFERENCES prd_work_center (tenant_id, company_id, id),
     CONSTRAINT ck_prd_routing_operation_seq CHECK (operation_seq > 0),
     CONSTRAINT ck_prd_routing_operation_time CHECK (setup_time >= 0 AND run_time_per_unit >= 0)
 );
@@ -413,8 +417,8 @@ CREATE TABLE prd_routing_operation_alt (
     efficiency_rate     NUMERIC(7,4)  NOT NULL DEFAULT 1,        -- 能率係数（1.2000 = 1.2 倍工時）
     alt_reason          VARCHAR(200),                            -- 替代理由（能力不足/故障/外注）
     CONSTRAINT pk_prd_routing_operation_alt PRIMARY KEY (id),
-    CONSTRAINT fk_prd_routing_operation_alt_op FOREIGN KEY (routing_operation_id) REFERENCES prd_routing_operation (id) ON DELETE RESTRICT,
-    CONSTRAINT fk_prd_routing_operation_alt_wc FOREIGN KEY (alt_work_center_id) REFERENCES prd_work_center (id),
+    CONSTRAINT fk_prd_routing_operation_alt_op FOREIGN KEY (tenant_id, company_id, routing_operation_id) REFERENCES prd_routing_operation (tenant_id, company_id, id) ON DELETE RESTRICT,
+    CONSTRAINT fk_prd_routing_operation_alt_wc FOREIGN KEY (tenant_id, company_id, alt_work_center_id) REFERENCES prd_work_center (tenant_id, company_id, id),
     CONSTRAINT ck_prd_routing_operation_alt_eff CHECK (efficiency_rate >= 0.5)
 );
 
@@ -457,6 +461,7 @@ CREATE TABLE prd_work_center (
     valid_from          DATE,                                    -- 有効開始日
     valid_to            DATE,                                    -- 有効終了日
     CONSTRAINT pk_prd_work_center PRIMARY KEY (id),
+    CONSTRAINT uk_prd_work_center_tenant_company_id UNIQUE (tenant_id, company_id, id),
     CONSTRAINT fk_prd_work_center_factory FOREIGN KEY (tenant_id, factory_id) REFERENCES mdm_factory (tenant_id, id),
     CONSTRAINT ck_prd_work_center_type CHECK (work_center_type IN (10,20,30,40)),
     CONSTRAINT ck_prd_work_center_capacity CHECK (capacity_per_day >= 0),
@@ -492,7 +497,7 @@ CREATE TABLE prd_work_center_calendar (
     available_capacity  NUMERIC(18,4) NOT NULL DEFAULT 0,        -- 実効能力（capacity_uom 単位）
     calendar_reason     VARCHAR(200),                            -- 休日/調整理由（春节 等）
     CONSTRAINT pk_prd_work_center_calendar PRIMARY KEY (id),
-    CONSTRAINT fk_prd_work_center_calendar_wc FOREIGN KEY (work_center_id) REFERENCES prd_work_center (id) ON DELETE RESTRICT,
+    CONSTRAINT fk_prd_work_center_calendar_wc FOREIGN KEY (tenant_id, company_id, work_center_id) REFERENCES prd_work_center (tenant_id, company_id, id) ON DELETE RESTRICT,
     CONSTRAINT ck_prd_work_center_calendar_day CHECK (day_type IN (10,20,30,40)),
     CONSTRAINT ck_prd_work_center_calendar_hours CHECK (working_hours >= 0 AND overtime_hours >= 0)
 );
@@ -535,7 +540,8 @@ CREATE TABLE prd_equipment (
     last_maintenance_date DATE,                                  -- 前回点検日
     next_maintenance_date DATE,                                  -- 次回点検予定日
     CONSTRAINT pk_prd_equipment PRIMARY KEY (id),
-    CONSTRAINT fk_prd_equipment_wc FOREIGN KEY (work_center_id) REFERENCES prd_work_center (id),
+    CONSTRAINT uk_prd_equipment_tenant_company_id UNIQUE (tenant_id, company_id, id),
+    CONSTRAINT fk_prd_equipment_wc FOREIGN KEY (tenant_id, company_id, work_center_id) REFERENCES prd_work_center (tenant_id, company_id, id),
     CONSTRAINT ck_prd_equipment_status CHECK (equipment_status IN (10,20,30,40,90))
 );
 
@@ -573,7 +579,7 @@ CREATE TABLE prd_equipment_maintenance (
     operator_user_id    BIGINT,                                  -- 実施者 → sys_user.id
     next_maintenance_date DATE,                                  -- 次回予定日
     CONSTRAINT pk_prd_equipment_maintenance PRIMARY KEY (id),
-    CONSTRAINT fk_prd_equipment_maintenance_eq FOREIGN KEY (equipment_id) REFERENCES prd_equipment (id),
+    CONSTRAINT fk_prd_equipment_maintenance_eq FOREIGN KEY (tenant_id, company_id, equipment_id) REFERENCES prd_equipment (tenant_id, company_id, id),
     CONSTRAINT ck_prd_equipment_maintenance_type CHECK (maintenance_type IN (10,20,30,40))
 );
 
@@ -706,6 +712,7 @@ CREATE TABLE prd_mps (
     approved_at         TIMESTAMPTZ,                             -- 承認日時
     published_at        TIMESTAMPTZ,                             -- 確定日時（MRP 参照可）
     CONSTRAINT pk_prd_mps PRIMARY KEY (id),
+    CONSTRAINT uk_prd_mps_tenant_company_id UNIQUE (tenant_id, company_id, id),
     CONSTRAINT fk_prd_mps_factory FOREIGN KEY (tenant_id, factory_id) REFERENCES mdm_factory (tenant_id, id),
     CONSTRAINT ck_prd_mps_status CHECK (mps_status IN (10,20,30,40,90))
 );
@@ -739,7 +746,7 @@ CREATE TABLE prd_mps_line (
     sales_order_qty     NUMERIC(18,4) NOT NULL DEFAULT 0,        -- 其中：受注数量（MTO）
     confirmed_qty       NUMERIC(18,4) NOT NULL DEFAULT 0,        -- 已确认数量（下达済工单集計）
     CONSTRAINT pk_prd_mps_line PRIMARY KEY (id),
-    CONSTRAINT fk_prd_mps_line_mps FOREIGN KEY (mps_id) REFERENCES prd_mps (id) ON DELETE RESTRICT,
+    CONSTRAINT fk_prd_mps_line_mps FOREIGN KEY (tenant_id, company_id, mps_id) REFERENCES prd_mps (tenant_id, company_id, id) ON DELETE RESTRICT,
     CONSTRAINT fk_prd_mps_line_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
     CONSTRAINT ck_prd_mps_line_qty CHECK (planned_qty >= 0)
 );
@@ -785,6 +792,7 @@ CREATE TABLE prd_mrp_run (
     param_snapshot      JSONB,                                   -- 実行時パラメータ（再現用）
     log_message         TEXT,                                    -- 実行ログ（异常时）
     CONSTRAINT pk_prd_mrp_run PRIMARY KEY (id),
+    CONSTRAINT uk_prd_mrp_run_tenant_company_id UNIQUE (tenant_id, company_id, id),
     CONSTRAINT fk_prd_mrp_run_factory FOREIGN KEY (tenant_id, factory_id) REFERENCES mdm_factory (tenant_id, id),
     CONSTRAINT ck_prd_mrp_run_status CHECK (run_status IN (10,40,90,95))
 );
@@ -830,7 +838,7 @@ CREATE TABLE prd_mrp_demand (
     projected_on_hand_qty NUMERIC(18,4) NOT NULL DEFAULT 0,      -- 预计库存（期末）
     shortage_flag       BOOLEAN       NOT NULL DEFAULT FALSE,    -- 欠品フラグ（预计库存 < 0）
     CONSTRAINT pk_prd_mrp_demand PRIMARY KEY (id),
-    CONSTRAINT fk_prd_mrp_demand_run FOREIGN KEY (mrp_run_id) REFERENCES prd_mrp_run (id) ON DELETE RESTRICT,
+    CONSTRAINT fk_prd_mrp_demand_run FOREIGN KEY (tenant_id, company_id, mrp_run_id) REFERENCES prd_mrp_run (tenant_id, company_id, id) ON DELETE RESTRICT,
     CONSTRAINT ck_prd_mrp_demand_type CHECK (demand_type IN (10,20,30,40,50,60,70))
 );
 
@@ -880,7 +888,7 @@ CREATE TABLE prd_mrp_plan_order (
     converted_doc_id    BIGINT,                                  -- 転送先 ID
     converted_doc_no    VARCHAR(64),                             -- 転送先单号
     CONSTRAINT pk_prd_mrp_plan_order PRIMARY KEY (id),
-    CONSTRAINT fk_prd_mrp_plan_order_run FOREIGN KEY (mrp_run_id) REFERENCES prd_mrp_run (id) ON DELETE RESTRICT,
+    CONSTRAINT fk_prd_mrp_plan_order_run FOREIGN KEY (tenant_id, company_id, mrp_run_id) REFERENCES prd_mrp_run (tenant_id, company_id, id) ON DELETE RESTRICT,
     CONSTRAINT ck_prd_mrp_plan_order_type CHECK (order_type IN (10,20,30)),
     CONSTRAINT ck_prd_mrp_plan_order_qty CHECK (order_qty > 0),
     CONSTRAINT ck_prd_mrp_plan_order_date CHECK (start_date <= due_date)
@@ -927,7 +935,7 @@ CREATE TABLE prd_mrp_action (
     processed_by        BIGINT,                                  -- 処理者 → sys_user.id
     processed_at        TIMESTAMPTZ,                             -- 処理日時
     CONSTRAINT pk_prd_mrp_action PRIMARY KEY (id),
-    CONSTRAINT fk_prd_mrp_action_run FOREIGN KEY (mrp_run_id) REFERENCES prd_mrp_run (id) ON DELETE RESTRICT,
+    CONSTRAINT fk_prd_mrp_action_run FOREIGN KEY (tenant_id, company_id, mrp_run_id) REFERENCES prd_mrp_run (tenant_id, company_id, id) ON DELETE RESTRICT,
     CONSTRAINT ck_prd_mrp_action_type CHECK (action_type IN (10,20,30,40,50,60,70,80))
 );
 
@@ -1025,10 +1033,11 @@ CREATE TABLE prd_work_order (
     cancel_reason       VARCHAR(500),                            -- 取消理由
     wip_cost            NUMERIC(18,2) NOT NULL DEFAULT 0,        -- 在制品残高（月末結転用）
     CONSTRAINT pk_prd_work_order PRIMARY KEY (id),
+    CONSTRAINT uk_prd_work_order_tenant_company_id UNIQUE (tenant_id, company_id, id),
     CONSTRAINT fk_prd_work_order_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
     CONSTRAINT fk_prd_work_order_factory FOREIGN KEY (tenant_id, factory_id) REFERENCES mdm_factory (tenant_id, id),
-    CONSTRAINT fk_prd_work_order_bom FOREIGN KEY (bom_id) REFERENCES prd_bom (id),
-    CONSTRAINT fk_prd_work_order_routing FOREIGN KEY (routing_id) REFERENCES prd_routing (id),
+    CONSTRAINT fk_prd_work_order_bom FOREIGN KEY (tenant_id, company_id, bom_id) REFERENCES prd_bom (tenant_id, company_id, id),
+    CONSTRAINT fk_prd_work_order_routing FOREIGN KEY (tenant_id, company_id, routing_id) REFERENCES prd_routing (tenant_id, company_id, id),
     CONSTRAINT ck_prd_work_order_status CHECK (order_status IN (10,20,25,30,35,40,90,95)),
     CONSTRAINT ck_prd_work_order_qty CHECK (order_qty > 0 AND completed_qty >= 0 AND scrapped_qty >= 0),
     CONSTRAINT ck_prd_work_order_date CHECK (planned_end_date >= planned_start_date),
@@ -1051,7 +1060,7 @@ CREATE INDEX idx_prd_work_order_source ON prd_work_order (tenant_id, company_id,
 3. **容差チェーン**（`completion_over_rate` / `over_receipt_rate` は **NUMERIC(5,4) 比率**。NULL＝次段継承、0＝明示 0%）：受注行 → 物料 → 物料分類 → 会社 `sys_param` key `prd.completion_over_rate`（既定 0.05、`sys_init_tenant` シード）。会社パラメータ欠落やテナント未設定は **5000**（設定不備）。
 4. **`allowed_qty`**：`floor(base_qty × (1 + rate))` を `mdm_uom.decimal_places` で切捨て。MTO は受注確定時に受注行へスナップショットし、工单はそれを参照／コピー。再計算は承認済受注変更または超産承認後のみ。受注変更時はスナップショット率で `allowed_qty` を再算出し、承認済（30）超産増分 `request_qty` の合計を加算し戻す（承認済超産は消去しない。基準数量が減っても既存承認は有効）。
 5. **ロック**：跨表は先に受注行 `FOR UPDATE`、次に工单。同一表は id 昇順（[04 §11.1](../00-common/04-common-db-spec.md)）。適用：完工、冲销、返工入庫、受注変更、超産承認。過帳は行ロックのみ（楽観 `version` は画面編集）。
-6. **超産承認**：専用表 `prd_overproduction_approval` ＋ Flowable。増分方式 `allowed_qty = allowed_qty + delta`（delta＝`request_qty`）。工单級（`work_order_id` 有値）は受注行と当該工单をそれぞれ +delta、同一受注行の他工单は自身の `allowed_qty` に拘束される。受注行級（NULL）は受注行のみ +delta、工单は変更しない（§3.19.1）。`request_qty` ≤ 0 または NULL は `MSG-PRD-103`/`60103`。共通カラムは伝票類（`deleted` なし、取消は 90）。
+6. **超産承認**：専用表 `prd_overproduction_approval` ＋ Flowable。増分方式 `allowed_qty = allowed_qty + delta`（delta＝`request_qty`）。工单級（`work_order_id` 有値）は受注行と当該工单をそれぞれ +delta、同一受注行の他工单は自身の `allowed_qty` に拘束される。受注行級（NULL）は受注行のみ +delta、工单は変更しない（§3.19.1）。`request_qty` ≤ 0 または NULL は `MSG-PRD-103`/`60103`。**申請上限（蓝色大肥鱼 2026-10-21 決定）**：1 件の `request_qty` ≤ 受注行の基本数量（受注行の物料基本単位換算数量。`allowed_qty` ではない）× 会社 `sys_param` `prd.overproduction_max_rate`（NUMERIC(5,4)、既定 1.0000、`sys_init_tenant` シード）。累計上限は設けない（承認済・申請中の他申請は合算しない）。`request_qty` の小数桁数が基本単位 `mdm_uom.decimal_places` を超える場合も不正。上限超過・精度不一致はいずれも `MSG-PRD-103`/`60103`。パラメータ欠落は **5000**（既定値で補わない）。共通カラムは伝票類（`deleted` なし、取消は 90）。
 
 ### 3.19.1 prd_overproduction_approval（超産承認）
 
@@ -1096,7 +1105,7 @@ CREATE INDEX idx_prd_opa_wo
     WHERE work_order_id IS NOT NULL;
 ```
 
-**更新**：申請保存→`approval_status=20` で Flowable 起動。`request_qty` は申請超産増分 delta（総量ではない）。承認（30）時は増分方式 `allowed_qty = allowed_qty + delta` で更新する（ロック順：受注行→工单）。①工单級（`work_order_id` 有値）：受注行と当該工单の `allowed_qty` をそれぞれ +delta。同一受注行の他工单は自身の `allowed_qty` に拘束され、工单級承認で引き上げた受注行枠を占用できない。②受注行級（`work_order_id` IS NULL）：受注行の `allowed_qty` のみ +delta、配下工单は変更しない（按分しない）。工单でさらに必要な場合は当該工单の工单級承認を別途申請する。承認時に `approved_allowed_qty`（承認後の受注行新上限）をスナップショットとして記録する（参照のみ）。`request_qty` ≤ 0 または NULL は `MSG-PRD-103`/`60103`（ERROR）で拒否（`30022`/`MSG-SAL-056` は流用しない）。受注変更時の再計算はスナップショット率で再算出後、承認済（30）delta 合計を加算し戻す（承認済超産は消去しない。基準数量が減っても既存承認は有効）。却下（40）／取消（90）では `allowed_qty` を変更しない（再入庫は `MSG-PRD-101`）。
+**更新**：申請保存→`approval_status=20` で Flowable 起動。`request_qty` は申請超産増分 delta（総量ではない）。承認（30）時は増分方式 `allowed_qty = allowed_qty + delta` で更新する（ロック順：受注行→工单）。①工单級（`work_order_id` 有値）：受注行と当該工单の `allowed_qty` をそれぞれ +delta。同一受注行の他工单は自身の `allowed_qty` に拘束され、工单級承認で引き上げた受注行枠を占用できない。②受注行級（`work_order_id` IS NULL）：受注行の `allowed_qty` のみ +delta、配下工单は変更しない（按分しない）。工单でさらに必要な場合は当該工单の工单級承認を別途申請する。承認時に `approved_allowed_qty`（承認後の受注行新上限）をスナップショットとして記録する（参照のみ）。`request_qty` ≤ 0 または NULL は `MSG-PRD-103`/`60103`（ERROR）で拒否（`30022`/`MSG-SAL-056` は流用しない）。申請保存時に上限（受注行基本数量 × `prd.overproduction_max_rate`、累計なし）と基本単位精度も検証し、違反は同じく `60103`、パラメータ欠落は 5000（§G2-18 6.）。受注変更時の再計算はスナップショット率で再算出後、承認済（30）delta 合計を加算し戻す（承認済超産は消去しない。基準数量が減っても既存承認は有効）。却下（40）／取消（90）では `allowed_qty` を変更しない（再入庫は `MSG-PRD-101`）。
 
 
 **更新仕様**
@@ -1166,7 +1175,8 @@ CREATE TABLE prd_work_order_material (
     actual_unit_cost    NUMERIC(18,6) NOT NULL DEFAULT 0,        -- 実績平均単価（E18 受信）
     actual_amount       NUMERIC(18,2) NOT NULL DEFAULT 0,        -- 実績材料費（領料原価累計）
     CONSTRAINT pk_prd_work_order_material PRIMARY KEY (id),
-    CONSTRAINT fk_prd_work_order_material_wo FOREIGN KEY (work_order_id) REFERENCES prd_work_order (id) ON DELETE RESTRICT,
+    CONSTRAINT uk_prd_work_order_material_tenant_company_id UNIQUE (tenant_id, company_id, id),
+    CONSTRAINT fk_prd_work_order_material_wo FOREIGN KEY (tenant_id, company_id, work_order_id) REFERENCES prd_work_order (tenant_id, company_id, id) ON DELETE RESTRICT,
     CONSTRAINT fk_prd_work_order_material_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
     CONSTRAINT ck_prd_work_order_material_qty CHECK (required_qty > 0 AND total_required_qty >= required_qty AND remaining_qty >= 0),
     CONSTRAINT ck_prd_work_order_material_status CHECK (issue_status IN (0,10,20))
@@ -1225,8 +1235,9 @@ CREATE TABLE prd_work_order_operation (
     inspection_id       BIGINT,                                  -- 検査单 ID → prd_inspection.id
     is_backflush        BOOLEAN       NOT NULL DEFAULT FALSE,    -- 当工序完了で材料倒冲
     CONSTRAINT pk_prd_work_order_operation PRIMARY KEY (id),
-    CONSTRAINT fk_prd_work_order_operation_wo FOREIGN KEY (work_order_id) REFERENCES prd_work_order (id) ON DELETE RESTRICT,
-    CONSTRAINT fk_prd_work_order_operation_wc FOREIGN KEY (work_center_id) REFERENCES prd_work_center (id),
+    CONSTRAINT uk_prd_work_order_operation_tenant_company_id UNIQUE (tenant_id, company_id, id),
+    CONSTRAINT fk_prd_work_order_operation_wo FOREIGN KEY (tenant_id, company_id, work_order_id) REFERENCES prd_work_order (tenant_id, company_id, id) ON DELETE RESTRICT,
+    CONSTRAINT fk_prd_work_order_operation_wc FOREIGN KEY (tenant_id, company_id, work_center_id) REFERENCES prd_work_center (tenant_id, company_id, id),
     CONSTRAINT ck_prd_work_order_operation_qty CHECK (planned_qty > 0 AND reported_good_qty >= 0 AND scrapped_qty >= 0),
     CONSTRAINT ck_prd_work_order_operation_status CHECK (operation_status IN (0,10,20,30))
 );
@@ -1263,7 +1274,7 @@ CREATE TABLE prd_work_order_change (
     approved_by         BIGINT,                                  -- 承認者
     approved_at         TIMESTAMPTZ,                             -- 承認日時
     CONSTRAINT pk_prd_work_order_change PRIMARY KEY (id),
-    CONSTRAINT fk_prd_work_order_change_wo FOREIGN KEY (work_order_id) REFERENCES prd_work_order (id) ON DELETE RESTRICT,
+    CONSTRAINT fk_prd_work_order_change_wo FOREIGN KEY (tenant_id, company_id, work_order_id) REFERENCES prd_work_order (tenant_id, company_id, id) ON DELETE RESTRICT,
     CONSTRAINT ck_prd_work_order_change_type CHECK (change_type IN (10,20,30,40,50,60,70))
 );
 
@@ -1296,8 +1307,8 @@ CREATE TABLE prd_work_order_relation (
     approved_by         BIGINT,                                  -- 承認者
     approved_at         TIMESTAMPTZ,                             -- 承認日時
     CONSTRAINT pk_prd_work_order_relation PRIMARY KEY (id),
-    CONSTRAINT fk_prd_work_order_relation_src FOREIGN KEY (source_work_order_id) REFERENCES prd_work_order (id) ON DELETE RESTRICT,
-    CONSTRAINT fk_prd_work_order_relation_tgt FOREIGN KEY (target_work_order_id) REFERENCES prd_work_order (id) ON DELETE RESTRICT,
+    CONSTRAINT fk_prd_work_order_relation_src FOREIGN KEY (tenant_id, company_id, source_work_order_id) REFERENCES prd_work_order (tenant_id, company_id, id) ON DELETE RESTRICT,
+    CONSTRAINT fk_prd_work_order_relation_tgt FOREIGN KEY (tenant_id, company_id, target_work_order_id) REFERENCES prd_work_order (tenant_id, company_id, id) ON DELETE RESTRICT,
     CONSTRAINT ck_prd_work_order_relation_type CHECK (relation_type IN (10,20,30)),
     CONSTRAINT ck_prd_work_order_relation_qty CHECK (relation_qty > 0)
 );
@@ -1342,7 +1353,8 @@ CREATE TABLE prd_material_issue (
     approved_at         TIMESTAMPTZ,                             -- 承認日時
     cancel_reason       VARCHAR(500),                            -- 取消理由
     CONSTRAINT pk_prd_material_issue PRIMARY KEY (id),
-    CONSTRAINT fk_prd_material_issue_wo FOREIGN KEY (work_order_id) REFERENCES prd_work_order (id),
+    CONSTRAINT uk_prd_material_issue_tenant_company_id UNIQUE (tenant_id, company_id, id),
+    CONSTRAINT fk_prd_material_issue_wo FOREIGN KEY (tenant_id, company_id, work_order_id) REFERENCES prd_work_order (tenant_id, company_id, id),
     CONSTRAINT fk_prd_material_issue_wh FOREIGN KEY (tenant_id, warehouse_id) REFERENCES mdm_warehouse (tenant_id, id),
     CONSTRAINT ck_prd_material_issue_type CHECK (issue_type IN (10,20,30,40,50)),
     CONSTRAINT ck_prd_material_issue_status CHECK (issue_status IN (10,30,40,90)),
@@ -1391,8 +1403,8 @@ CREATE TABLE prd_material_issue_line (
     issue_reason        SMALLINT      NOT NULL DEFAULT 10,       -- 10:標準 20:補料 30:不良追加 40:试验 50:その他
     stock_doc_line_id   BIGINT,                                  -- INV 採番の在庫伝票行 ID（E18 受信で設定）
     CONSTRAINT pk_prd_material_issue_line PRIMARY KEY (id),
-    CONSTRAINT fk_prd_material_issue_line_issue FOREIGN KEY (issue_id) REFERENCES prd_material_issue (id) ON DELETE RESTRICT,
-    CONSTRAINT fk_prd_material_issue_line_wom FOREIGN KEY (work_order_material_id) REFERENCES prd_work_order_material (id),
+    CONSTRAINT fk_prd_material_issue_line_issue FOREIGN KEY (tenant_id, company_id, issue_id) REFERENCES prd_material_issue (tenant_id, company_id, id) ON DELETE RESTRICT,
+    CONSTRAINT fk_prd_material_issue_line_wom FOREIGN KEY (tenant_id, company_id, work_order_material_id) REFERENCES prd_work_order_material (tenant_id, company_id, id),
     CONSTRAINT ck_prd_material_issue_line_qty CHECK (issue_qty >= 0 AND return_qty >= 0 AND NOT (issue_qty > 0 AND return_qty > 0)),
     CONSTRAINT ck_prd_material_issue_line_amount CHECK (amount >= 0)
 );
@@ -1448,8 +1460,9 @@ CREATE TABLE prd_work_report (
     linked_issue_id     BIGINT,                                  -- 倒冲で生成した领料单 ID → prd_material_issue.id
     cancel_reason       VARCHAR(500),                            -- 取消理由
     CONSTRAINT pk_prd_work_report PRIMARY KEY (id),
-    CONSTRAINT fk_prd_work_report_wo FOREIGN KEY (work_order_id) REFERENCES prd_work_order (id),
-    CONSTRAINT fk_prd_work_report_op FOREIGN KEY (work_order_operation_id) REFERENCES prd_work_order_operation (id),
+    CONSTRAINT uk_prd_work_report_tenant_company_id UNIQUE (tenant_id, company_id, id),
+    CONSTRAINT fk_prd_work_report_wo FOREIGN KEY (tenant_id, company_id, work_order_id) REFERENCES prd_work_order (tenant_id, company_id, id),
+    CONSTRAINT fk_prd_work_report_op FOREIGN KEY (tenant_id, company_id, work_order_operation_id) REFERENCES prd_work_order_operation (tenant_id, company_id, id),
     CONSTRAINT ck_prd_work_report_status CHECK (report_status IN (10,20,40,90)),
     CONSTRAINT ck_prd_work_report_qty CHECK (reported_good_qty >= 0 AND defect_qty >= 0 AND scrap_qty >= 0 AND total_work_hours >= 0),
     CONSTRAINT ck_prd_work_report_input CHECK (input_qty >= reported_good_qty + defect_qty + scrap_qty - 0.0001)
@@ -1492,7 +1505,7 @@ CREATE TABLE prd_work_report_labor (
     start_at            TIMESTAMPTZ,                             -- 作業開始
     end_at              TIMESTAMPTZ,                             -- 作業終了
     CONSTRAINT pk_prd_work_report_labor PRIMARY KEY (id),
-    CONSTRAINT fk_prd_work_report_labor_report FOREIGN KEY (report_id) REFERENCES prd_work_report (id) ON DELETE RESTRICT,
+    CONSTRAINT fk_prd_work_report_labor_report FOREIGN KEY (tenant_id, company_id, report_id) REFERENCES prd_work_report (tenant_id, company_id, id) ON DELETE RESTRICT,
     CONSTRAINT ck_prd_work_report_labor_type CHECK (labor_type IN (10,20,30)),
     CONSTRAINT ck_prd_work_report_labor_hours CHECK (labor_hours > 0 AND labor_amount >= 0)
 );
@@ -1530,8 +1543,8 @@ CREATE TABLE prd_work_report_defect (
     ncr_id              BIGINT,                                  -- NCR ID → prd_ncr.id
     rework_work_order_id BIGINT,                                 -- 返工工单 ID → prd_work_order.id
     CONSTRAINT pk_prd_work_report_defect PRIMARY KEY (id),
-    CONSTRAINT fk_prd_work_report_defect_report FOREIGN KEY (report_id) REFERENCES prd_work_report (id) ON DELETE RESTRICT,
-    CONSTRAINT fk_prd_work_report_defect_code FOREIGN KEY (defect_code_id) REFERENCES prd_defect_code (id),
+    CONSTRAINT fk_prd_work_report_defect_report FOREIGN KEY (tenant_id, company_id, report_id) REFERENCES prd_work_report (tenant_id, company_id, id) ON DELETE RESTRICT,
+    CONSTRAINT fk_prd_work_report_defect_code FOREIGN KEY (tenant_id, company_id, defect_code_id) REFERENCES prd_defect_code (tenant_id, company_id, id),
     CONSTRAINT ck_prd_work_report_defect_qty CHECK (defect_qty > 0),
     CONSTRAINT ck_prd_work_report_defect_type CHECK (defect_type IN (10,20)),
     CONSTRAINT ck_prd_work_report_defect_disp CHECK (disposition IN (10,20,30,40,50,60))
@@ -1576,7 +1589,8 @@ CREATE TABLE prd_completion_receipt (
     confirmed_at        TIMESTAMPTZ,                             -- 要求確定日時（E24 発行）
     cancel_reason       VARCHAR(500),                            -- 取消理由
     CONSTRAINT pk_prd_completion_receipt PRIMARY KEY (id),
-    CONSTRAINT fk_prd_completion_receipt_wo FOREIGN KEY (work_order_id) REFERENCES prd_work_order (id),
+    CONSTRAINT uk_prd_completion_receipt_tenant_company_id UNIQUE (tenant_id, company_id, id),
+    CONSTRAINT fk_prd_completion_receipt_wo FOREIGN KEY (tenant_id, company_id, work_order_id) REFERENCES prd_work_order (tenant_id, company_id, id),
     CONSTRAINT fk_prd_completion_receipt_wh FOREIGN KEY (tenant_id, warehouse_id) REFERENCES mdm_warehouse (tenant_id, id),
     CONSTRAINT ck_prd_completion_receipt_status CHECK (receipt_status IN (10,30,40,90)),
     CONSTRAINT ck_prd_completion_receipt_qty CHECK (total_qty >= 0)
@@ -1622,7 +1636,7 @@ CREATE TABLE prd_completion_receipt_line (
     wip_cost            NUMERIC(18,2) NOT NULL DEFAULT 0,        -- 当該数量に配賦した在制品原価
     stock_doc_line_id   BIGINT,                                  -- INV 採番の在庫伝票行 ID（E18 受信で設定）
     CONSTRAINT pk_prd_completion_receipt_line PRIMARY KEY (id),
-    CONSTRAINT fk_prd_completion_receipt_line_rcpt FOREIGN KEY (receipt_id) REFERENCES prd_completion_receipt (id) ON DELETE RESTRICT,
+    CONSTRAINT fk_prd_completion_receipt_line_rcpt FOREIGN KEY (tenant_id, company_id, receipt_id) REFERENCES prd_completion_receipt (tenant_id, company_id, id) ON DELETE RESTRICT,
     CONSTRAINT fk_prd_completion_receipt_line_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
     CONSTRAINT ck_prd_completion_receipt_line_qty CHECK (receipt_qty > 0),
     CONSTRAINT ck_prd_completion_receipt_line_quality CHECK (quality_status IN (10,20,30,40))
@@ -1678,6 +1692,7 @@ CREATE TABLE prd_outsourcing_order (
     approved_at         TIMESTAMPTZ,                             -- 承認日時
     cancel_reason       VARCHAR(500),                            -- 取消理由
     CONSTRAINT pk_prd_outsourcing_order PRIMARY KEY (id),
+    CONSTRAINT uk_prd_outsourcing_order_tenant_company_id UNIQUE (tenant_id, company_id, id),
     CONSTRAINT fk_prd_outsourcing_order_supplier FOREIGN KEY (tenant_id, supplier_id) REFERENCES mdm_supplier (tenant_id, id),
     CONSTRAINT fk_prd_outsourcing_order_factory FOREIGN KEY (tenant_id, factory_id) REFERENCES mdm_factory (tenant_id, id),
     CONSTRAINT ck_prd_outsourcing_order_status CHECK (os_status IN (10,20,25,30,35,40,90,95)),
@@ -1721,7 +1736,7 @@ CREATE TABLE prd_outsourcing_order_line (
     supply_material_flag BOOLEAN      NOT NULL DEFAULT TRUE,     -- 支給材料有無（TRUE=支給）
     source_work_order_id BIGINT,                                 -- 由来工单 ID → prd_work_order.id
     CONSTRAINT pk_prd_outsourcing_order_line PRIMARY KEY (id),
-    CONSTRAINT fk_prd_outsourcing_order_line_order FOREIGN KEY (outsourcing_order_id) REFERENCES prd_outsourcing_order (id) ON DELETE RESTRICT,
+    CONSTRAINT fk_prd_outsourcing_order_line_order FOREIGN KEY (tenant_id, company_id, outsourcing_order_id) REFERENCES prd_outsourcing_order (tenant_id, company_id, id) ON DELETE RESTRICT,
     CONSTRAINT fk_prd_outsourcing_order_line_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
     CONSTRAINT ck_prd_outsourcing_order_line_qty CHECK (order_qty > 0 AND received_qty >= 0),
     CONSTRAINT ck_prd_outsourcing_order_line_price CHECK (processing_unit_price >= 0)
@@ -1763,7 +1778,8 @@ CREATE TABLE prd_outsourcing_issue (
     issued_at           TIMESTAMPTZ,                             -- 要求確定日時（E25 発行）
     cancel_reason       VARCHAR(500),                            -- 取消理由
     CONSTRAINT pk_prd_outsourcing_issue PRIMARY KEY (id),
-    CONSTRAINT fk_prd_outsourcing_issue_order FOREIGN KEY (outsourcing_order_id) REFERENCES prd_outsourcing_order (id),
+    CONSTRAINT uk_prd_outsourcing_issue_tenant_company_id UNIQUE (tenant_id, company_id, id),
+    CONSTRAINT fk_prd_outsourcing_issue_order FOREIGN KEY (tenant_id, company_id, outsourcing_order_id) REFERENCES prd_outsourcing_order (tenant_id, company_id, id),
     CONSTRAINT fk_prd_outsourcing_issue_wh FOREIGN KEY (tenant_id, warehouse_id) REFERENCES mdm_warehouse (tenant_id, id),
     CONSTRAINT ck_prd_outsourcing_issue_status CHECK (issue_status IN (10,30,40,90)),
     CONSTRAINT ck_prd_outsourcing_issue_qty CHECK (total_qty >= 0)
@@ -1805,7 +1821,7 @@ CREATE TABLE prd_outsourcing_issue_line (
     amount              NUMERIC(18,2) NOT NULL DEFAULT 0,        -- 金額
     stock_doc_line_id   BIGINT,                                  -- INV 採番の在庫伝票行 ID（E18 受信で設定）
     CONSTRAINT pk_prd_outsourcing_issue_line PRIMARY KEY (id),
-    CONSTRAINT fk_prd_outsourcing_issue_line_issue FOREIGN KEY (issue_id) REFERENCES prd_outsourcing_issue (id) ON DELETE RESTRICT,
+    CONSTRAINT fk_prd_outsourcing_issue_line_issue FOREIGN KEY (tenant_id, company_id, issue_id) REFERENCES prd_outsourcing_issue (tenant_id, company_id, id) ON DELETE RESTRICT,
     CONSTRAINT fk_prd_outsourcing_issue_line_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
     CONSTRAINT ck_prd_outsourcing_issue_line_qty CHECK (issue_qty > 0),
     CONSTRAINT ck_prd_outsourcing_issue_line_amt CHECK (amount >= 0)
@@ -1850,7 +1866,8 @@ CREATE TABLE prd_outsourcing_receipt (
     confirmed_at        TIMESTAMPTZ,                             -- 要求確定日時（E26 発行）
     cancel_reason       VARCHAR(500),                            -- 取消理由
     CONSTRAINT pk_prd_outsourcing_receipt PRIMARY KEY (id),
-    CONSTRAINT fk_prd_outsourcing_receipt_order FOREIGN KEY (outsourcing_order_id) REFERENCES prd_outsourcing_order (id),
+    CONSTRAINT uk_prd_outsourcing_receipt_tenant_company_id UNIQUE (tenant_id, company_id, id),
+    CONSTRAINT fk_prd_outsourcing_receipt_order FOREIGN KEY (tenant_id, company_id, outsourcing_order_id) REFERENCES prd_outsourcing_order (tenant_id, company_id, id),
     CONSTRAINT fk_prd_outsourcing_receipt_wh FOREIGN KEY (tenant_id, warehouse_id) REFERENCES mdm_warehouse (tenant_id, id),
     CONSTRAINT ck_prd_outsourcing_receipt_status CHECK (receipt_status IN (10,30,40,90)),
     CONSTRAINT ck_prd_outsourcing_receipt_qty CHECK (total_qty >= 0)
@@ -1894,7 +1911,7 @@ CREATE TABLE prd_outsourcing_receipt_line (
     amount              NUMERIC(18,2) NOT NULL DEFAULT 0,        -- 金額（receipt_qty × unit_cost）
     quality_status      SMALLINT      NOT NULL DEFAULT 10,       -- 10:待検 20:合格 30:特采 40:不合格
     CONSTRAINT pk_prd_outsourcing_receipt_line PRIMARY KEY (id),
-    CONSTRAINT fk_prd_outsourcing_receipt_line_rcpt FOREIGN KEY (receipt_id) REFERENCES prd_outsourcing_receipt (id) ON DELETE RESTRICT,
+    CONSTRAINT fk_prd_outsourcing_receipt_line_rcpt FOREIGN KEY (tenant_id, company_id, receipt_id) REFERENCES prd_outsourcing_receipt (tenant_id, company_id, id) ON DELETE RESTRICT,
     CONSTRAINT fk_prd_outsourcing_receipt_line_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
     CONSTRAINT ck_prd_outsourcing_receipt_line_qty CHECK (receipt_qty > 0),
     CONSTRAINT ck_prd_outsourcing_receipt_line_cost CHECK (unit_material_cost >= 0 AND processing_unit_price >= 0)
@@ -1945,6 +1962,7 @@ CREATE TABLE prd_outsourcing_settlement (
     approved_at         TIMESTAMPTZ,                             -- 承認日時
     cancel_reason       VARCHAR(500),                            -- 取消理由
     CONSTRAINT pk_prd_outsourcing_settlement PRIMARY KEY (id),
+    CONSTRAINT uk_prd_outsourcing_settlement_tenant_company_id UNIQUE (tenant_id, company_id, id),
     CONSTRAINT fk_prd_outsourcing_settlement_supplier FOREIGN KEY (tenant_id, supplier_id) REFERENCES mdm_supplier (tenant_id, id),
     CONSTRAINT ck_prd_outsourcing_settlement_status CHECK (settlement_status IN (10,20,25,40,90)),
     CONSTRAINT ck_prd_outsourcing_settlement_amt CHECK (total_processing_amount >= 0 AND net_amount >= 0 AND deduction_amount >= 0)
@@ -1984,7 +2002,7 @@ CREATE TABLE prd_outsourcing_settlement_line (
     deduction_reason    VARCHAR(500),                            -- 扣款理由（不良/遅延/返品）
     net_amount          NUMERIC(18,2) NOT NULL DEFAULT 0,        -- 正味金額（税抜）
     CONSTRAINT pk_prd_outsourcing_settlement_line PRIMARY KEY (id),
-    CONSTRAINT fk_prd_outsourcing_settlement_line_settle FOREIGN KEY (settlement_id) REFERENCES prd_outsourcing_settlement (id) ON DELETE RESTRICT,
+    CONSTRAINT fk_prd_outsourcing_settlement_line_settle FOREIGN KEY (tenant_id, company_id, settlement_id) REFERENCES prd_outsourcing_settlement (tenant_id, company_id, id) ON DELETE RESTRICT,
     CONSTRAINT fk_prd_outsourcing_settlement_line_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
     CONSTRAINT ck_prd_outsourcing_settlement_line_qty CHECK (receipt_qty > 0),
     CONSTRAINT ck_prd_outsourcing_settlement_line_amt CHECK (processing_amount >= 0 AND deduction_amount >= 0 AND net_amount >= 0)
@@ -2033,6 +2051,7 @@ CREATE TABLE prd_inspection_standard (
     approved_by         BIGINT,                                  -- 承認者 → sys_user.id
     approved_at         TIMESTAMPTZ,                             -- 承認日時
     CONSTRAINT pk_prd_inspection_standard PRIMARY KEY (id),
+    CONSTRAINT uk_prd_inspection_standard_tenant_company_id UNIQUE (tenant_id, company_id, id),
     CONSTRAINT ck_prd_inspection_standard_type CHECK (inspection_type IN (10,20,30,40)),
     CONSTRAINT ck_prd_inspection_standard_status CHECK (standard_status IN (10,25,30,90)),
     CONSTRAINT ck_prd_inspection_standard_sampling CHECK (sampling_type IN (10,20,30)),
@@ -2077,7 +2096,7 @@ CREATE TABLE prd_inspection_standard_item (
     instrument_code     VARCHAR(32),                             -- 使用計測器/設備コード → prd_equipment.equipment_code
     inspection_basis    VARCHAR(200),                            -- 试验方法依据（標準番号）
     CONSTRAINT pk_prd_inspection_standard_item PRIMARY KEY (id),
-    CONSTRAINT fk_prd_inspection_standard_item_std FOREIGN KEY (standard_id) REFERENCES prd_inspection_standard (id) ON DELETE RESTRICT,
+    CONSTRAINT fk_prd_inspection_standard_item_std FOREIGN KEY (tenant_id, company_id, standard_id) REFERENCES prd_inspection_standard (tenant_id, company_id, id) ON DELETE RESTRICT,
     CONSTRAINT ck_prd_inspection_standard_item_type CHECK (item_type IN (10,20,30,40,50,60)),
     CONSTRAINT ck_prd_inspection_standard_item_limit CHECK (upper_limit IS NULL OR lower_limit IS NULL OR upper_limit >= lower_limit)
 );
@@ -2142,9 +2161,10 @@ CREATE TABLE prd_inspection (
     e15_published_at    TIMESTAMPTZ,                             -- E15 発行日時（再送制御用）
     cancel_reason       VARCHAR(500),                            -- 取消理由
     CONSTRAINT pk_prd_inspection PRIMARY KEY (id),
+    CONSTRAINT uk_prd_inspection_tenant_company_id UNIQUE (tenant_id, company_id, id),
     CONSTRAINT fk_prd_inspection_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
-    CONSTRAINT fk_prd_inspection_standard FOREIGN KEY (standard_id) REFERENCES prd_inspection_standard (id),
-    CONSTRAINT fk_prd_inspection_wo FOREIGN KEY (work_order_id) REFERENCES prd_work_order (id),
+    CONSTRAINT fk_prd_inspection_standard FOREIGN KEY (tenant_id, company_id, standard_id) REFERENCES prd_inspection_standard (tenant_id, company_id, id),
+    CONSTRAINT fk_prd_inspection_wo FOREIGN KEY (tenant_id, company_id, work_order_id) REFERENCES prd_work_order (tenant_id, company_id, id),
     CONSTRAINT ck_prd_inspection_type CHECK (inspection_type IN (10,20,30,40)),
     CONSTRAINT ck_prd_inspection_status CHECK (inspection_status IN (10,20,30,90)),
     CONSTRAINT ck_prd_inspection_result CHECK (result IN (0,10,20,30,40,50)),
@@ -2195,7 +2215,7 @@ CREATE TABLE prd_inspection_line (
     inspected_by        BIGINT,                                  -- 検査員 → sys_user.id
     inspected_at        TIMESTAMPTZ,                             -- 検査日時
     CONSTRAINT pk_prd_inspection_line PRIMARY KEY (id),
-    CONSTRAINT fk_prd_inspection_line_inspection FOREIGN KEY (inspection_id) REFERENCES prd_inspection (id) ON DELETE RESTRICT,
+    CONSTRAINT fk_prd_inspection_line_inspection FOREIGN KEY (tenant_id, company_id, inspection_id) REFERENCES prd_inspection (tenant_id, company_id, id) ON DELETE RESTRICT,
     CONSTRAINT ck_prd_inspection_line_judge CHECK (judge IN (0,10,20)),
     CONSTRAINT ck_prd_inspection_line_qty CHECK (sample_qty >= 0 AND defect_qty >= 0)
 );
@@ -2255,9 +2275,10 @@ CREATE TABLE prd_ncr (
     cost_amount         NUMERIC(18,2) NOT NULL DEFAULT 0,        -- 品質コスト（返工費+廃棄損失+返品費）
     factory_id          BIGINT        NOT NULL,                  -- 工厂 ID
     CONSTRAINT pk_prd_ncr PRIMARY KEY (id),
-    CONSTRAINT fk_prd_ncr_inspection FOREIGN KEY (inspection_id) REFERENCES prd_inspection (id),
-    CONSTRAINT fk_prd_ncr_work_order FOREIGN KEY (work_order_id) REFERENCES prd_work_order (id),
-    CONSTRAINT fk_prd_ncr_defect_code FOREIGN KEY (defect_code_id) REFERENCES prd_defect_code (id),
+    CONSTRAINT uk_prd_ncr_tenant_company_id UNIQUE (tenant_id, company_id, id),
+    CONSTRAINT fk_prd_ncr_inspection FOREIGN KEY (tenant_id, company_id, inspection_id) REFERENCES prd_inspection (tenant_id, company_id, id),
+    CONSTRAINT fk_prd_ncr_work_order FOREIGN KEY (tenant_id, company_id, work_order_id) REFERENCES prd_work_order (tenant_id, company_id, id),
+    CONSTRAINT fk_prd_ncr_defect_code FOREIGN KEY (tenant_id, company_id, defect_code_id) REFERENCES prd_defect_code (tenant_id, company_id, id),
     CONSTRAINT ck_prd_ncr_status CHECK (ncr_status IN (10,20,25,30,40,90,95)),
     CONSTRAINT ck_prd_ncr_disposition CHECK (disposition_type IN (10,20,30,40,50,60)),
     CONSTRAINT ck_prd_ncr_qty CHECK (defect_qty > 0 AND disposition_qty > 0 AND disposition_qty <= defect_qty)
@@ -2300,7 +2321,7 @@ CREATE TABLE prd_ncr_action (
     result_desc         VARCHAR(500),                            -- 実施結果
     cost_amount         NUMERIC(18,2) NOT NULL DEFAULT 0,        -- 処置コスト（返工費/廃棄損失/返品送料）
     CONSTRAINT pk_prd_ncr_action PRIMARY KEY (id),
-    CONSTRAINT fk_prd_ncr_action_ncr FOREIGN KEY (ncr_id) REFERENCES prd_ncr (id) ON DELETE RESTRICT,
+    CONSTRAINT fk_prd_ncr_action_ncr FOREIGN KEY (tenant_id, company_id, ncr_id) REFERENCES prd_ncr (tenant_id, company_id, id) ON DELETE RESTRICT,
     CONSTRAINT ck_prd_ncr_action_type CHECK (action_type IN (10,20,30,40,50,60)),
     CONSTRAINT ck_prd_ncr_action_qty CHECK (action_qty > 0)
 );
@@ -2334,6 +2355,7 @@ CREATE TABLE prd_defect_code (
     description         VARCHAR(500),                            -- 現象説明・判定基準
     is_active           BOOLEAN       NOT NULL DEFAULT TRUE,     -- 有効フラグ
     CONSTRAINT pk_prd_defect_code PRIMARY KEY (id),
+    CONSTRAINT uk_prd_defect_code_tenant_company_id UNIQUE (tenant_id, company_id, id),
     CONSTRAINT ck_prd_defect_code_group CHECK (defect_group IN (10,20,30,40,50,60)),
     CONSTRAINT ck_prd_defect_code_type CHECK (defect_type IN (10,20))
 );
@@ -2418,7 +2440,7 @@ CREATE TABLE prd_capacity_load (
     operation_count     INT           NOT NULL DEFAULT 0,        -- 対象工序数
     snapshot_date       DATE          NOT NULL,                  -- スナップショット日（BAT 実行日）
     CONSTRAINT pk_prd_capacity_load PRIMARY KEY (id),
-    CONSTRAINT fk_prd_capacity_load_wc FOREIGN KEY (work_center_id) REFERENCES prd_work_center (id),
+    CONSTRAINT fk_prd_capacity_load_wc FOREIGN KEY (tenant_id, company_id, work_center_id) REFERENCES prd_work_center (tenant_id, company_id, id),
     CONSTRAINT ck_prd_capacity_load_type CHECK (load_type IN (10,20)),
     CONSTRAINT ck_prd_capacity_load_rate CHECK (load_rate >= 0)
 );
@@ -2632,3 +2654,5 @@ CREATE INDEX idx_prd_capacity_load_date ON prd_capacity_load (tenant_id, company
 | v1.9 | 2026-10-21 | 例外一覧に `uk_sys_user_username`（`(tenant_id, username)`、テナント単位）を追加（蓝色大肥鱼 2026-10-21 決定）。G2-20：非一意 btree `idx_` も `tenant_id` 先頭（次に `company_id`）、GIN 除外に修正 | 业务分析 |
 | v1.10 | 2026-10-21 | 非一意 btree 索引（`idx_`）98 箇所を `tenant_id` 先頭（`company_id` がある表は次に `company_id`）に変更（DDL・索引一覧。既存迁移の索引は sys/V202610210707 と同一列。GIN は対象外。蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.11 | 2026-10-21 | main（#31）取込み後の再整合：一意索引・非一意 btree 索引を `tenant_id`（＋`company_id`）先頭に再適用、テナント級一意は 00-common/04 §6.1 第 4 条に従う（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.12 | 2026-10-21 | G2-18 6.・§3.19.1：超産申請 1 件の `request_qty` 上限（受注行基本数量 × `prd.overproduction_max_rate`、既定 1.0000、累計上限なし）と基本単位精度チェックを追加、違反は 60103、パラメータ欠落は 5000（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.13 | 2026-10-21 | 同域親子 FK を `(tenant_id, company_id, x_id)` → `(tenant_id, company_id, id)` に変更（46 本、父表 22 張に `uk_<table>_tenant_company_id UNIQUE (tenant_id, company_id, id)` を追加。#43 迁移 `sys/V202610211401` と同一、原制約名・ON DELETE 維持。00-common/04 §6.2 項 2a） | 业务分析 |

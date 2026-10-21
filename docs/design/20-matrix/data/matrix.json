@@ -15801,8 +15801,8 @@
     {
       "id": "MSG-PRD-103",
       "type": "E",
-      "body": "超産申請数量が不正です。申請超産数量は 0 より大きい値を指定してください。",
-      "condition": "request_qty ≤ 0 または NULL（60103）",
+      "body": "超産申請数量が不正です。申請超産数量は 0 より大きく、受注行基本数量 × 超産上限率（{0}）以下、かつ基本単位の小数桁数（{1} 桁）以内で指定してください。",
+      "condition": "request_qty ≤ 0 または NULL、上限（受注行基本数量 × prd.overproduction_max_rate、1 件単位・累計なし）超過、小数桁数 > 基本単位 decimal_places（いずれも 60103）",
       "action": "申請超産数量を修正して再申請",
       "domain": "PRD",
       "source": "06-production/93-messages.md"

@@ -266,7 +266,7 @@ stateDiagram-v2
 | 4 | `receiptId`/`receiptLineId` | 收货単/明細 | 選択 | BIGINT | △ | 空 | 空時は FIFO 自動割当 | `pur_receipt(_line)` | `receipt_id`/`receipt_line_id` | — |
 | 5 | `materialId`/`materialCode`/`materialName`/`spec` | 物料 | 選択 | BIGINT/VARCHAR | ○ | 空 | PO 明細と一致 | `mdm_material` | 同名項目 | スナップショット |
 | 6 | `invoiceQty` | 请求数量 | 数値 | NUMERIC(18,4) | ○ | 可請求残 | > 0（红字は < 0） | — | `invoice_qty` | 単位精度 4 桁 |
-| 7 | `uomCode` | 单位 | テキスト | VARCHAR(8) | ○ | PO 値 | PO と一致（換算可） | `mdm_uom` | `uom_code` | — |
+| 7 | `uomCode` | 单位 | テキスト | VARCHAR(16) | ○ | PO 値 | PO と一致（換算可） | `mdm_uom` | `uom_code` | — |
 | 8 | `invoiceUnitPrice` | 请求税抜単価 | 数値 | NUMERIC(18,6) | ○ | PO 単価 | ≥ 0、6 桁 | — | `invoice_unit_price` | — |
 | 9 | `taxCode` | 税码（进项） | 選択 | VARCHAR(32) | ○ | PO 値 | `tax_type=11`・有効 | `mdm_tax_code` | `tax_code` | 税率変更時は新税码 |
 | 10 | `taxRate` | 税率 | 数値 | NUMERIC(7,4) | ○ | 税码値 | 0～100 | `mdm_tax_code` | `tax_rate` | 发票記載税率 |
@@ -912,3 +912,4 @@ function matchInvoice(invoice):
 |---|---|---|---|
 | v1.0 | 2026-10-20 | 初版：F-PUR-017～022（発票登録・三单匹配・対账・暂估应付・付款申請・預付款）、字段級匹配規則・容差・差異理由・会計処理・J01～J04 連携、画面項目定義、E17、テスト観点。E17 payload を 09 §3 と逐字一致に調整（Lead 2026-10-20 裁定） | purchase-designer |
 | v1.1 | 2026-10-20 | 红队第 2 轮修复：invoice_type を 10/20/30/40/50 に統一、税码は 06 §7 基礎码 21 件＋業務税码を参照、E17 契約整合を維持 | purchase-designer |
+| v1.2 | 2026-10-21 | 単位コード項目（`uom_code`/`uomCode` 等）を VARCHAR(8)→VARCHAR(16) に変更し `mdm_uom.uom_code`（02-mdm/90:961）と整合（币种 `currency_code` 等の VARCHAR(8) は対象外。蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

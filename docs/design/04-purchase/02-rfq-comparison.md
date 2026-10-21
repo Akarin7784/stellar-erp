@@ -197,7 +197,7 @@ stateDiagram-v2
 | 3 | `materialId` | 物料 | 選択ダイアログ | BIGINT | ○ | 空 | 存在・有効・采购品 | `mdm_material` | `material_id` | — |
 | 4 | `materialCode`/`materialName`/`spec` | 物料编码・品名・规格 | テキスト | VARCHAR(20/200/200) | 自動 | 空 | — | `mdm_material` | 同名項目 | スナップショット |
 | 5 | `quantity` | 询价数量 | 数値 | NUMERIC(18,4) | ○ | 请购残量 | > 0 | — | `quantity` | — |
-| 6 | `uomCode` | 单位 | 選択 | VARCHAR(8) | ○ | 采购单位 | 同一单位组 | `mdm_uom` | `uom_code` | — |
+| 6 | `uomCode` | 单位 | 選択 | VARCHAR(16) | ○ | 采购单位 | 同一单位组 | `mdm_uom` | `uom_code` | — |
 | 7 | `requiredDate` | 希望交期 | 日付 | DATE | ○ | 请购交期 | ≥ 当日 | — | `required_date` | 交期评分基准 |
 | 8 | `targetPrice` | 目安単価 | 数値 | NUMERIC(18,6) | △ | 取价（CALC-08） | ≥ 0 | `mdm_purchase_price` | `target_price` | 税抜 |
 | 9 | `benchmarkPrice` | 基准价（最近成交） | 数値 | NUMERIC(18,6) | 自動 | 最近 90 天成交价 | — | `pur_purchase_order_line` | `benchmark_price` | 参照のみ |
@@ -587,3 +587,4 @@ stateDiagram-v2
 |---|---|---|---|
 | v1.0 | 2026-10-20 | 初版：F-PUR-004～006（询价・报价・比价中选）、評分式・中选規則・比价表項目定義・API・テスト観点 | purchase-designer |
 | v1.1 | 2026-10-21 | `pr_line_id`/`pr_id`→`purchase_requisition_line_id`/`purchase_requisition_id`、`comparable_unit_price`→`comparison_unit_price`（90 DDL に統一） | 业务分析 |
+| v1.2 | 2026-10-21 | 単位コード項目（`uom_code`/`uomCode` 等）を VARCHAR(8)→VARCHAR(16) に変更し `mdm_uom.uom_code`（02-mdm/90:961）と整合（币种 `currency_code` 等の VARCHAR(8) は対象外。蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

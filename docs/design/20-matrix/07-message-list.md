@@ -477,7 +477,7 @@
 | MSG-PRD-100 | E | 超産承認が必要です。許容完工数量を超える入庫は承認後のみ可能です。 | 超産未承認 | 超産承認申請 | PRD | 06-production/93-messages.md |
 | MSG-PRD-101 | E | 超産承認が却下または取消のため入庫できません。 | 超産承認無効 | 再申請または数量修正 | PRD | 06-production/93-messages.md |
 | MSG-PRD-102 | E | 冲销数量が已完工数量を超えています。 | 冲销 qty > completed_qty | 数量修正 | PRD | 06-production/93-messages.md |
-| MSG-PRD-103 | E | 超産申請数量が不正です。申請超産数量は 0 より大きい値を指定してください。 | request_qty ≤ 0 または NULL（60103） | 申請超産数量を修正して再申請 | PRD | 06-production/93-messages.md |
+| MSG-PRD-103 | E | 超産申請数量が不正です。申請超産数量は 0 より大きく、受注行基本数量 × 超産上限率（{0}）以下、かつ基本単位の小数桁数（{1} 桁）以内で指定してください。 | request_qty ≤ 0 または NULL、上限（受注行基本数量 × prd.overproduction_max_rate、1 件単位・累計なし）超過、小数桁数 > 基本単位 decimal_places（いずれも 60103） | 申請超産数量を修正して再申請 | PRD | 06-production/93-messages.md |
 | MSG-PRD-104 | E | 下达日不能早于今天。 | releaseDate が Asia/Shanghai 当日より前（60104） | 下达日を当日以降に修正 | PRD | 06-production/93-messages.md |
 | MSG-COM-032 |  |  |  |  | PUR | 04-purchase/93-messages.md |
 | MSG-COM-033 |  |  |  |  | PUR | 04-purchase/93-messages.md |
