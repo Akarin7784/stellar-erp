@@ -201,10 +201,14 @@ class SalesOrderLineLookupIntegrationTest {
     }
 
     @Test
-    void overproductionRequestOnUnsnapshottedLineIs5000() {
+    void overproductionRequestOnUnsnapshottedLineIs60101() {
+        // allowed_qty 未スナップショットは業務データ未準備 → 60101 / MSG-PRD-101（lead 2026-10-21 決定、5000 は上限率欠落のみ）
         assertThatThrownBy(() -> asUser(() -> approvals.request(
                 new OverproductionRequestCommand(LINE_NULL, null, new BigDecimal("5"), null))))
-                .isInstanceOfSatisfying(BizException.class, e -> assertThat(e.getCode()).isEqualTo(5000));
+                .isInstanceOfSatisfying(BizException.class, e -> {
+                    assertThat(e.getCode()).isEqualTo(60101);
+                    assertThat(e.getMsgId()).isEqualTo("MSG-PRD-101");
+                });
         assertThat(owner.queryForObject("SELECT count(*) FROM prd_overproduction_approval WHERE tenant_id = 305",
                 Integer.class)).isZero();
     }

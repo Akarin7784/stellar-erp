@@ -2,6 +2,8 @@ package com.stellar.erp.production;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -16,6 +18,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.json.JsonCompareMode;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
@@ -88,6 +91,8 @@ class OverproductionApprovalApiIntegrationTest {
             INSERT INTO sys_param (id, tenant_id, company_id, param_key, param_name, param_group, param_value, value_type) VALUES
               (997091, 311, 71, 'prd.overproduction_max_rate', '超产申请上限率', 'prd', '0.5000', 3),
               (997092, 311, 72, 'prd.overproduction_max_rate', '超产申请上限率', 'prd', '9.0000', 3);
+            INSERT INTO sys_user (id, tenant_id, company_id, user_code, username, real_name, nickname, password_hash) VALUES
+              (7311, 311, 71, 'E007311', 'u7311', '申请人甲', '甲', 'x');
             """);
         // 91 #39a〜39g の権限コード（シードに依存せず明示付与）
         PermissionGrants.grant(owner, TENANT, CO, USER, 997500, ALL_CODES);
@@ -127,6 +132,7 @@ class OverproductionApprovalApiIntegrationTest {
     void cleanup() {
         owner.execute("""
             DELETE FROM prd_overproduction_approval WHERE tenant_id = 311;
+            DELETE FROM sys_user WHERE tenant_id = 311;
             DELETE FROM sys_user_role WHERE tenant_id = 311;
             DELETE FROM sys_role_permission WHERE tenant_id = 311;
             DELETE FROM sys_menu WHERE tenant_id = 311 AND module_code = 'test';
@@ -228,6 +234,16 @@ class OverproductionApprovalApiIntegrationTest {
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.code").value(60103))
                 .andExpect(jsonPath("$.msgId").value("MSG-PRD-103"));
+        assertThat(approvalCount()).isZero();
+    }
+
+    @Test
+    void lineAllowedQtyNullIs422With60101() throws Exception {
+        owner.update("UPDATE sal_sales_order_line SET allowed_qty = NULL WHERE id = ?", LINE);
+        create(CO, body(LINE, null, "1"))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(content().json("{\"code\":60101,\"message\":\"受注行の allowed_qty が未確定のため超産申請はできません。\","
+                        + "\"data\":null,\"msgId\":\"MSG-PRD-101\"}", JsonCompareMode.STRICT));
         assertThat(approvalCount()).isZero();
     }
 
@@ -429,10 +445,10 @@ class OverproductionApprovalApiIntegrationTest {
                 .andExpect(jsonPath("$.data.approvedBy").value(String.valueOf(APPROVER)));
         assertThat(lineAllowed(LINE)).isEqualByComparingTo("105");
         assertThat(woAllowed(WO)).isEqualByComparingTo("105");
-        act(APPROVER, id, "reject", 2).andExpect(status().isUnprocessableContent()).andExpect(jsonPath("$.code").value(60101));
+        postAs(APPROVER, CO, BASE + "/" + id + "/reject", "{\"version\": 2, \"rejectReason\": \"再却下\"}").andExpect(status().isUnprocessableContent()).andExpect(jsonPath("$.code").value(60101));
         act(USER, id, "cancel", 2).andExpect(status().isUnprocessableContent()).andExpect(jsonPath("$.code").value(60101));
         String draft = newApproval(null, "1");
-        act(APPROVER, draft, "reject", 0).andExpect(status().isUnprocessableContent()).andExpect(jsonPath("$.code").value(60101));
+        postAs(APPROVER, CO, BASE + "/" + draft + "/reject", "{\"version\": 0, \"rejectReason\": \"草稿却下\"}").andExpect(status().isUnprocessableContent()).andExpect(jsonPath("$.code").value(60101));
     }
 
     @Test
@@ -459,7 +475,20 @@ class OverproductionApprovalApiIntegrationTest {
                 .andExpect(jsonPath("$.data.salesOrderLineId").value(String.valueOf(LINE)))
                 .andExpect(jsonPath("$.data.workOrderId").value(String.valueOf(WO)))
                 .andExpect(jsonPath("$.data.approvalStatus").value(10))
-                .andExpect(jsonPath("$.data.requestedBy").value(String.valueOf(USER)));
+                .andExpect(jsonPath("$.data.requestedBy").value(String.valueOf(USER)))
+                .andExpect(jsonPath("$.data.salesOrderId").value("997031"))
+                .andExpect(jsonPath("$.data.salesOrderNo").value("SO-O-71"))
+                .andExpect(jsonPath("$.data.workOrderNo").value("WO-O-" + WO))
+                .andExpect(jsonPath("$.data.materialId").value("997011"))
+                .andExpect(jsonPath("$.data.materialCode").value("9970000011"))
+                .andExpect(jsonPath("$.data.materialName").value("O 成品"))
+                .andExpect(jsonPath("$.data.requestedByName").value("申请人甲"));
+        getAs(CO, BASE, "approvalStatus", "20")
+                .andExpect(jsonPath("$.data.list[0].salesOrderNo").value("SO-O-71"))
+                .andExpect(jsonPath("$.data.list[0].workOrderId").doesNotExist())
+                .andExpect(jsonPath("$.data.list[0].workOrderNo").doesNotExist())
+                .andExpect(jsonPath("$.data.list[0].materialCode").value("9970000011"))
+                .andExpect(jsonPath("$.data.list[0].requestedByName").value("申请人甲"));
         getAs(CO, BASE, "salesOrderLineId", String.valueOf(LINE))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(2))
@@ -541,5 +570,240 @@ class OverproductionApprovalApiIntegrationTest {
         PermissionGrants.grant(owner, TENANT, CO, NOPERM, 997900, ALL_CODES[0], ALL_CODES[1], ALL_CODES[2], ALL_CODES[3]);
         is403(asNoPerm(post(BASE + "/" + id + "/cancel").contentType(MediaType.APPLICATION_JSON).content("{\"version\": 0}")));
         assertThat(statusOf(id)).isEqualTo(10);
+    }
+
+    // ------------------------------------------------------------------ 驳回理由の検証（91:589、AC-PRD-17）
+
+    ResultActions reject(String id, String reasonJson) throws Exception {
+        return postAs(APPROVER, CO, BASE + "/" + id + "/reject",
+                "{\"version\": 1" + (reasonJson == null ? "" : ", \"rejectReason\": " + reasonJson) + "}");
+    }
+
+    static String required() {
+        return "{\"code\":1001,\"message\":\"请输入必填项「驳回理由」。\",\"msgId\":\"MSG-COM-040\",\"data\":{\"fieldErrors\":["
+                + "{\"field\":\"rejectReason\",\"message\":\"请输入必填项「驳回理由」。\"}]}}";
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"MISSING", "\"\"", "\"   \"", "\"\\t\\n \""})
+    void blankRejectReasonIs400With040(String reasonJson) throws Exception {
+        String id = pendingApproval(WO, "10");
+        reject(id, "MISSING".equals(reasonJson) ? null : reasonJson)
+                .andExpect(status().isBadRequest())
+                .andExpect(content().json(required(), JsonCompareMode.STRICT));
+        assertThat(statusOf(id)).isEqualTo(20);
+    }
+
+    @Test
+    void rejectReasonOver500Is400With041() throws Exception {
+        String id = pendingApproval(WO, "10");
+        reject(id, "\"" + "理".repeat(501) + "\"")
+                .andExpect(status().isBadRequest())
+                .andExpect(content().json("{\"code\":1001,\"message\":\"「驳回理由」不能超过 500 个字符。\",\"msgId\":\"MSG-COM-041\","
+                        + "\"data\":{\"fieldErrors\":[{\"field\":\"rejectReason\",\"message\":\"「驳回理由」不能超过 500 个字符。\"}]}}",
+                        JsonCompareMode.STRICT));
+        assertThat(statusOf(id)).isEqualTo(20);
+    }
+
+    @Test
+    void rejectReasonExactly500Succeeds() throws Exception {
+        String id = pendingApproval(WO, "10");
+        String reason = "理".repeat(500);
+        reject(id, "\"" + reason + "\"")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.approvalStatus").value(40))
+                .andExpect(jsonPath("$.data.rejectReason").value(reason));
+        assertThat(owner.queryForObject("SELECT reject_reason FROM prd_overproduction_approval WHERE id = ?", String.class,
+                Long.parseLong(id))).isEqualTo(reason);
+    }
+
+    // ------------------------------------------------------------------ 草稿修正 PUT /{id}（#39h、AC-PRD-18）
+
+    ResultActions putAs(long user, String id, String json) throws Exception {
+        TenantContext.set(TENANT);
+        LoginContext.set(new LoginUser(user, CO));
+        return mvc.perform(put(BASE + "/" + id).contentType(MediaType.APPLICATION_JSON).content(json));
+    }
+
+    BigDecimal snapshotOf(String id) {
+        return owner.queryForObject("SELECT current_allowed_qty FROM prd_overproduction_approval WHERE id = ?",
+                BigDecimal.class, Long.parseLong(id));
+    }
+
+    @Test
+    void editDraftUpdatesQtyWorkOrderAndRemarkAndKeepsAllowedQty() throws Exception {
+        String id = newApproval(null, "5");
+        // salesOrderLineId は修正不可（body にあっても無視）
+        putAs(USER, id, "{\"version\": 0, \"workOrderId\": \"" + WO + "\", \"requestQty\": 12, \"remark\": \"追加\", "
+                + "\"salesOrderLineId\": \"" + LINE2 + "\"}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.approvalStatus").value(10))
+                .andExpect(jsonPath("$.data.version").value(1))
+                .andExpect(jsonPath("$.data.workOrderId").value(String.valueOf(WO)))
+                .andExpect(jsonPath("$.data.workOrderNo").value("WO-O-" + WO))
+                .andExpect(jsonPath("$.data.requestQty").value(12))
+                .andExpect(jsonPath("$.data.salesOrderLineId").value(String.valueOf(LINE)))
+                .andExpect(jsonPath("$.data.remark").value("追加"));
+        Map<String, Object> row = owner.queryForMap("SELECT * FROM prd_overproduction_approval WHERE id = ?", Long.parseLong(id));
+        assertThat((BigDecimal) row.get("request_qty")).isEqualByComparingTo("12");
+        assertThat(row.get("work_order_id")).isEqualTo(WO);
+        assertThat(row.get("sales_order_line_id")).isEqualTo(LINE);
+        assertThat(row.get("remark")).isEqualTo("追加");
+        assertThat(((Number) row.get("approval_status")).intValue()).isEqualTo(10);
+        assertThat(snapshotOf(id)).isEqualByComparingTo("105");
+        assertThat(lineAllowed(LINE)).isEqualByComparingTo("105");
+        assertThat(woAllowed(WO)).isEqualByComparingTo("105");
+        // 工单級 → 受注行級へ戻す
+        putAs(USER, id, "{\"version\": 1, \"workOrderId\": null, \"requestQty\": 3}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.workOrderId").doesNotExist())
+                .andExpect(jsonPath("$.data.version").value(2));
+    }
+
+    @Test
+    void editRemarkOver500Is400With041AndExactly500Succeeds() throws Exception {
+        String id = newApproval(null, "5");
+        putAs(USER, id, "{\"version\": 0, \"requestQty\": 6, \"remark\": \"" + "备".repeat(501) + "\"}")
+                .andExpect(status().isBadRequest())
+                .andExpect(content().json("{\"code\":1001,\"message\":\"「备注」不能超过 500 个字符。\",\"msgId\":\"MSG-COM-041\","
+                        + "\"data\":{\"fieldErrors\":[{\"field\":\"remark\",\"message\":\"「备注」不能超过 500 个字符。\"}]}}",
+                        JsonCompareMode.STRICT));
+        assertThat(owner.queryForObject("SELECT version FROM prd_overproduction_approval WHERE id = ?", Integer.class,
+                Long.parseLong(id))).isZero();
+        String ok = "备".repeat(500);
+        putAs(USER, id, "{\"version\": 0, \"requestQty\": 6, \"remark\": \"" + ok + "\"}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.remark").value(ok))
+                .andExpect(jsonPath("$.data.version").value(1));
+    }
+
+    @Test
+    void editWithoutVersionIs400With040() throws Exception {
+        String id = newApproval(null, "5");
+        String required = "{\"code\":1001,\"message\":\"请输入必填项「version」。\",\"msgId\":\"MSG-COM-040\","
+                + "\"data\":{\"fieldErrors\":[{\"field\":\"version\",\"message\":\"请输入必填项「version」。\"}]}}";
+        putAs(USER, id, "{\"requestQty\": 6}")
+                .andExpect(status().isBadRequest())
+                .andExpect(content().json(required, JsonCompareMode.STRICT));
+        putAs(USER, id, "{\"version\": null, \"requestQty\": 6}")
+                .andExpect(status().isBadRequest())
+                .andExpect(content().json(required, JsonCompareMode.STRICT));
+        Map<String, Object> row = owner.queryForMap("SELECT request_qty, version FROM prd_overproduction_approval WHERE id = ?",
+                Long.parseLong(id));
+        assertThat((BigDecimal) row.get("request_qty")).isEqualByComparingTo("5");
+        assertThat(((Number) row.get("version")).intValue()).isZero();
+    }
+
+    @Test
+    void editStaleVersionIs409With4003() throws Exception {
+        String id = newApproval(null, "5");
+        putAs(USER, id, "{\"version\": 7, \"requestQty\": 6}")
+                .andExpect(status().isConflict())
+                .andExpect(content().json("{\"code\":4003,\"message\":\"数据已被其他用户更新，请重新获取最新信息后再操作。\",\"data\":null,\"msgId\":\"MSG-COM-033\"}",
+                        JsonCompareMode.STRICT));
+        assertThat(owner.queryForObject("SELECT request_qty FROM prd_overproduction_approval WHERE id = ?", BigDecimal.class,
+                Long.parseLong(id))).isEqualByComparingTo("5");
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {20, 30, 40, 90})
+    void editNonDraftIs422With60101(int st) throws Exception {
+        String id = newApproval(null, "5");
+        owner.update("UPDATE prd_overproduction_approval SET approval_status = ? WHERE id = ?", st, Long.parseLong(id));
+        putAs(USER, id, "{\"version\": 0, \"requestQty\": 6}")
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(content().json("{\"code\":60101,\"message\":\"超産承認が無効です（現在の状態ではこの操作はできません）。\",\"data\":null,\"msgId\":\"MSG-PRD-101\"}",
+                        JsonCompareMode.STRICT));
+        assertThat(statusOf(id)).isEqualTo(st);
+        assertThat(owner.queryForObject("SELECT request_qty FROM prd_overproduction_approval WHERE id = ?", BigDecimal.class,
+                Long.parseLong(id))).isEqualByComparingTo("5");
+        assertThat(lineAllowed(LINE)).isEqualByComparingTo("105");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0", "-1", "51", "1.5", "null"})
+    void editInvalidQtyIs60103(String qty) throws Exception {
+        String id = newApproval(null, "5");
+        putAs(USER, id, "{\"version\": 0, \"requestQty\": " + qty + "}")
+                .andExpect(status().isUnprocessableContent()).andExpect(jsonPath("$.code").value(60103));
+    }
+
+    @Test
+    void editToOtherLineOrCompanyWorkOrderIs60056() throws Exception {
+        String id = newApproval(null, "5");
+        putAs(USER, id, "{\"version\": 0, \"workOrderId\": \"" + WO_LINE2 + "\", \"requestQty\": 5}")
+                .andExpect(status().isUnprocessableContent()).andExpect(jsonPath("$.code").value(60056));
+        putAs(USER, id, "{\"version\": 0, \"workOrderId\": \"" + WO_CO2 + "\", \"requestQty\": 5}")
+                .andExpect(status().isUnprocessableContent()).andExpect(jsonPath("$.code").value(60056));
+    }
+
+    @Test
+    void editOtherCompanyIs404() throws Exception {
+        String id = newApproval(null, "5");
+        TenantContext.set(TENANT);
+        LoginContext.set(new LoginUser(USER, CO2));
+        mvc.perform(put(BASE + "/" + id).contentType(MediaType.APPLICATION_JSON).content("{\"version\": 0, \"requestQty\": 6}"))
+                .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value(4001));
+    }
+
+    @Test
+    void editWithoutCreateIs403() throws Exception {
+        String id = newApproval(null, "5");
+        PermissionGrants.grant(owner, TENANT, CO, NOPERM, 997900, ALL_CODES[0], ALL_CODES[2], ALL_CODES[3], ALL_CODES[4]);
+        is403(asNoPerm(put(BASE + "/" + id).contentType(MediaType.APPLICATION_JSON).content("{\"version\": 0, \"requestQty\": 6}")));
+    }
+
+    // ------------------------------------------------------------------ 受注行ピッカー GET /sales-order-lines
+
+    @Test
+    void salesOrderLinePickerIsCompanyScopedPagedAndFiltered() throws Exception {
+        String lines = BASE + "/sales-order-lines";
+        getAs(CO, lines)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(2))
+                .andExpect(jsonPath("$.data.list[0].salesOrderLineId").value(String.valueOf(LINE)))
+                .andExpect(jsonPath("$.data.list[0].salesOrderId").value("997031"))
+                .andExpect(jsonPath("$.data.list[0].salesOrderNo").value("SO-O-71"))
+                .andExpect(jsonPath("$.data.list[0].lineNo").value(10))
+                .andExpect(jsonPath("$.data.list[0].materialId").value("997011"))
+                .andExpect(jsonPath("$.data.list[0].materialCode").value("9970000011"))
+                .andExpect(jsonPath("$.data.list[0].baseUomCode").value("PCE"))
+                .andExpect(jsonPath("$.data.list[0].baseQty").value(100))
+                .andExpect(jsonPath("$.data.list[0].allowedQty").value(105))
+                .andExpect(jsonPath("$.data.list[0].completedQty").value(0))
+                .andExpect(jsonPath("$.data.list[0].length()").value(11))
+                .andExpect(jsonPath("$.data.list[1].salesOrderLineId").value(String.valueOf(LINE2)));
+        getAs(CO, lines, "page", "2", "size", "1")
+                .andExpect(jsonPath("$.data.total").value(2))
+                .andExpect(jsonPath("$.data.list.length()").value(1))
+                .andExpect(jsonPath("$.data.list[0].salesOrderLineId").value(String.valueOf(LINE2)));
+        getAs(CO, lines, "salesOrderNo", "o-71").andExpect(jsonPath("$.data.total").value(2));
+        getAs(CO, lines, "salesOrderNo", "O-72").andExpect(jsonPath("$.data.total").value(0));
+        getAs(CO, lines, "material", "0000011").andExpect(jsonPath("$.data.total").value(2));
+        getAs(CO, lines, "material", "不存在").andExpect(jsonPath("$.data.total").value(0));
+        getAs(CO2, lines).andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.list[0].salesOrderLineId").value(String.valueOf(LINE_CO2)));
+        // allowed_qty 未スナップショット・完了明細・草稿受注は対象外
+        owner.update("UPDATE sal_sales_order_line SET allowed_qty = NULL WHERE id = ?", LINE2);
+        getAs(CO, lines).andExpect(jsonPath("$.data.total").value(1));
+        owner.update("UPDATE sal_sales_order_line SET line_status = 40 WHERE id = ?", LINE);
+        getAs(CO, lines).andExpect(jsonPath("$.data.total").value(0));
+    }
+
+    @Test
+    void salesOrderLinePickerSizeOver200Is400With1001FieldErrors() throws Exception {
+        getAs(CO, BASE + "/sales-order-lines", "size", "201")
+                .andExpect(status().isBadRequest())
+                .andExpect(content().json("{\"code\":1001,\"message\":\"「size」不能大于「200」。\",\"msgId\":\"MSG-COM-045\","
+                        + "\"data\":{\"fieldErrors\":[{\"field\":\"size\",\"message\":\"「size」不能大于「200」。\"}]}}",
+                        JsonCompareMode.STRICT));
+        getAs(CO, BASE + "/sales-order-lines", "size", "200").andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.pageSize").value(200));
+    }
+
+    @Test
+    void salesOrderLinePickerWithoutCreateIs403() throws Exception {
+        PermissionGrants.grant(owner, TENANT, CO, NOPERM, 997900, ALL_CODES[0], ALL_CODES[2], ALL_CODES[3], ALL_CODES[4]);
+        is403(asNoPerm(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get(BASE + "/sales-order-lines")));
     }
 }
