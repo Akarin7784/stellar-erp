@@ -351,6 +351,27 @@ public class ProductionRepository {
                 .param("version", version).param("user", userId).param("id", workOrderId).param("company", companyId).update();
     }
 
+    /** 20→10（T-04 却下・E32 強制終了、v1 は 95／90 を使わない）。 */
+    public int markReturnedToDraft(long companyId, long workOrderId, int version, long userId) {
+        return jdbc.sql("""
+                        UPDATE prd_work_order
+                           SET order_status = 10, version = version + 1, updated_by = :user, updated_at = now()
+                         WHERE id = :id AND company_id = :company AND order_status = 20 AND version = :version
+                        """)
+                .param("version", version).param("user", userId).param("id", workOrderId).param("company", companyId).update();
+    }
+
+    /** 業務イベント購読の重複排除（00-common 09 §10.1、sys_event_consume_log）。挿入できたら true（初回）。 */
+    public boolean markEventConsumed(long tenantId, java.util.UUID eventId, String eventType, String consumer) {
+        return jdbc.sql("""
+                        INSERT INTO sys_event_consume_log (id, tenant_id, event_id, event_type, consumer_name)
+                        VALUES (:id, :tenant, :eventId, :type, :consumer)
+                        ON CONFLICT (tenant_id, event_id, consumer_name) DO NOTHING
+                        """)
+                .param("id", com.baomidou.mybatisplus.core.toolkit.IdWorker.getId()).param("tenant", tenantId)
+                .param("eventId", eventId).param("type", eventType).param("consumer", consumer).update() == 1;
+    }
+
     /** 工单（超产申请校验用）。 */
     public record WorkOrderRef(long id, long materialId, Long salesOrderLineId) {
     }

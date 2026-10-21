@@ -23,13 +23,20 @@ import com.stellar.erp.production.internal.ProductionRepository.WorkOrderForAppr
  *   <li>承認：起案者（created_by）≠ 承認者（CHK-PRD-002-12、60005 / MSG-PRD-005）。</li>
  * </ul>
  *
- * <p>未実装：WF 提交（businessType=PRODUCTION_WORK_ORDER）・E31/E32 受信、差戻し（20→10）・却下（20→95）、
- * 監査ログ、Idempotency-Key。</p>
+ * <p>WF（08）連携：業務類型 {@code WORK_ORDER}、流程 key {@code prd_work_order_release}（一級・生产主管）。
+ * E32 受信は {@link ProductionWorkflowCallback} が承認→{@link #approve}（20→25）、却下・強制終了→
+ * {@link #returnToDraft}（20→10、95・90 は使わない）を呼ぶ（06/02 §規則 5、06/91 §3.11 備考、蓝色大肥鱼 2026-10-21 決定）。
+ * 却下理由は WF 履歴のみ（工单表に列なし）。</p>
+ *
+ * <p>未実装：WF 提交（プロセス起動・{@code wf_business_process} 登録）、監査ログ、Idempotency-Key。</p>
  */
 @Service
 public class WorkOrderApprovalService {
 
     static final short DRAFT = 10, PENDING = 20, APPROVED = 25;
+    /** 08/94 §2.2 業務類型・§2.3 流程定義（{@code WO_STANDARD}）。 */
+    public static final String BUSINESS_TYPE = "WORK_ORDER";
+    public static final String PROCESS_KEY = "prd_work_order_release";
 
     private final ProductionRepository repo;
     private final WorkOrderQueryService query;
@@ -80,6 +87,21 @@ public class WorkOrderApprovalService {
                     "有効な工艺路线がありません。工艺路线を登録してください。");
         }
         if (repo.markApproved(company, wo.id(), wo.version(), login.userId()) != 1) {
+            throw versionConflict();
+        }
+        return query.get(workOrderId);
+    }
+
+    /**
+     * 却下・強制終了（WF E32 REJECTED／TERMINATED）：20→10。状態不正 4002、version 不一致 4003。
+     * 再編集・再提出可（AC-PRD-20）。
+     */
+    @Transactional
+    public WorkOrderDetail returnToDraft(long workOrderId, WorkOrderStateCommand cmd) {
+        LoginContext.LoginUser login = LoginContext.require();
+        long company = login.companyId();
+        WorkOrderForApproval wo = lockAndCheck(company, workOrderId, PENDING, cmd);
+        if (repo.markReturnedToDraft(company, wo.id(), wo.version(), login.userId()) != 1) {
             throw versionConflict();
         }
         return query.get(workOrderId);

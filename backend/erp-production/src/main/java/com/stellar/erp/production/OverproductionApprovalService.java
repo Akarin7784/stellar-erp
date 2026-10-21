@@ -39,6 +39,9 @@ public class OverproductionApprovalService {
     static final short STATUS_CANCELLED = 90;
     static final short WO_RELEASED = 30;
     static final String MAX_RATE_KEY = "prd.overproduction_max_rate";
+    /** 08/94 §2.2 業務類型・§2.3 流程定義（{@code OPA_STANDARD}、承認対象 {@code APR-OPA}）。 */
+    public static final String BUSINESS_TYPE = "OVERPRODUCTION_APPROVAL";
+    public static final String PROCESS_KEY = "prd_overproduction_approval";
 
     private final ProductionRepository repo;
     private final SalesOrderLineLookup salesOrderLines;

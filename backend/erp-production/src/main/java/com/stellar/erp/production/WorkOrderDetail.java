@@ -39,7 +39,6 @@ public record WorkOrderDetail(
             case 35 -> "製造中";
             case 40 -> "完工";
             case 90 -> "取消";
-            case 95 -> "却下";
             default -> null;
         };
     }
