@@ -17,6 +17,10 @@ const BUILT_VIEWS: Record<string, { name: string; component: RouteComponent }> =
     name: 'system-users',
     component: () => import('@/views/system/UserListView.vue'),
   },
+  'production/work-orders': {
+    name: 'production-work-orders',
+    component: () => import('@/views/production/WorkOrderListView.vue'),
+  },
   'production/work-orders/new': {
     name: 'production-work-order-create',
     component: () => import('@/views/production/WorkOrderCreateView.vue'),
