@@ -1666,7 +1666,7 @@ CREATE TABLE fin_standard_cost (
     updated_by            BIGINT        NOT NULL DEFAULT 0,
     CONSTRAINT pk_fin_standard_cost PRIMARY KEY (id),
     CONSTRAINT uk_fin_standard_cost_version UNIQUE (tenant_id, company_id, material_id, cost_version),
-    CONSTRAINT fk_fin_standard_cost_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
+    CONSTRAINT fk_fin_standard_cost_material FOREIGN KEY (tenant_id, company_id, material_id) REFERENCES mdm_material (tenant_id, company_id, id),
     CONSTRAINT ck_fin_standard_cost_status CHECK (status IN (10,40,90)),
     CONSTRAINT ck_fin_standard_cost_method CHECK (cost_method IN (1,2)),
     CONSTRAINT ck_fin_standard_cost_period CHECK (EXTRACT(day FROM period_from) = 1
@@ -1914,3 +1914,4 @@ COMMENT ON TABLE fin_cash_plan IS '资金计划（実装順 P2）';
 | v1.13 | 2026-10-21 | `idx_fin_standard_cost_lookup` を 0707:347 と同じ `(tenant_id, company_id, material_id, status, period_from DESC)` に修正、§7.1 G2-20 を btree tenant_id 先頭・GIN 除外に修正（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.14 | 2026-10-21 | 非一意 btree 索引（`idx_`）46 箇所を `tenant_id` 先頭（`company_id` がある表は次に `company_id`）に変更（DDL・索引一覧。既存迁移の索引は sys/V202610210707 と同一列。GIN は対象外。蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.15 | 2026-10-21 | main（#31）取込み後の再整合：一意索引・非一意 btree 索引を `tenant_id`（＋`company_id`）先頭に再適用、テナント級一意は 00-common/04 §6.1 第 4 条に従う（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.16 | 2026-10-21 | `fk_fin_standard_cost_material` を三列 `(tenant_id, company_id, material_id)` → `mdm_material (tenant_id, company_id, id)` に変更（`fin/V202610211413`、原制約名・NO ACTION 維持。00-common/04 §6.2 項 2a） | DBA |
