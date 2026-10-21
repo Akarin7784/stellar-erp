@@ -90,6 +90,11 @@ public class ProductionRepository {
      * 因此本查询最多返回一行，不需要 ORDER BY / LIMIT。</p>
      */
     public BigDecimal findCompanyOverRate(long companyId) {
+        return findCompanyDecimalParam(companyId, COMPANY_RATE_KEY);
+    }
+
+    /** 当前公司的数值型 sys_param（同 {@link #findCompanyOverRate} 口径：只取当前公司、不回退 company_id = 0；缺失/不可解析 → NULL）。 */
+    public BigDecimal findCompanyDecimalParam(long companyId, String paramKey) {
         List<String> values = jdbc.sql("""
                         SELECT param_value
                           FROM sys_param
@@ -98,7 +103,7 @@ public class ProductionRepository {
                            AND status = 1
                            AND deleted = FALSE
                         """)
-                .param("key", COMPANY_RATE_KEY)
+                .param("key", paramKey)
                 .param("company", companyId)
                 .query(String.class).list();
         if (values.isEmpty() || values.get(0) == null || values.get(0).isBlank()) {
@@ -384,6 +389,98 @@ public class ProductionRepository {
                 .param("woId", a.workOrderId()).param("materialId", a.materialId())
                 .param("requestQty", a.requestQty()).param("currentAllowed", a.currentAllowedQty())
                 .param("status", a.approvalStatus()).param("requestedAt", a.requestedAt())
+                .update();
+    }
+
+    // ------------------------------------------------------------------ 超产申请 / 承認（90 §3.19.1、G2-18 6.）
+
+    /**
+     * 超产申请上限的基准：受注行 {@code base_qty}（基本单位）与基本单位 {@code mdm_uom.decimal_places}。
+     * 单位未登记时 {@code decimalPlaces} 为 NULL（调用方报 5000）。
+     */
+    public record OverproductionLimitBasis(BigDecimal baseQty, Integer decimalPlaces) {
+    }
+
+    public Optional<OverproductionLimitBasis> findOverproductionLimitBasis(long companyId, long salesOrderLineId) {
+        return jdbc.sql("""
+                        SELECT l.base_qty, u.decimal_places
+                          FROM sal_sales_order_line l
+                          LEFT JOIN mdm_uom u
+                            ON u.company_id = l.company_id AND u.uom_code = l.base_uom_code AND u.deleted = FALSE
+                         WHERE l.id = :id AND l.company_id = :company
+                        """)
+                .param("id", salesOrderLineId).param("company", companyId)
+                .query((rs, i) -> new OverproductionLimitBasis(rs.getBigDecimal(1), (Integer) rs.getObject(2, Integer.class)))
+                .optional();
+    }
+
+    /** 超产承認用：申请行（{@code lock = true} 时 FOR UPDATE）。 */
+    public record ApprovalRow(long id, String approvalNo, long salesOrderLineId, Long workOrderId, BigDecimal requestQty,
+                              short approvalStatus, int version) {
+    }
+
+    public Optional<ApprovalRow> findApproval(long companyId, long approvalId, boolean lock) {
+        return jdbc.sql("""
+                        SELECT id, approval_no, sales_order_line_id, work_order_id, request_qty, approval_status, version
+                          FROM prd_overproduction_approval
+                         WHERE id = :id AND company_id = :company
+                        """ + (lock ? " FOR UPDATE" : ""))
+                .param("id", approvalId).param("company", companyId)
+                .query((rs, i) -> new ApprovalRow(rs.getLong(1), rs.getString(2), rs.getLong(3),
+                        (Long) rs.getObject(4, Long.class), rs.getBigDecimal(5), rs.getShort(6), rs.getInt(7)))
+                .optional();
+    }
+
+    /** 工单 FOR UPDATE（受注行の後に取る：00-common 04 §11.1）。 */
+    public Optional<WorkOrderRef> lockWorkOrderRef(long companyId, long workOrderId) {
+        return jdbc.sql("""
+                        SELECT id, material_id, sales_order_line_id
+                          FROM prd_work_order WHERE id = :id AND company_id = :company FOR UPDATE
+                        """)
+                .param("id", workOrderId).param("company", companyId)
+                .query((rs, i) -> new WorkOrderRef(rs.getLong("id"), rs.getLong("material_id"),
+                        (Long) rs.getObject("sales_order_line_id", Long.class)))
+                .optional();
+    }
+
+    /** 受注行 {@code allowed_qty += delta}。返回更新后的值；0 行时为空。 */
+    public Optional<BigDecimal> addSalesOrderLineAllowedQty(long companyId, long salesOrderLineId, BigDecimal delta,
+                                                            long userId) {
+        return jdbc.sql("""
+                        UPDATE sal_sales_order_line
+                           SET allowed_qty = allowed_qty + :delta, version = version + 1,
+                               updated_by = :user, updated_at = now()
+                         WHERE id = :id AND company_id = :company AND allowed_qty IS NOT NULL
+                        RETURNING allowed_qty
+                        """)
+                .param("delta", delta).param("user", userId).param("id", salesOrderLineId).param("company", companyId)
+                .query(BigDecimal.class).optional();
+    }
+
+    /** 工单 {@code allowed_qty += delta}（option B）。返回更新行数。 */
+    public int addWorkOrderAllowedQty(long companyId, long workOrderId, BigDecimal delta, long userId) {
+        return jdbc.sql("""
+                        UPDATE prd_work_order
+                           SET allowed_qty = allowed_qty + :delta, version = version + 1,
+                               updated_by = :user, updated_at = now()
+                         WHERE id = :id AND company_id = :company AND allowed_qty IS NOT NULL
+                        """)
+                .param("delta", delta).param("user", userId).param("id", workOrderId).param("company", companyId)
+                .update();
+    }
+
+    /** 申请 → 30（承認済）。{@code approved_allowed_qty} は承認後の受注行上限スナップショット。 */
+    public int markOverproductionApproved(long companyId, long approvalId, int version, long userId,
+                                          BigDecimal approvedAllowedQty) {
+        return jdbc.sql("""
+                        UPDATE prd_overproduction_approval
+                           SET approval_status = 30, approved_by = :user, approved_at = now(),
+                               approved_allowed_qty = :approved,
+                               version = version + 1, updated_by = :user, updated_at = now()
+                         WHERE id = :id AND company_id = :company AND approval_status IN (10, 20) AND version = :version
+                        """)
+                .param("user", userId).param("approved", approvedAllowedQty).param("id", approvalId)
+                .param("company", companyId).param("version", version)
                 .update();
     }
 }
