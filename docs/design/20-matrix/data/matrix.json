@@ -29086,7 +29086,7 @@
     {
       "method": "POST",
       "path": "/api/production/overproduction-approvals/{id}/approve",
-      "name": "承認（20→30、allowed_qty +request_qty。§3.14）。TODO：権限チェック未実装、Flowable 接入後に閉鎖",
+      "name": "承認（20→30、allowed_qty +request_qty。§3.14）",
       "permission": "production:overproduction-approval:approve",
       "domain": "PRD",
       "source": "06-production/91-api-design.md"
