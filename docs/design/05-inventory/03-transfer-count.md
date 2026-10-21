@@ -235,7 +235,7 @@ stateDiagram-v2
 | 1 | `lineNo` | 行番号 | 数値 | INT | ○ | 10 刻み | — | — | `line_no` |
 | 2 | `materialCode` | 物料コード | マスタ選択 | VARCHAR(10) | ○ | 空 | コード存在・有効 | — | `material_id/code` |
 | 3 | `materialName/spec` | 品名・仕様 | テキスト | VARCHAR(200) | ○ | マスタ | — | — | `material_name/spec` |
-| 4 | `uomCode` | 単位 | 表示 | VARCHAR(8) | ○ | 基本単位 | — | — | `uom_code` |
+| 4 | `uomCode` | 単位 | 表示 | VARCHAR(16) | ○ | 基本単位 | — | — | `uom_code` |
 | 5 | `qty` | 調撥数量 | 数値 | NUMERIC(18,4) | ○ | 0 | > 0、4 桁、可用量以内 | — | `qty` |
 | 6 | `availableQty` | 可用量（参考） | 表示 | NUMERIC(18,4) | — | 自動 | — | 照会 | — |
 | 7 | `batchNo` | 批次号 | テキスト | VARCHAR(64) | △ | 空 | 批次管理時必須・有効 | — | `batch_id/no` |
@@ -813,3 +813,4 @@ SELECT COALESCE(SUM(l.direction * l.qty), 0) AS net_movement
 | v1.1 | 2026-10-20 | 90-data 実データを反映：単価例・金額保存則の数値例を整合（E36/E37 追補の影響なし） | inventory-designer |
 | v1.2 | 2026-10-20 | 08 §8.1 追補を反映：BR-TR-09 を跨倉調撥 10,000 元閾値（倉庫主管／倉庫主管→財務経理）に修正し、未決 #1 を「已追補」に更新 | inventory-designer |
 | v1.3 | 2026-10-20 | 红队第 2 轮：在庫状態コード改訂（出庫可能=20 可用、待検=10 待検）に伴う記載修正 | inventory-designer |
+| v1.4 | 2026-10-21 | `uomCode` 画面項目を VARCHAR(16) に修正（05/90・`mdm_uom` と一致） | 业务分析 |

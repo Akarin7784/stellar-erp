@@ -384,7 +384,7 @@ stateDiagram-v2
 | 2 | `materialCode` | 物料コード | マスタ選択 | VARCHAR(10) | ○ | E14 明細 | コード存在・有効 | — | `material_code` | — |
 | 3 | `materialName` | 品名 | テキスト | VARCHAR(200) | ○ | マスタ | — | — | `material_name` | スナップショット |
 | 4 | `spec` | 仕様 | テキスト | VARCHAR(200) | — | マスタ | — | — | `spec` | スナップショット |
-| 5 | `uomCode` | 単位 | 選択 | VARCHAR(8) | ○ | 基本単位 | 単位グループ一致 | — | `uom_code` | 換算率スナップショット |
+| 5 | `uomCode` | 単位 | 選択 | VARCHAR(16) | ○ | 基本単位 | 単位グループ一致 | — | `uom_code` | 換算率スナップショット |
 | 6 | `qty` | 数量 | 数値 | NUMERIC(18,4) | ○ | E14 `receivedQty` | > 0、4 桁 | — | `qty` | 基本単位換算後 |
 | 7 | `batchNo` | 批次号 | テキスト | VARCHAR(64) | △ | E14 `batchNo` | 批次管理時必須・重複可（同一物料内で一意） | 自動採番（空時） | `batch_no` | 非批次管理は非表示 |
 | 8 | `expiryDate` | 有効期限 | 日付 | DATE | △ | 批次マスタ | 入庫日 ≤ 期限 | 自動計算（`shelf_life_days`） | `expiry_date` | 批次管理のみ |
@@ -996,3 +996,4 @@ SELECT 1
 | v1.3 | 2026-10-20 | 红队第 2 轮修复：①MII/MIR/FGI/OSI/OSR の INV 単一採番と E18 `stockDocNo` 返却（§2.7）②在庫状態コードを 09 §8 に合わせ 10=待検/20=可用へ全面改訂③E15 resultCode 写像と E15/E24 順序逆転の `inv_event_wait` 保留（§2.8）④E35 受入取消・E39 倉庫変更の購読追加⑤遅延イベントの計上日ルール（BR-16）⑥同時実行 S11/S12・メッセージ 063〜067 追加⑦E22 出庫倉庫のフォールバック（E21 引当倉庫→既定倉庫） | inventory-designer |
 | v1.4 | 2026-10-21 | 藍色大肥魚拍板：`inspection_type`/`inspection_stage` 码表；`inspection_flag` 入庫点收窄（PI/OSR∈{10,40}、FGI∈{30,40}）；source_type 過账/INSPECTION；INV 不另开入庫検査单（§2.6.1a） | 业务分析 |
 | v1.5 | 2026-10-21 | 05 迁移準備：MII の `source_id` を要求 ID（§2.7）に統一し工单 ID は `work_order_id`、暫定単価・参照単価の `mdm_material.standard_cost`（存在しない列）を `fin_standard_cost` に修正、二重計上防止を `inv_stock_txn_key` に更新 | 业务分析 |
+| v1.6 | 2026-10-21 | `uomCode` 画面項目を VARCHAR(16) に修正（05/90・`mdm_uom` と一致） | 业务分析 |
