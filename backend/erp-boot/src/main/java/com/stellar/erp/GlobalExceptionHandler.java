@@ -113,7 +113,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         if (code == 4001) {
             return HttpStatus.NOT_FOUND;
         }
-        if (code == 4002 || code == 4003 || code == 4005) {
+        // 409 は楽観排他競合 4003 のみ。4002 状態不整合・4005 二重処理/処理中を含むその他の業務競合は 422（Lead 決定）
+        if (code == 4003) {
             return HttpStatus.CONFLICT;
         }
         if (code >= 4000 && code <= 4999) {
