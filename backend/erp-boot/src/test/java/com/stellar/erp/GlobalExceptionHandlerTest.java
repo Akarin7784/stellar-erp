@@ -28,6 +28,11 @@ class GlobalExceptionHandlerTest {
             throw new BizException(code, "msg-" + code);
         }
 
+        @GetMapping("/okres")
+        com.stellar.erp.common.Result<String> okres() {
+            return com.stellar.erp.common.Result.ok("x");
+        }
+
         @GetMapping("/msg")
         String msg() {
             throw new BizException(60040, "MSG-PRD-040", "完工数量超过允许上限");
@@ -161,5 +166,15 @@ class GlobalExceptionHandlerTest {
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.code").value(60103))
                 .andExpect(jsonPath("$.msgId").value("MSG-PRD-103"));
+    }
+
+    /** 响应体只有 03 §5 的 4 个键（无 success 等派生字段）：成功与失败两种。 */
+    @Test
+    void responseBodyHasExactlyFourKeys() throws Exception {
+        for (String path : new String[] {"/okres", "/msg"}) {
+            String json = mvc.perform(get(path)).andReturn().getResponse().getContentAsString();
+            java.util.Map<String, Object> body = new tools.jackson.databind.ObjectMapper().readValue(json, new tools.jackson.core.type.TypeReference<java.util.Map<String, Object>>() { });
+            assertThat(body.keySet()).as(path).containsExactlyInAnyOrder("code", "message", "data", "msgId");
+        }
     }
 }

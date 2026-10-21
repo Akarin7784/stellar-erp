@@ -91,9 +91,9 @@ class LoginIntegrationTest {
         return mvc.perform(post("/api/system/auth/login").contentType(MediaType.APPLICATION_JSON).content(body));
     }
 
-    /** 2002 の応答 body 全体（既存 Result は isSuccess() により "success" も出力される）（列挙防止：どの原因でも完全一致）。 */
+    /** 2002 の応答 body 全体（列挙防止：どの原因でも完全一致）。 */
     static final String BAD_CREDENTIALS_BODY =
-            "{\"code\":2002,\"message\":\"企业代码、用户名或密码错误。\",\"data\":null,\"msgId\":\"MSG-COM-021\",\"success\":false}";
+            "{\"code\":2002,\"message\":\"企业代码、用户名或密码错误。\",\"data\":null,\"msgId\":\"MSG-COM-021\"}";
 
     static void isBadCredentials(ResultActions r) throws Exception {
         r.andExpect(status().isOk())
@@ -239,7 +239,7 @@ class LoginIntegrationTest {
             if (fe.length() > 0) fe.append(',');
             fe.append("{\"field\":\"").append(e[0]).append("\",\"message\":\"").append(e[1]).append("\"}");
         }
-        String expected = "{\"code\":1001,\"message\":\"%s\",\"data\":{\"fieldErrors\":[%s]},\"msgId\":%s,\"success\":false}"
+        String expected = "{\"code\":1001,\"message\":\"%s\",\"data\":{\"fieldErrors\":[%s]},\"msgId\":%s}"
                 .formatted(errors[0][1], fe, msgId == null ? "null" : "\"" + msgId + "\"");
         mvc.perform(post("/api/system/auth/login").contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isOk())
