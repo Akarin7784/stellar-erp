@@ -134,8 +134,22 @@ class UomConsistencyIntegrationTest {
     // ---- 換算ルール ----
 
     @Test
-    void identicalUnitNeedsNoRate() {
-        assertThat(toKg("KGM", "1.23456", D)).isEqualByComparingTo("1.23456");
+    void identicalUnitNeedsNoRateButIsCeiledToBasePrecision() {
+        assertThat(toKg("KGM", "1.23456", D)).isEqualByComparingTo("1.235");   // KGM decimal_places=3、切上
+        assertThat(toKg("KGM", "1.2", D)).isEqualByComparingTo("1.200");
+    }
+
+    /** 基本単位と同じ単位の BOM 行も基本単位の精度へ切上げて保存（例外なし、蓝色大肥鱼 2026-10-21 最終決定）。 */
+    @Test
+    void baseUnitLineIsRoundedUpToUnitPrecision() {
+        bom(999205, "KGM", "0.4115", COMP_KG);               // 3 × 0.4115 = 1.2345 KGM → 1.235
+        WorkOrderCreated c = as(() -> workOrders.create(cmd()));
+        Map<String, Object> m = owner.queryForMap("SELECT * FROM prd_work_order_material WHERE work_order_id = ?", c.id());
+        assertThat(m.get("uom_code")).isEqualTo("KGM");
+        assertThat((BigDecimal) m.get("required_qty")).isEqualByComparingTo("1.235");
+        assertThat((BigDecimal) m.get("total_required_qty")).isEqualByComparingTo("1.235");
+        assertThat(m.get("bom_uom_code")).isEqualTo("KGM");
+        assertThat((BigDecimal) m.get("bom_qty")).isEqualByComparingTo("1.2345");   // 換算前は丸めない
     }
 
     @Test

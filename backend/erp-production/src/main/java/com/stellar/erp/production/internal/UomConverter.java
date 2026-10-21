@@ -16,12 +16,14 @@ import com.stellar.erp.production.ProductionErrorCode;
  * 単位整合（CHK-PRD-002-10 / MSG-PRD-022 / 60022、蓝色大肥鱼 2026-10-21 決定）。
  *
  * <ul>
- *   <li>同一単位 → 整合（換算なし）。</li>
+ *   <li>同一単位 → 整合（換算なし）。ただし丸めは下記と同じく基本単位の decimal_places へ CEILING（例外なし、
+ *       蓝色大肥鱼 2026-10-21 最終決定）。</li>
  *   <li>異なる単位 → 両方が同じ {@code mdm_uom.conversion_group}、かつ基準日 {@code d} に有効な換算率がちょうど 1 件。
  *       有効＝{@code deleted=FALSE AND status=1 AND valid_from <= d AND (valid_to IS NULL OR d <= valid_to)}（valid_to 含む）。
  *       {@code conversion_rate} は「1 from = n to」（CALC-WO-10）。{@code from=BOM 単位・to=基本単位} の行を使い（×rate）、
  *       正方向が 0 件で逆方向行のみ 1 件なら ÷rate。正方向（または逆方向のみの場合の逆方向）が 0 件・複数件なら 60022。</li>
- *   <li>換算結果は基本単位の {@code mdm_uom.decimal_places} 桁へ CEILING（rounding_mode は無視）。</li>
+ *   <li>全材料行の数量は基本単位の {@code mdm_uom.decimal_places} 桁へ CEILING（rounding_mode は無視）。
+ *       基本単位が {@code mdm_uom} に未登録なら精度不明として 60022。</li>
  * </ul>
  * tenant は RLS、company は登录上下文の値で明示条件。
  */
@@ -40,13 +42,13 @@ public class UomConverter {
         this.jdbc = jdbc;
     }
 
-    /** {@code qty}（{@code fromUom}）を基本単位へ換算。不整合は 422 / 60022。 */
+    /** {@code qty}（{@code fromUom}）を基本単位へ換算し、基本単位の精度へ CEILING。不整合は 422 / 60022。 */
     public BigDecimal toBase(long company, String fromUom, String baseUom, BigDecimal qty, LocalDate d) {
+        int scale = uom(company, baseUom).orElseThrow(() -> mismatch(fromUom, baseUom)).decimalPlaces();
         if (fromUom.equals(baseUom)) {
-            return qty;
+            return qty.setScale(scale, RoundingMode.CEILING);
         }
         Rate rate = rate(company, fromUom, baseUom, d);
-        int scale = uom(company, baseUom).orElseThrow(() -> mismatch(fromUom, baseUom)).decimalPlaces();
         return rate.forward()
                 ? qty.multiply(rate.rate()).setScale(scale, RoundingMode.CEILING)
                 : qty.divide(rate.rate(), scale, RoundingMode.CEILING);

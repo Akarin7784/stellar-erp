@@ -67,6 +67,8 @@ class WorkOrderReleaseIntegrationTest {
               VALUES (994011, 304, 41, '9940000011', 'D 成品', 10, 994001, 's', 'PCE', 20, 1),
                      (994012, 304, 41, '9940000012', 'D 部品', 30, 994001, 's', 'PCE', 20, 1);
             INSERT INTO mdm_factory (id, tenant_id, company_id, factory_code, factory_name) VALUES (994021, 304, 41, 'F41', '工厂41');
+            INSERT INTO mdm_uom (id, tenant_id, company_id, uom_code, uom_name, conversion_group, decimal_places)
+              VALUES (994071, 304, 41, 'PCE', '个', 'PCS', 0);
             """);
         insertWorkOrder(WO, 25, false);
         owner.update("""
@@ -116,6 +118,7 @@ class WorkOrderReleaseIntegrationTest {
             DELETE FROM prd_bom WHERE tenant_id = 304;
             DELETE FROM fin_standard_cost WHERE tenant_id = 304;
             DELETE FROM mdm_factory WHERE tenant_id = 304;
+            DELETE FROM mdm_uom WHERE tenant_id = 304;
             DELETE FROM mdm_material WHERE tenant_id = 304;
             DELETE FROM mdm_material_category WHERE tenant_id = 304;
             """);
@@ -288,10 +291,11 @@ class WorkOrderReleaseIntegrationTest {
     void zeroLinesExpandsEffectiveBomInSameTransaction() {
         asUser(() -> releases.release(WO, new WorkOrderReleaseCommand(0)));
         Map<String, Object> m = owner.queryForMap("SELECT * FROM prd_work_order_material WHERE work_order_id = ?", WO);
-        // order_qty 10 × 3 ÷ base 1 = 30.0000、÷ (1 − 0.005) = 30.1508（切上）
-        assertThat((BigDecimal) m.get("required_qty")).isEqualByComparingTo("30.0000");
-        assertThat((BigDecimal) m.get("total_required_qty")).isEqualByComparingTo("30.1508");
-        assertThat((BigDecimal) m.get("remaining_qty")).isEqualByComparingTo("30.1508");
+        // order_qty 10 × 3 ÷ base 1 = 30.0000、÷ (1 − 0.005) = 30.1508 → 基本単位 PCE（decimal_places=0）へ切上 31
+        assertThat((BigDecimal) m.get("required_qty")).isEqualByComparingTo("30");
+        assertThat((BigDecimal) m.get("total_required_qty")).isEqualByComparingTo("31");
+        assertThat((BigDecimal) m.get("remaining_qty")).isEqualByComparingTo("31");
+        assertThat((BigDecimal) m.get("bom_qty")).isEqualByComparingTo("30.1508");
         assertThat(m.get("bom_line_id")).isEqualTo(994311L);
         assertThat(m.get("material_id")).isEqualTo(994012L);
         assertThat(row(WO).get("order_status")).isEqualTo(30);

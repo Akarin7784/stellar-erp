@@ -33,7 +33,7 @@ class WorkOrderMaterials {
      * BOM を展開して材料行を INSERT。
      * BOM 単位で CALC-WO-01（{@code component_qty × order_qty ÷ base_qty}、4 桁四捨五入）と
      * CALC-WO-02（{@code ÷ (1 − loss_rate)}、4 桁切上）を計算し、CALC-WO-10 で required / total をそれぞれ基本単位へ換算
-     * （同一単位はそのまま、異なれば基本単位 decimal_places へ CEILING）。{@code bom_qty} は換算前の総必要量。
+     * （同一単位も含め全行を基本単位 decimal_places へ CEILING）。{@code bom_qty} は換算前の総必要量。
      */
     void expand(long company, long userId, long workOrderId, BigDecimal orderQty, BomQueryService.EffectiveBom bom,
                 LocalDate baseDate) {
