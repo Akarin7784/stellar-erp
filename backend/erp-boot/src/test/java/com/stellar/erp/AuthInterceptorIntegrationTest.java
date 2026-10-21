@@ -210,8 +210,10 @@ class AuthInterceptorIntegrationTest {
 
     @Test
     void meReturnsUserRolesAndDedupedPermissionsOfSessionCompany() throws Exception {
-        owner.update("INSERT INTO sys_user (id, tenant_id, username, nickname, password) VALUES (?, ?, 'u7401', '用户', 'x')",
-                USER, TENANT);
+        owner.update("""
+                INSERT INTO sys_user (id, tenant_id, company_id, user_code, username, real_name, nickname, password_hash)
+                VALUES (?, ?, ?, 'E007401', 'u7401', '用户', '用户', 'x')
+                """, USER, TENANT, CO);
         PermissionGrants.grant(owner, TENANT, CO, USER, 998100, "test:a", "test:b");
         PermissionGrants.grant(owner, TENANT, CO, USER, 998200, "test:b");          // 重複コード
         PermissionGrants.grant(owner, TENANT, CO2, USER, 998300, "test:other-co");  // 他社は含まない
@@ -263,8 +265,10 @@ class AuthInterceptorIntegrationTest {
 
     @Test
     void meMenusAreSessionCompanyGrantsPlusParentDirectories() throws Exception {
-        owner.update("INSERT INTO sys_user (id, tenant_id, username, nickname, password) VALUES (?, ?, 'u7401', '用户', 'x')",
-                USER, TENANT);
+        owner.update("""
+                INSERT INTO sys_user (id, tenant_id, company_id, user_code, username, real_name, nickname, password_hash)
+                VALUES (?, ?, ?, 'E007401', 'u7401', '用户', '用户', 'x')
+                """, USER, TENANT, CO);
         long d1 = 9984001, d2 = 9984002, m1 = 9984003, m2 = 9984004, btn = 9984005, d3 = 9984006;
         menu(d1, 0, 1, 1);      // ルートディレクトリ
         menu(d2, d1, 1, 2);     // サブディレクトリ
