@@ -16,7 +16,7 @@ import com.stellar.erp.production.internal.ProductionRepository.WorkOrderForAppr
  * {@link #approve}）。Flowable 連携前の単純な状態遷移（Lead 2026-10-21 決定）。
  *
  * <ul>
- *   <li>状態不正 → 409 / 4002 / MSG-COM-034（§6.3 第 1 項、CHK-PRD-002-11）。</li>
+ *   <li>状態不正 → 422 / 4002 / MSG-COM-034（§6.3 第 1 項、CHK-PRD-002-11）。</li>
  *   <li>{@code version} 不一致 → 409 / 4003 / MSG-COM-033（91 §10「状態操作は version 必須」）。</li>
  *   <li>提出：材料明細 0 行可（CHK-PRD-002-09、AC-PRD-13）。</li>
  *   <li>承認：工序明細 1 行以上（CHK-PRD-002-08、60021 / MSG-PRD-021）、材料明細は不要。</li>

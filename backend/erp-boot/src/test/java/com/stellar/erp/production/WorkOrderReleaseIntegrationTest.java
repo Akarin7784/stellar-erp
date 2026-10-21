@@ -180,7 +180,7 @@ class WorkOrderReleaseIntegrationTest {
     }
 
     @Test
-    void apiReturns200WithWarningsAndConflictIs409() throws Exception {
+    void apiReturns200WithWarningsAndStateMismatchIs422() throws Exception {
         MockMvc mvc = MockMvcBuilders.webAppContextSetup(wac).build();
         TenantContext.set(TENANT);
         LoginContext.set(new LoginUser(USER, COMPANY));
@@ -194,7 +194,7 @@ class WorkOrderReleaseIntegrationTest {
                 .andExpect(jsonPath("$.data.warnings[0].msgId").value("MSG-FIN-117"));
         mvc.perform(post("/api/production/work-orders/" + WO + "/release")
                         .contentType(MediaType.APPLICATION_JSON).content("{\"version\": 1}"))
-                .andExpect(status().isConflict())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.code").value(4002))
                 .andExpect(jsonPath("$.msgId").value("MSG-COM-034"));
     }
