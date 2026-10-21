@@ -379,7 +379,7 @@ CREATE TABLE inv_stock_txn (
 -- 月次パーティション：inv_stock_txn_yYYYYmMM（例 inv_stock_txn_y2026m10）。初回迁移で 2026-01〜2027-12 と DEFAULT パーティションを作成し、
 -- 以降は月次ジョブ（sys_scheduled_job）が 3 か月先まで事前作成する（第 10 章 #7）。
 
--- パーティション表の一意索引はパーティションキーを含む必要があるため、全社一意は 4.2.6 の inv_stock_txn_key で保証する（暫定、第 10 章 #7）。
+-- パーティション表の一意索引はパーティションキーを含む必要があるため、全社一意は 4.2.6 の inv_stock_txn_key で保証する（第 10 章 #7 決定済）。
 CREATE UNIQUE INDEX uk_inv_stock_txn_no ON inv_stock_txn (tenant_id, company_id, txn_no, txn_date);
 CREATE INDEX idx_inv_stock_txn_date_type ON inv_stock_txn (tenant_id, company_id, txn_date DESC, txn_type);
 CREATE INDEX idx_inv_stock_txn_source ON inv_stock_txn (tenant_id, company_id, source_type, source_no);
@@ -456,7 +456,7 @@ COMMENT ON COLUMN inv_stock_txn.accounting_period IS 'txn_date から導出し�
 | INSERT | 沖销（反向事務） | 全項目（`is_reversal=true`、`reversal_of_txn_id`） |
 | DELETE | **禁止** | — |
 
-#### 4.2.6 `inv_stock_txn_key` 在庫事務一意キー台帳（暫定、第 10 章 #7）
+#### 4.2.6 `inv_stock_txn_key` 在庫事務一意キー台帳（第 10 章 #7 決定済）
 
 パーティション表では `(tenant_id, company_id, txn_no)` 等の全期間一意を索引で保証できない（一意索引に `txn_date` が必要）。過账 TX 内で本表に先に INSERT し、一意違反（23505）を二重計上・二重沖销として扱う。非パーティション・追記専用。
 
@@ -1578,7 +1578,7 @@ CREATE TABLE inv_event_wait (
     source_id       BIGINT        NOT NULL,           -- inspectionId / receiptId / workOrderId
     source_no       VARCHAR(32),
     warehouse_id    BIGINT        NOT NULL,
-    waiting_for     VARCHAR(16)   NOT NULL,           -- PI / FGI
+    waiting_for     VARCHAR(16)   NOT NULL,           -- PI / FGI / OSR
     payload         JSONB         NOT NULL,           -- E15 全ペイロード
     wait_status     SMALLINT      NOT NULL DEFAULT 0, -- 0待機 / 1適用済 / 9放棄
     retry_count     INT           NOT NULL DEFAULT 0,
@@ -1592,15 +1592,15 @@ CREATE TABLE inv_event_wait (
     updated_by      BIGINT        NOT NULL DEFAULT 0,
     CONSTRAINT pk_inv_event_wait PRIMARY KEY (id),
     CONSTRAINT ck_inv_event_wait_status CHECK (wait_status IN (0,1,9)),
-    CONSTRAINT ck_inv_event_wait_for CHECK (waiting_for IN ('PI','FGI')),
-    CONSTRAINT ck_inv_event_wait_source CHECK (source_type IN ('PURCHASE_RECEIPT','PRODUCTION_COMPLETION','INSPECTION'))
+    CONSTRAINT ck_inv_event_wait_for CHECK (waiting_for IN ('PI','FGI','OSR')),
+    CONSTRAINT ck_inv_event_wait_source CHECK (source_type IN ('PURCHASE_RECEIPT','PRODUCTION_COMPLETION','OUTSOURCING_ORDER','INSPECTION'))
 );
 CREATE UNIQUE INDEX uk_inv_event_wait_event ON inv_event_wait (tenant_id, company_id, event_id);
 CREATE INDEX idx_inv_event_wait_pending ON inv_event_wait (tenant_id, company_id, wait_status, next_retry_at) WHERE wait_status = 0;
 CREATE INDEX idx_inv_event_wait_source ON inv_event_wait (tenant_id, company_id, source_type, source_id);
 CREATE INDEX idx_inv_event_wait_expire ON inv_event_wait (tenant_id, company_id, created_at) WHERE wait_status = 0;
 COMMENT ON TABLE inv_event_wait IS '品質イベント保留（E15 先着時の待合せ）。09 §8 の sys_event_wait 相当';
-COMMENT ON COLUMN inv_event_wait.waiting_for IS 'PI=入荷待ち、FGI=完工入庫待ち';
+COMMENT ON COLUMN inv_event_wait.waiting_for IS 'PI=入荷待ち、FGI=完工入庫待ち、OSR=委外受入待ち';
 ```
 
 **更新仕様**：E15 受信時に `INSERT`（`wait_status=0`）。E14/E24 の過账 TX 内で `SELECT ... FOR UPDATE` → E15 適用 → `wait_status=1`・`applied_txn_id`。適用失敗は `retry_count+1`・`next_retry_at`（指数バックオフ）。24 時間超は `MSG-INV-064` アラート、`BAT-INV-007` で再処理。
@@ -1790,11 +1790,12 @@ COMMENT ON COLUMN inv_event_wait.waiting_for IS 'PI=入荷待ち、FGI=完工入
 | 5 | 寄售・组装拆卸用の列追加 | F-INV-022/023で `owner_type` 等の追加が必要 | 第一版で `owner_type` 等の列をマイグレーション追加（F-INV-022/023 設計と同時） | inventory-designer / Lead | 2027-06-30 |
 | 6 | `inv_event_wait` と `sys_event_wait` の物理名 | [09 §8](../00-common/09-cross-domain-flow.md) は `sys_event_wait`、[04 DB 規格](../00-common/04-common-db-spec.md) のプレフィックス規約では SYS 所有。INV 実装のため暫定 `inv_event_wait` | 暫定 `inv_event_wait`（INV 所有）。SYS 共通基盤提供時に移管 | Lead / system-workflow / inventory-designer | 2026-10-25 |
 
-| 7 | `inv_stock_txn` パーティション化と全期間一意 | [04 §8](../00-common/04-common-db-spec.md) で第一版から月次パーティション（決定済）。パーティション表の一意索引は `txn_date` を含む必要があり、`txn_no`・来源二重計上・沖销の全期間一意が索引で保証できない | 4.2.6 `inv_stock_txn_key` 台帳で一意を保証（暫定）。PK は `(id, txn_date)` | 蓝色大肥鱼（決定）/ DB | 迁移着手前 |
-| 8 | 標準原価計価（`valuation_method=20`）の差異科目と版切替 | [08 §6](../00-common/08-common-business-rules.md) で MTS 自製品は標準原価計価（決定済）。一方 07/01 は `1404 材料成本差异` を「不適用」としており、入庫差異（`variance_amount`）の仕訳科目と、期中に `fin_standard_cost` の版が変わった時の在庫再評価が未定 | 在庫は `std_unit_cost` で計上し差異は E18 明細の `varianceAmount` で FIN へ渡す（科目は FIN 決定）。版切替は月初のみ（`period_from` は月初日）とし、切替時に在庫残を新標準で再評価する `inv_cost_adjustment`（type 50）を BAT-INV-001 月結後に自動起票 | 蓝色大肥鱼 / FIN | 迁移着手前 |
-| 9 | MTO 受注専用在庫 | 本書の残高キーは 倉庫×物料×批次×状態×庫位で、受注（`sales_order_line_id`）別の専用在庫を区別しない。MTO 完成品・専用半成品が他受注に引き当てられる可能性 | 第一版は**批次で代替**：MTO 工单の FGI 批次は工单単位で採番し、`inv_stock_txn.sales_order_line_id` を保持、引当（`inv_reservation`）は受注明細に紐付く批次のみ許可。残高キーへの列追加はしない | 蓝色大肥鱼 | 迁移着手前 |
-| 10 | E19 原価調整の仕訳テンプレート | 07 の TPL-FIN-J01〜J30 に E19（`inventory.cost.updated`）対応がない | 在庫分 `adjustmentAmount` は 1403/1405、既出庫分 `issuedAdjustmentAmount` は 6401/5001.01 へ（05 §2.4 の配分どおり）。FIN 側で J31 を追加 | FIN | 2026-11-15 |
-| 11 | OSR 先着 E15 の保留 | `inv_event_wait.waiting_for` は `PI`/`FGI` のみだが、OSR も IQC 待検（02 §2.6.5）で E15 先着があり得る | `waiting_for` に `OSR`、`source_type` に `OUTSOURCING_ORDER` を追加する（決定後に CHECK を拡張） | 蓝色大肥鱼 / PRD | 迁移着手前 |
+| 7 | （**決定済**（蓝色大肥鱼 2026-10-21 決定））`inv_stock_txn` 全期間一意 | パーティション表の一意索引は `txn_date` を含む必要がある | 4.2.6 `inv_stock_txn_key` 台帳で `TXN_NO`/`SOURCE_POSTED`/`REVERSAL`/`PAIR` の一意を保証、PK `(id, txn_date)` | DB | 決定 2026-10-21 |
+| 8 | （**決定済**（蓝色大肥鱼 2026-10-21 決定））標準原価計価の差異と版切替 | 08 §6 MTS 自制品＝標準原価 | 在庫は `std_unit_cost` で計上、入庫差異は明細 `variance_amount` を E18 明細 `varianceAmount` で FIN へ（科目は FIN が決定）。`fin_standard_cost` の版切替は月初のみ、切替時は月結（BAT-INV-001）後に在庫残を新標準で再評価する `inv_cost_adjustment`（`adjustment_type=50`、`source_type='RECALC'`）を自動起票 | FIN / INV | 決定 2026-10-21 |
+| 9 | （**決定済**（蓝色大肥鱼 2026-10-21 決定））MTO 受注専用在庫（第一版） | 残高キーに受注列なし | **批次で代替**：MTO 工单の FGI 批次は工单単位で採番（1 工单 = 1 批次以上、他工单と共有しない）、`inv_stock_txn.sales_order_line_id` を保持。引当（`inv_reservation`、`source_type='SALES_ORDER'`）は当該受注明細に紐付く批次のみ可（サービス層検証、他受注は MSG 拒否）。残高キーへの列追加なし | INV | 決定 2026-10-21 |
+| 10 | （**決定済**（蓝色大肥鱼 2026-10-21 決定））E19 原価調整の仕訳 | — | FIN に TPL-FIN-J31 を追加（[07/06 §4](../07-finance/06-auto-voucher-costing.md)、[09 §7.2](../00-common/09-cross-domain-flow.md) J31）：在庫分 1403/1405、既出庫分 6401/5001.01 | FIN | 決定 2026-10-21 |
+| 11 | （**決定済**（蓝色大肥鱼 2026-10-21 決定））OSR 先着 E15 の保留 | — | `inv_event_wait.waiting_for` に `OSR`、`source_type` に `OUTSOURCING_ORDER` を追加（4.23 CHECK 反映済） | INV | 決定 2026-10-21 |
+| 12 | （**決定済**（蓝色大肥鱼 2026-10-21 決定））MDM 硬 FK | 04 §6 旧文言「論理削除マスタは FK なし」と矛盾 | mdm 向け跨域 FK は `(tenant_id, x_id)` の硬 FK（§6.3 #7〜11）。マスタは論理削除のみ・物理削除しない。論理削除済みマスタを新規伝票で参照しないことはサービス層で検証（04 §6 改訂済） | INV / DB | 決定 2026-10-21 |
 
 ---
 
@@ -1822,3 +1823,4 @@ COMMENT ON COLUMN inv_event_wait.waiting_for IS 'PI=入荷待ち、FGI=完工入
 | v1.5 | 2026-10-21 | 非一意 btree 索引（`idx_`）61 箇所を `tenant_id` 先頭（`company_id` がある表は次に `company_id`）に変更（DDL・索引一覧。既存迁移の索引は sys/V202610210707 と同一列。GIN は対象外。蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.6 | 2026-10-21 | 05 迁移準備の欠落補完：§1.1/§3.4 RLS・`uk_<table>_tenant_id`・域内/MDM 複合 FK（§6.3 一覧）、`inv_stock_txn` 月次パーティション（PK `(id, txn_date)`）と全期間一意台帳 `inv_stock_txn_key`（4.2.6、24 表）、`inv_stock_txn` に `reason_type`/`work_order_id`/`sales_order_line_id` と来源・相手・原因 CHECK、TRANSFER を来源二重計上一意の対象外に、明細に `valuation_method`/`std_unit_cost`/`variance_amount`（08 §6 標準原価計価）と `txn_type` CHECK、明細 FK→トリガー、`uom_code` を VARCHAR(16)、集計 3 表に監査列、CHECK 追加（調撥承認・系譜自己参照・序列号履歴・予約明細状態・調整来源・スキャン区分・保留来源）、`fin_period` 状態写像、§9 迁移計画を main 最大版 `V202610210708` 以降へ改訂、未決 #7〜#11 | 业务分析 |
 | v1.7 | 2026-10-21 | PR #43（sys/V202610211401）の規則に合わせ、同域親子 FK 6 本を `(tenant_id, company_id, x_id)` → 親 `(tenant_id, company_id, id)` に、親 6 表の被参照キーを `uk_<table>_tenant_company_id` に変更（`uk_<table>_tenant_id` は跨域被参照のみ＝本域 0 件）。mdm 向け跨域 FK は `(tenant_id, x_id)` のまま。§3.4・§6.3・§9 依存を更新 | 业务分析 |
+| v1.8 | 2026-10-21 | 未決 #7〜#12 を決定済に（蓝色大肥鱼 2026-10-21 決定）：`inv_stock_txn_key` 正式化、標準原価差異・月初版切替・月結後再評価、MTO は工单単位批次で受注別引当、E19→J31、`inv_event_wait` に OSR/OUTSOURCING_ORDER、mdm 硬 FK（04 §6 改訂） | 业务分析 |

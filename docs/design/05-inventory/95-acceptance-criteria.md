@@ -100,6 +100,13 @@
 
 - W：pgTAP `composite_fk.sql` と `RlsCoverageTest`。T：`inv_*` の全 `uk_` が `(tenant_id, company_id, …)` 先頭（`uk_<table>_tenant_company_id` を除く）、全 btree `idx_` が `(tenant_id, company_id, …)` 先頭。
 
+## AC-INV-16 MTO 批次引当・OSR 保留・原価調整仕訳
+
+- G：MTO 工单 WO-A（受注明細 L1）の FGI 批次 B1。W：受注明細 L2 の引当で B1 を指定。T：拒否。W：L1 の引当で B1。T：成功。
+- G：OSR 過账前に E15 到着。W：受信。T：`inv_event_wait`（`waiting_for='OSR'`、`source_type='OUTSOURCING_ORDER'`）に保留、OSR 過账 TX で適用。
+- G：原価調整確定（在庫分 60.00、既出庫分 15.00）。W：E19 発行。T：FIN が TPL-FIN-J31 で在庫分 1403/1405、既出庫分 6401 または 5001.01 の凭证を生成。
+- G：`fin_standard_cost` の新版（`period_from` 月初）。W：前月の月結完了。T：在庫残の再評価 `inv_cost_adjustment`（type 50）が自動起票される。
+
 ## 改訂履歴
 
 | 版数 | 日付 | 変更内容 | 変更者 |
@@ -108,3 +115,4 @@
 | v1.2 | 2026-10-21 | G2-20：非一意 btree `idx_` も `tenant_id` 先頭（次に `company_id`）、GIN 除外に修正（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.3 | 2026-10-21 | 05 迁移の受入基準を追加：AC-INV-09 RLS・複合 FK、10 迁移番号、11 パーティション・全期間一意、12 明細トリガー、13 計価方法（08 §6/BC-01）、14 区分値 CHECK・期間、15 一意/索引の自動検査 | 业务分析 |
 | v1.4 | 2026-10-21 | AC-INV-09/15：同域親子 FK を `(tenant_id, company_id, x_id)`・被参照キー `uk_<table>_tenant_company_id` に変更（PR #43） | 业务分析 |
+| v1.5 | 2026-10-21 | AC-INV-16 追加（MTO 批次引当・OSR 保留・J31・月初版切替再評価）（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |

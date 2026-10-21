@@ -142,7 +142,7 @@ CREATE TABLE sys_sequence (
 | 制約 | 方針 |
 |---|---|
 | 主キー | 全テーブル必須。`pk_{table}` 命名 |
-| 外部キー | マスタ参照・親子関係は FK を張る（`ON DELETE RESTRICT`、CASCADE 禁止）。参照先が論理削除対象の場合は FK を張らずアプリで検証（削除は使用停止で運用）。**跨域参照は 6.2 に従う**（FK は同一域内と sys/mdm 参照のみ） |
+| 外部キー | マスタ参照・親子関係は FK を張る（`ON DELETE RESTRICT`、CASCADE 禁止）。マスタ（sys/mdm）は**論理削除のみで物理削除しない**ため、論理削除対象でも硬 FK `(tenant_id, x_id)` を張ってよい。論理削除済みマスタを新規伝票から参照させないことはサービス層で検証する（蓝色大肥鱼 2026-10-21 決定）。**跨域参照は 6.2 に従う**（FK は同一域内と sys/mdm 参照のみ） |
 | 一意 | 業務キーは `UNIQUE INDEX WHERE deleted = FALSE`（部分一意）。先頭列は必ず `tenant_id`、`(tenant_id, company_id, ...)` 必須（6.1 項 4 を除く）。詳細は 6.1 |
 | CHECK | 列挙値（status/txn_type）、符号（数量 > 0、金額 >= 0）、日付整合（有効期間）に付与。可変の区分値は付けない |
 | NOT NULL | 業務上必須の項目は DB でも NOT NULL。NULL 許容は「未設定」に意味がある場合のみ |
@@ -442,6 +442,7 @@ V{yyyyMMdd}{NNNN}__{module}_{description}.sql     # バージョンは 12 桁
 | v1.8 | 2026-10-21 | §6.1 項 6：#38 以降 pgTAP `composite_fk.sql` がテナント級一意を表名＋索引名で照合・許可することを追記 | 业务分析 |
 | v1.9 | 2026-10-21 | §6.1 項 4 (b) に `sys_user.uk_sys_user_username (tenant_id, username)` を追加（計 9 本、蓝色大肥鱼 2026-10-21 決定。main 上の現名 `uk_sys_user_tenant_username`、改名・tenant_id 既定値（0）の修正・pgTAP 例外は sys_user 正式迁移で対応）。項 6 の pgTAP 記述から本数を除去し、同キーは未検査と明記 | 业务分析 |
 | v1.10 | 2026-10-21 | §6.1 項 4：複合外键の参照先専用 `UNIQUE (tenant_id, id)`（例 `uk_wf_task_tenant_id`）は業務一意キーではなく `(tenant_id, company_id, …)` 規則の対象外と明記 | 业务分析 |
+| v1.11 | 2026-10-21 | §6「外部キー」：論理削除マスタにも硬 FK `(tenant_id, x_id)` を張れる旨に改訂（マスタは物理削除しない。論理削除済みの新規参照禁止はサービス層）（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 
 ## Flowable 引擎表の schema 分離（issue #7）
 

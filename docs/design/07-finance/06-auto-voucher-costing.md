@@ -129,7 +129,7 @@ stateDiagram-v2
 
 ---
 
-## 4. 自動凭证テンプレート（J01–J30 対応表）
+## 4. 自動凭证テンプレート（J01–J31 対応表）
 
 > 下表は [09 章 7.2](../00-common/09-cross-domain-flow.md) の仕訳ルール J01–J30 との**完全対応表**である。イベント・借貸科目・金額根拠・摘要・補助核算を一致させる。テンプレートコード `TPL-FIN-xxx` は `fin_voucher_template.template_code` に保存する。
 
@@ -168,6 +168,7 @@ stateDiagram-v2
 | TPL-FIN-J28 | J28 | 损益结转（収益、BAT-FIN-012） | 6001/6051/6301/6111 等 | 4103 本年利润 | `source.creditBalance`（当期発生） | 期末结转 {periodCode} | なし | バッチ |
 | TPL-FIN-J29 | J29 | 损益结转（費用、BAT-FIN-012）**所得税含む** | 4103 本年利润 | 6401/6402/6403/6601/6602/6603/6701/6711/**6801 所得税費用** | `source.debitBalance`（当期発生） | 期末结转 {periodCode} | なし | バッチ |
 | TPL-FIN-J30 | J30 | 年结（BAT-FIN-013） | 4103 本年利润 | 4104 利润分配（未分配利润） | `source.netProfit`（当期純利益） | 年度结转 {fiscalYear} | なし | バッチ |
+| TPL-FIN-J31 | J31 | **E19 inventory.cost.updated**（原価調整確定、`inv_cost_adjustment` 過账） | 在庫分 1403/1405（物料分類で選択）、既出庫分 6401 主营业务成本（SI 由来）／5001.01 直接材料（MII 由来） | 調整来源の相手科目（`PURCHASE_INVOICE`：2202 应付货款、`PURCHASE_RECEIPT`：2202 暂估应付、`FINISHED_COST`：5001 生产成本）。減額は赤伝 | 在庫分 `payload.adjustmentAmount`、既出庫分 `payload.issuedAdjustmentAmount` | 成本调整 {adjustmentNo} | 物料/倉庫 | イベント |
 
 > 金額式は **09 章 §3 修正後 payload** に一致：E11 `amount/taxAmount/lines[].costAmount`、E14 `amount`、E16 `amount/taxAmount`、E22 `amount/lines[].amount`、E23 `laborAmount/workHours/laborRate/overheadAmount`、E24 `costAmount/unitCost`、E25 `amount`、E26 `processingFee/taxAmount/lines[].amount`、E36 `amount`。J07 の発生元は **E10**（出荷基準）であり、E12 は発票紐付け・台帳のみ（金額不変）。### 4.2 テンプレート行の構造
 
@@ -673,3 +674,4 @@ flowchart LR
 | v1.1 | 2026-10-20 | 09 章 §3 追補：J12 のトリガを E36 `production.material.returned` として明記（payload・対処理 INV 在庫戻入）し、上流イベント一覧に E36 を追加 | finance-designer |
 | v1.2 | 2026-10-20 | 红队修复：完工例を唯一シナリオ（WO2610200001、120 PCE、標準 93,384.00／実際 93,377.55、材料価格差異 −6.45）へ統一。テンプレート金額式を 09 修正後 payload へ更新。J21 を盤盈/盤亏の 2 行に分割、J29 に所得税を含める。期初 WIP 0・分批法 800h に修正 | finance-designer |
 | v1.3 | 2026-10-21 | SCR-FIN-062 標準原価メンテナンス（画面一覧・項目定義 §6.2a・API・権限） | 业务分析 |
+| v1.4 | 2026-10-21 | TPL-FIN-J31 追加：E19 `inventory.cost.updated` → 在庫分 1403/1405・既出庫分 6401/5001.01（05-inventory 90 未決 #10）（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
