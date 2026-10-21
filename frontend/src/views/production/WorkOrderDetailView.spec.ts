@@ -23,7 +23,10 @@ vi.mock('element-plus', async (orig) => {
   }
 })
 
+import { createPinia, setActivePinia } from 'pinia'
+
 import { ApiError, MSG_CONFLICT } from '@/api/http'
+import { useAuthStore } from '@/stores/auth'
 
 import WorkOrderDetailView from './WorkOrderDetailView.vue'
 
@@ -38,7 +41,16 @@ const DETAIL = {
   orderQty: '10.0000',
 }
 
-const mountView = async () => {
+const RELEASE = 'production:work-order:release'
+const mountView = async (perms: string[] = ['production:work-order:view', RELEASE]) => {
+  setActivePinia(createPinia())
+  useAuthStore().me = {
+    userInfo: { id: '1', username: 'u', nickname: null },
+    companyId: '1',
+    roles: [],
+    permissions: perms,
+    menus: [],
+  }
   const w = mount(WorkOrderDetailView, {
     props: { id: '42' },
     global: { plugins: [ElementPlus] },
@@ -94,6 +106,14 @@ describe('WorkOrderDetailView 下达', () => {
     expect((await mountView()).find('[data-test="release"]').exists()).toBe(false)
     getWorkOrder.mockResolvedValue(APPROVED)
     expect((await mountView()).find('[data-test="release"]').exists()).toBe(true)
+  })
+
+  it('无 production:work-order:release 权限时不显示下达按钮', async () => {
+    getWorkOrder.mockResolvedValue(APPROVED)
+    const w = await mountView(['production:work-order:view'])
+    expect(w.find('[data-test="release"]').exists()).toBe(false)
+    const w2 = await mountView()
+    expect(w2.find('[data-test="release"]').exists()).toBe(true)
   })
 
   it('取消确认时不调用 API', async () => {

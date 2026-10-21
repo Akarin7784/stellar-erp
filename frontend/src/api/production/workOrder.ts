@@ -67,6 +67,15 @@ export const ORDER_STATUS_LABELS: Record<number, string> = {
 }
 
 export const DEFAULT_ORDER_STATUS = 10
+
+/** 权限码（backend WorkOrderController @RequirePermission；V202610211405 sys_menu 种子）。 */
+export const WO_PERMISSIONS = {
+  view: 'production:work-order:view',
+  create: 'production:work-order:create',
+  submit: 'production:work-order:submit',
+  approve: 'production:work-order:approve',
+  release: 'production:work-order:release',
+} as const
 export const DEFAULT_WORK_ORDER_TYPE = 10
 export const DEFAULT_PRIORITY_NO = 5
 
