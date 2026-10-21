@@ -178,7 +178,7 @@ stateDiagram-v2
 | 6 | CHK-SYS-005-06 | `validFrom`/`validTo` | 相関 | 開始 ≤ 終了 | 保存 | MSG-COM-046 |
 | 7 | CHK-SYS-005-07 | 部門無効化 | 参照 | 所属ユーザ・進行中承認・未完了伝票 0 件 | 実行 | MSG-SYS-031 |
 | 8 | CHK-SYS-014-01 | `unifiedSocialCreditCode` | 形式 | 18 位英数＋GB 32100-2015 校验位（v1 で実施） | 保存 | MSG-COM-088 |
-| 8a | CHK-SYS-014-04 | `taxPayerType` | 値域 | 1/2 のいずれか | 保存 | MSG-COM-049 |
+| 8a | CHK-SYS-014-04 | `taxPayerType` | 値域 | 1/2 のいずれか（範囲外は値域エラー「「纳税人类型」必须在 1 到 2 之间。」） | 保存 | MSG-COM-089 |
 | 8b | CHK-SYS-014-05 | `fiscalYearStartMonth` | 値域 | 1〜12 | 保存 | MSG-COM-089 |
 | 8c | CHK-SYS-014-06 | `baseCurrencyCode` | 形式 | ISO 4217 英大文字 3 桁 | 保存 | MSG-COM-088 |
 | 9 | CHK-SYS-014-02 | `factoryId` | コード存在 | MDM に有効工厂が存在 | 保存 | MSG-COM-049 |
@@ -226,7 +226,7 @@ stateDiagram-v2
 1. 権限チェック（`system:company:create`。テナント開設級の操作で `update` とは分離）と入力チェック（汎用検証違反は `1001`。公司代码・统一社会信用代码の重複（一意索引 `uk_sys_company_code`・`uk_sys_company_credit` の違反のみ）は 422／`10035`／`MSG-SYS-093`。他の一意違反は `10035` にしない）。
 2. `sys_company` を INSERT する（共通カラム `company_id` は自行 `id` と同値）。
 3. 同一トランザクションで、[90 §3.15](90-db-design.md)「業務パラメータ」表の全キー（現時点 `prd.completion_over_rate = 0.05`、`prd.overproduction_max_rate = 1.0000`）を `sys_param` に `company_id` = 新しい `sys_company.id` で INSERT する。既存行はスキップ（`ON CONFLICT ... DO NOTHING`）。失敗時は会社登録ごとロールバック。
-4. 監査ログを記録する（v1 で実施）。成功時は HTTP 201、`data = {id, companyCode, companyName, version}` を返す（[91 §3.8](91-api-design.md)）。以後、当該会社でのパラメータ読取りは `company_id = 0` へフォールバックせず、行がなければ `5000`。
+4. 監査ログを記録する（v1 で実施）。`sys_audit_log` は同一トランザクションで INSERT し、`company_id` は操作者のセッション会社、新規作成した会社は `resource_id`（`resource_no` は公司代码）に記録する。INSERT 失敗時は会社登録全体（`sys_company`・`sys_param`・監査行）をロールバックし HTTP 500／`5000`／`MSG-SYS-091`（サーバー側障害）（蓝色大肥鱼 2026-10-21 决定）。成功時は HTTP 201、`data = {id, companyCode, companyName, version}` を返す（[91 §3.8](91-api-design.md)）。以後、当該会社でのパラメータ読取りは `company_id = 0` へフォールバックせず、行がなければ `5000`。
 
 **PRC-SYS-014-02 工厂組織設定 登録・更新**
 
@@ -378,3 +378,4 @@ stateDiagram-v2
 | v1.5 | 2026-10-21 | 重複・既存系の業務エラーの HTTP を 409 → 422 に統一（409 は楽観排他競合 4003 のみ。03 §5・01-system 91 v1.10 と整合）。対象：:238（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.6 | 2026-10-21 | PRC-SYS-014-03 手順 1：`10035` は `uk_sys_company_code`／`uk_sys_company_credit` 違反のみ（重複は 422。v1.3 の 409 は v1.4 で変更済み）。手順 4：成功時 HTTP 201・`data = {id, companyCode, companyName, version}` を明記（バックエンド PR #89 に整合） | 业务分析 |
 | v1.7 | 2026-10-21 | CHK-SYS-014-01 のメッセージを MSG-COM-042 → MSG-COM-088 に変更し GB 32100-2015 校验位検査を追加、CHK-SYS-014-04〜06（`taxPayerType` MSG-COM-049、`fiscalYearStartMonth` MSG-COM-089、`baseCurrencyCode` MSG-COM-088）を追加、PRC-SYS-014-03 手順 4 の監査ログは v1 で実施と明記（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.8 | 2026-10-21 | CHK-SYS-014-04 `taxPayerType` 範囲外のメッセージを MSG-COM-049 → MSG-COM-089 に変更（v1.7 の 049 を変更）。PRC-SYS-014-03 手順 4：監査行の `company_id`＝操作者セッション会社・新会社は `resource_id`、監査 INSERT 失敗は全体ロールバック＋500／5000／MSG-SYS-091 を明記（蓝色大肥鱼 2026-10-21 决定）。対象：:181、:229 | 业务分析 |
