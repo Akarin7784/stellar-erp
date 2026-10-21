@@ -70,7 +70,7 @@
 | 26 | POST | `/api/production/work-orders` | `production:work-order:create` | 工单登録 | F-PRD-005 |
 | 27 | PUT | `/api/production/work-orders/{id}` | `production:work-order:update` | 工单変更 | F-PRD-005 |
 | 28 | POST | `/api/production/work-orders/{id}/submit` | `production:work-order:submit` | 承認提出（10→20。詳細 §3.10） | F-PRD-005 |
-| 28a | POST | `/api/production/work-orders/{id}/approve` | `production:work-order:approve` | 承認（20→25。08 WF E32 コールバックと同一サービス。詳細 §3.11）。TODO：権限チェック未実装、Flowable 接入後に閉鎖 | F-PRD-005 |
+| 28a | POST | `/api/production/work-orders/{id}/approve` | `production:work-order:approve` | 承認（20→25。08 WF E32 コールバックと同一サービス。詳細 §3.11） | F-PRD-005 |
 | 29 | POST | `/api/production/work-orders/{id}/release` | `production:work-order:release` | 下达（E21） | F-PRD-005 |
 | 30 | POST | `/api/production/work-orders/batch-release` | 同上 | 一括下达 | F-PRD-005 |
 | 31 | POST | `/api/production/work-orders/{id}/split` | 同上 | 拆分 | F-PRD-005 |
@@ -552,7 +552,7 @@
 |---|---|
 | 目的 | 工单を 20（承認中）→25（承認済）に遷移する |
 | 権限 | `production:work-order:approve`（02-work-order.md T-02） |
-| 備考 | TODO：権限チェック未実装、Flowable 接入後に閉鎖 |
+| 備考 | — |
 | 呼出元 | 08 工作流の E32 承認完了コールバックと**同一のサービスメソッド**を呼ぶ。08（Flowable）接入後は本 API を閉じ、E32 コールバックからのみ遷移可能とする（蓝色大肥鱼 2026-10-21 決定、PR #32）。**Flowable 接入前の暫定入口**であり、統一入口は [08/91 #33](../08-workflow/91-api-design.md) `POST /api/workflow/tasks/{taskId}/approve`。接入後は廃止またはコールバック専用とする |
 | リクエスト | `{ "version": 4 }` |
 | 正常 | 200 + 工单 DTO（`orderStatus=25`、`version`+1） |
@@ -681,4 +681,4 @@
 | v1.17 | 2026-10-21 | §3.2 下达の単位整合：既存材料明細は検査のみで回写しない（AC-PRD-13 整合）。§4 60022 に換算率選択・基本単位の mdm_uom 未登録・停用／削除単位（既存行も提出・下达で 60022、データ不変）・全行切上げを追記（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.18 | 2026-10-21 | §2.2 に #39a〜39g 超産申請 API（一覧・詳細・登録・提出・承認・却下・取消）を追加、§3.14 を新設（状態遷移、60103／60056／60101／60005、案 B、version +1 と前端の 409／4003 対応）、§4 の 60005／60056／60101 の意味を追記（蓝色大肥鱼 2026-10-21 #66 決定） | 业务分析 |
 | v1.19 | 2026-10-21 | #39e 超産申請承認の「TODO：権限チェック未実装」を削除（#71 で認証・`@RequirePermission` 落地、`OverproductionApprovalController.java:88` で `production:overproduction-approval:approve` を検証済）。#28a 工单承認（:73、§3.11）は Controller に `@RequirePermission` 未付与のため TODO を残す（#71 合并後、TODO 削除は蓝色大肥鱼 2026-10-21 指示） | 业务分析 |
-| v1.20 | 2026-10-21 | HTTP 409 を `version` 競合（4003）専用とし、状態不整合（4002）・二重処理/処理中（4005）・同時実行・確定済変更不可・二重実行等の 409 も 422 に統一し、409 は `version` 競合（4003）のみとする（蓝色大肥鱼 2026-10-21 決定）。対象：:27、:28、:296、:547、:559、:605、:607、:616、:617、:647、:648 | 业务分析 |
+| v1.20 | 2026-10-21 | HTTP 409 を `version` 競合（4003）専用とし、状態不整合（4002）・二重処理/処理中（4005）・同時実行・確定済変更不可・二重実行等の 409 も 422 に統一し、409 は `version` 競合（4003）のみとする（蓝色大肥鱼 2026-10-21 決定）。対象：:27、:28、:296、:547、:559、:605、:607、:616、:617、:647、:648。追補：#28a 工单承認の「TODO：権限チェック未実装」を削除（:73、§3.11 :555。#86 で `WorkOrderController.java:57` に `@RequirePermission("production:work-order:approve")` 付与・403 テスト済） | 业务分析 |
