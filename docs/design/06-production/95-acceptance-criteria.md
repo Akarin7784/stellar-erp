@@ -165,6 +165,8 @@
 - G：同上。W：`workOrderNo`（前方一致）、`material`（コード・名称の部分一致）、`status=10,20`、`plannedEndDateFrom`／`plannedEndDateTo`、`salesOrderNo` で絞込。T：条件に一致する行のみ。W：`plannedEndDateFrom` > `plannedEndDateTo`。T：**400 / `1001`**（`MSG-COM-046`）。
 - G：工单号 `WO2610%` を含まない工单と、品目名に文字 `%` を含む工单がある。W：`workOrderNo=WO2610%`、または `material=%`。T：`%` は文字として照合され（`LIKE … ESCAPE '\'`）、前者は 0 件、後者は品目名に `%` を含む行のみ返る（全件にならない）。`_`・`\` も同様（91 §3.15）。
 - G：同上。W：`pageSize=201`。T：**400 / `1001`**、`data.fieldErrors` に `pageSize`（`MSG-COM-045`）。W：`pageNum=0` または `pageSize=0`。T：**400 / `1001`**、`fieldErrors`（`MSG-COM-044`）。`pageSize=200` は 200。
+- G：同上。W：`status=99`、または `sort=foo,asc`。T：**400 / `1001`**、`fieldErrors`（`MSG-COM-049`）。W：`priorityNo=10`。T：`MSG-COM-089`。W：`plannedEndDateFrom=2026/10/01`。T：`MSG-COM-043`。W：`isHold=yes` または `factoryId=abc`。T：`MSG-COM-088`（91 §3.15）。
+- G：品目名 `Steel Bar`、工单号 `WO2610001`。W：`material=steel`。T：該当行が返る（大文字小文字を区別しない）。W：`workOrderNo=wo2610`。T：0 件（区別する）。
 - G：`production:work-order:view` なし。W：同 API。T：**403 / `3001`**。G：データ範囲外の工場。W：`factoryId` に当該工場。T：**403 / `3002`**。
 - 画面（SCR-PRD-008）：一覧は本 API を使い、既定検索条件（工場・状態 10〜35・計画完成日）は前端が送る。
 
@@ -192,3 +194,4 @@
 | v1.17 | 2026-10-21 | 工单下达で受注行 `allowed_qty` NULL・負値は 5000 → 422／60101（5000 は `prd.overproduction_max_rate` 欠落のみ、蓝色大肥鱼 2026-10-21 決定）。追補：5000 の対象は欠落したサーバー側システムパラメータ（`prd.overproduction_max_rate`・`prd.completion_over_rate` 等）すべて（蓝色大肥鱼 2026-10-21 決定：サーバー側システムパラメータ欠落はすべて 5000、BR-WO-15 は変更なし） | 业务分析 |
 | v1.18 | 2026-10-21 | AC-PRD-22 を追加：工单一覧（当前会社のみ、既定ソート、絞込、From > To は 400／1001／MSG-COM-046、`pageSize=201` は 400／1001／MSG-COM-045、`pageNum`・`pageSize` < 1 は 400／1001／MSG-COM-044、権限なし 403／3001、データ範囲外 403／3002）（蓝色大肥鱼 2026-10-21 決定）（追補：AC-PRD-19 のページングを `size` から `pageSize`（03 §7.1）に統一、後端・前端は追随する（蓝色大肥鱼 2026-10-21 決定）。追補：AC-PRD-22 に検索入力 `%` のエスケープ（文字として照合）を追加（蓝色大肥鱼 2026-10-21 決定）） | 业务分析 |
 | v1.19 | 2026-10-21 | 工单下达の受注行 `allowed_qty` NULL・負値の期待メッセージを MSG-PRD-106 に変更（蓝色大肥鱼 2026-10-21 决定）。追補：入庫時に超産申請が却下・取消の期待メッセージを MSG-PRD-101 から MSG-PRD-100 に変更（蓝色大肥鱼 2026-10-21 决定） | 业务分析 |
+| v1.20 | 2026-10-21 | AC-PRD-22 にパラメータ不正の msgId（049／089／043／088）と大文字小文字の扱い（`material` は区別しない、`workOrderNo` は区別する）を追加（蓝色大肥鱼 2026-10-21 决定） | 业务分析 |
