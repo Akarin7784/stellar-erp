@@ -60,6 +60,7 @@ class SalesOrderLineLookupIntegrationTest {
               VALUES (995011, 305, 51, '9950000011', 'L 成品', 10, 995001, 's', 'PCE', 20, 1),
                      (995012, 306, 51, '9950000012', 'L 成品 T306', 10, 995002, 's', 'PCE', 20, 1);
             INSERT INTO mdm_factory (id, tenant_id, company_id, factory_code, factory_name) VALUES (995021, 305, 51, 'F51', '工厂51');
+            INSERT INTO mdm_uom (id, tenant_id, company_id, uom_code, uom_name, conversion_group, decimal_places) VALUES (995071, 305, 51, 'PCE', '个', 'PCS', 0);
             INSERT INTO mdm_customer (id, tenant_id, company_id, customer_code, customer_name, customer_type, tax_no, owner_user_id, payment_term_code, settlement_method_code) VALUES
               (995031, 305, 51, 'C995031', 'L 客户', 10, '91320000000000000X', 1, 'NET30', 'TT'),
               (995032, 305, 52, 'C995032', 'L 客户 52', 10, '91320000000000000X', 1, 'NET30', 'TT'),
@@ -108,6 +109,7 @@ class SalesOrderLineLookupIntegrationTest {
             DELETE FROM sal_sales_order WHERE tenant_id IN (305, 306);
             DELETE FROM mdm_customer WHERE tenant_id IN (305, 306);
             DELETE FROM mdm_factory WHERE tenant_id IN (305, 306);
+            DELETE FROM mdm_uom WHERE tenant_id IN (305, 306);
             DELETE FROM mdm_material WHERE tenant_id IN (305, 306);
             DELETE FROM mdm_material_category WHERE tenant_id IN (305, 306);
             """);
