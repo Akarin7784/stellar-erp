@@ -64,7 +64,6 @@ export const ORDER_STATUS_LABELS: Record<number, string> = {
   35: '生产中',
   40: '完工',
   90: '已取消',
-  95: '已驳回',
 }
 
 export const DEFAULT_ORDER_STATUS = 10
