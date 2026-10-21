@@ -82,6 +82,9 @@ class OverproductionApprovalServiceTest {
                 new SalesOrderLineLookup.SalesOrderLine(LINE, SO, "SO1", MAT, null, new BigDecimal("105"))));
         org.mockito.Mockito.when(repo.nextSequence(org.mockito.ArgumentMatchers.eq(CO), org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyLong())).thenReturn(1L);
+        org.mockito.Mockito.when(repo.findCompanyDecimalParam(CO, "prd.overproduction_max_rate")).thenReturn(BigDecimal.ONE);
+        org.mockito.Mockito.when(repo.findOverproductionLimitBasis(CO, LINE)).thenReturn(java.util.Optional.of(
+                new com.stellar.erp.production.internal.ProductionRepository.OverproductionLimitBasis(new BigDecimal("100"), 0)));
         return new OverproductionApprovalService(repo, lookup);
     }
 

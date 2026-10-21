@@ -371,20 +371,7 @@ class ProductionCoreIntegrationTest {
         assertThat(owner.queryForObject("SELECT count(*) FROM sys_sequence WHERE tenant_id = 303", Long.class)).isZero();
     }
 
-    @Test
-    void validRequestIsSaved() {
-        stubLine();
-        OverproductionRequested r = asUser(() -> approvals.request(
-                new OverproductionRequestCommand(SO_LINE, null, new BigDecimal("3"), "追加")));
-        assertThat(r.approvalNo()).matches("OPA\\d{6}0001");
-        Map<String, Object> row = owner.queryForMap("SELECT * FROM prd_overproduction_approval WHERE id = ?", r.id());
-        assertThat(row.get("company_id")).isEqualTo(COMPANY);
-        assertThat((BigDecimal) row.get("request_qty")).isEqualByComparingTo("3");
-        assertThat((BigDecimal) row.get("current_allowed_qty")).isEqualByComparingTo("105");
-        assertThat(row.get("approval_status")).isEqualTo(10);
-        assertThat(row.get("requested_by")).isEqualTo(USER);
-        assertThat(row.get("material_id")).isEqualTo(MAT_RATE);
-    }
+    // 正常系の保存（上限・精度チェック込み）は実受注行が必要なため OverproductionApprovalApiIntegrationTest に移動。
 
     @Test
     void negativeAllowedQtyIs5000BeforeInsert() {

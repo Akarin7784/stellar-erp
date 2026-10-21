@@ -65,9 +65,13 @@ public final class ProductionErrorCode {
     public static final int COMPLETION_LIMIT_EXCEEDED = 60040;
     public static final String MSG_COMPLETION_LIMIT_EXCEEDED = "MSG-PRD-040";
 
-    /** 超产申请数量不正（{@code request_qty} ≤ 0 或 NULL）。 */
+    /** 超产申请数量不正（≤ 0 / NULL、超过受注行基本数量 × prd.overproduction_max_rate、小数位超过基本单位 decimal_places）。 */
     public static final int OPA_INVALID_REQUEST_QTY = 60103;
     public static final String MSG_OPA_INVALID_REQUEST_QTY = "MSG-PRD-103";
+
+    /** 超産承認無効（却下 40／取消 90 の申請に対する承認・操作。91 §4 60101）。 */
+    public static final int OPA_INVALID = 60101;
+    public static final String MSG_OPA_INVALID = "MSG-PRD-101";
 
     /** 设定不备（租户 / 公司上下文 / {@code sys_param.prd.completion_over_rate} 缺失），91 §9 / 93 §1。 */
     public static final int CONFIG_MISSING = 5000;
