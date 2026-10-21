@@ -1,7 +1,9 @@
 package com.stellar.erp.production;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.List;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -10,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.stellar.erp.common.BizException;
 import com.stellar.erp.common.LoginContext;
+import com.stellar.erp.common.PageResult;
 import com.stellar.erp.production.SalesOrderLineLookup.SalesOrderLine;
 import com.stellar.erp.production.internal.DocumentNumbers;
 import com.stellar.erp.production.internal.ProductionRepository;
@@ -30,6 +33,12 @@ public class OverproductionApprovalService {
     static final String SEQ_KEY = "PRD_OVERPRODUCTION_APPROVAL";
     static final String PREFIX = "OPA";
     static final short STATUS_DRAFT = 10;
+    static final short STATUS_PENDING = 20;
+    static final short STATUS_APPROVED = 30;
+    static final short STATUS_REJECTED = 40;
+    static final short STATUS_CANCELLED = 90;
+    static final short WO_RELEASED = 30;
+    static final String MAX_RATE_KEY = "prd.overproduction_max_rate";
 
     private final ProductionRepository repo;
     private final SalesOrderLineLookup salesOrderLines;
@@ -55,10 +64,13 @@ public class OverproductionApprovalService {
                 .orElseThrow(() -> new BizException(ProductionErrorCode.NOT_FOUND, "受注行不存在"));
         if (cmd.workOrderId() != null) {
             ProductionRepository.WorkOrderRef wo = repo.findWorkOrder(company, cmd.workOrderId())
-                    .orElseThrow(() -> new BizException(ProductionErrorCode.NOT_FOUND, "工单不存在"));
-            if (wo.materialId() != line.materialId()) {
-                throw new BizException(ProductionErrorCode.WO_MATERIAL_MISMATCH,
-                        ProductionErrorCode.MSG_WO_MATERIAL_MISMATCH, "工单品目与销售订单行品目不一致。");
+                    .orElseThrow(OverproductionApprovalService::woMismatch);
+            checkWorkOrderBelongs(wo, line.id(), line.materialId());
+            // 工单級：下达済（≥30）かつ allowed_qty スナップショット済みでなければ申請不可（Lead 2026-10-21 決定）
+            ProductionRepository.WorkOrderLimitState st = repo.findWorkOrderLimitState(company, wo.id())
+                    .orElseThrow(OverproductionApprovalService::woMismatch);
+            if (st.orderStatus() < WO_RELEASED || st.allowedQty() == null) {
+                throw invalidApproval("工单が未下达、または allowed_qty が未確定のため工单級の超産申請はできません。");
             }
         }
         if (line.allowedQty() == null) {
@@ -68,6 +80,8 @@ public class OverproductionApprovalService {
             // current_allowed_qty 是受注行快照，负值属于数据不整合，不是申请数量错误 → 5000（不是 60103）
             throw new BizException(ProductionErrorCode.CONFIG_MISSING, "受注行 allowed_qty 为负值，数据不整合");
         }
+
+        checkLimit(company, line.id(), cmd.requestQty());
 
         String no = DocumentNumbers.next(repo, company, SEQ_KEY, PREFIX, LocalDate.now());
         long id = IdWorker.getId();
@@ -84,10 +98,154 @@ public class OverproductionApprovalService {
         return new OverproductionRequested(id, no, STATUS_DRAFT, cmd.requestQty(), line.allowedQty());
     }
 
+    /** 承認 → 30。受注行 → 工单 → 申請行の順にロックし、受注行（と工单級なら工单）の allowed_qty を +delta。 */
+    @Transactional
+    public OverproductionApproved approve(long approvalId, Integer version) {
+        LoginContext.LoginUser login = LoginContext.require();
+        long company = login.companyId();
+        ProductionRepository.ApprovalRow peek = repo.findApproval(company, approvalId, false)
+                .orElseThrow(() -> new BizException(ProductionErrorCode.NOT_FOUND, "超产申请不存在"));
+        SalesOrderLine line = salesOrderLines.lockForUpdate(company, peek.salesOrderLineId())
+                .orElseThrow(() -> new BizException(ProductionErrorCode.CONFIG_MISSING, "超产申请的受注行不存在，数据不整合"));
+        if (peek.workOrderId() != null) {
+            ProductionRepository.WorkOrderRef wo = repo.lockWorkOrderRef(company, peek.workOrderId())
+                    .orElseThrow(OverproductionApprovalService::woMismatch);
+            checkWorkOrderBelongs(wo, line.id(), line.materialId());
+        }
+        ProductionRepository.ApprovalRow a = repo.findApproval(company, approvalId, true)
+                .orElseThrow(() -> new BizException(ProductionErrorCode.NOT_FOUND, "超产申请不存在"));
+        checkStatus(a, STATUS_PENDING);
+        checkVersion(a, version);
+        if (a.requestedBy() == login.userId()) {
+            throw new BizException(ProductionErrorCode.WO_SELF_APPROVAL, ProductionErrorCode.MSG_WO_SELF_APPROVAL,
+                    "申請者と承認者が同一のため承認できません。");
+        }
+        BigDecimal lineAllowed = repo.addSalesOrderLineAllowedQty(company, line.id(), a.requestQty(), login.userId())
+                .orElseThrow(() -> new BizException(ProductionErrorCode.CONFIG_MISSING,
+                        "受注行 allowed_qty 更新 0 行（未快照或已不存在）"));
+        if (a.workOrderId() != null
+                && repo.addWorkOrderAllowedQty(company, a.workOrderId(), a.requestQty(), login.userId()) != 1) {
+            throw new BizException(ProductionErrorCode.CONFIG_MISSING, "工单 allowed_qty 更新 0 行（未快照或已不存在）");
+        }
+        if (repo.markOverproductionApproved(company, a.id(), a.version(), login.userId(), lineAllowed) != 1) {
+            throw new BizException(ProductionErrorCode.CONFIG_MISSING, "超产申请状态更新 0 行");
+        }
+        return new OverproductionApproved(a.id(), a.approvalNo(), STATUS_APPROVED, a.requestQty(), lineAllowed,
+                a.workOrderId(), a.version() + 1);
+    }
+
+    /** 提出 10→20。 */
+    @Transactional
+    public OverproductionApprovalView submit(long approvalId, Integer version) {
+        return transition(approvalId, version, List.of(STATUS_DRAFT), STATUS_PENDING, null);
+    }
+
+    /** 却下 20→40（allowed_qty は変更しない）。 */
+    @Transactional
+    public OverproductionApprovalView reject(long approvalId, Integer version, String reason) {
+        return transition(approvalId, version, List.of(STATUS_PENDING), STATUS_REJECTED, reason);
+    }
+
+    /** 取消 10/20→90（allowed_qty は変更しない）。 */
+    @Transactional
+    public OverproductionApprovalView cancel(long approvalId, Integer version) {
+        return transition(approvalId, version, List.of(STATUS_DRAFT, STATUS_PENDING), STATUS_CANCELLED, null);
+    }
+
+    @Transactional(readOnly = true)
+    public OverproductionApprovalView get(long approvalId) {
+        long company = LoginContext.require().companyId();
+        return repo.findApprovalView(company, approvalId).map(OverproductionApprovalView::of)
+                .orElseThrow(OverproductionApprovalService::notFound);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResult<OverproductionApprovalView> list(Long salesOrderLineId, Long workOrderId, Short status,
+                                                       int pageNum, int pageSize) {
+        long company = LoginContext.require().companyId();
+        if (pageNum < 1 || pageSize < 1 || pageSize > 200) {
+            throw new BizException(1001, "MSG-COM-040", "pageNum / pageSize 不正");
+        }
+        long total = repo.countApprovals(company, salesOrderLineId, workOrderId, status);
+        List<OverproductionApprovalView> rows = repo.listApprovals(company, salesOrderLineId, workOrderId, status,
+                pageSize, (long) (pageNum - 1) * pageSize).stream().map(OverproductionApprovalView::of).toList();
+        return PageResult.of(rows, total, pageNum, pageSize);
+    }
+
+    private OverproductionApprovalView transition(long approvalId, Integer version, List<Short> from, short to,
+                                                  String reason) {
+        LoginContext.LoginUser login = LoginContext.require();
+        long company = login.companyId();
+        ProductionRepository.ApprovalRow a = repo.findApproval(company, approvalId, true)
+                .orElseThrow(OverproductionApprovalService::notFound);
+        if (!from.contains(a.approvalStatus())) {
+            checkStatus(a, (short) -1);
+        }
+        checkVersion(a, version);
+        if (repo.transitionOverproduction(company, a.id(), a.version(), login.userId(), from, to, reason) != 1) {
+            throw versionConflict();
+        }
+        return get(approvalId);
+    }
+
+    /** 想定外の状態（10・30・40・90 を含む）への操作はすべて 60101（91 §3.14）。 */
+    private static void checkStatus(ProductionRepository.ApprovalRow a, short expected) {
+        if (a.approvalStatus() != expected) {
+            throw invalidApproval("超産承認が無効です（現在の状態ではこの操作はできません）。");
+        }
+    }
+
+    private static void checkVersion(ProductionRepository.ApprovalRow a, Integer version) {
+        if (version == null || version != a.version()) {
+            throw versionConflict();
+        }
+    }
+
+    private static BizException versionConflict() {
+        return new BizException(ProductionErrorCode.VERSION_CONFLICT, ProductionErrorCode.MSG_VERSION_CONFLICT,
+                "数据已被其他用户更新，请重新获取最新信息后再操作。");
+    }
+
+    private static BizException invalidApproval(String msg) {
+        return new BizException(ProductionErrorCode.OPA_INVALID, ProductionErrorCode.MSG_OPA_INVALID, msg);
+    }
+
+    private static BizException notFound() {
+        return new BizException(ProductionErrorCode.NOT_FOUND, "超产申请不存在");
+    }
+
+    private void checkLimit(long company, long lineId, BigDecimal requestQty) {
+        BigDecimal rate = repo.findCompanyDecimalParam(company, MAX_RATE_KEY);
+        if (rate == null) {
+            throw new BizException(ProductionErrorCode.CONFIG_MISSING,
+                    "未设置超产申请上限率（sys_param " + MAX_RATE_KEY + "）");
+        }
+        ProductionRepository.OverproductionLimitBasis basis = repo.findOverproductionLimitBasis(company, lineId)
+                .orElseThrow(() -> new BizException(ProductionErrorCode.NOT_FOUND, "受注行不存在"));
+        if (basis.decimalPlaces() == null || basis.baseQty() == null) {
+            throw new BizException(ProductionErrorCode.CONFIG_MISSING, "受注行基本单位未登记（mdm_uom）");
+        }
+        if (requestQty.stripTrailingZeros().scale() > basis.decimalPlaces()
+                || requestQty.compareTo(basis.baseQty().multiply(rate)) > 0) {
+            throw invalidQty();
+        }
+    }
+
+    private static void checkWorkOrderBelongs(ProductionRepository.WorkOrderRef wo, long lineId, long materialId) {
+        if (wo.salesOrderLineId() == null || wo.salesOrderLineId() != lineId || wo.materialId() != materialId) {
+            throw woMismatch();
+        }
+    }
+
+    private static BizException woMismatch() {
+        return new BizException(ProductionErrorCode.WO_MATERIAL_MISMATCH, ProductionErrorCode.MSG_WO_MATERIAL_MISMATCH,
+                "工单与销售订单行不一致（不属于该受注行或公司）。");
+    }
+
     private static BizException invalidQty() {
         return new BizException(ProductionErrorCode.OPA_INVALID_REQUEST_QTY,
                 ProductionErrorCode.MSG_OPA_INVALID_REQUEST_QTY,
-                "超産申請数量が不正です。申請超産数量は 0 より大きい値を指定してください。");
+                "超産申請数量が不正です。0 より大きく、上限（受注行基本数量 × 上限率）以内、基本単位の小数桁数以内で指定してください。");
     }
 
     /**
