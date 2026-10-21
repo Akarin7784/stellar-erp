@@ -71,4 +71,60 @@ class OverproductionApprovalServiceTest {
         assertThat(OverproductionApprovalService.isRequestQtyViolation(
                 new DataIntegrityViolationException("x", new SQLException(message, state)))).isFalse();
     }
+
+    // ---------------------------------------------------------------- DB 兜底经 request() 转换（插入阶段）
+
+    static final long CO = 1, USER = 9, LINE = 500, SO = 400, MAT = 300;
+
+    private OverproductionApprovalService mockedService(com.stellar.erp.production.internal.ProductionRepository repo) {
+        SalesOrderLineLookup lookup = org.mockito.Mockito.mock(SalesOrderLineLookup.class);
+        org.mockito.Mockito.when(lookup.find(CO, LINE)).thenReturn(java.util.Optional.of(
+                new SalesOrderLineLookup.SalesOrderLine(LINE, SO, "SO1", MAT, null, new BigDecimal("105"))));
+        org.mockito.Mockito.when(repo.nextSequence(org.mockito.ArgumentMatchers.eq(CO), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyLong())).thenReturn(1L);
+        return new OverproductionApprovalService(repo, lookup);
+    }
+
+    @Test
+    void dbRequestQtyCheckViolationDuringRequestIsConvertedTo60103() {
+        var repo = org.mockito.Mockito.mock(com.stellar.erp.production.internal.ProductionRepository.class);
+        org.mockito.Mockito.doThrow(new DataIntegrityViolationException("x", new SQLException(
+                "new row for relation \"prd_overproduction_approval\" violates check constraint \"ck_prd_opa_request_qty\"", "23514")))
+                .when(repo).insertApproval(org.mockito.ArgumentMatchers.any());
+        OverproductionApprovalService service = mockedService(repo);
+        com.stellar.erp.common.LoginContext.set(new com.stellar.erp.common.LoginContext.LoginUser(USER, CO));
+        try {
+            assertThatThrownBy(() -> service.request(new OverproductionRequestCommand(LINE, null, new BigDecimal("3"), null)))
+                    .isInstanceOfSatisfying(BizException.class, e -> {
+                        assertThat(e.getCode()).isEqualTo(60103);
+                        assertThat(e.getMsgId()).isEqualTo("MSG-PRD-103");
+                    });
+        } finally {
+            com.stellar.erp.common.LoginContext.clear();
+        }
+    }
+
+    @Test
+    void otherDbViolationDuringRequestIsRethrownUnchanged() {
+        var repo = org.mockito.Mockito.mock(com.stellar.erp.production.internal.ProductionRepository.class);
+        DataIntegrityViolationException original = new DataIntegrityViolationException("x", new SQLException(
+                "violates check constraint \"ck_prd_opa_allowed_qty\"", "23514"));
+        org.mockito.Mockito.doThrow(original).when(repo).insertApproval(org.mockito.ArgumentMatchers.any());
+        OverproductionApprovalService service = mockedService(repo);
+        com.stellar.erp.common.LoginContext.set(new com.stellar.erp.common.LoginContext.LoginUser(USER, CO));
+        try {
+            assertThatThrownBy(() -> service.request(new OverproductionRequestCommand(LINE, null, new BigDecimal("3"), null)))
+                    .isSameAs(original);
+        } finally {
+            com.stellar.erp.common.LoginContext.clear();
+        }
+    }
+
+    @Test
+    void invalidQtyIsCheckedBeforeMissingSalesOrderLineAndLogin() {
+        // 受注行未指定 + 未登录 + 数量 0：60103 优先（不是 1001 / 未登录错误）
+        OverproductionApprovalService service = new OverproductionApprovalService(null, null);
+        assertThatThrownBy(() -> service.request(new OverproductionRequestCommand(null, null, BigDecimal.ZERO, null)))
+                .isInstanceOfSatisfying(BizException.class, e -> assertThat(e.getCode()).isEqualTo(60103));
+    }
 }

@@ -6,7 +6,7 @@
 -- 业务错误由 g2_18_raise 抛出：SQLSTATE P0001，MESSAGE = 错误码。
 -- 「--!include <classpath 路径>」由 PgTapSuiteTest / scripts/local-ci.sh 展开成文件内容。
 BEGIN;
-SELECT plan(67);
+SELECT plan(73);
 
 --!include db/draft/g2_18_completion.sql
 
@@ -129,6 +129,7 @@ SELECT is(g2_18_calc_allowed_qty(7.333, 0.05, 991006), 7.69::numeric, 'F3 KGM 7.
 
 -- ---------------------------------------------------------------- S 确认快照 / allowed_qty NULL
 SELECT throws_ok($$SELECT g2_18_raise_allowed_qty(991015, NULL, 10, 'X', 9, 990002)$$, 'P0001', '5000', 'S1 受注行 allowed_qty 未快照时审批 → 5000');
+SELECT throws_ok($$SELECT g2_18_raise_allowed_qty(991015, NULL, 0, 'X', 9, 990011)$$, 'P0001', '5000', 'S1c allowed_qty 未快照（v_old NULL）+ delta 0 → 5000 先于 60103');
 SELECT throws_ok($$SELECT g2_18_report_completion(991105, 1, 9)$$, 'P0001', '5000', 'S1b 受注行 allowed_qty 未快照时报完工 → 5000');
 SELECT is(g2_18_snapshot_on_line_confirm(991015, NULL, 9), 105::numeric, 'S2 确认快照 allowed_qty = floor(100×1.05) = 105');
 SELECT is((SELECT ARRAY[completion_over_rate, allowed_qty] FROM sal_sales_order_line WHERE id = 991015), ARRAY[0.05, 105]::numeric[], 'S3 快照写入 rate 0.05 / allowed 105');
@@ -204,6 +205,16 @@ SELECT throws_ok($$SELECT g2_18_approve_overproduction(991702, 9, 990010)$$, 'P0
 SELECT is((SELECT ARRAY[(SELECT allowed_qty FROM sal_sales_order_line WHERE id = 991017),
                         (SELECT approval_status FROM prd_overproduction_approval WHERE id = 991702)]),
           ARRAY[100, 20]::numeric[], 'A17 60103 后受注行 100、审批单仍 20');
+SELECT throws_ok($$SELECT g2_18_raise_allowed_qty(991017, NULL, 0.4, 'X', 9, 990012)$$, 'P0001', '60103', 'A18 直接调高 delta 0.4（PCE 取整为 0）→ 60103');
+SELECT throws_ok($$SELECT g2_18_raise_allowed_qty(991012, 991201, 0, 'X', 9, 990013)$$, 'P0001', '60103', 'A19 工单级 delta 0 → 60103');
+SELECT throws_ok($$SELECT g2_18_raise_allowed_qty(991012, 991201, -3, 'X', 9, 990014)$$, 'P0001', '60103', 'A20 工单级 delta 负数 → 60103');
+SELECT is((SELECT ARRAY[(SELECT allowed_qty FROM sal_sales_order_line WHERE id = 991012),
+                        (SELECT allowed_qty FROM prd_work_order WHERE id = 991201),
+                        (SELECT allowed_qty FROM prd_work_order WHERE id = 991202),
+                        (SELECT allowed_qty FROM sal_sales_order_line WHERE id = 991017)]),
+          ARRAY[110, 73, 42, 100]::numeric[], 'A21 60103 后受注行 / 工单 allowed_qty 都不变');
+SELECT is((SELECT count(*) FROM sys_audit_log WHERE id IN (990007, 990008, 990009, 990010, 990011, 990012, 990013, 990014)),
+          0::bigint, 'A22 60103 / 5000 时不写审计日志');
 
 -- ---------------------------------------------------------------- Q 受注改量
 SELECT is(g2_18_check_line_qty_change(991014, 120), 136::numeric, 'Q1 100→120 率 0.05 + 已批 +10（驳回 7 不计）= 136');

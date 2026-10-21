@@ -47,6 +47,14 @@ class GlobalExceptionHandlerTest {
                     "23514"));
         }
 
+        /** 用真实服务抛出的 60103（不手写 BizException），验证经 ControllerAdvice 后的 HTTP 映射。 */
+        @GetMapping("/opa/{qty}")
+        String opa(@PathVariable String qty) {
+            new com.stellar.erp.production.OverproductionApprovalService(null, null)
+                    .request(new com.stellar.erp.production.OverproductionRequestCommand(1L, null, new java.math.BigDecimal(qty), null));
+            return "unreachable";
+        }
+
         @GetMapping("/boom")
         String boom() {
             throw new IllegalStateException("secret detail");
@@ -131,5 +139,14 @@ class GlobalExceptionHandlerTest {
         mvc.perform(get("/ck/ck_sal_sales_order_line_qty"))
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.code").value(5000));
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"0", "-1", "-0.0001"})
+    void overproductionInvalidRequestQtyIs422WithCodeAndMsgId(String qty) throws Exception {
+        mvc.perform(get("/opa/" + qty))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.code").value(60103))
+                .andExpect(jsonPath("$.msgId").value("MSG-PRD-103"));
     }
 }
