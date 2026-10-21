@@ -9,7 +9,7 @@
       "reports": 9,
       "batches": 12,
       "interfaces": 7,
-      "messages": 100,
+      "messages": 101,
       "apis": 146
     },
     "MDM": {
@@ -10444,7 +10444,7 @@
       "source": "01-system/02-user-role-permission.md"
     },
     {
-      "id": "MSG-SYS-021",
+      "id": "MSG-SYS-094",
       "type": "E",
       "body": "岗位数据不存在或已失效，请重新选择。",
       "condition": "岗位無効",
@@ -10541,6 +10541,15 @@
       "action": "ユーザ異動",
       "domain": "SYS",
       "source": "01-system/03-org-position.md"
+    },
+    {
+      "id": "MSG-SYS-021",
+      "type": "階層",
+      "body": "",
+      "condition": "",
+      "action": "",
+      "domain": "SYS",
+      "source": "01-system/04-menu-dict-param.md"
     },
     {
       "id": "MSG-SYS-024",
