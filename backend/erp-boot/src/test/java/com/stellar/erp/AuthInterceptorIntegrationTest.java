@@ -50,6 +50,9 @@ class AuthInterceptorIntegrationTest {
         owner = sharedOwner;
         PermissionGrants.cleanup(owner, TENANT);
         mvc = MockMvcBuilders.webAppContextSetup(wac).build();
+        // Sa-Token 的 DAO 是 JVM 全局（SaManager）。同一 JVM 中其他 Spring 上下文（如启动失败测试）可能把它
+        // 绑定到已关闭的 Redis 连接工厂，因此每个测试前绑定回本上下文的 Redis DAO。
+        cn.dev33.satoken.SaManager.setSaTokenDao(wac.getBean(cn.dev33.satoken.dao.SaTokenDao.class));
     }
 
     @AfterEach

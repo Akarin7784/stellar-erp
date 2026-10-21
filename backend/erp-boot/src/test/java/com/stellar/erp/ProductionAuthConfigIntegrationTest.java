@@ -30,6 +30,11 @@ class ProductionAuthConfigIntegrationTest {
     @Autowired WebApplicationContext wac;
     @Autowired TrustPresetContextPolicy policy;
 
+    @org.junit.jupiter.api.BeforeEach
+    void bindSaTokenDao() {
+        cn.dev33.satoken.SaManager.setSaTokenDao(wac.getBean(cn.dev33.satoken.dao.SaTokenDao.class));
+    }
+
     @AfterEach
     void clear() {
         LoginContext.clear();
