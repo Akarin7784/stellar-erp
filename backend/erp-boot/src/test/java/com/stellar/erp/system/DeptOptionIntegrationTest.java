@@ -20,7 +20,7 @@ import com.stellar.erp.common.TenantContext;
 import com.stellar.erp.support.DbIntegrationTest;
 import com.stellar.erp.support.OwnerJdbc;
 
-/** GET /api/system/depts/options：会社・テナント境界、有効・未削除のみ、ID は文字列、sort_no→コード順。 */
+/** GET /api/system/departments/options：会社・テナント境界、有効・未削除のみ、ID は文字列、sort_no→コード順。 */
 @DbIntegrationTest
 class DeptOptionIntegrationTest {
 
@@ -64,7 +64,7 @@ class DeptOptionIntegrationTest {
         TenantContext.set(TENANT);
         LoginContext.set(new LoginUser(USER, CO));
         // 期待順：sort_no 1（D002, D003）→ sort_no 2（D001）。停用・删除・他社・他租户は含まない
-        mvc.perform(get("/api/system/depts/options"))
+        mvc.perform(get("/api/system/departments/options"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.length()").value(3))
@@ -80,7 +80,7 @@ class DeptOptionIntegrationTest {
         MockMvc mvc = MockMvcBuilders.webAppContextSetup(wac).build();
         TenantContext.set(TENANT);
         LoginContext.set(new LoginUser(USER, CO2));
-        mvc.perform(get("/api/system/depts/options").param("companyId", String.valueOf(CO)))
+        mvc.perform(get("/api/system/departments/options").param("companyId", String.valueOf(CO)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.length()").value(1))
                 .andExpect(jsonPath("$.data[0].id").value("996006"))
