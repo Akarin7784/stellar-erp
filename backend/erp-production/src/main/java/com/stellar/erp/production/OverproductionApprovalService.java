@@ -64,7 +64,9 @@ public class OverproductionApprovalService {
                 .orElseThrow(() -> new BizException(ProductionErrorCode.NOT_FOUND, "受注行不存在"));
         checkTargetWorkOrder(company, line, cmd.workOrderId());
         if (line.allowedQty() == null) {
-            throw new BizException(ProductionErrorCode.CONFIG_MISSING, "受注行 allowed_qty 尚未快照");
+            // 業務データ未準備（受注未確定で allowed_qty 未スナップショット）→ 422 / 60101（lead 2026-10-21 決定）。
+            // 5000 は prd.overproduction_max_rate 欠落のみ。
+            throw invalidApproval("受注行の allowed_qty が未確定のため超産申請はできません。");
         }
         if (line.allowedQty().signum() < 0) {
             // current_allowed_qty 是受注行快照，负值属于数据不整合，不是申请数量错误 → 5000（不是 60103）

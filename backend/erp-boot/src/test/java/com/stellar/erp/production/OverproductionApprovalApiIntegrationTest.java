@@ -238,6 +238,16 @@ class OverproductionApprovalApiIntegrationTest {
     }
 
     @Test
+    void lineAllowedQtyNullIs422With60101() throws Exception {
+        owner.update("UPDATE sal_sales_order_line SET allowed_qty = NULL WHERE id = ?", LINE);
+        create(CO, body(LINE, null, "1"))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(content().json("{\"code\":60101,\"message\":\"受注行の allowed_qty が未確定のため超産申請はできません。\","
+                        + "\"data\":null,\"msgId\":\"MSG-PRD-101\"}", JsonCompareMode.STRICT));
+        assertThat(approvalCount()).isZero();
+    }
+
+    @Test
     void missingParamIs5000() throws Exception {
         owner.update("DELETE FROM sys_param WHERE id = 997091");
         create(CO, body(LINE, null, "1"))
@@ -562,7 +572,7 @@ class OverproductionApprovalApiIntegrationTest {
         assertThat(statusOf(id)).isEqualTo(10);
     }
 
-    // ------------------------------------------------------------------ 却下理由の検証（91:589、AC-PRD-17）
+    // ------------------------------------------------------------------ 驳回理由の検証（91:589、AC-PRD-17）
 
     ResultActions reject(String id, String reasonJson) throws Exception {
         return postAs(APPROVER, CO, BASE + "/" + id + "/reject",
@@ -570,8 +580,8 @@ class OverproductionApprovalApiIntegrationTest {
     }
 
     static String required() {
-        return "{\"code\":1001,\"message\":\"请输入必填项「却下理由」。\",\"msgId\":\"MSG-COM-040\",\"data\":{\"fieldErrors\":["
-                + "{\"field\":\"rejectReason\",\"message\":\"请输入必填项「却下理由」。\"}]}}";
+        return "{\"code\":1001,\"message\":\"请输入必填项「驳回理由」。\",\"msgId\":\"MSG-COM-040\",\"data\":{\"fieldErrors\":["
+                + "{\"field\":\"rejectReason\",\"message\":\"请输入必填项「驳回理由」。\"}]}}";
     }
 
     @ParameterizedTest
@@ -589,8 +599,8 @@ class OverproductionApprovalApiIntegrationTest {
         String id = pendingApproval(WO, "10");
         reject(id, "\"" + "理".repeat(501) + "\"")
                 .andExpect(status().isBadRequest())
-                .andExpect(content().json("{\"code\":1001,\"message\":\"「却下理由」不能超过 500 个字符。\",\"msgId\":\"MSG-COM-041\","
-                        + "\"data\":{\"fieldErrors\":[{\"field\":\"rejectReason\",\"message\":\"「却下理由」不能超过 500 个字符。\"}]}}",
+                .andExpect(content().json("{\"code\":1001,\"message\":\"「驳回理由」不能超过 500 个字符。\",\"msgId\":\"MSG-COM-041\","
+                        + "\"data\":{\"fieldErrors\":[{\"field\":\"rejectReason\",\"message\":\"「驳回理由」不能超过 500 个字符。\"}]}}",
                         JsonCompareMode.STRICT));
         assertThat(statusOf(id)).isEqualTo(20);
     }
@@ -668,13 +678,29 @@ class OverproductionApprovalApiIntegrationTest {
     }
 
     @Test
+    void editWithoutVersionIs400With040() throws Exception {
+        String id = newApproval(null, "5");
+        String required = "{\"code\":1001,\"message\":\"请输入必填项「version」。\",\"msgId\":\"MSG-COM-040\","
+                + "\"data\":{\"fieldErrors\":[{\"field\":\"version\",\"message\":\"请输入必填项「version」。\"}]}}";
+        putAs(USER, id, "{\"requestQty\": 6}")
+                .andExpect(status().isBadRequest())
+                .andExpect(content().json(required, JsonCompareMode.STRICT));
+        putAs(USER, id, "{\"version\": null, \"requestQty\": 6}")
+                .andExpect(status().isBadRequest())
+                .andExpect(content().json(required, JsonCompareMode.STRICT));
+        Map<String, Object> row = owner.queryForMap("SELECT request_qty, version FROM prd_overproduction_approval WHERE id = ?",
+                Long.parseLong(id));
+        assertThat((BigDecimal) row.get("request_qty")).isEqualByComparingTo("5");
+        assertThat(((Number) row.get("version")).intValue()).isZero();
+    }
+
+    @Test
     void editStaleVersionIs409With4003() throws Exception {
         String id = newApproval(null, "5");
         putAs(USER, id, "{\"version\": 7, \"requestQty\": 6}")
                 .andExpect(status().isConflict())
                 .andExpect(content().json("{\"code\":4003,\"message\":\"数据已被其他用户更新，请重新获取最新信息后再操作。\",\"data\":null,\"msgId\":\"MSG-COM-033\"}",
                         JsonCompareMode.STRICT));
-        putAs(USER, id, "{\"requestQty\": 6}").andExpect(status().isConflict()).andExpect(jsonPath("$.code").value(4003));
         assertThat(owner.queryForObject("SELECT request_qty FROM prd_overproduction_approval WHERE id = ?", BigDecimal.class,
                 Long.parseLong(id))).isEqualByComparingTo("5");
     }

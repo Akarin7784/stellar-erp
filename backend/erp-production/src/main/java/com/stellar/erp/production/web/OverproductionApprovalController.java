@@ -82,9 +82,9 @@ public class OverproductionApprovalController {
         }
         String reason = body == null ? null : body.rejectReason();
         if (reason == null || reason.isBlank()) {
-            vs.add(new Violation("rejectReason", "请输入必填项「却下理由」。", MSG_REQUIRED));
+            vs.add(new Violation("rejectReason", "请输入必填项「驳回理由」。", MSG_REQUIRED));
         } else if (reason.length() > REJECT_REASON_MAX) {
-            vs.add(new Violation("rejectReason", "「却下理由」不能超过 " + REJECT_REASON_MAX + " 个字符。", MSG_TOO_LONG));
+            vs.add(new Violation("rejectReason", "「驳回理由」不能超过 " + REJECT_REASON_MAX + " 个字符。", MSG_TOO_LONG));
         }
         if (!vs.isEmpty()) {
             Violation first = vs.get(0);
@@ -112,10 +112,18 @@ public class OverproductionApprovalController {
     @PutMapping("/{id}")
     @RequirePermission("production:overproduction-approval:create")
     public ResponseEntity<Result<?>> update(@PathVariable long id, @RequestBody OverproductionUpdateCommand body) {
+        // version 欠落は 409 ではなく 400 / 1001 / MSG-COM-040（reject と同じ扱い）
+        java.util.List<Violation> vs = new java.util.ArrayList<>();
+        if (body == null || body.version() == null) {
+            vs.add(new Violation("version", "请输入必填项「version」。", MSG_REQUIRED));
+        }
         if (body != null && body.remark() != null && body.remark().length() > REMARK_MAX) {
-            String msg = "「备注」不能超过 " + REMARK_MAX + " 个字符。";
-            return ResponseEntity.badRequest().body(new Result<>(1001, msg,
-                    new FieldErrors(java.util.List.of(new FieldError("remark", msg))), MSG_TOO_LONG));
+            vs.add(new Violation("remark", "「备注」不能超过 " + REMARK_MAX + " 个字符。", MSG_TOO_LONG));
+        }
+        if (!vs.isEmpty()) {
+            Violation first = vs.get(0);
+            return ResponseEntity.badRequest().body(new Result<>(1001, first.message(),
+                    new FieldErrors(vs.stream().map(v -> new FieldError(v.field(), v.message())).toList()), first.msgId()));
         }
         return ResponseEntity.ok(Result.ok(service.update(id, body)));
     }
