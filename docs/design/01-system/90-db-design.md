@@ -4,7 +4,7 @@
 |---|---|
 | 文書名 | 系统管理 DB 设计书（系统管理 DB 設計書） |
 | 文書番号 | DSN-SYS-090 |
-| 版数 | v1.0 |
+| 版数 | v1.18 |
 | 作成日 | 2026-10-20 |
 | 作成者 | system-workflow（域設計担当） |
 | 承認者 | 未承認（レビュー待ち） |
@@ -228,7 +228,7 @@ COMMENT ON TABLE sys_factory_setting IS '工厂组织设置（工厂主数据は
 ```sql
 CREATE TABLE sys_tenant (
     -- [共通カラム M のうち company_id を除く]
-    tenant_code         VARCHAR(32)   NOT NULL,           -- 租户代码
+    tenant_code         VARCHAR(32)   NOT NULL,           -- 租户代码（大文字で保存、CHECK (tenant_code = upper(tenant_code))）
     tenant_name         VARCHAR(200)  NOT NULL,           -- 租户名称
     contact_name        VARCHAR(50),                      -- 联系人
     contact_phone       VARCHAR(30),                      -- 联系电话
@@ -242,6 +242,8 @@ COMMENT ON TABLE sys_tenant IS '租户（マルチテナント契約単位）';
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
 | uk_sys_tenant_code | UNIQUE | (tenant_code) | WHERE deleted=FALSE | 租户コード（ログイン画面の「企业代码」）を**全体で一意**。ログイン時に `tenant_code` から租户を一意に特定するため `tenant_id` を含めない（[00-common/04](../00-common/04-common-db-spec.md) §6.1 第 4 条 (c) の具名例外）。旧定義 `(tenant_id, tenant_code)` では `id=tenant_id` のため租户間の重複を防げなかった（蓝色大肥鱼 2026-10-21 #71 決定） |
+
+**`tenant_code` の大文字小文字（2026-10-21 決定）**：`tenant_code` は大文字小文字を区別しない。登録・更新時は常に大文字に変換して保存し、DB に `CONSTRAINT ck_sys_tenant_code_upper CHECK (tenant_code = upper(tenant_code))` を設ける。バックエンドは照合前に入力値を `upper()` してから比較する（ログイン時の `sys_auth_find_login_user` 呼出しを含む、[01-auth-login](01-auth-login.md) PRC-SYS-001-02 手順 2）。`uk_sys_tenant_code` は大文字の値で一意となるため変更しない。一方 `sys_user.username` は**完全一致（大文字小文字を区別）**で照合し、現状どおり変換しない（§3.6）（蓝色大肥鱼 2026-10-21 #75 決定）。
 
 **ログイン用参照関数**：`sys_auth_find_login_user(p_tenant_code, p_username)`（SECURITY DEFINER、`SET search_path` 固定、`EXECUTE` は `erp_app` のみ・`PUBLIC` から REVOKE）。`sys_tenant`（`tenant_code` 一致・`deleted=FALSE`・`status=1`・`expire_date IS NULL OR expire_date >= current_date`）と同租户の `sys_user`（`username` 一致・`deleted=FALSE`）を結合し、照合に必要な最小項目のみ返す（[01-auth-login](01-auth-login.md) PRC-SYS-001-02 手順 2）。DBA が `sys_user` 正式迁移で定義する（蓝色大肥鱼 2026-10-21 #71 決定）。
 
@@ -373,6 +375,10 @@ COMMENT ON TABLE sys_user IS '用户（ログインアカウント＋社員属�
 | idx_sys_user_dept_status | B-Tree | (tenant_id, company_id, department_id, status) | — | 部門別ユーザ一覧 |
 | idx_sys_user_name_trgm | GIN | (real_name gin_trgm_ops) | — | 氏名曖昧検索 |
 | idx_sys_user_mobile | B-Tree | (tenant_id, company_id, mobile) | — | 電話番号検索 |
+
+**CHECK 制約（2026-10-21 決定）**：`gender` に `CHECK (gender IN (0,1,2))`（0 未知 / 1 男 / 2 女）を設ける。`employee_type` は字典（`sys_dict`）管理のため DB の CHECK は設けず、アプリ層が `sys_dict` の有効項目で検証する。`username` は完全一致（大文字小文字を区別）で照合し、`tenant_code` のような大文字化は行わない（§3.3）（蓝色大肥鱼 2026-10-21 #75 決定）。
+
+**外部キー（2026-10-21 決定、列構成待定）**：`department_id`（→ `sys_department`）・`position_id`（→ `sys_position`）・`factory_id`（→ `mdm_factory`）・`manager_user_id`（→ `sys_user` 自己参照）に**同租户の外部キー**を設ける。いずれも NULL 可。参照先テーブルが main 上にまだ存在しないものは今回付けず、後続 TODO として記録する（本版時点で 4 表とも main に存在：`sys/V202610210104`・`mdm/V202610210201`・`V1__baseline.sql`）。`manager_user_id` は自己参照 FK で、NULL 可のためルート＝0 の問題はない（`parent_id` の 04 §6.2 項 2a 例外とは異なる）。循環参照の禁止は引き続きアプリで検査する。**列構成は待定**：`(tenant_id, x)` の 2 列とするか、#43 規則の同域親子 FK `(tenant_id, company_id, x)` の 3 列とするか（あるいは 04 §6.2 の具名例外として登録するか）は蓝色大肥鱼の決定待ち。決定後に本節と DDL を更新する（蓝色大肥鱼 2026-10-21 #75 決定）。
 
 **制約**：`manager_user_id` の循環参照禁止（アプリ）。`is_builtin=true` のアカウントは削除・停用不可（`MSG-SYS-002`）。退職処理時は `status=0`・`account_status=3` とし、進行中タスクは代理者へ転送する（F-WF-007）。
 
@@ -1631,3 +1637,4 @@ COMMENT ON TABLE sys_data_maintenance_log IS '数据维护历史（初期化・�
 | v1.15 | 2026-10-21 | §3.4 `sys_department.parent_id`・§3.12 `sys_menu.parent_id` は 0＝ルートのため自己参照 FK を付けず、アプリで検査（04 §6.2 項 2a 命名例外。蓝色大肥鱼 2026-10-21 決定、案 A） | 业务分析 |
 | v1.16 | 2026-10-21 | §1 に種データの主キーは `sys_seed_id` のハッシュで生成され、理論上アプリ層の雪花 ID と衝突しうること、発番器変更時に考慮することを追記（測試与評審 #64 指摘、蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.17 | 2026-10-21 | §3.3 `uk_sys_tenant_code` を `(tenant_id, tenant_code)` → `(tenant_code) WHERE deleted=FALSE` の全体一意に変更（04 §6.1 第 4 条 (c) 具名例外）、ログイン参照関数 `sys_auth_find_login_user` を追記。§3.x `uk_sys_user_username` の目的をログイン＝企業代码＋`username` に修正。DB 迁移は DBA の `sys_user` 正式迁移で実施（蓝色大肥鱼 2026-10-21 #71 決定） | 业务分析 |
+| v1.18 | 2026-10-21 | §3.3 `tenant_code` は大文字小文字を区別せず大文字で保存、`CHECK (tenant_code = upper(tenant_code))`、照合前に `upper()`。§3.6 `username` は完全一致（区別あり）のまま、`gender` に `CHECK IN (0,1,2)`、`employee_type` は字典管理で CHECK なし（アプリが `sys_dict` で検証）、`department_id`/`position_id`/`factory_id`/`manager_user_id` に同租户 FK（NULL 可、列構成待定）を追記（蓝色大肥鱼 2026-10-21 #75 決定） | 业务分析 |
