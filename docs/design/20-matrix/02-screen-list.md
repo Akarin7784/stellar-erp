@@ -186,10 +186,10 @@
 | SCR-PRD-005 | 工艺路线登録編集 | 登録編集 | F-PRD-003 | production:routing:update | PRD | 06-production/00-overview.md |
 | SCR-PRD-006 | 工作中心一覧・編集 | 一覧検索 | F-PRD-004 | production:work-center:view | PRD | 06-production/00-overview.md |
 | SCR-PRD-007 | 工作日历・产能设定 | 登録編集 | F-PRD-004 | production:work-center:update | PRD | 06-production/00-overview.md |
-| SCR-PRD-008 | 生产订单一覧 | 一覧検索 | F-PRD-005 | production:work-order:view | PRD | 06-production/00-overview.md |
-| SCR-PRD-009 | 生产订单登録編集 | 登録編集 | F-PRD-005 | production:work-order:create | PRD | 06-production/00-overview.md |
-| SCR-PRD-010 | 生产订单詳細（工序/用料/报工/入库标签） | 参照詳細 | F-PRD-005 | production:work-order:view | PRD | 06-production/00-overview.md |
-| SCR-PRD-011 | 生产订单下达・拆分・合并 | ウィザード | F-PRD-005 | production:work-order:release | PRD | 06-production/00-overview.md |
+| SCR-PRD-008 | 工单一览 | 一覧検索 | F-PRD-005 | production:work-order:view | PRD | 06-production/00-overview.md |
+| SCR-PRD-009 | 工单登记编辑 | 登録編集 | F-PRD-005 | production:work-order:create | PRD | 06-production/00-overview.md |
+| SCR-PRD-010 | 工单详细（工序/用料/报工/入库标签） | 参照詳細 | F-PRD-005 | production:work-order:view | PRD | 06-production/00-overview.md |
+| SCR-PRD-011 | 工单下达・拆分・合并 | ウィザード | F-PRD-005 | production:work-order:release | PRD | 06-production/00-overview.md |
 | SCR-PRD-012 | 生产领料单登録編集 | 登録編集 | F-PRD-006 | production:material-issue:create | PRD | 06-production/00-overview.md |
 | SCR-PRD-013 | 领退料一覧 | 一覧検索 | F-PRD-006 | production:material-issue:view | PRD | 06-production/00-overview.md |
 | SCR-PRD-014 | 工序报工登録（现场/扫码） | 登録編集 | F-PRD-007 | production:work-report:create | PRD | 06-production/00-overview.md |

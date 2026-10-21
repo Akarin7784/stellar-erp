@@ -4296,7 +4296,7 @@
     },
     {
       "id": "SCR-PRD-008",
-      "name": "生产订单一覧",
+      "name": "工单一览",
       "type": "一覧検索",
       "function": "F-PRD-005",
       "permission": "production:work-order:view",
@@ -4305,7 +4305,7 @@
     },
     {
       "id": "SCR-PRD-009",
-      "name": "生产订单登録編集",
+      "name": "工单登记编辑",
       "type": "登録編集",
       "function": "F-PRD-005",
       "permission": "production:work-order:create",
@@ -4314,7 +4314,7 @@
     },
     {
       "id": "SCR-PRD-010",
-      "name": "生产订单詳細（工序/用料/报工/入库标签）",
+      "name": "工单详细（工序/用料/报工/入库标签）",
       "type": "参照詳細",
       "function": "F-PRD-005",
       "permission": "production:work-order:view",
@@ -4323,7 +4323,7 @@
     },
     {
       "id": "SCR-PRD-011",
-      "name": "生产订单下达・拆分・合并",
+      "name": "工单下达・拆分・合并",
       "type": "ウィザード",
       "function": "F-PRD-005",
       "permission": "production:work-order:release",

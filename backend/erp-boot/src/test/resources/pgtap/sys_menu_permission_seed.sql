@@ -1,7 +1,7 @@
 -- pgTAP：菜单/权限/SYSTEM_ADMIN 种子（sys/V202610211405＋V202610211406 G-11 增量；01-system/94 §2.10、付录 A）
 -- owner 连接执行（superuser，绕过 RLS，须显式写 tenant_id），最后 ROLLBACK。
 BEGIN;
-SELECT plan(36);
+SELECT plan(38);
 
 -- 0. 迁移回填：种租户 0 已有付录 A 的全部菜单
 SELECT is((SELECT count(*)::int FROM sys_menu WHERE tenant_id = 0 AND deleted = FALSE), 594, '回填：租户 0 的 sys_menu = 594 行');
@@ -108,6 +108,20 @@ SELECT ok((SELECT p.prosecdef AND p.proconfig @> ARRAY['search_path=pg_catalog, 
              AND has_function_privilege('erp_tenant_provisioner', p.oid, 'EXECUTE')
              FROM pg_proc p WHERE p.oid = 'public.sys_init_company(bigint, bigint)'::regprocedure),
           'sys_init_company：SECURITY DEFINER、search_path 固定、PUBLIC 无 EXECUTE、erp_app/provisioner 有');
+
+-- 9. 菜单名中文化（sys/V202610211421）：全部租户的 sys_menu 与种子来源 sys_menu_seed_rows() 的 menu_name 不含日文。
+--    规则同 comment_zh.sql（假名／日文汉字／日文用词），但片假名区块单独放行分隔符「・」（U+30FB）。失败时列出 menu_code。
+SELECT is((SELECT string_agg(DISTINCT format('%s=%s', menu_code, menu_name), ', ') FROM (
+  SELECT menu_code::text, menu_name::text FROM sys_menu WHERE deleted = FALSE
+  UNION ALL
+  SELECT menu_code, menu_name FROM sys_menu_seed_rows()
+) x WHERE menu_name ~ '[ぁ-ゟ゠-ヺー-ヿ]|[並仮伝価係倉個値側備働償優冪処別則効動務単収員問囲図報場増変奨実対専導層帰帳庫廃張強従応態慮払抜拡捗捨採換損撥敗時暦暫書査棄検業構標権機歴気決済測満準無現環産異発監盤確礎種範築約納純紙細終組結給総編縦績織義職補製複規視覧親観計記設許証試話該認説読調請識譜議負財貨責買費賃賦質購跡転軸込連週進遅運過適還銀録門開間関階際電響項順須領頭頼題額類顧験齢]|品目|受注|却下|引当|過入荷|出荷|仕入|追記|専用|発注|納期|入荷|得意先|部品|起票|採番|予定|完了|着手|受入|残業|作業|予約|削除|契約|満了|付与|連動|配列|移管|正味|残高|申請|既定|会社|顧客|型番|品番|伝票|担当|行番号|工数|版数|送信|受信|出力|参照先|返品|画面|本体|取消理由|見積|仕訳|棚卸'),
+  NULL, 'sys_menu.menu_name（全租户＋种子来源）不含日文（假名／日文汉字／日文用词，「・」除外）');
+SELECT results_eq($$SELECT menu_code::text, menu_name::text FROM sys_menu
+                     WHERE tenant_id = 0 AND menu_code IN ('SCR-PRD-008', 'SCR-PRD-009', 'SCR-PRD-010', 'SCR-PRD-011') ORDER BY menu_code$$,
+                  $$VALUES ('SCR-PRD-008', '工单一览'), ('SCR-PRD-009', '工单登记编辑'),
+                           ('SCR-PRD-010', '工单详细（工序/用料/报工/入库标签）'), ('SCR-PRD-011', '工单下达・拆分・合并')$$,
+                  '工单 4 菜单名 = 付录 A（租户 0 回填）');
 
 SELECT * FROM finish();
 ROLLBACK;
