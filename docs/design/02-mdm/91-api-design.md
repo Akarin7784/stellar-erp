@@ -308,7 +308,7 @@
 
 | API | 返却項目 | 絞り込み |
 |---|---|---|
-| `GET /api/mdm/factories`（#138） | `id, factoryCode, factoryName, plantType` | 当前会社 |
+| `GET /api/mdm/factories`（#138） | `id, factoryCode, factoryName, plantType` | 当前会社。任意パラメータ `resource`（例 `work-order`）：指定時は erp-system の `FactoryDataScope`（[01-system 02 CALC-02a](../01-system/02-user-role-permission.md)）で当該リソースのデータ範囲内の工場のみ返す（範囲が空なら空配列、制限なしは全件）。未指定時は会社の全工場を返す（マスタ保守画面用）。工单一览 SCR-PRD-008 は `resource=work-order` を送り、他の業務画面は採用時に各自のリソースを送る（蓝色大肥鱼 2026-10-21 决定） |
 | `GET /api/mdm/warehouses/options`（#55） | `id, warehouseCode, warehouseName, warehouseType, factoryId` | 当前会社 |
 | `GET /api/mdm/materials`（#1。選択用途） | `id, materialCode, materialName, spec, materialType, baseUomCode, status, unitId, unitName` | 当前会社 |
 
@@ -450,3 +450,4 @@
 | v1.2 | 2026-10-21 | #60 換算 CRUD のエラーに 20077 を追加、§4.1 に 20077／MSG-MDM-178（換算率の有効期間重複）を追加（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.3 | 2026-10-21 | 20077 の変換条件を制約名 `ex_mdm_uom_conversion_period` の 23P01 に限定（標準原価公開は 70134）（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.4 | 2026-10-21 | 重複・既存系の業務エラーの HTTP を 409 → 422 に統一（409 は楽観排他競合 4003 のみ。03 §5・01-system 91 v1.10 と整合）。対象：:327、:333、:342、:349、:357、:359、:364、:372、:374（蓝色大肥鱼 2026-10-21 決定）。追補：状態不整合（4002）・二重処理/処理中（4005）・同時実行・確定済変更不可・二重実行等の 409 も 422 に統一し、409 は `version` 競合（4003）のみとする（蓝色大肥鱼 2026-10-21 決定）。対象：:329、:370 | 业务分析 |
+| v1.5 | 2026-10-21 | §3.8 `GET /api/mdm/factories`（#138）に任意パラメータ `resource` を追加：指定時は CALC-02a のデータ範囲で絞込、未指定時は会社の全工場（マスタ保守用）。SCR-PRD-008 は `resource=work-order`（蓝色大肥鱼 2026-10-21 决定） | 业务分析 |
