@@ -165,7 +165,7 @@ CREATE TABLE sal_inquiry (
     quotation_id        BIGINT,                                -- 見積ID（論理参照）
     CONSTRAINT pk_sal_inquiry PRIMARY KEY (id),
     CONSTRAINT uk_sal_inquiry_tenant_company_id UNIQUE (tenant_id, company_id, id),
-    CONSTRAINT fk_sal_inquiry_customer FOREIGN KEY (tenant_id, customer_id) REFERENCES mdm_customer (tenant_id, id)
+    CONSTRAINT fk_sal_inquiry_customer FOREIGN KEY (tenant_id, company_id, customer_id) REFERENCES mdm_customer (tenant_id, company_id, id)
 );
 ```
 
@@ -203,7 +203,7 @@ CREATE TABLE sal_inquiry_line (
     line_remark         VARCHAR(500),                          -- 明細備考
     CONSTRAINT pk_sal_inquiry_line PRIMARY KEY (id),
     CONSTRAINT fk_sal_inquiry_line_inquiry FOREIGN KEY (tenant_id, company_id, inquiry_id) REFERENCES sal_inquiry (tenant_id, company_id, id),
-    CONSTRAINT fk_sal_inquiry_line_material FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
+    CONSTRAINT fk_sal_inquiry_line_material FOREIGN KEY (tenant_id, company_id, material_id) REFERENCES mdm_material (tenant_id, company_id, id),
     CONSTRAINT ck_sal_inquiry_line_qty CHECK (qty > 0)
 );
 ```
@@ -257,7 +257,7 @@ CREATE TABLE sal_quotation (
     grand_total         NUMERIC(18,2) NOT NULL DEFAULT 0,      -- 税込合計
     CONSTRAINT pk_sal_quotation PRIMARY KEY (id),
     CONSTRAINT uk_sal_quotation_tenant_company_id UNIQUE (tenant_id, company_id, id),
-    CONSTRAINT fk_sal_quotation_customer FOREIGN KEY (tenant_id, customer_id) REFERENCES mdm_customer (tenant_id, id),
+    CONSTRAINT fk_sal_quotation_customer FOREIGN KEY (tenant_id, company_id, customer_id) REFERENCES mdm_customer (tenant_id, company_id, id),
     CONSTRAINT fk_sal_quotation_inquiry FOREIGN KEY (tenant_id, company_id, inquiry_id) REFERENCES sal_inquiry (tenant_id, company_id, id)
 );
 ```
@@ -422,7 +422,7 @@ CREATE TABLE sal_sales_order (
     foreign_currency_code VARCHAR(3),                          -- 外貨通貨
     CONSTRAINT pk_sal_sales_order PRIMARY KEY (id),
     CONSTRAINT uk_sal_sales_order_tenant_company_id UNIQUE (tenant_id, company_id, id),
-    CONSTRAINT fk_sal_sales_order_customer FOREIGN KEY (tenant_id, customer_id) REFERENCES mdm_customer (tenant_id, id),
+    CONSTRAINT fk_sal_sales_order_customer FOREIGN KEY (tenant_id, company_id, customer_id) REFERENCES mdm_customer (tenant_id, company_id, id),
     CONSTRAINT fk_sal_sales_order_quotation FOREIGN KEY (tenant_id, company_id, quotation_id) REFERENCES sal_quotation (tenant_id, company_id, id),
     CONSTRAINT ck_sal_sales_order_status CHECK (order_status IN (10,20,25,30,35,40,90,95)),
     CONSTRAINT ck_sal_sales_order_amt CHECK (grand_total >= 0)
@@ -498,7 +498,7 @@ CREATE TABLE sal_sales_order_line (
     CONSTRAINT pk_sal_sales_order_line PRIMARY KEY (id),
     CONSTRAINT uk_sal_sales_order_line_tenant_company_id UNIQUE (tenant_id, company_id, id),
     CONSTRAINT fk_sal_sales_order_line_o FOREIGN KEY (tenant_id, company_id, sales_order_id) REFERENCES sal_sales_order (tenant_id, company_id, id),
-    CONSTRAINT fk_sal_sales_order_line_m FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
+    CONSTRAINT fk_sal_sales_order_line_m FOREIGN KEY (tenant_id, company_id, material_id) REFERENCES mdm_material (tenant_id, company_id, id),
     CONSTRAINT ck_sal_sales_order_line_qty CHECK (ordered_qty > 0 AND reserved_qty >= 0 AND shipped_qty >= 0 AND shipped_base_qty >= 0 AND cancelled_qty >= 0 AND completed_qty >= 0 AND allowed_qty >= 0),
     CONSTRAINT ck_sal_sales_order_line_price CHECK (unit_price >= 0),
     CONSTRAINT ck_sal_sol_completed_qty CHECK (completed_qty >= 0 AND completed_qty <= allowed_qty)  -- G2-18 累計完工上限（30-review/R3-对抗性评审-第2轮-异常路径.md:89）。違反時 SQLSTATE 23514 は本制約名で 60040 に変換（5000 にしない）
@@ -633,7 +633,7 @@ CREATE TABLE sal_delivery_note (
     CONSTRAINT pk_sal_delivery_note PRIMARY KEY (id),
     CONSTRAINT uk_sal_delivery_note_tenant_company_id UNIQUE (tenant_id, company_id, id),
     CONSTRAINT fk_sal_delivery_note_order FOREIGN KEY (tenant_id, company_id, sales_order_id) REFERENCES sal_sales_order (tenant_id, company_id, id),
-    CONSTRAINT fk_sal_delivery_note_wh FOREIGN KEY (tenant_id, warehouse_id) REFERENCES mdm_warehouse (tenant_id, id),
+    CONSTRAINT fk_sal_delivery_note_wh FOREIGN KEY (tenant_id, company_id, warehouse_id) REFERENCES mdm_warehouse (tenant_id, company_id, id),
     CONSTRAINT ck_sal_delivery_note_status CHECK (delivery_status IN (25,30,35,40,90))
 );
 ```
@@ -943,7 +943,7 @@ CREATE TABLE sal_invoice_application (
     cancel_reason       VARCHAR(500),                          -- 取消理由
     CONSTRAINT pk_sal_invoice_application PRIMARY KEY (id),
     CONSTRAINT uk_sal_invoice_application_tenant_company_id UNIQUE (tenant_id, company_id, id),
-    CONSTRAINT fk_sal_iva_customer FOREIGN KEY (tenant_id, customer_id) REFERENCES mdm_customer (tenant_id, id),
+    CONSTRAINT fk_sal_iva_customer FOREIGN KEY (tenant_id, company_id, customer_id) REFERENCES mdm_customer (tenant_id, company_id, id),
     CONSTRAINT ck_sal_iva_period CHECK (period_from <= period_to)
 );
 CREATE UNIQUE INDEX uk_sal_iva_no ON sal_invoice_application (tenant_id, company_id, application_no);
@@ -1031,7 +1031,7 @@ CREATE TABLE sal_invoice (
     attachment_id       BIGINT,                                -- 発票 PDF/OFD（sys_attachment.id）
     CONSTRAINT pk_sal_invoice PRIMARY KEY (id),
     CONSTRAINT uk_sal_invoice_tenant_company_id UNIQUE (tenant_id, company_id, id),
-    CONSTRAINT fk_sal_invoice_customer FOREIGN KEY (tenant_id, customer_id) REFERENCES mdm_customer (tenant_id, id),
+    CONSTRAINT fk_sal_invoice_customer FOREIGN KEY (tenant_id, company_id, customer_id) REFERENCES mdm_customer (tenant_id, company_id, id),
     CONSTRAINT fk_sal_invoice_application FOREIGN KEY (tenant_id, company_id, application_id) REFERENCES sal_invoice_application (tenant_id, company_id, id)
 );
 CREATE UNIQUE INDEX uk_sal_invoice_no ON sal_invoice (tenant_id, company_id, COALESCE(invoice_code, ''), invoice_no);
@@ -1138,7 +1138,7 @@ CREATE TABLE sal_statement (
     confirmed_by        BIGINT,                                -- 確認記録者
     CONSTRAINT pk_sal_statement PRIMARY KEY (id),
     CONSTRAINT uk_sal_statement_tenant_company_id UNIQUE (tenant_id, company_id, id),
-    CONSTRAINT fk_sal_statement_customer FOREIGN KEY (tenant_id, customer_id) REFERENCES mdm_customer (tenant_id, id)
+    CONSTRAINT fk_sal_statement_customer FOREIGN KEY (tenant_id, company_id, customer_id) REFERENCES mdm_customer (tenant_id, company_id, id)
 );
 CREATE UNIQUE INDEX uk_sal_statement_version ON sal_statement (tenant_id, company_id, customer_id, period_code, statement_version);
 CREATE INDEX idx_sal_statement_status ON sal_statement (tenant_id, company_id, statement_status, period_code DESC);
@@ -1202,7 +1202,7 @@ CREATE TABLE sal_credit_ledger_snapshot (
     release_reason      VARCHAR(30),                           -- 解放理由（SHIP/RECEIPT/CANCEL/WRITE_OFF）
     release_event_id    VARCHAR(64),                           -- 解放イベントID（冪等）
     CONSTRAINT pk_sal_credit_ledger_snapshot PRIMARY KEY (id),
-    CONSTRAINT fk_sal_credit_occ_customer FOREIGN KEY (tenant_id, customer_id) REFERENCES mdm_customer (tenant_id, id),
+    CONSTRAINT fk_sal_credit_occ_customer FOREIGN KEY (tenant_id, company_id, customer_id) REFERENCES mdm_customer (tenant_id, company_id, id),
     CONSTRAINT ck_sal_credit_occ_amt CHECK (amount >= 0 AND released_amount >= 0 AND released_amount <= amount)
 );
 CREATE UNIQUE INDEX uk_sal_credit_occ_source ON sal_credit_ledger_snapshot (tenant_id, company_id, source_type, source_id, release_seq);
@@ -1242,7 +1242,7 @@ CREATE TABLE sal_credit_check_log (
     checked_by          BIGINT,                                -- 判定者
     checked_at          TIMESTAMPTZ  NOT NULL DEFAULT now(),   -- 判定日時
     CONSTRAINT pk_sal_credit_check_log PRIMARY KEY (id),
-    CONSTRAINT fk_sal_credit_log_customer FOREIGN KEY (tenant_id, customer_id) REFERENCES mdm_customer (tenant_id, id)
+    CONSTRAINT fk_sal_credit_log_customer FOREIGN KEY (tenant_id, company_id, customer_id) REFERENCES mdm_customer (tenant_id, company_id, id)
 );
 CREATE INDEX idx_sal_credit_log_customer ON sal_credit_check_log (tenant_id, company_id, customer_id, checked_at DESC);
 CREATE INDEX idx_sal_credit_log_order ON sal_credit_check_log (tenant_id, company_id, sales_order_id, check_type);
@@ -1329,8 +1329,8 @@ CREATE TABLE sal_special_price (
     closed_at           TIMESTAMPTZ,                           -- 終了日時
     cancel_reason       VARCHAR(500),                          -- 取消理由
     CONSTRAINT pk_sal_special_price PRIMARY KEY (id),
-    CONSTRAINT fk_sal_special_price_cust FOREIGN KEY (tenant_id, customer_id) REFERENCES mdm_customer (tenant_id, id),
-    CONSTRAINT fk_sal_special_price_mat FOREIGN KEY (tenant_id, material_id) REFERENCES mdm_material (tenant_id, id),
+    CONSTRAINT fk_sal_special_price_cust FOREIGN KEY (tenant_id, company_id, customer_id) REFERENCES mdm_customer (tenant_id, company_id, id),
+    CONSTRAINT fk_sal_special_price_mat FOREIGN KEY (tenant_id, company_id, material_id) REFERENCES mdm_material (tenant_id, company_id, id),
     CONSTRAINT ck_sal_special_price_price CHECK (special_unit_price > 0),
     CONSTRAINT ck_sal_special_price_valid CHECK (valid_from <= valid_to)
 );
@@ -1365,7 +1365,7 @@ CREATE TABLE sal_sales_forecast (
     confirmed_by        BIGINT,                                -- 確定者
     CONSTRAINT pk_sal_sales_forecast PRIMARY KEY (id),
     CONSTRAINT uk_sal_sales_forecast_tenant_company_id UNIQUE (tenant_id, company_id, id),
-    CONSTRAINT fk_sal_forecast_dept FOREIGN KEY (tenant_id, department_id) REFERENCES sys_department (tenant_id, id),
+    CONSTRAINT fk_sal_forecast_dept FOREIGN KEY (tenant_id, company_id, department_id) REFERENCES sys_department (tenant_id, company_id, id),
     CONSTRAINT ck_sal_forecast_period CHECK (period_code ~ '^[0-9]{4}-[0-9]{2}$')
 );
 CREATE UNIQUE INDEX uk_sal_forecast_ver ON sal_sales_forecast (tenant_id, company_id, forecast_no, forecast_version);
@@ -1533,3 +1533,4 @@ CREATE INDEX idx_sal_forecast_line_material ON sal_sales_forecast_line (tenant_i
 | v1.10 | 2026-10-21 | 非一意 btree 索引（`idx_`）60 箇所を `tenant_id` 先頭（`company_id` がある表は次に `company_id`）に変更（DDL・索引一覧。既存迁移の索引は sys/V202610210707 と同一列。GIN は対象外。蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.11 | 2026-10-21 | main（#31）取込み後の再整合：一意索引・非一意 btree 索引を `tenant_id`（＋`company_id`）先頭に再適用、テナント級一意は 00-common/04 §6.1 第 4 条に従う（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.12 | 2026-10-21 | 同域親子 FK を `(tenant_id, company_id, x_id)` → `(tenant_id, company_id, id)` に変更（28 本、父表 12 張に `uk_<table>_tenant_company_id UNIQUE (tenant_id, company_id, id)` を追加。#43 迁移 `sys/V202610211401` と同一、原制約名・ON DELETE 維持。00-common/04 §6.2 項 2a） | 业务分析 |
+| v1.13 | 2026-10-21 | sys/mdm 向け跨域 FK 14 本を三列 `(tenant_id, company_id, x_id)` → 被参照表 `(tenant_id, company_id, id)` に変更（00-common/04 §6.2 項 2a、迁移 `sal/V202610211412`。被参照 `uk_{mdm_customer,mdm_material,mdm_warehouse,sys_department}_tenant_company_id` は既存、制約名・NO ACTION 維持）。子表側に `(tenant_id, company_id, x_id)` 先頭の btree 索引が無かった 3 本分を追加（`idx_sal_delivery_note_wh`・`idx_sal_forecast_dept`・`idx_sal_special_price_mat`） | DBA |
