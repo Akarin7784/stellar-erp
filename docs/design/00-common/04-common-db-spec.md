@@ -4,7 +4,7 @@
 |---|---|
 | 文書名 | DB 共通规格（DB 共通仕様） |
 | 文書番号 | DSN-CMN-004 |
-| 版数 | v1.17 |
+| 版数 | v1.18 |
 | 作成日 | 2026-10-20 |
 | 作成者 | Lead（设计基盤） |
 | 承認者 | 未承認（社内レビュー待ち） |
@@ -205,7 +205,7 @@ PostgreSQL の一意制約チェックは RLS を経由しないため、`tenant
 ### 6.2 跨域外键规则（2026-10-21 決定）
 
 1. **跨域は `*_id BIGINT` のみ保持し、FK は張らない**。参照先の存在性と租户（`tenant_id`・`company_id`）一致は、参照元ドメインのサービス層が**同一トランザクション内**で検証する。
-2. **例外**：主データ域 **sys**（`sys_*`）と **mdm**（`mdm_*`）は、他域から硬 FK で参照してよい（6 章「外部キー」の規則に従う）。ただし**必ず複合外键 `FOREIGN KEY (tenant_id, x_id) REFERENCES 被参照表 (tenant_id, id)`** とし、`x_id` 単独の FK は禁止。被参照表には `UNIQUE (tenant_id, id)`（命名 `uk_<table>_tenant_id`）を付与する。適用済：`sys/V202610210707__sys_composite_tenant_fk.sql`（#35。被参照 17 表に `uk_<table>_tenant_id`、sys/mdm 向け単列 FK 76 本〔mdm 32／prd 29／sal 14／fin 1〕を複合 FK に再作成、原制約名・NO ACTION を維持）。
+2. **例外**：主データ域 **sys**（`sys_*`）と **mdm**（`mdm_*`）は、他域から硬 FK で参照してよい（6 章「外部キー」の規則に従う）。ただし**必ず複合外键 `FOREIGN KEY (tenant_id, x_id) REFERENCES 被参照表 (tenant_id, id)`** とし、`x_id` 単独の FK は禁止。被参照表には `UNIQUE (tenant_id, id)`（命名 `uk_<table>_tenant_id`）を付与する。適用済：`sys/V202610210707__sys_composite_tenant_fk.sql`（#35。被参照 17 表に `uk_<table>_tenant_id`、sys/mdm 向け単列 FK 76 本〔mdm 32／prd 29／sal 14／fin 1〕を複合 FK に再作成、原制約名・NO ACTION を維持）。列構成は項 2a を参照。
 2a. **同一域内の親子・自己参照（同域外键）**：`FOREIGN KEY (tenant_id, company_id, x_id) REFERENCES 父表 (tenant_id, company_id, id)` の三列複合外键とする（跨公司の親子紐付けを DB で拒否）。被参照父表には `UNIQUE (tenant_id, company_id, id)`（命名 `uk_<table>_tenant_company_id`）を付与する。適用済：`sys/V202610211401__sys_same_domain_parent_fk.sql`（#43。父表 34 張に `uk_<table>_tenant_company_id`、同域単列 FK 74 本〔prd 46／sal 28〕を再作成、原制約名・ON DELETE 動作〔RESTRICT／NO ACTION〕を維持）。CI：pgTAP `same_domain_parent_fk.sql` が public 下の非 mdm 同域外键を動的に収集し三列形を検査する（新域も自動対象）。
    - **跨域参照・sys/mdm 参照の列構成（2026-10-21 決定）**：参照先テーブルが `company_id` を持つ場合は三列 `(tenant_id, company_id, x_id)` → `(tenant_id, company_id, id)`（`uk_<table>_tenant_company_id`）とし、`company_id` を持たない場合のみ二列 `(tenant_id, x_id)` → `(tenant_id, id)` とする。公司隔离を旧先例の踏襲より優先する（蓝色大肥鱼 2026-10-21 決定）。旧規則（項 2 の二列形、v1.11 の「跨域・sys/mdm 参照は `(tenant_id, x_id)`」）は本規則で置き換える。既存の二列 FK（例：`fk_inv_stock_balance_material`、`inv/V202610211404:1219`）を三列に改めるかは DBA が別 PR で扱う。下記 mdm 域内部 FK の命名例外は維持。
    - **命名例外：`sys_menu` を参照する外键**（`sys_role_permission.menu_id` のみ、`fk_sys_role_permission_menu`）は `(tenant_id, menu_id)` → `sys_menu (tenant_id, id)` の 2 列とする。`sys_menu` はテナント単位（`company_id = 0`）で、参照元（会社単位の `sys_role_permission`）と `company_id` が一致しないため三列形は使えない（蓝色大肥鱼 2026-10-21 決定）。pgTAP `same_domain_parent_fk.sql` の除外対象に追加する（DBA）。
@@ -460,6 +460,7 @@ V{yyyyMMdd}{NNNN}__{module}_{description}.sql     # バージョンは 12 桁
 | v1.15 | 2026-10-21 | §6.2 項 2a：`sys_menu` 参照 FK の命名例外を `sys_role_permission.menu_id`（`fk_sys_role_permission_menu`）のみに限定。`sys_menu.parent_id`・`sys_department.parent_id` は 0＝ルートのため自己参照 FK を付けない命名例外として理由・アプリ検査・pgTAP を明記。01/94 G-7 も同旨に更新（蓝色大肥鱼 2026-10-21 決定、案 A） | 业务分析 |
 | v1.16 | 2026-10-21 | §6.1 項 4 に (c) 全体一意の具名例外を新設し `sys_tenant.uk_sys_tenant_code (tenant_code) WHERE deleted=FALSE` を登録（ログイン時に企業代码から租户を一意に特定するため）。CI 豁免は DBA が `sys_user` 正式迁移で登録（蓝色大肥鱼 2026-10-21 #71 決定） | 业务分析 |
 | v1.17 | 2026-10-21 | §6.2 項 2a：跨域・sys/mdm 参照は参照先に `company_id` があれば三列 `(tenant_id, company_id, x_id)`、なければ二列 `(tenant_id, x_id)`（公司隔离優先）。v1.11 の二列規則は置換と注記。`fk_inv_stock_balance_material` の三列化は DBA 別 PR（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.18 | 2026-10-21 | §6.2 項 2 末尾に「列構成は項 2a を参照」を追記 | 业务分析 |
 
 ## Flowable 引擎表の schema 分離（issue #7）
 

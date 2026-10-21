@@ -4,7 +4,7 @@
 |---|---|
 | 文書名 | 系统管理 API 设计书（系统管理 API 設計書） |
 | 文書番号 | DSN-SYS-091 |
-| 版数 | v1.6 |
+| 版数 | v1.8 |
 | 作成日 | 2026-10-20 |
 | 作成者 | system-workflow（域設計担当） |
 | 承認者 | 未承認（レビュー待ち） |
@@ -21,7 +21,9 @@
 
 | コード | メッセージ ID | 内容 | HTTP |
 |---|---|---|---|
-| 10001 | MSG-SYS-001 | アカウント停用/退職 | 422 |
+| 10001 | — | ユーザ重複（03 §6.1。メッセージ ID 未割当） | 422 |
+| 10004 | MSG-SYS-001 | アカウント停用/退職（ログイン API では HTTP 200、他 API では 422） | 200/422 |
+| 10005 | MSG-COM-026 | パスワード強度不足（改密） | 422 |
 | 10002 | MSG-SYS-002 | 内置アカウント操作不可 | 422 |
 | 10003 | MSG-SYS-003〜007 | パスワード変更エラー | 400/422 |
 | 10010 | MSG-SYS-012 | SoD 競合（理由必須） | 422 |
@@ -54,10 +56,10 @@
 | # | メソッド | パス | 権限 | 概要 | 関連機能 | 主なエラー |
 |---|---|---|---|---|---|---|
 | 1 | GET | /api/system/auth/captchas | 公開 | 検証コード発行 | F-SYS-001 | 503 |
-| 2 | POST | /api/system/auth/login | 公開 | ログイン | F-SYS-001 | 2002/2003/2005/10001 |
+| 2 | POST | /api/system/auth/login | 公開 | ログイン | F-SYS-001 | 2002/2003/2004/2005/10004/4003（すべて HTTP 200、03 §6.1） |
 | 3 | POST | /api/system/auth/logout | 公開 | ログアウト（冪等。トークン無効・期限切れでも 200） | F-SYS-001 | — |
 | 4 | GET | /api/system/auth/me | 認証済 | ログインユーザ・権限（コードで重複排除）・メニュー | F-SYS-001/003/004 | 2001 |
-| 5 | POST | /api/system/auth/password | 認証済 | パスワード変更 | F-SYS-001 | 10003 |
+| 5 | POST | /api/system/auth/password | 認証済 | パスワード変更 | F-SYS-001 | 10003/10005/4003（409） |
 | 6 | GET | /api/system/profile | 認証済 | プロフィール取得 | F-SYS-018 | 2001 |
 | 7 | PUT | /api/system/profile | `system:profile:update` | プロフィール更新 | F-SYS-018 | 1001/4003 |
 | 8 | PUT | /api/system/profile/preferences | `system:profile:update` | 通知・画面設定 | F-SYS-018 | 1001 |
@@ -272,3 +274,4 @@ Outbox 監視（`status`、`eventType`、`from`/`to`、ページング）。Payl
 | v1.5 | 2026-10-21 | API 1 の `permissions[]` はコードで重複排除。API 47a は同一 TX で `sys_init_company` を呼ぶ（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.6 | 2026-10-21 | API #36a `GET /api/system/departments/options`（部門選択用一覧、§3.7）を追加：当前会社は LoginContext（`companyId` 無視）、有効・未削除のみ、`id`（文字列）/`departmentCode`/`departmentName`、`sort_no`→`department_code` 順、権限はログインのみ（§1.2 `/options` 共通規則を新設：複数業務画面共有のマスタ・基礎データ選択に限る。管理画面専用の #108 は `system:maintenance:view` を維持）（バックエンド PR #61、蓝色大肥鱼 2026-10-21 決定：パスは `/api/system/**` 配下） | 业务分析 |
 | v1.7 | 2026-10-21 | #2 login に必須 `tenantCode` 追加・エラー 2005 追加、#3 logout を公開・冪等に、§3.1 `menus[]` 項目確定・`dataScopes` 別 PR（蓝色大肥鱼 2026-10-21 #71 決定） | 业务分析 |
+| v1.8 | 2026-10-21 | §1.1：MSG-SYS-001 を 10001 から新番 10004 に変更（10001 は 03 §6.1 のユーザ重複）、パスワード強度不足に 10005（MSG-COM-026）を新設。#2 login・#5 password のエラーコード列を更新（蓝色大肥鱼 2026-10-21 16:15/16:16 決定） | 业务分析 |
