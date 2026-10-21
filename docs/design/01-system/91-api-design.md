@@ -54,8 +54,8 @@
 | # | メソッド | パス | 権限 | 概要 | 関連機能 | 主なエラー |
 |---|---|---|---|---|---|---|
 | 1 | GET | /api/system/auth/captchas | 公開 | 検証コード発行 | F-SYS-001 | 503 |
-| 2 | POST | /api/system/auth/login | 公開 | ログイン | F-SYS-001 | 2002/2003/10001 |
-| 3 | POST | /api/system/auth/logout | 認証済 | ログアウト | F-SYS-001 | 2001 |
+| 2 | POST | /api/system/auth/login | 公開 | ログイン | F-SYS-001 | 2002/2003/2005/10001 |
+| 3 | POST | /api/system/auth/logout | 公開 | ログアウト（冪等。トークン無効・期限切れでも 200） | F-SYS-001 | — |
 | 4 | GET | /api/system/auth/me | 認証済 | ログインユーザ・権限（コードで重複排除）・メニュー | F-SYS-001/003/004 | 2001 |
 | 5 | POST | /api/system/auth/password | 認証済 | パスワード変更 | F-SYS-001 | 10003 |
 | 6 | GET | /api/system/profile | 認証済 | プロフィール取得 | F-SYS-018 | 2001 |
@@ -187,13 +187,14 @@
 
 | 項目 | 型 | 必須 | 説明 |
 |---|---|---|---|
-| username | string | ○ | ログインアカウント（工号） |
+| tenantCode | string | ○ | 企業代码（`sys_tenant.tenant_code`、全体一意）。フロントは localStorage に前回値を保持 |
+| username | string | ○ | ログインアカウント（工号、租户内一意） |
 | password | string | ○ | パスワード（平文、TLS 前提） |
 | captchaKey | string | △ | 検証コードキー（失敗 3 回以上で必須） |
 | captcha | string | △ | 検証コード（4 桁英数） |
 | rememberMe | boolean | — | アカウント記憶 |
 
-レスポンス項目：`token` / `tokenName` / `expiresIn` / `passwordResetRequired` / `userInfo{id,userCode,realName,departmentName,avatarUrl}` / `roles[{roleCode,roleName}]` / `permissions[]`（付与された権限コードを**コードで重複排除**した集合、[94 §2.10](94-sample-data.md)） / `menus[]` / `dataScopes`。
+レスポンス項目：`token` / `tokenName` / `expiresIn` / `passwordResetRequired` / `userInfo{id,userCode,realName,departmentName,avatarUrl}` / `roles[{roleCode,roleName}]` / `permissions[]`（付与された権限コードを**コードで重複排除**した集合、[94 §2.10](94-sample-data.md)） / `menus[]`（`id`/`parentId`/`menuType`/`menuCode`/`routePath`/`sortNo` のフラット配列。当前会社で権限のあるメニュー＋祖先目录）。`dataScopes` は別 PR。企業代码不存在・ユーザ不存在・パスワード誤りは同一の 2002／MSG-COM-021、検証コードは 2005／MSG-COM-022（[01-auth-login](01-auth-login.md) §7.1）（蓝色大肥鱼 2026-10-21 #71 決定）。
 
 ### 3.2 POST /api/system/users
 
@@ -270,3 +271,4 @@ Outbox 監視（`status`、`eventType`、`from`/`to`、ページング）。Payl
 | v1.4 | 2026-10-21 | API 47a：会社登録と同一トランザクションで `SYSTEM_ADMIN` ロール（会社ごと 1 件）と `permission_code` を持つ全 `sys_menu` 行の付与を冪等投入（94 §2.10）（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.5 | 2026-10-21 | API 1 の `permissions[]` はコードで重複排除。API 47a は同一 TX で `sys_init_company` を呼ぶ（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.6 | 2026-10-21 | API #36a `GET /api/system/departments/options`（部門選択用一覧、§3.7）を追加：当前会社は LoginContext（`companyId` 無視）、有効・未削除のみ、`id`（文字列）/`departmentCode`/`departmentName`、`sort_no`→`department_code` 順、権限はログインのみ（§1.2 `/options` 共通規則を新設：複数業務画面共有のマスタ・基礎データ選択に限る。管理画面専用の #108 は `system:maintenance:view` を維持）（バックエンド PR #61、蓝色大肥鱼 2026-10-21 決定：パスは `/api/system/**` 配下） | 业务分析 |
+| v1.7 | 2026-10-21 | #2 login に必須 `tenantCode` 追加・エラー 2005 追加、#3 logout を公開・冪等に、§3.1 `menus[]` 項目確定・`dataScopes` 別 PR（蓝色大肥鱼 2026-10-21 #71 決定） | 业务分析 |

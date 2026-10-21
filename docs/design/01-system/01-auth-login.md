@@ -33,9 +33,10 @@
 | # | 前提条件 | 成立しない場合の挙動 |
 |---|---|---|
 | 1 | `sys_user.status=1`（在职）かつ `account_status IN (1,4)` | ログイン拒否。`account_status=2` はロック中、`3` は停用（`MSG-SYS-001`） |
-| 2 | Redis が利用可能（トークン・検証コード・キャッシュ） | 503 + `MSG-COM-083`。DB フォールバックはしない |
+| 2 | Redis が利用可能（トークン・検証コード・キャッシュ。トークンは Sa-Token の Redis DAO で保存し、メモリ保存は不可） | 503 + `MSG-COM-083`。DB フォールバックはしない |
 | 3 | パスワードは BCrypt（cost 10 以上）で保存されている | 認証失敗。実装不備としてログ ERROR |
-| 4 | ユーザに少なくとも 1 つの有効ロールがある | ログインは成功するが、メニューは「権限なし」画面。運用でロール付与 |
+| 4 | ユーザに少なくとも 1 つの有効ロールがある |
+| 5 | 入力された企業コード（`tenantCode`）の租户が有効（`status=1`）・未削除（`deleted=FALSE`）・期限内（`expire_date IS NULL OR expire_date >= current_date`） | ログイン拒否。租户不存在・無効・期限切れはユーザ不存在・パスワード誤りと同じ `MSG-COM-021`（code=2002）を返し、区別しない | ログインは成功するが、メニューは「権限なし」画面。運用でロール付与 |
 
 ### 2.2 業務ルール
 
@@ -53,6 +54,8 @@
 | BR-10 | 個人中心で変更可能な項目は ニックネーム・携帯・メール・アバター・通知設定・画面設定のみ。氏名・部門・工号・ロールは管理者のみ変更可能 | 人事データの統制 | `sys_user` |
 | BR-11 | セッションは 8 時間（`sa-token.timeout`）、無操作 30 分で activity-timeout。残り 5 分で画面警告 | [画面共通規格](../00-common/02-common-screen-spec.md) 15 章 | — |
 | BR-12 | 認証・ログアウト・失敗・パスワード変更はすべて監査ログ（`sys_audit_log`）とログインログ（`sys_login_log`）に記録 | [共通項目定義](../00-common/01-common-item-definitions.md) 第 12 章 | — |
+| BR-13 | ログインは「企業代码（`tenantCode`）＋ 账号（`username`）＋ 密码」で行い、3 項目とも必須。`username` は租户内でのみ一意（`uk_sys_user_username (tenant_id, username)`）のため、企業代码で租户を特定してからユーザを引く。子域名による租户判定は第一版対象外（将来は子域名からフロントが `tenantCode` を自動入力するのみで API は変えない） | 多テナント運用（蓝色大肥鱼 2026-10-21 #71 決定） | `tenantCode`、`sys_tenant.tenant_code` |
+| BR-14 | 企業代码不存在・租户無効/期限切れ・ユーザ不存在・パスワード不一致は、同一のエラー（HTTP 200 + `code=2002`、`MSG-COM-021`）と同等の応答時間（ダミー BCrypt 照合）で返し、どれに該当したかを応答から判別できないようにする | 租户・アカウント列挙対策（蓝色大肥鱼 2026-10-21 #71 決定） | — |
 
 ### 2.3 計算式・判定式
 
@@ -102,7 +105,7 @@ stateDiagram-v2
 
 | 画面 ID | 画面名 | 類型 | 概要 |
 |---|---|---|---|
-| SCR-SYS-001 | 登录 | LOGIN | アカウント・パスワード・検証コードで認証。ログイン後にトップへ遷移 |
+| SCR-SYS-001 | 登录 | LOGIN | 企業代码・アカウント・パスワード・検証コードで認証。ログイン後にトップへ遷移 |
 | SCR-SYS-002 | 密码修改（强制/任意） | EDIT | 旧パスワード確認 + 新パスワード設定。初回/リセット時は強制表示 |
 | SCR-SYS-003 | 个人中心 | EDIT | プロフィール、パスワード、通知設定、画面設定、セッション管理のタブ画面 |
 
@@ -126,10 +129,11 @@ stateDiagram-v2
 │                                                             │
 │              ┌───────────────────────────────┐              │
 │              │  用户登录                      │              │
+│              │  企业代码 [HDJM___________]    │              │
 │              │  账号 [E000123________]        │              │
 │              │  密码 [********________]  [👁]  │              │
 │              │  验证码 [____] [ 8F3K ] [更新] │              │
-│              │  ☐ 记住账号                    │              │
+│              │  ☐ 记住账号（企业代码は常に記憶）│              │
 │              │        [ 登  录 ]              │              │
 │              │  忘记密码？请联系系统管理员      │              │
 │              └───────────────────────────────┘              │
@@ -141,7 +145,8 @@ stateDiagram-v2
 
 | No | 項目 ID | 項目名 | 種別 | 型/桁 | 必須 | 初期値 | 入力チェック | データソース | DB 項目 | 権限 | 備考 |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | `username` | 账号 | テキスト | VARCHAR(64) | ○ | 前回値（remember） | 桁数・必須 | 入力 | `sys_user.username` | 公開 | 半角英数。IME 無効 |
+| 0 | `tenantCode` | 企业代码 | テキスト | VARCHAR(32) | ○ | 前回値（localStorage `stellar.login.tenantCode`） | 必須・≤32 字・半角英数 | 入力 | `sys_tenant.tenant_code`（照合のみ） | 公開 | 半角英数。IME 無効。ログイン成功時に localStorage へ保存（`rememberMe` に関係なく保存。パスワードは保存しない） |
+| 1 | `username` | 账号 | テキスト | VARCHAR(64) | ○ | 前回値（remember） | 桁数・必須 | 入力 | `sys_user.username`（租户内一意） | 公開 | 半角英数。IME 無効 |
 | 2 | `password` | 密码 | パスワード | VARCHAR(100) | ○ | 空 | 必須・8〜20 位 | 入力 | `sys_user.password_hash`（照合のみ） | 公開 | マスク表示。コピー禁止 |
 | 3 | `captchaKey` | 验证码 Key | 隠し | UUID | ○ | 自動取得 | — | `GET /api/system/auth/captchas` | Redis | 公開 | 画面非表示 |
 | 4 | `captcha` | 验证码 | テキスト | CHAR(4) | 条件付△ | 空 | 4 桁英数・期限 2 分 | 入力 | Redis `auth:captcha:{key}` | 公開 | 失敗 3 回以上で必須 |
@@ -181,9 +186,9 @@ stateDiagram-v2
 
 | No | イベント | トリガ | 処理内容 | 呼出 API | 画面遷移 | 備考 |
 |---|---|---|---|---|---|---|
-| 1 | 画面初期表示 | SCR-SYS-001 表示 | 検証コード取得・前回アカウント復元 | GET /api/system/auth/captchas | — | 画像 base64 返却 |
+| 1 | 画面初期表示 | SCR-SYS-001 表示 | 検証コード取得・前回企業代码（localStorage）と前回アカウント復元。企業代码が復元済みなら账号へフォーカス | GET /api/system/auth/captchas | — | 画像 base64 返却 |
 | 2 | 検証コード更新 | 画像クリック | 新規 key で再取得 | GET /api/system/auth/captchas | — | — |
-| 3 | 登录 | 登录ボタン/Enter | 入力チェック → 認証 API | POST /api/system/auth/login | 成功：トップ or SCR-SYS-002 | 二重送信防止 |
+| 3 | 登录 | 登录ボタン/Enter | 入力チェック（企業代码・账号・密码必須）→ 認証 API。成功時に `tenantCode` を localStorage に保存 | POST /api/system/auth/login | 成功：トップ or SCR-SYS-002 | 二重送信防止 |
 | 4 | 登录失败 | API エラー | エラー表示、検証コード更新、失敗回数表示 | — | 同一画面 | 5 回で MSG-COM-023 |
 | 5 | 密码修改保存 | 保存ボタン | 強度・一致・履歴チェック → API | POST /api/system/auth/password | トップへ | 他セッション失効 |
 | 6 | プロフィール保存 | 保存ボタン | 項目チェック → API | PUT /api/system/profile | 同一画面 | メール変更は再認証不要 |
@@ -206,12 +211,13 @@ stateDiagram-v2
 
 | No | チェック ID | 対象項目 | 種別 | 条件 | タイミング | メッセージ ID |
 |---|---|---|---|---|---|---|
+| 0 | CHK-SYS-001-12 | `tenantCode` | 必須・桁数 | 空でない、≤32 字、半角英数 | ログイン | MSG-COM-040 / MSG-COM-041 |
 | 1 | CHK-SYS-001-01 | `username` | 必須 | 空でない | ログイン | MSG-COM-040 |
 | 2 | CHK-SYS-001-02 | `username` | 桁数 | ≤64 字、半角英数 | ログイン | MSG-COM-041 |
 | 3 | CHK-SYS-001-03 | `password` | 必須 | 空でない | ログイン | MSG-COM-040 |
-| 4 | CHK-SYS-001-04 | `captcha` | 必須（条件付） | 失敗 3 回以上は必須 | ログイン | MSG-COM-022 |
-| 5 | CHK-SYS-001-05 | `captcha` | 一致 | Redis 値と大文字小文字無視で一致・期限内 | ログイン | MSG-COM-022 |
-| 6 | CHK-SYS-001-06 | `username`+`password` | 認証 | 存在・ハッシュ一致・有効状態 | ログイン | MSG-COM-021 / MSG-SYS-001 |
+| 4 | CHK-SYS-001-04 | `captcha` | 必須（条件付） | 失敗 3 回以上は必須 | ログイン | MSG-COM-022（code=2005） |
+| 5 | CHK-SYS-001-05 | `captcha` | 一致 | Redis 値と大文字小文字無視で一致・期限内 | ログイン | MSG-COM-022（code=2005） |
+| 6 | CHK-SYS-001-06 | `tenantCode`+`username`+`password` | 認証 | 租户が有効・未削除・期限内、ユーザ存在、ハッシュ一致、有効状態。前 3 者の失敗は区別せず同一エラー（BR-14） | ログイン | MSG-COM-021（code=2002）/ MSG-SYS-001 |
 | 7 | CHK-SYS-001-07 | `oldPassword` | 一致 | 現在のハッシュと一致 | 改密 | MSG-SYS-003 |
 | 8 | CHK-SYS-001-08 | `newPassword` | 強度 | BR-01（8〜20 位・3 類以上・ユーザ ID 含まず） | 改密 | MSG-COM-026 |
 | 9 | CHK-SYS-001-09 | `newPassword` | 相関 | `oldPassword` と同一でない | 改密 | MSG-SYS-005 |
@@ -250,14 +256,15 @@ stateDiagram-v2
 
 **PRC-SYS-001-02 ログイン認証**
 
-1. 入力チェック（第 5 章 CHK-01〜05）を実行する。検証コード不一致は失敗回数を増やさず `MSG-COM-022`。
-2. `sys_user` を `username` で取得（`deleted=FALSE`）。存在しない場合もパスワード照合と同等の時間をかけ（ダミー BCrypt 照合）、`MSG-COM-021` を返す（ユーザ列挙対策）。
+1. 入力チェック（第 5 章 CHK-12、CHK-01〜05）を実行する。検証コード不一致は失敗回数を増やさず `MSG-COM-022`（code=2005）。
+2. ログイン前は RLS 用の `app.tenant_id` が未設定でユーザを参照できないため、`erp_app` で SECURITY DEFINER 関数 `sys_auth_find_login_user(p_tenant_code, p_username)` を呼ぶ。関数は `sys_tenant` を `tenant_code` で引き（`deleted=FALSE`・`status=1`・`expire_date IS NULL OR expire_date >= current_date`）、同租户の `sys_user` を `username`（`deleted=FALSE`）で引いて、照合に必要な最小項目のみ返す：`tenant_id`、`user_id`、`company_id`（所属会社）、`password_hash`、`status`、`account_status`、`lock_until`、`login_fail_count`、`password_reset_required`、`password_expire_at`、`version`。氏名・連絡先等は返さない。`EXECUTE` は `erp_app` のみに GRANT（`PUBLIC` から REVOKE）、`SET search_path` を固定する（DB 実装は DBA の `sys_user` 正式迁移）。0 行（企業代码不存在・租户無効/期限切れ・ユーザ不存在）の場合もダミー BCrypt 照合で同等の時間をかけ、パスワード不一致と同じ `MSG-COM-021`（code=2002）を返す（BR-14、租户・ユーザ列挙対策）。
+2a. 1 行取得できたら、以降のトランザクションで `app.tenant_id`（＋`app.company_id`）を設定し、ユーザ更新・ログインログは RLS 範囲内で行う。
 3. `status`・`account_status` を判定する。`account_status=2` かつ `lock_until > now()` は `MSG-COM-023`（残り分数）。期限切れの場合はロック解除状態に戻す。
 4. `BCrypt.checkpw(password, password_hash)` で照合する。不一致時は `login_fail_count+1`、5 回目で `account_status=2`・`lock_until=now()+30 分` に更新し、`sys_login_log` に失敗を記録して `MSG-COM-021` を返す。
 5. 成功時、`login_fail_count=0`、`last_login_at/ip` を更新する（`version` 楽観排他。競合時はリトライ 1 回）。
 6. `password_reset_required=true` または `account_status=4` または `password_expire_at < now()` の場合、`passwordResetRequired=true` を返す（トークンは発行するが業務 API は 403 で制限）。
-7. Sa-Token でトークンを発行する（`loginId=userId`、端末種別、`tenantId`/`companyId`/`factoryId` をセッションに格納）。BR-08 により多重ログイン不可設定時は既存セッションを失効させる。
-8. ロール・権限コード・メニューツリー・データ範囲を解決し、セッション（Redis）とレスポンスに格納する（詳細は F-SYS-003）。
+7. Sa-Token でトークンを発行する（`loginId=userId`、端末種別、`tenantId`/`companyId`/`factoryId` をセッションに格納）。トークン・セッションは Sa-Token の Redis DAO で Redis に保存する（検証コードも Redis。メモリ保存は不可）。BR-08 により多重ログイン不可設定時は既存セッションを失効させる。
+8. ロール・権限コード・メニューを解決し、セッション（Redis）とレスポンスに格納する（詳細は F-SYS-003）。権限・メニューは**当前会社分のみ**：`sys_user_role.company_id = セッションの company_id` かつ租户一致のロールに付与されたもの。会社切替時は再計算する。データ範囲（`dataScopes`）は別 PR で設計・実装する。
 9. `sys_login_log` に成功を記録し、`sys_audit_log` に `LOGIN` を記録する（非同期）。
 10. `{token, tokenName, expiresIn, userInfo, roles, permissions, menus, passwordResetRequired}` を返す。
 
@@ -291,10 +298,10 @@ stateDiagram-v2
 | No | 異常条件 | 検知箇所 | 処理 | ロールバック | メッセージ ID |
 |---|---|---|---|---|---|
 | 1 | Redis 断 | 検証コード/トークン | 503 を返す。DB フォールバック禁止 | — | MSG-COM-083 |
-| 2 | ユーザ不存在 | 認証 | ダミー照合後、失敗として返す（列挙防止） | — | MSG-COM-021 |
+| 2 | 企業代码不存在・租户無効/期限切れ・ユーザ不存在 | 認証（`sys_auth_find_login_user` が 0 行） | ダミー照合後、パスワード不一致と同一の失敗として返す（列挙防止、BR-14） | — | MSG-COM-021（code=2002） |
 | 3 | アカウントロック中 | 認証 | 残り時間を返す | — | MSG-COM-023 |
 | 4 | アカウント停用/退職 | 認証 | ログイン拒否 | — | MSG-SYS-001 |
-| 5 | 検証コード期限切れ | 認証 | 再取得を促す | — | MSG-COM-022 |
+| 5 | 検証コード不一致・期限切れ・使用済み | 認証 | 再取得を促す。失敗回数は増やさない | — | MSG-COM-022（code=2005） |
 | 6 | パスワード履歴再利用 | 改密 | 拒否 | 全体 | MSG-SYS-006 |
 | 7 | 楽観排他競合（ユーザ更新） | ログイン/改密 | 1 回リトライ。失敗時 409 | 全体 | MSG-COM-033 |
 | 8 | 他セッション失効失敗 | 改密後処理 | 業務は成功扱い。ログ WARN、次回認可時に失効 | なし | — |
@@ -302,7 +309,7 @@ stateDiagram-v2
 
 ### 6.4 冪等性・排他
 
-- ログインは冪等でない（毎回トークンを発行）。二重送信はフロントでボタン無効化 + サーバ側で 3 秒以内の同一 `username` 連続認証を拒否（`MSG-COM-084`）。
+- ログインは冪等でない（毎回トークンを発行）。二重送信はフロントでボタン無効化 + サーバ側で 3 秒以内の同一 `tenantCode`+`username` 連続認証を拒否（`MSG-COM-084`）。
 - パスワード変更は `FOR UPDATE` で行ロックし、二重送信時は 2 回目が旧パスワード不一致となるため拒否される。
 - プロフィール更新は `version` 楽観排他（[API 共通規格](../00-common/03-common-api-spec.md) 第 10 章）。
 - 検証コードは 1 回使用で Redis から削除する（リプレイ防止）。
@@ -313,7 +320,7 @@ stateDiagram-v2
 |---|---|---|---|---|
 | 1 | GET | /api/system/auth/captchas | 公開 | 検証コード発行 |
 | 2 | POST | /api/system/auth/login | 公開 | ログイン |
-| 3 | POST | /api/system/auth/logout | 認証済 | ログアウト |
+| 3 | POST | /api/system/auth/logout | 公開 | ログアウト（冪等。トークン無効・期限切れでも 200） |
 | 4 | GET | /api/system/auth/me | 認証済 | ログインユーザ・権限・メニュー取得 |
 | 5 | POST | /api/system/auth/password | 認証済 | パスワード変更 |
 | 6 | GET | /api/system/profile | 認証済 | 個人プロフィール取得 |
@@ -328,7 +335,7 @@ stateDiagram-v2
 
 ```json
 // リクエスト
-{ "username": "E000123", "password": "St@r2026erp", "captchaKey": "9f2c...", "captcha": "8f3k", "rememberMe": true }
+{ "tenantCode": "HDJM", "username": "E000123", "password": "St@r2026erp", "captchaKey": "9f2c...", "captcha": "8f3k", "rememberMe": true }
 // レスポンス（成功）
 {
   "code": 0, "message": "ok",
@@ -338,9 +345,13 @@ stateDiagram-v2
     "userInfo": { "id": "1845000000000000123", "userCode": "E000123", "realName": "张建国", "departmentName": "信息部", "avatarUrl": null },
     "roles": [{ "roleCode": "SYSTEM_ADMIN", "roleName": "系统管理员" }],
     "permissions": ["system:user:view", "system:user:create"],
-    "menus": [{ "id": "1", "menuName": "系统管理", "routePath": "/system", "children": [] }]
+    "menus": [{ "id": "1", "parentId": "0", "menuType": 1, "menuCode": "system", "routePath": "system", "sortNo": 10 }]
   }
 }
+// レスポンス（失敗：企業代码不存在・ユーザ不存在・パスワード誤りはすべて同一）
+{ "code": 2002, "message": "企业代码、用户名或密码错误。", "data": null }
+// レスポンス（失敗：検証コード）
+{ "code": 2005, "message": "验证码错误或已过期，请重新输入。", "data": null }
 // レスポンス（失敗：ロック）
 { "code": 2003, "message": "账号已被锁定，请于 25 分钟后重试或联系管理员。", "data": null }
 ```
@@ -353,9 +364,9 @@ stateDiagram-v2
 // 強度不足：{ "code": 10001, "message": "密码强度不符合要求（8〜20 位，且包含大写字母、小写字母、数字、符号中至少 3 类）。", "data": null }
 ```
 
-**POST /api/system/auth/logout**：ヘッダ `Authorization` のトークンを失効。成功 `{code:0}`。
+**POST /api/system/auth/logout**：免ログイン。ヘッダ `Authorization` のトークンを失効。トークンなし・無効・期限切れでも 200 `{code:0}`（冪等、繰り返し可）（蓝色大肥鱼 2026-10-21 #71 決定）。
 
-**GET /api/system/auth/me**：`userInfo`、`roles`、`permissions`、`dataScopes`、`menus`、`passwordExpireDays` を返す。
+**GET /api/system/auth/me**：`userInfo`、`roles`、`permissions`（コードで重複排除）、`menus`、`passwordExpireDays` を返す。`menus[]` はフラット配列で、項目は `id`、`parentId`（DB `parent_id`、0＝ルート）、`menuType`（`menu_type`）、`menuCode`（`menu_code`）、`routePath`（`route_path`、先頭スラッシュなし。按钮行は null）、`sortNo`（`sort_no`）。対象は**当前会社で権限のあるメニュー**（`sys_user_role.company_id = セッション company_id` のロールに付与されたもの）と、その**祖先の目录**（親を辿って補完、付与対象外の目录も含む）。ツリー化はフロントで行う。`id`/`parentId` は文字列（03 §8）。`dataScopes` は別 PR で追加する（本 PR 時点では返さない）（蓝色大肥鱼 2026-10-21 #71 決定）。
 
 ## 8. データ更新仕様
 
@@ -367,7 +378,7 @@ stateDiagram-v2
 | sys_user | UPDATE | `nickname`, `mobile`, `email`, `avatar_attachment_id`, `version` | 本人更新 | PRC-SYS-018-01 |
 | sys_user_password_history | INSERT | `user_id`, `password_hash`, `change_type`, `changed_by` | 変更毎 | PRC-SYS-001-04 |
 | sys_user_preference | UPSERT | `preference_type`, `resource_key`, `preference_value` | 設定保存 | PRC-SYS-018-02 |
-| sys_login_log | INSERT | 全項目 | 認証毎 | PRC-SYS-001-02 |
+| sys_login_log | INSERT | 全項目（租户特定前の失敗は `tenant_id` を記録できないためアプリログのみ） | 認証毎 | PRC-SYS-001-02 |
 | sys_audit_log | INSERT | 全項目 | ログイン/ログアウト/改密/プロフィール更新 | PRC-SYS-001/018 |
 
 ## 9. エラー処理・メッセージ
@@ -375,8 +386,8 @@ stateDiagram-v2
 | メッセージ ID | 種別 | 本文 | 発生条件 | 利用者への対処 | ログ |
 |---|---|---|---|---|---|
 | MSG-COM-020 | E | 登录已过期，请重新登录。 | トークン期限切れ | 再ログイン | INFO |
-| MSG-COM-021 | E | 用户名或密码错误。 | 認証失敗 | 再入力。5 回でロック | WARN |
-| MSG-COM-022 | E | 验证码错误或已过期，请重新输入。 | 検証コード不一致 | 再取得 | WARN |
+| MSG-COM-021 | E | 企业代码、用户名或密码错误。 | 認証失敗（企業代码不存在・租户無効/期限切れ・ユーザ不存在・パスワード不一致を区別しない、code=2002） | 再入力。5 回でロック | WARN |
+| MSG-COM-022 | E | 验证码错误或已过期，请重新输入。 | 検証コード不一致・期限切れ（code=2005） | 再取得 | WARN |
 | MSG-COM-023 | E | 账号已被锁定，请于 {0} 分钟后重试或联系管理员。 | ロック中 | 待機 or 管理者解除 | WARN |
 | MSG-COM-024 | E | 首次登录或密码已重置，请修改密码。 | `password_reset_required=true` | 強制改密 | INFO |
 | MSG-COM-025 | E | 密码已过期，请修改密码。 | 期限切れ | 強制改密 | INFO |
@@ -401,8 +412,9 @@ stateDiagram-v2
 | データ範囲 | 個人中心は本人データのみ。他ユーザのプロフィール API は提供しない |
 | 監査ログ | ログイン/ログアウト/失敗/ロック/解除/改密/プロフィール更新を記録。パスワード・トークンは記録しない |
 | 通信 | 本番 HTTPS 必須。トークンは `Authorization` ヘッダ、Cookie 不使用（CSRF 不要） |
-| 攻撃対策 | 検証コード（失敗 3 回で必須）、ロック（5 回/30 分）、ユーザ列挙対策（ダミー照合）、レート制限（同一 IP 20 回/分、超過 429） |
+| 攻撃対策 | 検証コード（失敗 3 回で必須）、ロック（5 回/30 分）、租户・ユーザ列挙対策（企業代码不存在も同一エラー＋ダミー照合、BR-14）、レート制限（同一 IP 20 回/分、超過 429） |
 | パスワード保存 | BCrypt cost 12（既定）。平文・可逆暗号は禁止 |
+| ログイン前の参照 | RLS 外のユーザ参照は SECURITY DEFINER 関数 `sys_auth_find_login_user(tenant_code, username)` のみ。最小項目のみ返却、`EXECUTE` は `erp_app` のみ。`erp_app` に `sys_user`/`sys_tenant` の RLS バイパス権限は付与しない |
 
 ## 11. 性能・非機能
 
@@ -418,16 +430,23 @@ stateDiagram-v2
 
 | No | 観点 ID | 分類 | 観点 | 期待結果 |
 |---|---|---|---|---|
-| 1 | TST-F-SYS-001-01 | 正常系 | 正しいアカウント・パスワード・検証コードでログイン | トークン発行、メニュー表示 |
+| 1 | TST-F-SYS-001-01 | 正常系 | 正しい企業代码・アカウント・パスワード・検証コードでログイン | トークン発行（Redis に保存）、メニュー表示、`tenantCode` が localStorage に保存 |
 | 2 | TST-F-SYS-001-02 | 異常系 | パスワード誤り | MSG-COM-021、失敗回数 +1 |
 | 3 | TST-F-SYS-001-03 | 境界値 | 失敗 5 回目 | アカウントロック、MSG-COM-023 |
-| 4 | TST-F-SYS-001-04 | 異常系 | 検証コード期限切れ（2 分超過） | MSG-COM-022 |
+| 4 | TST-F-SYS-001-04 | 異常系 | 検証コード期限切れ（2 分超過） | MSG-COM-022（code=2005） |
 | 5 | TST-F-SYS-001-05 | 異常系 | ロック中に正しいパスワード | ログイン拒否 |
 | 6 | TST-F-SYS-001-06 | 正常系 | 初回ログイン | `passwordResetRequired=true`、強制改密画面 |
 | 7 | TST-F-SYS-001-07 | 正常系 | パスワード変更（正常） | 変更成功、他セッション失効 |
 | 8 | TST-F-SYS-001-08 | 異常系 | 履歴 5 代内のパスワードに変更 | MSG-SYS-006 |
 | 9 | TST-F-SYS-001-09 | 異常系 | 新パスワード強度不足（2 類） | MSG-COM-026 |
 | 10 | TST-F-SYS-001-10 | セキュリティ | 存在しないユーザでログイン | 応答時間・メッセージが既存ユーザと区別できない |
+| 10a | TST-F-SYS-001-14 | セキュリティ | 存在しない企業代码／削除済み租户／`status=0` 租户／`expire_date` 超過租户でログイン | いずれも code=2002・MSG-COM-021 で、パスワード誤り・ユーザ不存在と応答本文・応答時間が区別できない |
+| 10b | TST-F-SYS-001-15 | 正常系 | 租户 A・B に同じ `username` が存在、企業代码 A でログイン | 租户 A のユーザとして認証され、セッションの `tenant_id` は A |
+| 10c | TST-F-SYS-001-16 | 異常系 | 企業代码未入力 | MSG-COM-040、API は呼ばない |
+| 10d | TST-F-SYS-001-17 | セキュリティ | `sys_auth_find_login_user` の権限・戻り値 | `erp_app` 以外（`PUBLIC` 等）は EXECUTE 不可、戻り値に照合用の最小項目以外（氏名・携帯等）を含まない |
+| 10e | TST-F-SYS-001-18 | 権限 | 会社 A で権限コードあり・会社 B でなし、会社 B のセッションで当該 API／`/auth/me` | 403（code=3001）、`/auth/me` の `permissions`・`menus` に当該コード・メニューを含まない |
+| 10f | TST-F-SYS-001-19 | 正常系 | `/auth/me` の `menus` | 権限のあるメニュー＋その祖先目录のみ、項目は id/parentId/menuType/menuCode/routePath/sortNo |
+| 10g | TST-F-SYS-001-20 | 正常系 | 期限切れトークン・トークンなしでログアウトを 2 回 | 2 回とも 200 |
 | 11 | TST-F-SYS-001-11 | セキュリティ | 検証コードを使い回す | 2 回目は MSG-COM-022 |
 | 12 | TST-F-SYS-001-12 | 権限 | 管理者がユーザをロック解除 | `account_status=1`、ログイン可 |
 | 13 | TST-F-SYS-001-13 | 排他 | 同時パスワード変更 2 リクエスト | 1 件成功、1 件は旧パスワード不一致 |
@@ -451,3 +470,4 @@ stateDiagram-v2
 | 版数 | 日付 | 変更内容 | 変更者 |
 |---|---|---|---|
 | v1.0 | 2026-10-20 | 初版：F-SYS-001/018 の業務ルール、画面項目定義（3 画面）、処理 9 件、API 10 件、メッセージ 17 件、テスト観点 17 件 | system-workflow |
+| v1.1 | 2026-10-21 | ログインに必須項目「企业代码」`tenantCode` を追加（前提 #5、BR-13/14、§4.3〜4.7、CHK-SYS-001-12/06、PRC-SYS-001-02 手順 2/2a/7/8、§6.3、§7.1、§10、テスト 14〜20）。今朝（#41、main `de517e8`）の「ログイン ID は `username` のみ（租户単位一意）」を「`tenantCode`＋`username`」に改め、`username` は租户内一意のまま。ログイン前のユーザ参照は SECURITY DEFINER `sys_auth_find_login_user(tenant_code, username)`（最小項目・`erp_app` のみ EXECUTE、租户は有効・未削除・期限内）。企業代码不存在・ユーザ不存在・パスワード誤りは同一エラー（code=2002／MSG-COM-021）。MSG-COM-022 に code=2005。トークン・検証コードは Sa-Token Redis DAO で Redis。logout は免ログイン・冪等。`/auth/me` の `menus` を id/parentId/menuType/menuCode/routePath/sortNo（当前会社の権限メニュー＋祖先目录）に確定、`dataScopes` は別 PR（蓝色大肥鱼 2026-10-21 #71 決定） | 业务分析 |

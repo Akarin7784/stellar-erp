@@ -1050,7 +1050,7 @@
 | GET | /api/system/audit-logs/{id} | 監査詳細 | system:audit-log:view | SYS | 01-system/91-api-design.md |
 | GET | /api/system/auth/captchas | 検証コード発行 | 公開 | SYS | 01-system/91-api-design.md |
 | POST | /api/system/auth/login | ログイン | 公開 | SYS | 01-system/91-api-design.md |
-| POST | /api/system/auth/logout | ログアウト | 認証済 | SYS | 01-system/91-api-design.md |
+| POST | /api/system/auth/logout | ログアウト（冪等。トークン無効・期限切れでも 200） | 公開 | SYS | 01-system/91-api-design.md |
 | GET | /api/system/auth/me | ログインユーザ・権限・メニュー取得 | 認証済 | SYS | 01-system/01-auth-login.md |
 | GET | /api/system/auth/me | ログインユーザ・権限（コードで重複排除）・メニュー | 認証済 | SYS | 01-system/91-api-design.md |
 | POST | /api/system/auth/password | パスワード変更 | 認証済 | SYS | 01-system/91-api-design.md |

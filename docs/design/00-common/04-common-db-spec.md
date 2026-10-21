@@ -190,6 +190,13 @@ PostgreSQL の一意制約チェックは RLS を経由しないため、`tenant
      | `sys_idempotency` | `uk_sys_idempotency_key` | `(tenant_id, idempotency_key)` |
      | `mdm_exchange_rate` | `uk_mdm_exchange_rate` | `(tenant_id, from_currency_code, to_currency_code, rate_type, effective_date) WHERE deleted=FALSE` |
 
+   - (c) **全体一意（`tenant_id` を含めない）**。ログイン前（RLS 文脈なし）に業務キーから租户を特定するためのキーに限る。対象は次の 1 本のみ：
+
+     | 表 | 一意キー | 列 |
+     |---|---|---|
+     | `sys_tenant` | `uk_sys_tenant_code` | `(tenant_code) WHERE deleted=FALSE`（ログイン画面の「企业代码」。01-system/90 §3.3）（蓝色大肥鱼 2026-10-21 #71 決定） |
+
+     `RlsCoverageTest.everyUniqueIndexStartsWithTenantId` と pgTAP `composite_fk.sql` には**表名＋索引名の組**で豁免を登録する（DBA、`sys_user` 正式迁移で実施）。
    - 上記以外（例：`uk_sys_role_code`・`uk_sys_number_rule_code`）は `(tenant_id, company_id, …)`。親 id 先頭の一意キーはいかなる場合も認めない。
    - 複合外键の参照先としてのみ存在する `UNIQUE (tenant_id, id)`（`uk_<table>_tenant_id`、例：08-workflow/90 の `uk_wf_task_tenant_id`）は業務一意キーではなく、`(tenant_id, company_id, …)` 規則の対象外とする（§6.2 項 2）。同様に、同域親子 FK の参照先としてのみ存在する `UNIQUE (tenant_id, company_id, id)`（`uk_<table>_tenant_company_id`、例：`uk_prd_bom_tenant_company_id`）も FK 参照先専用であり業務一意キーではない（§6.2 項 2a）。
 5. `sys_sequence` の増分は `DO UPDATE SET current_value = sys_sequence.current_value + sys_sequence.step`（`EXCLUDED.step` 禁止）。
@@ -451,6 +458,7 @@ V{yyyyMMdd}{NNNN}__{module}_{description}.sql     # バージョンは 12 桁
 | v1.13 | 2026-10-21 | §6.1 項 2：`company_id` の値は `sys_company.id`（`LoginContext.companyId` 同値、`sys_company.company_id` = 自行 `id`）と明記（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.14 | 2026-10-21 | §6.1 項 4 (b) から `uk_sys_menu_permission` を削除（`sys_menu.permission_code` は重複可、普通索引に変更）。§6.2 項 2a に `sys_menu` 参照 FK の 2 列命名例外を追加（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.15 | 2026-10-21 | §6.2 項 2a：`sys_menu` 参照 FK の命名例外を `sys_role_permission.menu_id`（`fk_sys_role_permission_menu`）のみに限定。`sys_menu.parent_id`・`sys_department.parent_id` は 0＝ルートのため自己参照 FK を付けない命名例外として理由・アプリ検査・pgTAP を明記。01/94 G-7 も同旨に更新（蓝色大肥鱼 2026-10-21 決定、案 A） | 业务分析 |
+| v1.16 | 2026-10-21 | §6.1 項 4 に (c) 全体一意の具名例外を新設し `sys_tenant.uk_sys_tenant_code (tenant_code) WHERE deleted=FALSE` を登録（ログイン時に企業代码から租户を一意に特定するため）。CI 豁免は DBA が `sys_user` 正式迁移で登録（蓝色大肥鱼 2026-10-21 #71 決定） | 业务分析 |
 
 ## Flowable 引擎表の schema 分離（issue #7）
 
