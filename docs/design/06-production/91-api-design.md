@@ -82,6 +82,13 @@
 | 37 | GET | `/api/production/work-orders/{id}/materials` | `production:work-order:view` | 材料明細 | F-PRD-005 |
 | 38 | GET | `/api/production/work-orders/{id}/operations` | 同上 | 工序明細 | F-PRD-005 |
 | 39 | GET | `/api/production/work-orders/{id}/progress` | 同上 | 進捗（報工/入庫/検査） | F-PRD-005/016 |
+| 39a | GET | `/api/production/overproduction-approvals` | `production:overproduction-approval:view` | 超産申請一覧（詳細 §3.14） | F-PRD-008 |
+| 39b | GET | `/api/production/overproduction-approvals/{id}` | 同上 | 超産申請詳細（§3.14） | F-PRD-008 |
+| 39c | POST | `/api/production/overproduction-approvals` | `production:overproduction-approval:create` | 超産申請登録（→10、201。§3.14） | F-PRD-008 |
+| 39d | POST | `/api/production/overproduction-approvals/{id}/submit` | `production:overproduction-approval:submit` | 申請提出（10→20。Flowable 接入後は WF 起動に置換。§3.14） | F-PRD-008 |
+| 39e | POST | `/api/production/overproduction-approvals/{id}/approve` | `production:overproduction-approval:approve` | 承認（20→30、`allowed_qty` +`request_qty`。§3.14）。TODO：権限チェック未実装、Flowable 接入後に閉鎖 | F-PRD-008 |
+| 39f | POST | `/api/production/overproduction-approvals/{id}/reject` | `production:overproduction-approval:approve` | 却下（20→40。§3.14） | F-PRD-008 |
+| 39g | POST | `/api/production/overproduction-approvals/{id}/cancel` | `production:overproduction-approval:cancel` | 取消（10/20→90。§3.14） | F-PRD-008 |
 
 ### 2.3 領料・報工・完工入库（F-PRD-006〜008）
 
@@ -570,6 +577,23 @@
 | 単位整合 | 当該保存で新規追加された行、および単位・数量を変更した行（BOM 展開行を含む。保存前の DB 行と比較、変更フラグなし）ごとに CHK-PRD-002-10 を検査。入力単位・数量を基本単位へ換算・切上げた値を `uomCode`・`requiredQty` に格納（手動行の `bomUomCode`・`bomQty` は NULL）（蓝色大肥鱼 2026-10-21 最終決定） |
 | エラー | `60022`（422、`MSG-PRD-022`：換算不可。保存全体をロールバック、`version` 不変）／`4003`（409、`version` 不一致）（蓝色大肥鱼 2026-10-21 決定） |
 
+### 3.14 超産申請・承認 `/api/production/overproduction-approvals`（F-PRD-008、蓝色大肥鱼 2026-10-21 #66 決定）
+
+パス・権限コードは PR #66（`OverproductionApprovalController.java:28`）の命名に従う。会社・租户はログインコンテキストから取り、body の `companyId` は無視する。状態：10 草稿 → 20 承認待ち → 30 承認済／40 却下、10・20 → 90 取消（[90 §3.19.1](90-db-design.md)）。
+
+| 操作 | リクエスト | 正常 | 状態条件・エラー |
+|---|---|---|---|
+| 登録 `POST /api/production/overproduction-approvals` | `salesOrderLineId`、`workOrderId`（任意、NULL＝受注行級）、`requestQty`（基本単位の増分） | **201** + 申請 DTO（`approvalStatus=10`） | `60103`（`requestQty` NULL・≤ 0・1 件 > 受注行基本数量 × `prd.overproduction_max_rate`（累計しない）・小数桁数 > 基本単位 `decimal_places`）／`60056`（工单が当該受注行または当前会社に属さない）／`60101`（工单級で工单が未下达、または工单 `allowed_qty` が NULL。登録時に拒否）／`5000`（`prd.overproduction_max_rate` 欠落） |
+| 提出 `POST /api/production/overproduction-approvals/{id}/submit` | `{ "version": n }` | 200（10→20） | 10 以外は `60101`／`4003` |
+| 承認 `POST /api/production/overproduction-approvals/{id}/approve` | `{ "version": n }` | 200（20→30） | 20 以外（10・承認済 30・却下 40・取消 90）は `60101`／申請者本人の承認は `60005`／`4003` |
+| 却下 `POST /api/production/overproduction-approvals/{id}/reject` | `{ "version": n, "rejectReason": "…" }` | 200（20→40） | 20 以外は `60101`／`4003` |
+| 取消 `POST /api/production/overproduction-approvals/{id}/cancel` | `{ "version": n }` | 200（10・20→90） | 30・40・90 は `60101`／`4003` |
+| 詳細 `GET /api/production/overproduction-approvals/{id}` | — | 200 + 申請 DTO | 他社・不存在は 404 |
+| 一覧 `GET /api/production/overproduction-approvals` | `page`、`size`、絞込（受注行・工单・状態） | 200 + `PageResult` | 当前会社＋RLS |
+
+- **承認時の更新（案 B）**：受注行→工单の順に `FOR UPDATE`。工单級は受注行と当該工单の `allowed_qty` をそれぞれ +`request_qty`、受注行級は受注行のみ +`request_qty`。更新 0 行は全体ロールバック。却下・取消では `allowed_qty` を変更しない。
+- **version**：承認により受注行と工单の `version` が +1 される（想定どおり）。前端は編集画面の保存で 409／`4003` を受けた場合、「データが更新されました」と表示して再読込する（自動上書きしない）。
+
 ## 4. エラーコード対応表（本域の主要コード）
 
 | code | HTTP | 対応 MSG | 意味 |
@@ -582,7 +606,7 @@
 | 4003 | 409 | `MSG-COM-033` | 楽観排他競合 |
 | 4005 | 409 | `MSG-COM-035`/`075` | 二重処理・処理中 |
 | 5000 | 500 | `MSG-COM` / 設定不備 | テナント未設定・`sys_param.prd.completion_over_rate` 欠落、または予期せぬシステムエラー（trace_id） |
-| 60005 | 422 | `MSG-PRD-005` | 起案者と承認者が同一（工单承認） |
+| 60005 | 422 | `MSG-PRD-005` | 起案者と承認者が同一（工单承認・超産承認 §3.14） |
 | 60010 | 422 | `MSG-PRD-010` | BOM 循環参照 |
 | 60011 | 422 | `MSG-PRD-011` | BOM 有効期間重複 |
 | 60020 | 422 | `MSG-PRD-020` | 有効 BOM なし（エラーは下达のみ。登録・提出は警告） |
@@ -598,9 +622,9 @@
 | 60046 | 422 | `MSG-PRD-046` | 実績あり取消不可 |
 | 60047 | 422 | `MSG-PRD-047` | 保留中の操作 |
 | 60048 | 422 | `MSG-PRD-048` | 拆分合計不一致 |
-| 60056 | 422 | `MSG-PRD-056` | 工单品目 ≠ 受注行品目（G2-18） |
+| 60056 | 422 | `MSG-PRD-056` | 工单品目 ≠ 受注行品目（G2-18）。超産申請で工单が当該受注行・会社に属さない場合も同じ（§3.14） |
 | 60100 | 422 | `MSG-PRD-100` | 超産承認が必要 |
-| 60101 | 422 | `MSG-PRD-101` | 超産承認無効 |
+| 60101 | 422 | `MSG-PRD-101` | 超産承認無効（却下・取消済の申請での入庫、§3.14 の状態不正操作、工单級申請で工单未下达・`allowed_qty` NULL） |
 | 60102 | 422 | `MSG-PRD-102` | 冲销数量 > completed_qty |
 | 60103 | 422 | `MSG-PRD-103` | 超産申請数量不正（`request_qty` ≤ 0 または NULL、1 件の `request_qty` > 受注行基本数量 × `prd.overproduction_max_rate`、小数桁数 > 基本単位 `decimal_places`）。パラメータ欠落は 5000 |
 | 60104 | 422 | `MSG-PRD-104` | 下达日不能早于今天（上海时间）（`releaseDate` が Asia/Shanghai 当日より前） |
@@ -655,3 +679,4 @@
 | v1.15 | 2026-10-21 | §3.10 承認提出に `60022`（手動材料明細の換算不可、全体ロールバック）を追加、§4 の 60022 検査タイミングに承認提出を追記（蓝色大肥鱼 2026-10-21 後続訂正） | 业务分析 |
 | v1.16 | 2026-10-21 | §3.1 登録に 60022（BOM 展開行の換算不可）を追加、§3.10・§3.13・§4 の 60022 検査対象を保存（追加・変更行）／提出・下达（全行）に変更、§4 60022 行の重複文を削除（蓝色大肥鱼 2026-10-21 最終決定） | 业务分析 |
 | v1.17 | 2026-10-21 | §3.2 下达の単位整合：既存材料明細は検査のみで回写しない（AC-PRD-13 整合）。§4 60022 に換算率選択・基本単位の mdm_uom 未登録・停用／削除単位（既存行も提出・下达で 60022、データ不変）・全行切上げを追記（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.18 | 2026-10-21 | §2.2 に #39a〜39g 超産申請 API（一覧・詳細・登録・提出・承認・却下・取消）を追加、§3.14 を新設（状態遷移、60103／60056／60101／60005、案 B、version +1 と前端の 409／4003 対応）、§4 の 60005／60056／60101 の意味を追記（蓝色大肥鱼 2026-10-21 #66 決定） | 业务分析 |
