@@ -69,8 +69,8 @@ public class OverproductionApprovalService {
             throw invalidApproval("受注行の allowed_qty が未確定のため超産申請はできません。");
         }
         if (line.allowedQty().signum() < 0) {
-            // current_allowed_qty 是受注行快照，负值属于数据不整合，不是申请数量错误 → 5000（不是 60103）
-            throw new BizException(ProductionErrorCode.CONFIG_MISSING, "受注行 allowed_qty 为负值，数据不整合");
+            // 負値も NULL と同じく業務データ未準備 → 422 / 60101（lead 2026-10-21 決定。60103 にはしない）
+            throw invalidApproval("受注行の allowed_qty が不正（負値）のため超産申請はできません。");
         }
 
         checkLimit(company, line.id(), cmd.requestQty());

@@ -378,12 +378,15 @@ class ProductionCoreIntegrationTest {
     // 正常系の保存（上限・精度チェック込み）は実受注行が必要なため OverproductionApprovalApiIntegrationTest に移動。
 
     @Test
-    void negativeAllowedQtyIs5000BeforeInsert() {
+    void negativeAllowedQtyIs60101BeforeInsert() {
         when(salesOrderLines.find(eq(COMPANY), eq(SO_LINE))).thenReturn(Optional.of(
                 new SalesOrderLine(SO_LINE, SO, "SO1", MAT_RATE, null, new BigDecimal("-1"))));
         assertThatThrownBy(() -> asUser(() -> approvals.request(
                 new OverproductionRequestCommand(SO_LINE, null, new BigDecimal("3"), null))))
-                .isInstanceOfSatisfying(BizException.class, e -> assertThat(e.getCode()).isEqualTo(5000));
+                .isInstanceOfSatisfying(BizException.class, e -> {
+                    assertThat(e.getCode()).isEqualTo(60101);
+                    assertThat(e.getMsgId()).isEqualTo("MSG-PRD-101");
+                });
         assertThat(approvalCount()).isZero();
         assertThat(owner.queryForObject("SELECT count(*) FROM sys_sequence WHERE tenant_id = 303", Long.class)).isZero();
     }
