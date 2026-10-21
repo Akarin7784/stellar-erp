@@ -456,4 +456,4 @@ V{yyyyMMdd}{NNNN}__{module}_{description}.sql     # バージョンは 12 桁
 - 表の解決は接続ごとの `search_path = public, flowable`（`spring.datasource.hikari.connection-init-sql`）で行う。`flowable.database-schema` は設定しない（Flowable が接続に `setSchema()` を発行し、プール接続の `search_path` が `flowable` のみになるため）。
 - Flowable のバージョンアップ時は、新しい jar の `org/flowable/**/db/upgrade/*.postgres.upgradestep.*.sql` を新規 Flyway 迁移として追加する（`database-schema-update=true` に戻さない）。
 - RLS は業務 schema（`public`）の業務表のみ対象。Flowable 表は `tenant_id` を持たず RLS 対象外。
-| v1.12 | 2026-10-21 | §6.1 項 2：`company_id` の値は `sys_company.id`（`LoginContext.companyId` 同値、`sys_company.company_id` = 自行 `id`）と明記（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.13 | 2026-10-21 | §6.1 項 2：`company_id` の値は `sys_company.id`（`LoginContext.companyId` 同値、`sys_company.company_id` = 自行 `id`）と明記（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
