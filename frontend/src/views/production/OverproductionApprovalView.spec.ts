@@ -11,6 +11,8 @@ const api = {
   approve: vi.fn(),
   reject: vi.fn(),
   cancel: vi.fn(),
+  update: vi.fn(),
+  lines: vi.fn(),
 }
 vi.mock('@/api/production/overproduction', async (orig) => ({
   ...(await orig<typeof import('@/api/production/overproduction')>()),
@@ -21,6 +23,8 @@ vi.mock('@/api/production/overproduction', async (orig) => ({
   approveOverproductionApproval: (...a: unknown[]) => api.approve(...a),
   rejectOverproductionApproval: (...a: unknown[]) => api.reject(...a),
   cancelOverproductionApproval: (...a: unknown[]) => api.cancel(...a),
+  updateOverproductionApproval: (...a: unknown[]) => api.update(...a),
+  searchSalesOrderLines: (...a: unknown[]) => api.lines(...a),
 }))
 
 const confirm = vi.fn()
@@ -55,6 +59,11 @@ const row = (id: string, approvalStatus: number, extra = {}) => ({
   salesOrderLineId: '11',
   workOrderId: null,
   materialId: '5',
+  salesOrderNo: 'SO-001',
+  workOrderNo: null,
+  materialCode: 'M001',
+  materialName: '螺栓',
+  requestedByName: '张三',
   requestQty: '10.0000',
   currentAllowedQty: '100.0000',
   approvedAllowedQty: null,
@@ -303,28 +312,67 @@ describe('OverproductionApprovalView（SCR-PRD-034）', () => {
     expect(api.list).toHaveBeenCalledTimes(2)
   })
 
-  it('新建：必填检查；60103 显示在对话框内', async () => {
+  const line = {
+    salesOrderLineId: '11',
+    salesOrderId: '1',
+    salesOrderNo: 'SO-001',
+    lineNo: 1,
+    materialId: '5',
+    materialCode: 'M001',
+    materialName: '螺栓',
+    baseUomCode: 'PCS',
+    baseQty: '100',
+    allowedQty: '100',
+    completedQty: '0',
+  }
+  const click = (sel: string) =>
+    (body().querySelector(`[data-test="${sel}"]`) as HTMLElement).click()
+  const set = (sel: string, v: string) => {
+    const i = field(sel)
+    i.value = v
+    i.dispatchEvent(new Event('input'))
+  }
+  async function pickFirstLine() {
+    click('c-line-pick')
+    await flushPromises()
+    click('p-pick')
+    await flushPromises()
+  }
+
+  it('一览・详细显示销售订单号、工单号、物料、申请人', async () => {
+    const r = row('1', 10, { workOrderId: '8', workOrderNo: 'WO-008' })
+    api.list.mockResolvedValue(page([r]))
+    api.get.mockResolvedValue(r)
+    const w = await mountView()
+    const t = w.find('[data-test="table"]').text()
+    for (const x of ['SO-001', '工单 WO-008', 'M001 螺栓', '张三']) expect(t).toContain(x)
+    await w.find('[data-test="detail"]').trigger('click')
+    await flushPromises()
+    const d = body().querySelector('[data-test="detail-dialog"]')!.textContent!
+    for (const x of ['SO-001', 'WO-008', 'M001 螺栓', '张三']) expect(d).toContain(x)
+  })
+
+  it('新建：未选销售订单行时不调用 API；60103 显示在对话框内', async () => {
     api.list.mockResolvedValue(page([]))
+    api.lines.mockResolvedValue(page([line]))
     const w = await mountView()
     await w.find('[data-test="create"]').trigger('click')
     await flushPromises()
-    const save = () => (body().querySelector('[data-test="c-save"]') as HTMLElement).click()
-    save()
+    click('c-save')
     await flushPromises()
     expect(api.create).not.toHaveBeenCalled()
     expect(body().querySelector('[data-test="create-error"]')!.textContent).toContain(
-      '销售订单明细ID',
+      '请输入必填项「销售订单行」。',
     )
 
-    const set = (sel: string, v: string) => {
-      const i = field(sel)
-      i.value = v
-      i.dispatchEvent(new Event('input'))
-    }
-    set('c-line', '11')
+    await pickFirstLine()
+    expect(api.lines).toHaveBeenCalledWith({ salesOrderNo: '', material: '', page: 1, size: 20 })
+    expect(body().querySelector('[data-test="c-line-text"]')!.textContent).toContain(
+      'SO-001 第1行 M001 螺栓',
+    )
     set('c-qty', '999')
     api.create.mockRejectedValue(bizErr(422, 60103, '超产申请数量不正', 'MSG-PRD-103'))
-    save()
+    click('c-save')
     await flushPromises()
     expect(api.create).toHaveBeenCalledWith({
       salesOrderLineId: '11',
@@ -337,23 +385,160 @@ describe('OverproductionApprovalView（SCR-PRD-034）', () => {
     )
   })
 
+  it('选择器：按条件查询', async () => {
+    api.list.mockResolvedValue(page([]))
+    api.lines.mockResolvedValue(page([line]))
+    const w = await mountView()
+    await w.find('[data-test="create"]').trigger('click')
+    await flushPromises()
+    click('c-line-pick')
+    await flushPromises()
+    set('p-so', 'SO-0')
+    set('p-material', '螺栓')
+    click('p-search')
+    await flushPromises()
+    expect(api.lines).toHaveBeenLastCalledWith({
+      salesOrderNo: 'SO-0',
+      material: '螺栓',
+      page: 1,
+      size: 20,
+    })
+  })
+
   it('新建成功：关闭并重读', async () => {
     api.list.mockResolvedValue(page([]))
+    api.lines.mockResolvedValue(page([line]))
     api.create.mockResolvedValue({ id: '9', approvalNo: 'OPA-9', approvalStatus: 10 })
     const w = await mountView()
     await w.find('[data-test="create"]').trigger('click')
     await flushPromises()
-    for (const [sel, v] of [
-      ['c-line', '11'],
-      ['c-qty', '5'],
-    ]) {
-      const i = field(sel)
-      i.value = v!
-      i.dispatchEvent(new Event('input'))
-    }
-    ;(body().querySelector('[data-test="c-save"]') as HTMLElement).click()
+    await pickFirstLine()
+    set('c-qty', '5')
+    click('c-save')
     await flushPromises()
     expect(success).toHaveBeenCalledWith('已保存超产申请 OPA-9')
     expect(api.list).toHaveBeenCalledTimes(2)
+  })
+
+  describe('草稿修正', () => {
+    async function openEdit(r = row('1', 10, { remark: '旧' })) {
+      api.list.mockResolvedValue(page([r]))
+      const w = await mountView()
+      await w.find('[data-test="edit"]').trigger('click')
+      await flushPromises()
+      return w
+    }
+    /** el-form-item 错误显示有 debounce */
+    async function settleFormError() {
+      await flushPromises()
+      await new Promise((r) => setTimeout(r, 150))
+      await flushPromises()
+    }
+    const editErr = () => body().querySelector('[data-test="edit-error"]')
+
+    it('仅状态 10 且有 create 权限时显示「修改」', async () => {
+      api.list.mockResolvedValue(page([row('1', 10), row('2', 20)]))
+      let w = await mountView()
+      expect(w.findAll('[data-test="edit"]')).toHaveLength(1)
+      w.unmount()
+      w = await mountView(ALL.filter((p) => !p.endsWith(':create')))
+      expect(w.findAll('[data-test="edit"]')).toHaveLength(0)
+    })
+
+    it('成功：PUT 带 version，关闭并重读', async () => {
+      const w = await openEdit()
+      api.update.mockResolvedValue({})
+      set('e-qty', '20')
+      set('e-wo', '8')
+      click('e-save')
+      await flushPromises()
+      expect(api.update).toHaveBeenCalledWith('1', {
+        version: 2,
+        workOrderId: '8',
+        requestQty: '20',
+        remark: '旧',
+      })
+      expect(success).toHaveBeenCalledWith('已修改超产申请 OPA-1')
+      expect(api.list).toHaveBeenCalledTimes(2)
+      expect((w.vm as unknown as { editVisible: boolean }).editVisible).toBe(false)
+    })
+
+    it('备注超过 500 字：不调用 API，显示 MSG-COM-041 文案', async () => {
+      await openEdit()
+      set('e-remark', 'x'.repeat(501))
+      click('e-save')
+      await settleFormError()
+      expect(api.update).not.toHaveBeenCalled()
+      expect(
+        body().querySelector('[data-test="e-remark-item"] .el-form-item__error')!.textContent,
+      ).toContain('「备注」不能超过 500 个字符。')
+    })
+
+    it('1001 fieldErrors：表单字段挂到字段上，保持打开', async () => {
+      const w = await openEdit()
+      api.update.mockRejectedValue(
+        new ApiError('x', {
+          status: 400,
+          code: 1001,
+          msgId: 'MSG-COM-041',
+          data: {
+            code: 1001,
+            message: 'm',
+            msgId: 'MSG-COM-041',
+            data: { fieldErrors: [{ field: 'remark', message: '「备注」不能超过 500 个字符。' }] },
+          },
+        }),
+      )
+      click('e-save')
+      await settleFormError()
+      expect(
+        body().querySelector('[data-test="e-remark-item"] .el-form-item__error')!.textContent,
+      ).toContain('「备注」不能超过 500 个字符。')
+      expect(editErr()).toBeNull()
+      expect((w.vm as unknown as { editVisible: boolean }).editVisible).toBe(true)
+    })
+
+    it('1001 fieldErrors 为 version（表单外字段）：对话框顶部整体提示', async () => {
+      await openEdit()
+      api.update.mockRejectedValue(
+        new ApiError('x', {
+          status: 400,
+          code: 1001,
+          msgId: 'MSG-COM-040',
+          data: {
+            code: 1001,
+            message: '请输入必填项「version」。',
+            msgId: 'MSG-COM-040',
+            data: { fieldErrors: [{ field: 'version', message: '请输入必填项「version」。' }] },
+          },
+        }),
+      )
+      click('e-save')
+      await flushPromises()
+      expect(editErr()!.textContent).toContain('请输入必填项「version」。')
+      expect(
+        body().querySelectorAll('[data-test="edit-dialog"] .el-form-item__error'),
+      ).toHaveLength(0)
+    })
+
+    it('422 / 60101：顶部显示 [msgId] message，保持打开', async () => {
+      await openEdit()
+      api.update.mockRejectedValue(bizErr(422, 60101, '当前状态不允许修改。', 'MSG-PRD-101'))
+      click('e-save')
+      await flushPromises()
+      expect(editErr()!.textContent).toContain('[MSG-PRD-101] 当前状态不允许修改。')
+      expect(success).not.toHaveBeenCalled()
+      expect(api.list).toHaveBeenCalledTimes(1)
+    })
+
+    it('409 / 4003：刷新提示并重读，保持打开', async () => {
+      const w = await openEdit()
+      api.update.mockRejectedValue(bizErr(409, 4003, '版本冲突', 'MSG-COM-033'))
+      click('e-save')
+      await flushPromises()
+      expect(editErr()!.textContent).toContain(MSG_CONFLICT)
+      expect(api.list).toHaveBeenCalledTimes(2)
+      expect((w.vm as unknown as { editVisible: boolean }).editVisible).toBe(true)
+    })
   })
 })

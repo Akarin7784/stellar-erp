@@ -41,6 +41,12 @@ export interface OverproductionApproval {
   /** null＝受注行级 */
   workOrderId: string | null
   materialId: string
+  /** 显示用（后端 JOIN，参照不存在时为 null） */
+  salesOrderNo: string | null
+  workOrderNo: string | null
+  materialCode: string | null
+  materialName: string | null
+  requestedByName: string | null
   /** 申请增量 delta（基本单位），不是总量 */
   requestQty: string | number
   currentAllowedQty: string | number | null
@@ -99,6 +105,41 @@ export interface OpaApproved {
   version: number
 }
 
+/** backend OverproductionUpdateCommand（草稿修正 #39h，仅状态 10；workOrderId null＝受注行级）。 */
+export interface OpaUpdateRequest {
+  version: number
+  workOrderId: string | null
+  requestQty: string
+  remark: string | null
+}
+
+/** backend SalesOrderLineOption（受注行选择器 1 行）。 */
+export interface SalesOrderLineOption {
+  salesOrderLineId: string
+  salesOrderId: string
+  salesOrderNo: string
+  lineNo: number
+  materialId: string
+  materialCode: string
+  materialName: string
+  baseUomCode: string
+  baseQty: string | number
+  allowedQty: string | number
+  completedQty: string | number
+}
+
+export interface SalesOrderLineQuery {
+  /** 销售订单号部分一致 */
+  salesOrderNo?: string
+  /** 物料编码／名称部分一致 */
+  material?: string
+  page?: number
+  size?: number
+}
+
+/** 受注行选择器 size 上限（后端超过时 400 / 1001 / MSG-COM-045） */
+export const SALES_ORDER_LINE_PAGE_SIZE_MAX = 200
+
 const BASE = '/production/overproduction-approvals'
 
 function dropEmpty<T extends object>(o: T): Partial<T> {
@@ -131,6 +172,39 @@ export async function createOverproductionApproval(body: OpaCreateRequest): Prom
     remark: body.remark?.trim(),
   })
   const res = await http.post<ApiResult<OpaCreated>>(BASE, payload, { silent: true })
+  return res.data.data
+}
+
+export async function updateOverproductionApproval(
+  id: string,
+  body: OpaUpdateRequest,
+): Promise<OverproductionApproval> {
+  const workOrderId = body.workOrderId?.trim() || null
+  const remark = body.remark?.trim() || null
+  const res = await http.put<ApiResult<OverproductionApproval>>(
+    `${BASE}/${id}`,
+    { version: body.version, workOrderId, requestQty: body.requestQty.trim(), remark },
+    { silent: true },
+  )
+  return res.data.data
+}
+
+export async function searchSalesOrderLines(
+  q: SalesOrderLineQuery = {},
+): Promise<PageResult<SalesOrderLineOption>> {
+  const size = Math.min(q.size ?? 20, SALES_ORDER_LINE_PAGE_SIZE_MAX)
+  const res = await http.get<ApiResult<PageResult<SalesOrderLineOption>>>(
+    `${BASE}/sales-order-lines`,
+    {
+      params: dropEmpty({
+        salesOrderNo: q.salesOrderNo?.trim(),
+        material: q.material?.trim(),
+        page: q.page ?? 1,
+        size,
+      }),
+      silent: true,
+    },
+  )
   return res.data.data
 }
 
@@ -221,4 +295,17 @@ export function toOpaErrorView(err: unknown): OpaErrorView {
     }
   }
   return { kind: 'generic', message: MSG_OPA_GENERIC_ERROR, reload: false }
+}
+
+/** 1001 的 data.fieldErrors（03 §5.3）；无则空数组。 */
+export function fieldErrorsOf(err: unknown): { field: string; message: string }[] {
+  if (!(err instanceof ApiError) || err.code !== 1001) return []
+  const d = err.data as { data?: { fieldErrors?: unknown } } | undefined
+  const fe = d?.data?.fieldErrors
+  return Array.isArray(fe)
+    ? fe.filter(
+        (x): x is { field: string; message: string } =>
+          !!x && typeof x.field === 'string' && typeof x.message === 'string',
+      )
+    : []
 }
