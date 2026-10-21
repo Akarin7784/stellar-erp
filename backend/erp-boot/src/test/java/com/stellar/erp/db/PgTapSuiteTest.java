@@ -34,7 +34,7 @@ class PgTapSuiteTest {
 
 
     @ParameterizedTest
-    @ValueSource(strings = {"rls_sys_user.sql", "g2_18_order_completion.sql", "inventory_inspection_check.sql", "cost_publish_standard_cost.sql", "mdm_over_receipt_tolerance_rate.sql", "prd_schema.sql", "fin_standard_cost_publish.sql", "sal_schema.sql", "fin_period.sql", "composite_fk.sql"})
+    @ValueSource(strings = {"rls_sys_user.sql", "g2_18_order_completion.sql", "inventory_inspection_check.sql", "cost_publish_standard_cost.sql", "mdm_over_receipt_tolerance_rate.sql", "prd_schema.sql", "fin_standard_cost_publish.sql", "sal_schema.sql", "fin_period.sql", "composite_fk.sql", "same_domain_parent_fk.sql"})
     void pgTapFilePasses(String file) throws Exception {
         OwnerJdbc.of(pg).execute("CREATE EXTENSION IF NOT EXISTS pgtap");
         List<String> tap = run(expandIncludes(read("pgtap/" + file)));

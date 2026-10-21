@@ -1003,7 +1003,7 @@ CREATE TABLE prd_work_order (
     parent_work_order_id BIGINT,                                 -- 親工单 ID（多阶製造）
     root_work_order_id  BIGINT,                                  -- 最上位工单 ID（追溯用）
     is_backflush        BOOLEAN       NOT NULL DEFAULT FALSE,    -- 倒冲工单フラグ
-    over_receipt_rate   NUMERIC(5,4)  NOT NULL,                  -- 完工超収容差スナップショット（既定値なし。工单登録時にチェーンで解決した値を必ず設定、工单上は NULL 継承しない。比率 NUMERIC(5,4)。チェーン：受注行>物料>分類>会社 sys_param key prd.completion_over_rate）
+    over_receipt_rate   NUMERIC(5,4)  NOT NULL,                  -- 完工超収容差スナップショット（既定値なし。工单登録時にチェーンで解決した値を必ず設定、工单上は NULL 継承しない。比率 NUMERIC(5,4)。チェーン：受注行>物料>分類>テナント sys_param key prd.completion_over_rate）
     over_report_rate    NUMERIC(5,4)  NOT NULL DEFAULT 0.05,     -- 超報工容差（比率 NUMERIC(5,4)）
     is_hold             BOOLEAN       NOT NULL DEFAULT FALSE,    -- 保留フラグ（工程異常・品質問題）
     hold_reason         VARCHAR(500),                            -- 保留理由
@@ -1048,10 +1048,10 @@ CREATE INDEX idx_prd_work_order_source ON prd_work_order (tenant_id, company_id,
 
 1. **品目一致**：工单 `material_id` ＝ 紐づく受注行（`sales_order_line_id`）の `material_id`。不一致は業務拒否 **HTTP 422・業務コード `60056`・`MSG-PRD-056`**（共通 4002 は状態競合 409 専用。業務拒否に 4002 を使わない）。
 2. **単位**：工单・報工・完工の数量はすべて**物料基本単位**（販売単位ではない）。
-3. **容差チェーン**（`completion_over_rate` / `over_receipt_rate` は **NUMERIC(5,4) 比率**。NULL＝次段継承、0＝明示 0%）：受注行 → 物料 → 物料分類 → 会社 `sys_param` key `prd.completion_over_rate`（既定 0.05、`sys_init_tenant` シード）。会社パラメータ欠落やテナント未設定は **5000**（設定不備）。
+3. **容差チェーン**（`completion_over_rate` / `over_receipt_rate` は **NUMERIC(5,4) 比率**。NULL＝次段継承、0＝明示 0%）：受注行 → 物料 → 物料分類 → テナント `sys_param` key `prd.completion_over_rate`（既定 0.05、`sys_init_tenant` シード）。テナントパラメータ欠落やテナント未設定は **5000**（設定不備）。
 4. **`allowed_qty`**：`floor(base_qty × (1 + rate))` を `mdm_uom.decimal_places` で切捨て。MTO は受注確定時に受注行へスナップショットし、工单はそれを参照／コピー。再計算は承認済受注変更または超産承認後のみ。受注変更時はスナップショット率で `allowed_qty` を再算出し、承認済（30）超産増分 `request_qty` の合計を加算し戻す（承認済超産は消去しない。基準数量が減っても既存承認は有効）。
 5. **ロック**：跨表は先に受注行 `FOR UPDATE`、次に工单。同一表は id 昇順（[04 §11.1](../00-common/04-common-db-spec.md)）。適用：完工、冲销、返工入庫、受注変更、超産承認。過帳は行ロックのみ（楽観 `version` は画面編集）。
-6. **超産承認**：専用表 `prd_overproduction_approval` ＋ Flowable。増分方式 `allowed_qty = allowed_qty + delta`（delta＝`request_qty`）。工单級（`work_order_id` 有値）は受注行と当該工单をそれぞれ +delta、同一受注行の他工单は自身の `allowed_qty` に拘束される。受注行級（NULL）は受注行のみ +delta、工单は変更しない（§3.19.1）。`request_qty` ≤ 0 または NULL は `MSG-PRD-103`/`60103`。共通カラムは伝票類（`deleted` なし、取消は 90）。
+6. **超産承認**：専用表 `prd_overproduction_approval` ＋ Flowable。増分方式 `allowed_qty = allowed_qty + delta`（delta＝`request_qty`）。工单級（`work_order_id` 有値）は受注行と当該工单をそれぞれ +delta、同一受注行の他工单は自身の `allowed_qty` に拘束される。受注行級（NULL）は受注行のみ +delta、工单は変更しない（§3.19.1）。`request_qty` ≤ 0 または NULL は `MSG-PRD-103`/`60103`。**申請上限（蓝色大肥鱼 2026-10-21 決定）**：1 件の `request_qty` ≤ 受注行の基本数量（受注行の物料基本単位換算数量。`allowed_qty` ではない）× テナント `sys_param` `prd.overproduction_max_rate`（NUMERIC(5,4)、既定 1.0000、`sys_init_tenant` シード）。累計上限は設けない（承認済・申請中の他申請は合算しない）。`request_qty` の小数桁数が基本単位 `mdm_uom.decimal_places` を超える場合も不正。上限超過・精度不一致はいずれも `MSG-PRD-103`/`60103`。パラメータ欠落は **5000**（既定値で補わない）。共通カラムは伝票類（`deleted` なし、取消は 90）。
 
 ### 3.19.1 prd_overproduction_approval（超産承認）
 
@@ -1096,7 +1096,7 @@ CREATE INDEX idx_prd_opa_wo
     WHERE work_order_id IS NOT NULL;
 ```
 
-**更新**：申請保存→`approval_status=20` で Flowable 起動。`request_qty` は申請超産増分 delta（総量ではない）。承認（30）時は増分方式 `allowed_qty = allowed_qty + delta` で更新する（ロック順：受注行→工单）。①工单級（`work_order_id` 有値）：受注行と当該工单の `allowed_qty` をそれぞれ +delta。同一受注行の他工单は自身の `allowed_qty` に拘束され、工单級承認で引き上げた受注行枠を占用できない。②受注行級（`work_order_id` IS NULL）：受注行の `allowed_qty` のみ +delta、配下工单は変更しない（按分しない）。工单でさらに必要な場合は当該工单の工单級承認を別途申請する。承認時に `approved_allowed_qty`（承認後の受注行新上限）をスナップショットとして記録する（参照のみ）。`request_qty` ≤ 0 または NULL は `MSG-PRD-103`/`60103`（ERROR）で拒否（`30022`/`MSG-SAL-056` は流用しない）。受注変更時の再計算はスナップショット率で再算出後、承認済（30）delta 合計を加算し戻す（承認済超産は消去しない。基準数量が減っても既存承認は有効）。却下（40）／取消（90）では `allowed_qty` を変更しない（再入庫は `MSG-PRD-101`）。
+**更新**：申請保存→`approval_status=20` で Flowable 起動。`request_qty` は申請超産増分 delta（総量ではない）。承認（30）時は増分方式 `allowed_qty = allowed_qty + delta` で更新する（ロック順：受注行→工单）。①工单級（`work_order_id` 有値）：受注行と当該工单の `allowed_qty` をそれぞれ +delta。同一受注行の他工单は自身の `allowed_qty` に拘束され、工单級承認で引き上げた受注行枠を占用できない。②受注行級（`work_order_id` IS NULL）：受注行の `allowed_qty` のみ +delta、配下工单は変更しない（按分しない）。工单でさらに必要な場合は当該工单の工单級承認を別途申請する。承認時に `approved_allowed_qty`（承認後の受注行新上限）をスナップショットとして記録する（参照のみ）。`request_qty` ≤ 0 または NULL は `MSG-PRD-103`/`60103`（ERROR）で拒否（`30022`/`MSG-SAL-056` は流用しない）。申請保存時に上限（受注行基本数量 × `prd.overproduction_max_rate`、累計なし）と基本単位精度も検証し、違反は同じく `60103`、パラメータ欠落は 5000（§G2-18 6.）。受注変更時の再計算はスナップショット率で再算出後、承認済（30）delta 合計を加算し戻す（承認済超産は消去しない。基準数量が減っても既存承認は有効）。却下（40）／取消（90）では `allowed_qty` を変更しない（再入庫は `MSG-PRD-101`）。
 
 
 **更新仕様**
@@ -2636,4 +2636,6 @@ CREATE INDEX idx_prd_capacity_load_date ON prd_capacity_load (tenant_id, company
 | v1.9 | 2026-10-21 | 例外一覧に `uk_sys_user_username`（`(tenant_id, username)`、テナント単位）を追加（蓝色大肥鱼 2026-10-21 決定）。G2-20：非一意 btree `idx_` も `tenant_id` 先頭（次に `company_id`）、GIN 除外に修正 | 业务分析 |
 | v1.10 | 2026-10-21 | 非一意 btree 索引（`idx_`）98 箇所を `tenant_id` 先頭（`company_id` がある表は次に `company_id`）に変更（DDL・索引一覧。既存迁移の索引は sys/V202610210707 と同一列。GIN は対象外。蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.11 | 2026-10-21 | main（#31）取込み後の再整合：一意索引・非一意 btree 索引を `tenant_id`（＋`company_id`）先頭に再適用、テナント級一意は 00-common/04 §6.1 第 4 条に従う（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
-| v1.12 | 2026-10-21 | `prd_work_order_material` に `bom_uom_code`・`bom_qty`（換算前の BOM 単位・数量、追跡用）を追加、`uom_code`／数量列は物料基本単位と明記。換算元は `mdm_uom`／`mdm_uom_conversion`（CHK-PRD-002-10）（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.12 | 2026-10-21 | G2-18 6.・§3.19.1：超産申請 1 件の `request_qty` 上限（受注行基本数量 × `prd.overproduction_max_rate`、既定 1.0000、累計上限なし）と基本単位精度チェックを追加、違反は 60103、パラメータ欠落は 5000（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.13 | 2026-10-21 | `prd_work_order_material` に `bom_uom_code`・`bom_qty`（換算前の BOM 単位・数量、追跡用）を追加、`uom_code`／数量列は物料基本単位と明記。換算元は `mdm_uom`／`mdm_uom_conversion`（CHK-PRD-002-10）（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.14 | 2026-10-21 | `prd.completion_over_rate`・`prd.overproduction_max_rate` を会社→テナント `sys_param` に訂正（容差チェーン・超産上限）（蓝色大肥鱼 2026-10-21 決定：sys_param はテナント単位） | 业务分析 |
