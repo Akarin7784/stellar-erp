@@ -8,7 +8,7 @@
 | 作成日 | 2026-10-20 |
 | 作成者 | Lead（生成工具 gen_matrix.py） |
 | 状態 | ドラフト（自动生成・最終レビュー前） |
-| 備考 | 全 1013 件。メッセージID/種別/本文/発生条件/対処/域/提取元 |
+| 備考 | 全 1014 件。メッセージID/種別/本文/発生条件/対処/域/提取元 |
 
 > 本文件由 `20-matrix/tools/gen_matrix.py` 从各域设计书中自动提取生成。修改设计书后重新运行即可更新。
 
@@ -73,6 +73,7 @@
 | MSG-COM-084 | W | 当前功能正在处理中，请稍候。 | 処理中 | 二重起動防止 | COM | 00-common/05-common-message-list.md |
 | MSG-COM-085 | E | 数据加载失败，请刷新页面重试。 | 取得失敗 | — | COM | 00-common/05-common-message-list.md |
 | MSG-COM-086 | W | 当前页面数据已过期，请刷新后再操作。 | 画面滞留 | — | COM | 00-common/05-common-message-list.md |
+| MSG-COM-087 | E | 「{0}」只能输入半角英数字。 | 半角英数チェック | — | COM | 00-common/05-common-message-list.md |
 | MSG-FIN-001 | E | 借方合计与贷方合计不一致（差额 {0}），无法保存。 | 借贷不平衡 | 差額行を修正（F-FIN-003/005/006） | FIN | 07-finance/93-messages.md |
 | MSG-FIN-002 | E | 科目代码格式不正确（应为 4 位一级科目，明细以点号分隔，如 6602.12）。 | コード形式不正 | 形式修正（F-FIN-001） | FIN | 07-finance/93-messages.md |
 | MSG-FIN-003 | E | 期初余额借贷不平衡（借方 {0} / 贷方 {1}，差额 {2}）。 | 期初试算不平衡 | 差额修正後に確定（F-FIN-002） | FIN | 07-finance/93-messages.md |

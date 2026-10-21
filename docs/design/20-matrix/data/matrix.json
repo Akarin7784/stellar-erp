@@ -10642,6 +10642,15 @@
       "source": "00-common/05-common-message-list.md"
     },
     {
+      "id": "MSG-COM-087",
+      "type": "E",
+      "body": "「{0}」只能输入半角英数字。",
+      "condition": "半角英数チェック",
+      "action": "—",
+      "domain": "COM",
+      "source": "00-common/05-common-message-list.md"
+    },
+    {
       "id": "MSG-SYS-001",
       "type": "E",
       "body": "该账号已停用或已离职，请联系管理员。",
