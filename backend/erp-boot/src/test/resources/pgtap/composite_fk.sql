@@ -32,7 +32,7 @@ SELECT is((SELECT count(*)::int FROM pg_index i
               AND i.indisunique AND NOT i.indisprimary
               AND (tc.relname, ic.relname) NOT IN (
                     ('sys_company', 'uk_sys_company_code'), ('sys_company', 'uk_sys_company_credit'),
-                    ('sys_menu', 'uk_sys_menu_code'), ('sys_menu', 'uk_sys_menu_permission'),
+                    ('sys_menu', 'uk_sys_menu_code'),
                     ('sys_dict_type', 'uk_sys_dict_type_code'), ('sys_outbox_event', 'uk_sys_outbox_event_id'),
                     ('sys_idempotency', 'uk_sys_idempotency_key'), ('mdm_exchange_rate', 'uk_mdm_exchange_rate'))
               AND NOT (i.indnatts = 2 AND a0.attname = 'tenant_id' AND a1.attname = 'id')
