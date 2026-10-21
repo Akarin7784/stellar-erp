@@ -157,20 +157,36 @@ describe('60104', () => {
 })
 
 describe('60021 / 60022', () => {
-  it('60021 → MSG-PRD-021 至少需要 1 道工序（后端无消息时用默认文案）', () => {
+  it('60021 → MSG-PRD-021 默认文案与 93:60 一致（后端无消息时）', () => {
     expect(PRD_BUSINESS_CODES).toContain(60021)
     const e = new ApiError('x', { status: 422, code: 60021, data: { code: 60021 } })
     expect(toCreateErrorView(e)).toEqual({
       kind: 'business',
-      message: '[MSG-PRD-021] 至少需要 1 道工序',
+      message: '[MSG-PRD-021] 有効な工艺路线がありません。工艺路线を登録してください。',
       field: undefined,
     })
   })
 
-  it('60022 → MSG-PRD-022 物料单位与 BOM 单位不一致且无法换算', () => {
+  it('60022 → MSG-PRD-022 默认文案与 93:61 一致', () => {
     expect(PRD_BUSINESS_CODES).toContain(60022)
     const e = new ApiError('x', { status: 422, code: 60022, data: { code: 60022 } })
-    expect(toCreateErrorView(e).message).toBe('[MSG-PRD-022] 物料单位与 BOM 单位不一致且无法换算')
+    expect(toCreateErrorView(e).message).toBe(
+      '[MSG-PRD-022] BOM の単位と物料の基本単位が整合しません（換算不可）。',
+    )
+  })
+
+  it('60022 后端真实响应（GlobalExceptionHandler Result.fail(code, message, msgId)）', () => {
+    // UomConverter.java:115-117 / WorkOrderMaterials.java:64-65 的实际 body 形状
+    const e = bizErr(
+      60022,
+      'MSG-PRD-022',
+      'BOM の単位と物料の基本単位が一致しません。（BOX → PCE）',
+    )
+    expect(toCreateErrorView(e)).toEqual({
+      kind: 'business',
+      message: '[MSG-PRD-022] BOM の単位と物料の基本単位が一致しません。（BOX → PCE）',
+      field: undefined,
+    })
   })
 
   it('后端带消息时优先用后端文本', () => {
