@@ -36,8 +36,8 @@ class TenantIsolationTest {
         JdbcTemplate owner = OwnerJdbc.of(pg);
         owner.update("DELETE FROM sys_user WHERE tenant_id IN (?, ?)", A, B);
         // owner 插入必须显式指定 tenant_id（列默认值依赖 app.tenant_id）
-        owner.update("INSERT INTO sys_user (id, tenant_id, username, password) VALUES (?, ?, ?, 'x')", 9001L, A, "alice");
-        owner.update("INSERT INTO sys_user (id, tenant_id, username, password) VALUES (?, ?, ?, 'x')", 9002L, B, "bob");
+        owner.update("INSERT INTO sys_user (id, tenant_id, company_id, user_code, username, real_name, password_hash) VALUES (?, ?, 1, ?, ?, ?, 'x')", 9001L, A, "alice", "alice", "alice");
+        owner.update("INSERT INTO sys_user (id, tenant_id, company_id, user_code, username, real_name, password_hash) VALUES (?, ?, 1, ?, ?, ?, 'x')", 9002L, B, "bob", "bob", "bob");
     }
 
     private <T> T asTenant(long tenant, java.util.function.Supplier<T> body) {
@@ -70,14 +70,14 @@ class TenantIsolationTest {
     @Test
     void insertForOtherTenantIsRejectedByWithCheck() {
         assertThatThrownBy(() -> asTenant(A, () -> jdbc.update(
-                "INSERT INTO sys_user (id, tenant_id, username, password) VALUES (9003, ?, 'mallory', 'x')", B)))
+                "INSERT INTO sys_user (id, tenant_id, company_id, user_code, username, real_name, password_hash) VALUES (9003, ?, 1, 'mallory', 'mallory', 'mallory', 'x')", B)))
                 .isInstanceOf(DataAccessException.class)
                 .rootCause().hasMessageContaining("row-level security");
     }
 
     @Test
     void insertWithoutTenantIdUsesContextTenant() {
-        asTenant(A, () -> jdbc.update("INSERT INTO sys_user (id, username, password) VALUES (9004, 'carol', 'x')"));
+        asTenant(A, () -> jdbc.update("INSERT INTO sys_user (id, company_id, user_code, username, real_name, password_hash) VALUES (9004, 1, 'carol', 'carol', 'carol', 'x')"));
         assertThat(OwnerJdbc.of(pg).queryForObject("SELECT tenant_id FROM sys_user WHERE id = 9004", Long.class)).isEqualTo(A);
         OwnerJdbc.of(pg).update("DELETE FROM sys_user WHERE id = 9004");
     }
@@ -97,7 +97,7 @@ class TenantIsolationTest {
         assertThatThrownBy(() -> tx.execute(s -> jdbc.queryForList("SELECT username FROM sys_user", String.class)))
                 .isInstanceOf(DataAccessException.class);
         assertThatThrownBy(() -> tx.execute(s -> jdbc.update(
-                "INSERT INTO sys_user (id, username, password) VALUES (9006, 'erin', 'x')")))
+                "INSERT INTO sys_user (id, company_id, user_code, username, real_name, password_hash) VALUES (9006, 1, 'erin', 'erin', 'erin', 'x')")))
                 .isInstanceOf(DataAccessException.class);
         assertThat(OwnerJdbc.of(pg).queryForObject("SELECT count(*) FROM sys_user WHERE id = 9006 OR tenant_id = 0", Integer.class))
                 .as("不得落到租户 0").isZero();
@@ -105,7 +105,7 @@ class TenantIsolationTest {
 
     @Test
     void insertWithoutTenantContextFails() {
-        assertThatThrownBy(() -> jdbc.update("INSERT INTO sys_user (id, username, password) VALUES (9005, 'dave', 'x')"))
+        assertThatThrownBy(() -> jdbc.update("INSERT INTO sys_user (id, company_id, user_code, username, real_name, password_hash) VALUES (9005, 1, 'dave', 'dave', 'dave', 'x')"))
                 .isInstanceOf(DataAccessException.class);
     }
 }

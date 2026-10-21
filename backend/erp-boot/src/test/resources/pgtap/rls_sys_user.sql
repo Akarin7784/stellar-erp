@@ -6,19 +6,19 @@ BEGIN;
 SELECT plan(23);
 
 -- 准备：两个租户的数据（owner 绕过 RLS，必须显式写 tenant_id）
-INSERT INTO sys_user (id, tenant_id, username, password) VALUES (98001, 101, 'tap_alice', 'x'), (98002, 202, 'tap_bob', 'x');
+INSERT INTO sys_user (id, tenant_id, company_id, user_code, username, real_name, password_hash) VALUES (98001, 101, 1, 'tap_alice', 'tap_alice', 'tap_alice', 'x'), (98002, 202, 1, 'tap_bob', 'tap_bob', 'tap_bob', 'x');
 
 SET ROLE erp_app;
 SELECT is(current_user::text, 'erp_app', '断言以 erp_app 身份执行');
 
 -- 1. 未设置 app.tenant_id（新会话）
 SELECT throws_ok($$SELECT count(*) FROM sys_user$$, '42704', NULL, '未设置租户：读报错');
-SELECT throws_ok($$INSERT INTO sys_user (id, username, password) VALUES (98010, 'tap_x', 'x')$$, '42704', NULL, '未设置租户：写报错（默认值取 current_setting）');
+SELECT throws_ok($$INSERT INTO sys_user (id, company_id, user_code, username, real_name, password_hash) VALUES (98010, 1, 'tap_x', 'tap_x', 'tap_x', 'x')$$, '42704', NULL, '未设置租户：写报错（默认值取 current_setting）');
 
 -- 2. 空串
 SELECT set_config('app.tenant_id', '', true);
 SELECT throws_ok($$SELECT count(*) FROM sys_user$$, '22P02', NULL, '空串租户：读报错');
-SELECT throws_ok($$INSERT INTO sys_user (id, username, password) VALUES (98011, 'tap_y', 'x')$$, '22P02', NULL, '空串租户：写报错');
+SELECT throws_ok($$INSERT INTO sys_user (id, company_id, user_code, username, real_name, password_hash) VALUES (98011, 1, 'tap_y', 'tap_y', 'tap_y', 'x')$$, '22P02', NULL, '空串租户：写报错');
 
 -- 3. 租户 A 只看到自己的行
 SELECT set_config('app.tenant_id', '101', true);
@@ -28,11 +28,11 @@ UPDATE sys_user SET nickname = 'hacked' WHERE id = 98002;
 DELETE FROM sys_user WHERE id = 98002;
 
 -- 4. WITH CHECK
-SELECT throws_ok($$INSERT INTO sys_user (id, tenant_id, username, password) VALUES (98012, 202, 'tap_m', 'x')$$, '42501', NULL, 'WITH CHECK 拒绝 INSERT 到其他租户');
+SELECT throws_ok($$INSERT INTO sys_user (id, tenant_id, company_id, user_code, username, real_name, password_hash) VALUES (98012, 202, 1, 'tap_m', 'tap_m', 'tap_m', 'x')$$, '42501', NULL, 'WITH CHECK 拒绝 INSERT 到其他租户');
 SELECT throws_ok($$UPDATE sys_user SET tenant_id = 202 WHERE id = 98001$$, '42501', NULL, 'WITH CHECK 拒绝把本租户行改为其他租户');
 
 -- 5. 默认值取 current_setting
-SELECT lives_ok($$INSERT INTO sys_user (id, username, password) VALUES (98013, 'tap_carol', 'x')$$, '不写 tenant_id 可插入');
+SELECT lives_ok($$INSERT INTO sys_user (id, company_id, user_code, username, real_name, password_hash) VALUES (98013, 1, 'tap_carol', 'tap_carol', 'tap_carol', 'x')$$, '不写 tenant_id 可插入');
 SELECT is((SELECT tenant_id FROM sys_user WHERE id = 98013), 101::bigint, 'tenant_id 默认取 app.tenant_id');
 
 -- 6. B 视角（同时验证上面 A 的 UPDATE/DELETE 对 B 的行无效）

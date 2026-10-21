@@ -29,7 +29,7 @@ class PgTapSmokeTest {
         owner.execute("CREATE EXTENSION IF NOT EXISTS pgtap");
         // 同一连接（会话）内顺序执行：plan → 断言 → finish
         List<String> tap = new java.util.ArrayList<>();
-        owner.update("INSERT INTO sys_user (id, tenant_id, username, password) VALUES (9101, 301, 'tap_a', 'x'), (9102, 302, 'tap_b', 'x') ON CONFLICT DO NOTHING");
+        owner.update("INSERT INTO sys_user (id, tenant_id, company_id, user_code, username, real_name, password_hash) VALUES (9101, 301, 1, 'tap_a', 'tap_a', 'tap_a', 'x'), (9102, 302, 1, 'tap_b', 'tap_b', 'tap_b', 'x') ON CONFLICT DO NOTHING");
         tap.add(owner.queryForObject("SELECT plan(6)", String.class));
         tap.add(owner.queryForObject("SELECT has_table('public'::name, 'sys_user'::name, 'sys_user 存在')", String.class));
         tap.add(owner.queryForObject("SELECT policies_are('public'::name, 'sys_user'::name, ARRAY['tenant_isolation']::name[], 'sys_user 仅有租户隔离策略')", String.class));
@@ -40,7 +40,7 @@ class PgTapSmokeTest {
         owner.queryForObject("SELECT set_config('app.tenant_id', '301', true)", String.class);
         tap.add(owner.queryForObject("SELECT is(current_user::text, 'erp_app', 'RLS 断言以 erp_app 执行')", String.class));
         tap.add(owner.queryForObject("SELECT results_eq('SELECT username::text FROM sys_user WHERE id IN (9101, 9102)', ARRAY['tap_a'], '租户 301 只看到自己的行')", String.class));
-        tap.add(owner.queryForObject("SELECT throws_ok('INSERT INTO sys_user (id, tenant_id, username, password) VALUES (9103, 302, ''tap_c'', ''x'')', '42501', NULL, 'WITH CHECK 拒绝写入其他租户')", String.class));
+        tap.add(owner.queryForObject("SELECT throws_ok('INSERT INTO sys_user (id, tenant_id, company_id, user_code, username, real_name, password_hash) VALUES (9103, 302, 1, ''tap_c'', ''tap_c'', ''tap_c'', ''x'')', '42501', NULL, 'WITH CHECK 拒绝写入其他租户')", String.class));
         owner.execute("ROLLBACK");
         tap.addAll(owner.queryForList("SELECT * FROM finish()", String.class));
         owner.update("DELETE FROM sys_user WHERE id IN (9101, 9102)");
