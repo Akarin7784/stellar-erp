@@ -4,7 +4,7 @@
 |---|---|
 | 文書名 | 库存管理 DB 设计书（在庫管理 DB 設計書） |
 | 文書番号 | DSN-INV-090 |
-| 版数 | v1.0 |
+| 版数 | v1.10 |
 | 作成日 | 2026-10-20 |
 | 作成者 | inventory-designer |
 | 承認者 | 未承認（レビュー待ち） |
@@ -178,7 +178,8 @@ CREATE POLICY tenant_isolation ON inv_xxx
     WITH CHECK (tenant_id = current_setting('app.tenant_id')::bigint);
 ```
 
-- パーティション表 `inv_stock_txn` は親表に ENABLE/FORCE とポリシーを付ける（子パーティションへの直接アクセスは `erp_app` に許可しない）。
+- パーティション表 `inv_stock_txn` は親表に ENABLE/FORCE とポリシーを付ける。**子パーティション（初回 25 個：2026-01〜2027-12 + DEFAULT）にも ENABLE/FORCE RLS とポリシーを付け、`REVOKE ALL ON <子> FROM erp_app` で直接アクセスを禁止する**（`erp_app` は親表経由のみ。`RlsCoverageTest` は relkind='r' の子表も対象）。
+- 以降の月次パーティションは**月次パーティション作成関数**（`inv_` 接頭辞、`SECURITY INVOKER`、関数名は #55 迁移に従う）でのみ作成し、同関数が作成と同一 TX で ENABLE/FORCE RLS・ポリシー付与・`REVOKE ALL FROM erp_app` を行う。pgTAP で新規作成分区の RLS 有効と `erp_app` 無権限を断言する（蓝色大肥鱼 2026-10-21 決定、PR #55）。
 - `erp_app` の DML 権限は `sys/V202610200101` の `ALTER DEFAULT PRIVILEGES` で自動付与されるため、迁移で GRANT を書かない。
 - **同域親子 FK の被参照表**には `CONSTRAINT uk_<table>_tenant_company_id UNIQUE (tenant_id, company_id, id)` を付ける（業務一意キーではない。PR #43 `sys/V202610211401` の規則）。本域の対象：`inv_transfer`、`inv_stocktake_plan`、`inv_stocktake`、`inv_serial`、`inv_reservation`、`inv_cost_adjustment`。
 - `uk_<table>_tenant_id UNIQUE (tenant_id, id)` は**他域から複合 FK で参照される表にのみ**付ける（[04 §6.2](../00-common/04-common-db-spec.md)）。本域の表を他域が硬 FK で参照する計画はないため、本域では 0 件。
@@ -365,7 +366,9 @@ CREATE TABLE inv_stock_txn (
          'WORK_ORDER','TRANSFER','STOCKTAKE','SALES_RETURN','PURCHASE_RETURN','MANUAL')),
     CONSTRAINT ck_inv_stock_txn_partner CHECK (partner_type IN (0,1,2,3,4)),
     CONSTRAINT ck_inv_stock_txn_reason CHECK (
-        (txn_type IN ('AOI','AOO','SC_OUT') AND reason_type IN (10,20,30,40,50,60)) OR
+        -- 三値論理対策で IS NOT NULL を明示（NULL 原因の AOI を拒否、蓝色大肥鱼 2026-10-21 決定、PR #55）
+        (txn_type IN ('AOI','AOO') AND reason_type IS NOT NULL AND reason_type IN (10,20,30,40,50,60)) OR
+        (txn_type = 'SC_OUT' AND reason_type IS NOT NULL AND reason_type IN (10,20,30,40,50)) OR
         (txn_type NOT IN ('AOI','AOO','SC_OUT') AND reason_type IS NULL)),
     CONSTRAINT ck_inv_stock_txn_amount CHECK (total_qty >= 0 AND total_amount >= 0),
     CONSTRAINT ck_inv_stock_txn_type CHECK (txn_type IN
@@ -377,7 +380,8 @@ CREATE TABLE inv_stock_txn (
     CONSTRAINT ck_inv_stock_txn_reversal CHECK (is_reversal = FALSE OR reversal_of_txn_id IS NOT NULL)
 ) PARTITION BY RANGE (txn_date);
 -- 月次パーティション：inv_stock_txn_yYYYYmMM（例 inv_stock_txn_y2026m10）。初回迁移で 2026-01〜2027-12 と DEFAULT パーティションを作成し、
--- 以降は月次ジョブ（sys_scheduled_job）が 3 か月先まで事前作成する（第 10 章 #7）。
+-- 以降は月次ジョブ（sys_scheduled_job）が月次パーティション作成関数で 3 か月先まで事前作成する（第 10 章 #7）。
+-- 同関数は新分区に ENABLE/FORCE RLS・ポリシーを付け、erp_app から REVOKE ALL する（§3.4、蓝色大肥鱼 2026-10-21 決定）。
 
 -- パーティション表の一意索引はパーティションキーを含む必要があるため、全社一意は 4.2.6 の inv_stock_txn_key で保証する（第 10 章 #7 決定済）。
 CREATE UNIQUE INDEX uk_inv_stock_txn_no ON inv_stock_txn (tenant_id, company_id, txn_no, txn_date);
@@ -438,7 +442,7 @@ COMMENT ON COLUMN inv_stock_txn.accounting_period IS 'txn_date から導出し�
 | UK-03 | 1 事務は 1 回しか沖销できない | `inv_stock_txn_key`（`key_type='REVERSAL'`） |
 | UK-04 | 状態変換・同倉移庫の対は `pair_key`×`txn_type` で 1 件 | `inv_stock_txn_key`（`key_type='PAIR'`） |
 | CK-04 | 来源種別は 11 種のみ | `ck_inv_stock_txn_source` |
-| CK-05 | 原因区分は AOI/AOO/SC_OUT のみ必須 | `ck_inv_stock_txn_reason` |
+| CK-05 | 原因区分は AOI/AOO/SC_OUT で必須（NULL 不可）：AOI/AOO は 10〜60、SC_OUT は 10〜50（[02 §2.6.6/2.6.7](02-inbound-outbound.md)）。その他 16 種は NULL のみ。AOI で NULL は 23514（pgTAP） | `ck_inv_stock_txn_reason` |
 | CK-01 | 種別は 19 種のみ | `ck_inv_stock_txn_type` |
 | CK-02 | 状態は 10/20/25/30/90 | `ck_inv_stock_txn_status` |
 | CK-03 | 沖销事務は必ず沖销元を持つ | `ck_inv_stock_txn_reversal` |
@@ -583,7 +587,7 @@ COMMENT ON COLUMN inv_stock_txn_line.after_avg_cost IS '過账後の移動平均
 | No | 物理名 | 論理名 | 型 | NULL | 備考 |
 |---|---|---|---|---|---|
 | 1 | `id` | 主キー | BIGINT | NOT NULL | — |
-| 4 | `txn_id` | 事務 ID | BIGINT | NOT NULL | FK → `inv_stock_txn` |
+| 4 | `txn_id` | 事務 ID | BIGINT | NOT NULL | **FK なし**（`inv_stock_txn` はパーティション表）。トリガー `trg_inv_stock_txn_line_head` で表頭存在を検証 |
 | 5 | `line_no` | 行番号 | INT | NOT NULL | 10 刻み |
 | 6-9 | `material_id/code/name/spec` | 物料 | — | NOT NULL | **スナップショット** |
 | 10 | `uom_code` | 単位 | VARCHAR(16) | NOT NULL | 基本単位（`mdm_uom.uom_code` と同桁） |
@@ -610,9 +614,9 @@ COMMENT ON COLUMN inv_stock_txn_line.after_avg_cost IS '過账後の移動平均
 
 | 操作 | 契機 | 內容 |
 |---|---|---|
-| INSERT | 伝票登録・過账 | 全項目。草稿時は `unit_cost/amount` を NULL とし、過账時に確定 |
-| UPDATE | 過账（原価確定） | `unit_cost, amount, before_*, after_*, after_avg_cost, cost_layer_id` のみ |
-| UPDATE | 沖销 | 原則なし（反向事務を INSERT） |
+| INSERT | 伝票登録・過账 | 全項目。**明細は INSERT のみ（insert-only）**：原価・前後スナップショット・`cost_layer_id` は過账 TX 内で確定してから INSERT する |
+| UPDATE | — | **禁止**。過账・取消で変わる状態（`txn_status`・`posted_*`）と `version` は表頭 `inv_stock_txn` のみを更新する。そのため明細には `version`・`updated_at`・`updated_by` を持たない（蓝色大肥鱼 2026-10-21 決定、PR #55） |
+| — | 沖销 | 反向事務（表頭＋明細）を INSERT |
 | DELETE | **禁止** | — |
 
 ---
@@ -976,7 +980,8 @@ CREATE TABLE inv_batch_genealogy (
     CONSTRAINT ck_inv_batch_genealogy_self CHECK (parent_batch_id <> child_batch_id)
 );
 CREATE UNIQUE INDEX uk_inv_batch_genealogy_key
-    ON inv_batch_genealogy (tenant_id, company_id, parent_batch_id, child_batch_id, source_txn_line_id);
+    ON inv_batch_genealogy (tenant_id, company_id, parent_batch_id, child_batch_id, source_txn_line_id)
+    NULLS NOT DISTINCT;   -- source_txn_line_id が NULL（期初・手工調整）でも同一キーの二重登録を拒否（PG15+、蓝色大肥鱼 2026-10-21 決定）
 CREATE INDEX idx_inv_batch_genealogy_child ON inv_batch_genealogy (tenant_id, company_id, child_batch_id);
 CREATE INDEX idx_inv_batch_genealogy_parent ON inv_batch_genealogy (tenant_id, company_id, parent_batch_id);
 CREATE INDEX idx_inv_batch_genealogy_wo ON inv_batch_genealogy (tenant_id, company_id, work_order_id)
@@ -1624,7 +1629,7 @@ COMMENT ON COLUMN inv_event_wait.waiting_for IS 'PI=入荷待ち、FGI=完工入
 | 10 | `uk_inv_stocktake_no` / `idx_inv_stocktake_open` | `inv_stocktake` | UNIQUE / B-Tree 部分 | — / (tenant_id, company_id, warehouse_id) WHERE status IN (10,20,30,35) | 未完了棚卸チェック |
 | 11 | `uk_inv_stocktake_line_key` | `inv_stocktake_line` | UNIQUE | (tenant_id, company_id, stocktake_id, material_id, batch_id, stock_status, location_id) | 明細一意 |
 | 12 | `uk_inv_batch_material_no` / `idx_inv_batch_expiry` | `inv_batch` | UNIQUE / B-Tree | — / (tenant_id, company_id, expiry_date) WHERE expiry_date IS NOT NULL | 批次・有效期 |
-| 13 | `uk_inv_batch_genealogy_key` | `inv_batch_genealogy` | UNIQUE | (tenant_id, company_id, parent_batch_id, child_batch_id, source_txn_line_id) | 系譜の二重登録防止 |
+| 13 | `uk_inv_batch_genealogy_key` | `inv_batch_genealogy` | UNIQUE | (tenant_id, company_id, parent_batch_id, child_batch_id, source_txn_line_id) NULLS NOT DISTINCT | 系譜の二重登録防止（来源行 NULL も一意） |
 | 14 | `uk_inv_serial_no` / `uk_inv_serial_external` | `inv_serial` | UNIQUE | — / (tenant_id, company_id, external_serial_no) WHERE NOT NULL | 序列号一意 |
 | 15 | `uk_inv_reservation_source` | `inv_reservation` | UNIQUE 部分 | (tenant_id, company_id, source_type, source_id) WHERE status <> 90 | 二重引当防止 |
 | 16 | `idx_inv_reservation_expire` | 同上 | B-Tree 部分 | (tenant_id, company_id, expire_date) WHERE status IN (10,20,35) | 期限切れ解放 |
@@ -1637,7 +1642,7 @@ COMMENT ON COLUMN inv_event_wait.waiting_for IS 'PI=入荷待ち、FGI=完工入
 | 23 | `uk_inv_scan_log_device_seq` | `inv_scan_log` | UNIQUE 部分 | (tenant_id, company_id, device_id, local_seq) WHERE local_seq IS NOT NULL | 二重送信排除 |
 | 24 | `uk_inv_event_wait_event` / `idx_inv_event_wait_pending` | `inv_event_wait` | UNIQUE / B-Tree 部分 | (tenant_id, company_id, event_id) / (tenant_id, company_id, wait_status, next_retry_at) WHERE wait_status=0 | 二重保留防止・未適用抽出 |
 
-> 1 テーブル 5 本以内を目安（[04 §7](../00-common/04-common-db-spec.md)）。`inv_stock_txn`/`inv_stock_txn_line` は参照頻度が高いため 5 本まで許容し、第一版 のパーティション化で `txn_date` 索引を見直す。
+> 1 テーブル 5 本以内を目安（[04 §7](../00-common/04-common-db-spec.md)）。`inv_stock_txn_line` は参照頻度が高いため 5 本まで許容する。**具名例外：`inv_stock_txn` は 6 本**（`uk_inv_stock_txn_no`・`idx_inv_stock_txn_date_type`/`_source`/`_status`/`_pair`/`_wo`、4.2.2）を許容する（蓝色大肥鱼 2026-10-21 決定、PR #55）。
 
 ---
 
@@ -1684,8 +1689,8 @@ COMMENT ON COLUMN inv_event_wait.waiting_for IS 'PI=入荷待ち、FGI=完工入
 | 4 | `inv_serial_txn.serial_id` | `inv_serial` | `fk_inv_serial_txn_serial` |
 | 5 | `inv_reservation_line.reservation_id` | `inv_reservation` | `fk_inv_reservation_line_head` |
 | 6 | `inv_cost_adjustment_line.adjustment_id` | `inv_cost_adjustment` | `fk_inv_cost_adjustment_line_head` |
-| 7 | `material_id`（`inv_transfer_line`/`inv_stocktake_line`/`inv_batch`/`inv_serial`/`inv_reservation_line`/`inv_cost_layer`/`inv_cost_adjustment_line`/`inv_stock_summary`/`inv_age_snapshot`/`inv_replenishment`） | `mdm_material` | `fk_<table>_material` |
-| 8 | `warehouse_id`（下表の软引用を除く全表の `warehouse_id`、`inv_transfer.from_/to_warehouse_id`） | `mdm_warehouse` | `fk_<table>_wh`（`_from_wh`/`_to_wh`） |
+| 7 | `material_id`（`inv_stock_balance`/`inv_transfer_line`/`inv_stocktake_line`/`inv_batch`/`inv_serial`/`inv_reservation_line`/`inv_cost_layer`/`inv_cost_adjustment_line`/`inv_stock_summary`/`inv_age_snapshot`/`inv_replenishment`） | `mdm_material` | `fk_<table>_material` |
+| 8 | `warehouse_id`（下表の软引用を除く全表の `warehouse_id`。履歴・ログ表 `inv_serial_txn`/`inv_scan_log`/`inv_event_wait` を含む（`fk_inv_serial_txn_wh`/`fk_inv_scan_log_wh`/`fk_inv_event_wait_wh`、マスタは論理削除のみのため削除を妨げない）、`inv_transfer.from_/to_warehouse_id`） | `mdm_warehouse` | `fk_<table>_wh`（`_from_wh`/`_to_wh`） |
 | 9 | `inv_transfer.from_factory_id` / `to_factory_id` | `mdm_factory` | `fk_inv_transfer_from_factory` / `fk_inv_transfer_to_factory` |
 | 10 | `inv_batch.supplier_id` | `mdm_supplier` | `fk_inv_batch_supplier` |
 | 11 | `inv_serial.customer_id` | `mdm_customer` | `fk_inv_serial_customer` |
@@ -1695,19 +1700,10 @@ COMMENT ON COLUMN inv_event_wait.waiting_for IS 'PI=入荷待ち、FGI=完工入
 | 列 | 理由 |
 |---|---|
 | `inv_stock_txn` の全列、`inv_stock_txn_line.txn_id`、`*_txn_id`（`last_txn_id`/`adjust_txn_id`/`source_txn_id`/`applied_txn_id` 等） | `inv_stock_txn` は月次パーティション表で FK 参照不可（[04 §8.1](../00-common/04-common-db-spec.md)）。表頭→明細はトリガー、他はサービス層で検証 |
-| `inv_stock_txn.warehouse_id/factory_id/partner_id`、`inv_stock_balance.warehouse_id`、`inv_stock_txn_line.material_id` | 1 億行級の事務・明細と高頻度更新の残高で FK 検査コストを避ける。過账サービスが同一 TX で存在・租户一致を検証 |
+| `inv_stock_txn.warehouse_id/factory_id/partner_id`、`inv_stock_balance.warehouse_id`、`inv_stock_txn_line.material_id`（`inv_stock_balance.material_id` は硬 FK `fk_inv_stock_balance_material`、#7） | 1 億行級の事務・明細と高頻度更新の残高で FK 検査コストを避ける。過账サービスが同一 TX で存在・租户一致を検証 |
 | `location_id`（0=未管理の番兵）、`batch_id`（0=非批次の番兵） | 番兵値 0 は被参照行を持たない。`mdm_warehouse_bin` に `uk_mdm_warehouse_bin_tenant_id` も未作成 |
 | `work_order_id`・`sales_order_line_id`・`outsourcing_order_id`・`source_id`・`partner_id`・`customer_id`（`inv_serial_txn`） | 他業務域（prd/sal/pur）または多態参照。[04 §6.2](../00-common/04-common-db-spec.md) 項 1 により FK なし、同一 TX で存在・租户一致を検証 |
 | `created_by`/`updated_by`/`posted_by` 等 → `sys_user` | `0`＝システムの番兵（06/07 迁移と同じく FK なし） |
-
-| `inv_stock_txn` → `inv_stock_txn_line`（親子） | ○ `RESTRICT` | 域内の親子。CASCADE 禁止 |
-| `inv_transfer` → `inv_transfer_line` | ○ | 同上 |
-| `inv_stocktake_plan` → `inv_stocktake` → `inv_stocktake_line` | ○ | 同上 |
-| `inv_reservation` → `inv_reservation_line` | ○ | 同上 |
-| `inv_cost_adjustment` → `inv_cost_adjustment_line` | ○ | 同上 |
-| `inv_serial_txn` → `inv_serial` | ○ | 同上 |
-| `inv_*` → `mdm_material` / `mdm_warehouse` / `mdm_warehouse_bin` / `mdm_supplier` / `mdm_customer` | **×** | MDM は論理削除（`deleted`）のため FK を張らない。アプリ層で存在・有効を検証（[04 §6](../00-common/04-common-db-spec.md)） |
-| `inv_*` → `sys_user`（`created_by` 等） | × | 同上（`created_by=0` はシステム） |
 
 ---
 
@@ -1824,3 +1820,4 @@ COMMENT ON COLUMN inv_event_wait.waiting_for IS 'PI=入荷待ち、FGI=完工入
 | v1.7 | 2026-10-21 | PR #43（sys/V202610211401）の規則に合わせ、同域親子 FK 6 本を `(tenant_id, company_id, x_id)` → 親 `(tenant_id, company_id, id)` に、親 6 表の被参照キーを `uk_<table>_tenant_company_id` に変更（`uk_<table>_tenant_id` は跨域被参照のみ＝本域 0 件）。mdm 向け跨域 FK は `(tenant_id, x_id)` のまま。§3.4・§6.3・§9 依存を更新 | 业务分析 |
 | v1.8 | 2026-10-21 | 未決 #7〜#12 を決定済に（蓝色大肥鱼 2026-10-21 決定）：`inv_stock_txn_key` 正式化、標準原価差異・月初版切替・月結後再評価、MTO は工单単位批次で受注別引当、E19→J31、`inv_event_wait` に OSR/OUTSOURCING_ORDER、mdm 硬 FK（04 §6 改訂） | 业务分析 |
 | v1.9 | 2026-10-21 | §9 版数規則から具体版数を削除（main 最大版より大きいこと、check-migrations で確認）、§6.3 の余分な表区切り行を削除 | 业务分析 |
+| v1.10 | 2026-10-21 | PR #55 指摘の決定反映（蓝色大肥鱼 2026-10-21 決定）：`ck_inv_stock_txn_reason` を NULL 不可に（AOI/AOO 10〜60、SC_OUT 10〜50）、`uk_inv_batch_genealogy_key` を NULLS NOT DISTINCT、子パーティション RLS・REVOKE と月次作成関数（§3.4/4.2.2）、明細 insert-only（4.3.3）、`txn_id` FK なし（4.3.2）、`inv_stock_balance.material_id` 硬 FK と履歴・ログ表の倉庫 FK（§6.3）、§6.3 末尾の旧 FK 表を削除、`inv_stock_txn` 索引 6 本を具名例外（§5） | 业务分析 |
