@@ -80,5 +80,11 @@ jobs:
         run: pnpm lint
         continue-on-error: true
 
+      - name: Unit tests (vitest)
+        run: pnpm test
+        env:
+          # format.spec.ts 按业务时区 (UTC+8) 断言；runner 默认 UTC
+          TZ: Asia/Shanghai
+
       - name: Type-check & build
         run: pnpm build
