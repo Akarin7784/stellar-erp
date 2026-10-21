@@ -69,9 +69,15 @@ public final class ProductionErrorCode {
     public static final int OPA_INVALID_REQUEST_QTY = 60103;
     public static final String MSG_OPA_INVALID_REQUEST_QTY = "MSG-PRD-103";
 
-    /** 超産承認無効（却下 40／取消 90 の申請に対する承認・操作。91 §4 60101）。 */
+    /** 超产申请状态不符（草稿编辑・提交・承认・驳回・取消时状态不对。91 §4 60101 / MSG-PRD-101）。 */
     public static final int OPA_INVALID = 60101;
     public static final String MSG_OPA_INVALID = "MSG-PRD-101";
+
+    /**
+     * 超产允许数量不可用（受注行 / 工单 allowed_qty 为 NULL、负值或未快照）或对应的销售订单行已不存在。
+     * 错误码与 {@link #OPA_INVALID} 相同（422 / 60101），msgId 拆为 MSG-PRD-106（lead 2026-10-21 决定）。
+     */
+    public static final String MSG_OPA_ALLOWED_UNAVAILABLE = "MSG-PRD-106";
 
     /** 设定不备（租户 / 公司上下文 / {@code sys_param.prd.completion_over_rate} 缺失），91 §9 / 93 §1。 */
     public static final int CONFIG_MISSING = 5000;

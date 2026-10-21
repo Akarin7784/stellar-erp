@@ -131,7 +131,7 @@ class OverproductionApprovalServiceTest {
                 .isInstanceOfSatisfying(BizException.class, e -> assertThat(e.getCode()).isEqualTo(60103));
     }
 
-    // ------------------------------------------------------------------ 受注行消失 → 60101／状態更新 0 行 → 4003
+    // ------------------------------------------------------------------ 受注行消失 → 60101 / MSG-PRD-106／状態更新 0 行 → 4003
 
     static final long APPROVAL = 555L, APPROVER = 8L;
 
@@ -143,7 +143,8 @@ class OverproductionApprovalServiceTest {
     private static void assert60101(Throwable t) {
         assertThat(t).isInstanceOfSatisfying(BizException.class, e -> {
             assertThat(e.getCode()).isEqualTo(60101);
-            assertThat(e.getMsgId()).isEqualTo("MSG-PRD-101");
+            assertThat(e.getMsgId()).isEqualTo("MSG-PRD-106");
+            assertThat(e.getMessage()).isEqualTo("超产允许数量不可用或对应的销售订单行已不存在，无法执行此操作");
         });
     }
 
@@ -207,5 +208,71 @@ class OverproductionApprovalServiceTest {
         } finally {
             com.stellar.erp.common.LoginContext.clear();
         }
+    }
+
+    // ------------------------------------------------------------------ 承認時の allowed_qty 異常（工单未快照・UPDATE 0 行）→ 60101 / MSG-PRD-106
+
+    static final long WO = 700L;
+
+    private static com.stellar.erp.production.internal.ProductionRepository woLevelRepo() {
+        var repo = org.mockito.Mockito.mock(com.stellar.erp.production.internal.ProductionRepository.class);
+        var row = new com.stellar.erp.production.internal.ProductionRepository.ApprovalRow(APPROVAL, "OPA1", LINE, WO,
+                new BigDecimal("3"), (short) 20, 1, USER);
+        org.mockito.Mockito.when(repo.findApproval(CO, APPROVAL, false)).thenReturn(java.util.Optional.of(row));
+        org.mockito.Mockito.when(repo.findApproval(CO, APPROVAL, true)).thenReturn(java.util.Optional.of(row));
+        org.mockito.Mockito.when(repo.lockWorkOrderRef(CO, WO)).thenReturn(java.util.Optional.of(
+                new com.stellar.erp.production.internal.ProductionRepository.WorkOrderRef(WO, MAT, LINE)));
+        return repo;
+    }
+
+    private static Throwable approveWith(com.stellar.erp.production.internal.ProductionRepository repo) {
+        SalesOrderLineLookup lookup = org.mockito.Mockito.mock(SalesOrderLineLookup.class);
+        org.mockito.Mockito.when(lookup.lockForUpdate(CO, LINE)).thenReturn(java.util.Optional.of(
+                new SalesOrderLineLookup.SalesOrderLine(LINE, SO, "SO1", MAT, null, new BigDecimal("105"))));
+        OverproductionApprovalService service = new OverproductionApprovalService(repo, lookup);
+        com.stellar.erp.common.LoginContext.set(new com.stellar.erp.common.LoginContext.LoginUser(APPROVER, CO));
+        try {
+            return org.assertj.core.api.Assertions.catchThrowable(() -> service.approve(APPROVAL, 1));
+        } finally {
+            com.stellar.erp.common.LoginContext.clear();
+        }
+    }
+
+    @Test
+    void approveWhenWorkOrderAllowedQtyNullIs106() {
+        var repo = woLevelRepo();
+        org.mockito.Mockito.when(repo.findWorkOrderLimitState(CO, WO)).thenReturn(java.util.Optional.of(
+                new com.stellar.erp.production.internal.ProductionRepository.WorkOrderLimitState((short) 30, null)));
+        assert60101(approveWith(repo));
+        org.mockito.Mockito.verify(repo, org.mockito.Mockito.never()).addSalesOrderLineAllowedQty(
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyLong());
+    }
+
+    @Test
+    void approveWhenLineAllowedQtyUpdateHitsZeroRowsIs106() {
+        var repo = woLevelRepo();
+        org.mockito.Mockito.when(repo.findWorkOrderLimitState(CO, WO)).thenReturn(java.util.Optional.of(
+                new com.stellar.erp.production.internal.ProductionRepository.WorkOrderLimitState((short) 30, new BigDecimal("10"))));
+        org.mockito.Mockito.when(repo.addSalesOrderLineAllowedQty(CO, LINE, new BigDecimal("3"), APPROVER))
+                .thenReturn(java.util.Optional.empty());
+        assert60101(approveWith(repo));
+        org.mockito.Mockito.verify(repo, org.mockito.Mockito.never()).addWorkOrderAllowedQty(
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyLong());
+    }
+
+    @Test
+    void approveWhenWorkOrderAllowedQtyUpdateHitsZeroRowsIs106() {
+        var repo = woLevelRepo();
+        org.mockito.Mockito.when(repo.findWorkOrderLimitState(CO, WO)).thenReturn(java.util.Optional.of(
+                new com.stellar.erp.production.internal.ProductionRepository.WorkOrderLimitState((short) 30, new BigDecimal("10"))));
+        org.mockito.Mockito.when(repo.addSalesOrderLineAllowedQty(CO, LINE, new BigDecimal("3"), APPROVER))
+                .thenReturn(java.util.Optional.of(new BigDecimal("108")));
+        org.mockito.Mockito.when(repo.addWorkOrderAllowedQty(CO, WO, new BigDecimal("3"), APPROVER)).thenReturn(0);
+        assert60101(approveWith(repo));
+        org.mockito.Mockito.verify(repo, org.mockito.Mockito.never()).markOverproductionApproved(
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyInt(),
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any());
     }
 }

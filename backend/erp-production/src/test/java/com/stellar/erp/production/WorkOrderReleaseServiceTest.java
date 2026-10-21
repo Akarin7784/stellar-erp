@@ -184,7 +184,7 @@ class WorkOrderReleaseServiceTest {
         assertThatThrownBy(() -> service.release(WO, new WorkOrderReleaseCommand(0)))
                 .isInstanceOfSatisfying(BizException.class, e -> {
                     assertThat(e.getCode()).isEqualTo(60101);
-                    assertThat(e.getMsgId()).isEqualTo("MSG-PRD-101");
+                    assertThat(e.getMsgId()).isEqualTo("MSG-PRD-106");
                 });
         verify(repo, never()).lockWorkOrderForRelease(anyLong(), anyLong());
     }
@@ -197,7 +197,7 @@ class WorkOrderReleaseServiceTest {
         assertThatThrownBy(() -> service.release(WO, new WorkOrderReleaseCommand(0)))
                 .isInstanceOfSatisfying(BizException.class, e -> {
                     assertThat(e.getCode()).isEqualTo(60101);
-                    assertThat(e.getMsgId()).isEqualTo("MSG-PRD-101");
+                    assertThat(e.getMsgId()).isEqualTo("MSG-PRD-106");
                 });
         verify(repo, never()).lockWorkOrderForRelease(anyLong(), anyLong());
     }
@@ -284,7 +284,7 @@ class WorkOrderReleaseServiceTest {
         assertThatThrownBy(() -> service.release(WO, new WorkOrderReleaseCommand(0)))
                 .isInstanceOfSatisfying(BizException.class, e -> {
                     assertThat(e.getCode()).isEqualTo(60101);
-                    assertThat(e.getMsgId()).isEqualTo("MSG-PRD-101");
+                    assertThat(e.getMsgId()).isEqualTo("MSG-PRD-106");
                 });
         verify(repo, never()).lockWorkOrderForRelease(anyLong(), anyLong());
         verify(repo, never()).markReleased(anyLong(), anyLong(), anyInt(), anyLong(), any(), any(), anyBoolean());
