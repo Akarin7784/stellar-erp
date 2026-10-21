@@ -82,7 +82,7 @@
 | CALC-WO-07 | 進捗率 | `progress_rate = reported_good_qty ÷ order_qty`（0〜1.2） | 4 桁 | 60 ÷ 120 = 0.5000 |
 | CALC-WO-08 | 引当充足率 | `reservation_rate = reserved_qty ÷ total_required_qty` | 4 桁 | 90 ÷ 141.89 = 0.6343 |
 | CALC-WO-09 | 標準原価 | `standard_cost = fin_standard_cost.total_unit_cost`（下达時スナップショット、なしは NULL。卷算式 材料費（BOM 巻上）＋ 加工費（工艺工数 × 工费率）は FIN の版登録時に使用） | 6 桁 | [01](01-bom-routing-workcenter.md) 5.3 |
-| CALC-WO-10 | 単位換算 | BOM 使用単位 ≠ 物料基本単位のとき `qty_base = qty_bom × conversion_rate`（`mdm_uom_conversion` の `from_uom_code`=BOM 単位・`to_uom_code`=基本単位、基準日有効・`status=1`。逆方向行のみなら `1 ÷ conversion_rate`）。`required_qty`・`total_required_qty` に適用。換算前の単位・総必要量は `bom_uom_code`・`bom_qty` に保持（蓝色大肥鱼 2026-10-21 決定） | 基本単位の `mdm_uom.decimal_places` で**切上**（`rounding_mode` によらず、払出不足を防ぐ） | 10 BOX × 12 = 120 PCE |
+| CALC-WO-10 | 単位換算 | BOM 使用単位 ≠ 物料基本単位のとき `qty_base = qty_bom × conversion_rate`（`mdm_uom_conversion` の `from_uom_code`=BOM 単位・`to_uom_code`=基本単位、基準日有効・`status=1`。逆方向行のみなら `1 ÷ conversion_rate`）。基準日に有効な換算率が 0 件または複数件なら換算不可（`60022`）。`required_qty`・`total_required_qty` に適用。換算前の単位・総必要量は `bom_uom_code`・`bom_qty` に保持（蓝色大肥鱼 2026-10-21 決定） | 基本単位の `mdm_uom.decimal_places` で**切上**（`rounding_mode` によらず、払出不足を防ぐ） | 10 BOX × 12 = 120 PCE |
 
 ### 2.4 状態遷移
 
@@ -700,4 +700,4 @@ stateDiagram-v2
 | v1.9 | 2026-10-21 | CHK-PRD-002-09（保存・提出時の材料明細 1 行以上）を削除、§6.2 手順 6 を BOM ありの場合のみ展開に変更、§6.4 にチェック順序（60104→allowed_qty NULL 5000→ロック→状態/引当→60020/展開→状態変更）を明記、60020 時は E21 なし（蓝色大肥鱼 2026-10-21 PR #37 決定） | 业务分析 |
 | v1.10 | 2026-10-21 | §6.3 承認手順 2 を工序明細 1 行以上のみに変更（材料明細は下达時に確保）、§6.4 2a 同時下达の後続を 409／4002 または 4003 に明記（蓝色大肥鱼 2026-10-21 PR #37 決定） | 业务分析 |
 | v1.11 | 2026-10-21 | §6.3 承認：工序明細 0 行は 422／60021／MSG-PRD-021、CHK-PRD-002-08 と MSG-PRD-021 を警告（選択・保存）／エラー（承認）の二用途に（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
-| v1.12 | 2026-10-21 | CHK-PRD-002-10：整合＝同一単位または同一換算グループで換算可能（CHK-PRD-001-09 と同一基準）、換算不可は拒否。検査は下达時の BOM 展開・既存明細と材料明細の手動追加・編集時（登録・提出・承認では検査しない）。CALC-WO-10（基本単位へ換算・切上げ、BOM 単位・数量を保持）、§6.2 手順 6・§6.4 2a・手動明細編集・§6.10・MSG-PRD-022 文言・TST-F-PRD-005-19 を追加（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.12 | 2026-10-21 | CHK-PRD-002-10：整合＝同一単位または同一換算グループで換算可能（CHK-PRD-001-09 と同一基準）、換算不可は拒否。検査は下达時の BOM 展開・既存明細と材料明細の手動追加・編集時（登録・提出・承認では検査しない）。CALC-WO-10（基本単位へ換算・切上げ、BOM 単位・数量を保持）、§6.2 手順 6・§6.4 2a・手動明細編集・§6.10・MSG-PRD-022 文言・TST-F-PRD-005-19 を追加。有効換算率 0 件・複数件も換算不可（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
