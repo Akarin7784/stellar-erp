@@ -231,6 +231,11 @@ describe('toReleaseErrorView', () => {
       reload: false,
     })
   })
+  it('60020 缺 message 时用中文默认文案', () => {
+    expect(toReleaseErrorView(e(422, 60020, '')).message).toBe(
+      '[MSG-PRD-020] 没有有效的 BOM，请先登记并审批 BOM。',
+    )
+  })
   it('5000 / 非 ApiError → generic', () => {
     expect(toReleaseErrorView(e(500, 5000, 'x')).kind).toBe('generic')
     expect(toReleaseErrorView(new Error('x')).kind).toBe('generic')
