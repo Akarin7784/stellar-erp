@@ -593,7 +593,7 @@
 | 取消 `POST /api/production/overproduction-approvals/{id}/cancel` | `{ "version": n }` | 200（10・20→90） | 30・40・90 は `60101`／`4003` |
 | 詳細 `GET /api/production/overproduction-approvals/{id}` | — | 200 + 申請 DTO | 他社・不存在は 404 |
 | 一覧 `GET /api/production/overproduction-approvals` | `page`、`size`、絞込（受注行・工单・状態） | 200 + `PageResult` | 当前会社＋RLS |
-| 受注行選択 `GET /api/production/overproduction-approvals/sales-order-lines` | `salesOrderNo`（部分一致）、`material`（品目コードまたは品目名の部分一致）、`page`、`size`（最大 200） | 200 + `PageResult`（1 行 11 項目。項目名は字段见后端实现（超産フォローアップ PR）、待補） | 対象は当前会社かつ受注ヘッダ状態 25/30/35、受注行状態 10/30/35、`allowed_qty` IS NOT NULL の行のみ。権限なしは 403／`3001`（蓝色大肥鱼 2026-10-21 決定） |
+| 受注行選択 `GET /api/production/overproduction-approvals/sales-order-lines` | `salesOrderNo`（部分一致）、`material`（品目コードまたは品目名の部分一致）、`page`、`size`（最大 200。超過は 400／`1001`） | 200 + `PageResult`（1 行 11 項目。項目名は字段见后端实现（超産フォローアップ PR）、待補） | 対象は当前会社かつ受注ヘッダ状態 25/30/35、受注行状態 10/30/35、`allowed_qty` IS NOT NULL の行のみ。権限なしは 403／`3001`（蓝色大肥鱼 2026-10-21 決定） |
 
 - 申請 DTO の `requestedByName`（申請者名）は `sys_user` を `tenant_id` と `id` のみで結合する（ユーザは複数会社に所属し得るため `company_id` では絞らない。蓝色大肥鱼 2026-10-21 決定）。
 
@@ -692,4 +692,4 @@
 | v1.22 | 2026-10-21 | 同時下达の後続 4002 を 422 に訂正（409 は 4003 専用、#83 に追随）。対象：:264（§3.2） | 业务分析 |
 | v1.23 | 2026-10-21 | 超産却下の rejectReason を必須化（共通 03 §284 に追随）。未入力は 400／1001（MSG-COM-040）、500 文字超過は 400／1001（MSG-COM-041）。HTTP は 03 §6.2（1001＝400）に従う。対象：:589（§3.14） | 业务分析 |
 | v1.24 | 2026-10-21 | 超産申請の草稿修正 API を追加（状態 10 のみ、version 必須、allowed_qty 不変）（蓝色大肥鱼 2026-10-21 決定）。§2.2 に #39h（権限 create 共用）、§3.14 に草稿修正行（可変 requestQty・workOrderId・remark、状態不正 422／60101）を追加（v1.23 は #104） | 业务分析 |
-| v1.25 | 2026-10-21 | §2.2 に #39i 受注行選択 `GET /api/production/overproduction-approvals/sales-order-lines`（権限 create 共用）、§3.14 に受注行選択行（絞込 salesOrderNo・material、size ≤ 200、当前会社・受注状態 25/30/35・行状態 10/30/35・`allowed_qty` NOT NULL）と `requestedByName` の `sys_user` 結合条件を追加（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.25 | 2026-10-21 | §2.2 に #39i 受注行選択 `GET /api/production/overproduction-approvals/sales-order-lines`（権限 create 共用）、§3.14 に受注行選択行（絞込 salesOrderNo・material、size ≤ 200（超過は 400／1001）、当前会社・受注状態 25/30/35・行状態 10/30/35・`allowed_qty` NOT NULL）と `requestedByName` の `sys_user` 結合条件を追加（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
