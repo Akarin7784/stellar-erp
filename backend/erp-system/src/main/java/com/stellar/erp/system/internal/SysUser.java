@@ -28,7 +28,8 @@ public class SysUser {
 
     private String nickname;
 
-    private String password;
+    /** BCrypt 哈希（sys/V202610211408 由 password 改名） */
+    private String passwordHash;
 
     /** 1 = 启用，0 = 停用 */
     private Integer status;
