@@ -289,6 +289,9 @@ class LoginIntegrationTest {
     @Test
     void malformedJsonIsHttp400() throws Exception {
         mvc.perform(post("/api/system/auth/login").contentType(MediaType.APPLICATION_JSON).content("{\"tenantCode\":"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                // GlobalExceptionHandler.handleExceptionInternal：codeOf(400)=1001、message=reason phrase、msgId なし
+                .andExpect(content().json("{\"code\":1001,\"message\":\"Bad Request\",\"data\":null,\"msgId\":null}",
+                        JsonCompareMode.STRICT));
     }
 }
