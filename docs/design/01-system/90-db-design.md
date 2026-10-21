@@ -692,9 +692,10 @@ COMMENT ON TABLE sys_param IS '系统参数';
 | param_key | param_group | value_type | default_value | value_range | 説明 |
 |---|---|---|---|---|---|
 | `prd.completion_over_rate` | prd | 3 小数 | `0.05` | `0.0000-1.0000`（比率、小数 4 桁、`NUMERIC(5,4)` 相当） | 完工超収容差の会社既定（比率。`0.05` = 5%）。キー名はバックエンド PR #47 と一致 |
+| `prd.overproduction_max_rate` | prd | 3 小数 | `1.0000` | `0.0000-9.9999`（比率、小数 4 桁、`NUMERIC(5,4)` 相当） | 超産申請 1 件の上限率（受注行基本数量に乗じる。累計上限なし。蓝色大肥鱼 2026-10-21 決定） |
 
 - `sys_param` はテナント単位（`tenant_id` + RLS）。既定値は**テナント作成時**に `sys_init_tenant(tenant_id)` を呼び出して投入する。既存の種テナントにはマイグレーションで明示的に行を投入する。関数・DDL は DBA の T1 マイグレーションで定義（本書は参照のみ）。
-- `sys_init_tenant` が投入する既定パラメータ：`prd.completion_over_rate = 0.05`（今後追加する既定パラメータもこの表に列挙する）。
+- `sys_init_tenant` が投入する既定パラメータ：`prd.completion_over_rate = 0.05`、`prd.overproduction_max_rate = 1.0000`（今後追加する既定パラメータもこの表に列挙する）。
 - 値が存在しない場合は既定値で補わず、エラー `5000` を返す。
 - **参照範囲（2026-10-21 決定）**：パラメータは**当該会社のみ**を参照する（`tenant_id`・`company_id` はログインコンテキストから取得）。`company_id = 0` へのフォールバックは行わず、当該会社に行がなければ `5000`。迁移 `V202610210103__sys_t1_core_tables.sql:165` の `--` 注釈（「租户级默认使用 company_id = 0」）は廃止扱いとし、本書を正とする。
 - `sys_init_tenant` のセキュリティ要件（関数定義は DBA の T1 マイグレーション）：`SECURITY DEFINER`、`search_path` を固定（`SET search_path = pg_catalog, public`）、処理の最初に `set_config('app.tenant_id', 対象 tenant_id, true)` を設定してから投入する。`REVOKE EXECUTE ... FROM PUBLIC` とし、`erp_app` には付与しない。実行権限はテナント払い出し用ロールのみ。
@@ -1607,3 +1608,4 @@ COMMENT ON TABLE sys_data_maintenance_log IS '数据维护历史（初期化・�
 | v1.7 | 2026-10-21 | `uk_sys_user_username (tenant_id, username)` を目標名として記載、現行 `V1__baseline.sql:18` `uk_sys_user_tenant_username` からの改名・租户既定値（字面量 0）の修正・pgTAP 豁免は sys_user 正式迁移時と注記（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.8 | 2026-10-21 | 非一意 btree 索引（`idx_`）52 箇所を `tenant_id` 先頭（`company_id` がある表は次に `company_id`）に変更（DDL・索引一覧。既存迁移の索引は sys/V202610210707 と同一列。GIN は対象外。蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.9 | 2026-10-21 | main（#31）取込み後の再整合：一意索引・非一意 btree 索引を `tenant_id`（＋`company_id`）先頭に再適用、テナント級一意は 00-common/04 §6.1 第 4 条に従う（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.10 | 2026-10-21 | §3.15 業務パラメータに `prd.overproduction_max_rate`（既定 1.0000、`sys_init_tenant` シード）を追加（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
