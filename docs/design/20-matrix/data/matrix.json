@@ -70,7 +70,7 @@
       "batches": 11,
       "interfaces": 4,
       "messages": 101,
-      "apis": 122
+      "apis": 123
     },
     "FIN": {
       "name": "财务管理",
@@ -29111,6 +29111,14 @@
       "method": "PUT",
       "path": "/api/production/overproduction-approvals/{id}",
       "name": "草稿修正（10 のみ、allowed_qty 不変。§3.14）。権限は create を共用（蓝色大肥鱼 2026-10-21 決定）",
+      "permission": "production:overproduction-approval:create",
+      "domain": "PRD",
+      "source": "06-production/91-api-design.md"
+    },
+    {
+      "method": "GET",
+      "path": "/api/production/overproduction-approvals/sales-order-lines",
+      "name": "超産申請登録用の受注行選択（当前会社・受注状態 25/30/35・行状態 10/30/35・allowed_qty NOT NULL。§3.14）。権限は create を共用（蓝色大肥鱼 2026-10-21 決定）",
       "permission": "production:overproduction-approval:create",
       "domain": "PRD",
       "source": "06-production/91-api-design.md"
