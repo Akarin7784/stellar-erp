@@ -586,7 +586,7 @@
 | 登録 `POST /api/production/overproduction-approvals` | `salesOrderLineId`、`workOrderId`（任意、NULL＝受注行級）、`requestQty`（基本単位の増分） | **201** + 申請 DTO（`approvalStatus=10`） | `60103`（`requestQty` NULL・≤ 0・1 件 > 受注行基本数量 × `prd.overproduction_max_rate`（累計しない）・小数桁数 > 基本単位 `decimal_places`）／`60056`（工单が当該受注行または当前会社に属さない）／`60101`（工单級で工单が未下达、または工单 `allowed_qty` が NULL。登録時に拒否）／`5000`（`prd.overproduction_max_rate` 欠落） |
 | 提出 `POST /api/production/overproduction-approvals/{id}/submit` | `{ "version": n }` | 200（10→20） | 10 以外は `60101`／`4003` |
 | 承認 `POST /api/production/overproduction-approvals/{id}/approve` | `{ "version": n }` | 200（20→30） | 20 以外（10・承認済 30・却下 40・取消 90）は `60101`／申請者本人の承認は `60005`／`4003` |
-| 却下 `POST /api/production/overproduction-approvals/{id}/reject` | `{ "version": n, "rejectReason": "…" }` | 200（20→40） | 20 以外は `60101`／`4003` |
+| 却下 `POST /api/production/overproduction-approvals/{id}/reject` | `{ "version": n, "rejectReason": "…" }`（`rejectReason` **必須**・≤ 500 文字、DB `reject_reason VARCHAR(500)`。共通 [03 §284](../00-common/03-common-api-spec.md) 却下理由必須） | 200（20→40） | `rejectReason` 未入力・空白のみは 400／`1001`（`MSG-COM-040`）、500 文字超過は 400／`1001`（`MSG-COM-041`）（[03 §6.2](../00-common/03-common-api-spec.md)）／20 以外は `60101`／`4003` |
 | 取消 `POST /api/production/overproduction-approvals/{id}/cancel` | `{ "version": n }` | 200（10・20→90） | 30・40・90 は `60101`／`4003` |
 | 詳細 `GET /api/production/overproduction-approvals/{id}` | — | 200 + 申請 DTO | 他社・不存在は 404 |
 | 一覧 `GET /api/production/overproduction-approvals` | `page`、`size`、絞込（受注行・工单・状態） | 200 + `PageResult` | 当前会社＋RLS |
@@ -684,3 +684,4 @@
 | v1.20 | 2026-10-21 | HTTP 409 を `version` 競合（4003）専用とし、状態不整合（4002）・二重処理/処理中（4005）・同時実行・確定済変更不可・二重実行等の 409 も 422 に統一し、409 は `version` 競合（4003）のみとする（蓝色大肥鱼 2026-10-21 決定）。対象：:27、:28、:296、:547、:559、:605、:607、:616、:617、:647、:648 | 业务分析 |
 | v1.21 | 2026-10-21 | #28a 工单承認の「TODO：権限チェック未実装」を本文から削除（:73、§3.11 備考 :555）。#86 で `WorkOrderController.java:57` に `@RequirePermission("production:work-order:approve")` を付与・403 テスト済（蓝色大肥鱼 2026-10-21 指示）。v1.19 行は履歴のため変更しない | 业务分析 |
 | v1.22 | 2026-10-21 | 同時下达の後続 4002 を 422 に訂正（409 は 4003 専用、#83 に追随）。対象：:264（§3.2） | 业务分析 |
+| v1.23 | 2026-10-21 | 超産却下の rejectReason を必須化（共通 03 §284 に追随）。未入力は 400／1001（MSG-COM-040）、500 文字超過は 400／1001（MSG-COM-041）。HTTP は 03 §6.2（1001＝400）に従う。対象：:589（§3.14） | 业务分析 |
