@@ -43,10 +43,11 @@
 
 ### 1.2 選択用（`/options`）API の共通規則（蓝色大肥鱼 2026-10-21 決定）
 
-- 本域のすべての `/options`（ドロップダウン用選択一覧）API は**ログインのみ**を要件とし、権限コード（`@SaCheckPermission`）を付けない。
+- **適用範囲**：複数の業務画面で共有するマスタ・基礎データのドロップダウン用 `/options` API に限る。これらは**ログインのみ**を要件とし、権限コード（`@SaCheckPermission`）を付けない。
+- 管理画面専用の選択肢 API は対象外とし、当該画面の `view` 権限コードを維持する（反例：#108 `/api/system/maintenance/options` は `system:maintenance:view`）。
 - 未ログインは 401（認証インターセプタ導入後に有効）。
 - データ範囲は当前会社（ログインセッション `LoginContext`、`companyId` パラメータは無視）と RLS（テナント）で限定する。
-- 対象：#36a `/api/system/departments/options`、#108 `/api/system/maintenance/options`。
+- 対象：#36a `/api/system/departments/options`。
 
 ## 2. API 一覧
 
@@ -161,7 +162,7 @@
 | 105 | GET | /api/system/scheduled-jobs/{id}/logs | `system:job-monitor:view` | 実行履歴 | F-SYS-016 | 4001 |
 | 106 | POST | /api/system/scheduled-jobs/{id}/run | `system:job-monitor:run` | 手動実行 | F-SYS-016 | 10084 |
 | 107 | PUT | /api/system/scheduled-jobs/{id}/status | `system:job-monitor:run` | 停止/再開 | F-SYS-016 | 4003 |
-| 108 | GET | /api/system/maintenance/options | 認証済（§1.2） | 维护種別 | F-SYS-020 | 3001 |
+| 108 | GET | /api/system/maintenance/options | `system:maintenance:view` | 维护種別 | F-SYS-020 | 3001 |
 | 109 | POST | /api/system/maintenance/dry-run | `system:maintenance:execute` | ドライラン | F-SYS-020 | — |
 | 110 | POST | /api/system/maintenance/execute | `system:maintenance:execute` | 维护実行 | F-SYS-020 | 10085/10086/10087 |
 | 111 | GET | /api/system/maintenance/logs | `system:maintenance:view` | 维护履歴 | F-SYS-020 | 3001 |
@@ -268,4 +269,4 @@ Outbox 監視（`status`、`eventType`、`from`/`to`、ページング）。Payl
 | v1.3 | 2026-10-21 | API 47a `POST /api/system/companies`（公司登録）を追加：`sys_company` INSERT と同一トランザクションで 90 §3.15 業務パラメータの既定行を当該会社（`company_id` = 新 `sys_company.id`）に冪等投入、全 114 API。権限は新設 `system:company:create`（テナント開設級操作、`update` と分離）。1001 は汎用入力検証のみ、公司代码・信用代码重複は新設 `10035`／`MSG-SYS-093`（409）（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.4 | 2026-10-21 | API 47a：会社登録と同一トランザクションで `SYSTEM_ADMIN` ロール（会社ごと 1 件）と `permission_code` を持つ全 `sys_menu` 行の付与を冪等投入（94 §2.10）（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.5 | 2026-10-21 | API 1 の `permissions[]` はコードで重複排除。API 47a は同一 TX で `sys_init_company` を呼ぶ（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
-| v1.6 | 2026-10-21 | API #36a `GET /api/system/departments/options`（部門選択用一覧、§3.7）を追加：当前会社は LoginContext（`companyId` 無視）、有効・未削除のみ、`id`（文字列）/`departmentCode`/`departmentName`、`sort_no`→`department_code` 順、権限はログインのみ（§1.2 `/options` 共通規則を新設、#108 にも適用）（バックエンド PR #61、蓝色大肥鱼 2026-10-21 決定：パスは `/api/system/**` 配下） | 业务分析 |
+| v1.6 | 2026-10-21 | API #36a `GET /api/system/departments/options`（部門選択用一覧、§3.7）を追加：当前会社は LoginContext（`companyId` 無視）、有効・未削除のみ、`id`（文字列）/`departmentCode`/`departmentName`、`sort_no`→`department_code` 順、権限はログインのみ（§1.2 `/options` 共通規則を新設：複数業務画面共有のマスタ・基礎データ選択に限る。管理画面専用の #108 は `system:maintenance:view` を維持）（バックエンド PR #61、蓝色大肥鱼 2026-10-21 決定：パスは `/api/system/**` 配下） | 业务分析 |
