@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -19,6 +20,8 @@ import com.stellar.erp.production.OverproductionApproved;
 import com.stellar.erp.production.OverproductionRejectCommand;
 import com.stellar.erp.production.OverproductionRequestCommand;
 import com.stellar.erp.production.OverproductionRequested;
+import com.stellar.erp.production.OverproductionUpdateCommand;
+import com.stellar.erp.production.SalesOrderLineOption;
 import com.stellar.erp.production.WorkOrderStateCommand;
 
 import jakarta.validation.Valid;
@@ -72,9 +75,84 @@ public class OverproductionApprovalController {
     /** 却下 20→40。body は {@code {"version": n, "rejectReason": "理由"}}。 */
     @PostMapping("/{id}/reject")
     @RequirePermission("production:overproduction-approval:approve")
-    public Result<OverproductionApprovalView> reject(@PathVariable long id, @Valid @RequestBody OverproductionRejectCommand body) {
-        return Result.ok(service.reject(id, body.version(), body.rejectReason()));
+    public ResponseEntity<Result<?>> reject(@PathVariable long id, @RequestBody OverproductionRejectCommand body) {
+        java.util.List<Violation> vs = new java.util.ArrayList<>();
+        if (body == null || body.version() == null) {
+            vs.add(new Violation("version", "请输入必填项「version」。", MSG_REQUIRED));
+        }
+        String reason = body == null ? null : body.rejectReason();
+        if (reason == null || reason.isBlank()) {
+            vs.add(new Violation("rejectReason", "请输入必填项「却下理由」。", MSG_REQUIRED));
+        } else if (reason.length() > REJECT_REASON_MAX) {
+            vs.add(new Violation("rejectReason", "「却下理由」不能超过 " + REJECT_REASON_MAX + " 个字符。", MSG_TOO_LONG));
+        }
+        if (!vs.isEmpty()) {
+            Violation first = vs.get(0);
+            return ResponseEntity.badRequest().body(new Result<>(1001, first.message(),
+                    new FieldErrors(vs.stream().map(v -> new FieldError(v.field(), v.message())).toList()), first.msgId()));
+        }
+        return ResponseEntity.ok(Result.ok(service.reject(id, body.version(), reason)));
     }
+
+    static final String MSG_REQUIRED = "MSG-COM-040";
+    static final String MSG_TOO_LONG = "MSG-COM-041";
+    static final int REJECT_REASON_MAX = 500;
+
+    /** 1001 の項目エラー（03 §5.3 {@code data.fieldErrors[]}）。 */
+    public record FieldError(String field, String message) {
+    }
+
+    public record FieldErrors(java.util.List<FieldError> fieldErrors) {
+    }
+
+    record Violation(String field, String message, String msgId) {
+    }
+
+    /** 草稿修正 #39h（状態 10 のみ。requestQty・workOrderId・remark）。10 以外は 422 / 60101、version 不一致は 409 / 4003。 */
+    @PutMapping("/{id}")
+    @RequirePermission("production:overproduction-approval:create")
+    public ResponseEntity<Result<?>> update(@PathVariable long id, @RequestBody OverproductionUpdateCommand body) {
+        if (body != null && body.remark() != null && body.remark().length() > REMARK_MAX) {
+            String msg = "「备注」不能超过 " + REMARK_MAX + " 个字符。";
+            return ResponseEntity.badRequest().body(new Result<>(1001, msg,
+                    new FieldErrors(java.util.List.of(new FieldError("remark", msg))), MSG_TOO_LONG));
+        }
+        return ResponseEntity.ok(Result.ok(service.update(id, body)));
+    }
+
+    static final int REMARK_MAX = 500;
+
+    /**
+     * 超产申请用 受注行ピッカー（当前会社のみ、page/size は 91 §3.14 と同じ）。
+     * {@code salesOrderNo}：受注番号の部分一致、{@code material}：品目コード／品名の部分一致。
+     */
+    @GetMapping("/sales-order-lines")
+    @RequirePermission("production:overproduction-approval:create")
+    public ResponseEntity<Result<?>> salesOrderLines(@RequestParam(required = false) String salesOrderNo,
+            @RequestParam(required = false) String material,
+            @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int size) {
+        // page/size は丸めずに 400 / 1001 + fieldErrors（size 上限 200）
+        java.util.List<Violation> vs = new java.util.ArrayList<>();
+        if (page < 1) {
+            vs.add(new Violation("page", "「page」必须大于 0。", MSG_GREATER_THAN));
+        }
+        if (size < 1) {
+            vs.add(new Violation("size", "「size」必须大于 0。", MSG_GREATER_THAN));
+        } else if (size > PAGE_SIZE_MAX) {
+            vs.add(new Violation("size", "「size」不能大于「" + PAGE_SIZE_MAX + "」。", MSG_NOT_GREATER_THAN));
+        }
+        if (!vs.isEmpty()) {
+            Violation first = vs.get(0);
+            return ResponseEntity.badRequest().body(new Result<>(1001, first.message(),
+                    new FieldErrors(vs.stream().map(v -> new FieldError(v.field(), v.message())).toList()), first.msgId()));
+        }
+        return ResponseEntity.ok(Result.ok(service.searchSalesOrderLines(salesOrderNo, material, page, size)));
+    }
+
+    static final int PAGE_SIZE_MAX = 200;
+    /** MSG-COM-044「「{0}」必须大于 {1}。」／MSG-COM-045「「{0}」不能大于「{1}」。」（00-common 05）。 */
+    static final String MSG_GREATER_THAN = "MSG-COM-044";
+    static final String MSG_NOT_GREATER_THAN = "MSG-COM-045";
 
     /** 取消 10/20→90。 */
     @PostMapping("/{id}/cancel")

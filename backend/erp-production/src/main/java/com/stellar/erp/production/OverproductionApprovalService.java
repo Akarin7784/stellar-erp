@@ -62,17 +62,7 @@ public class OverproductionApprovalService {
         // 申请时的快照仅供参考，上限在审批和报完工时先锁受注行再重读（此处不加锁）。
         SalesOrderLine line = salesOrderLines.find(company, cmd.salesOrderLineId())
                 .orElseThrow(() -> new BizException(ProductionErrorCode.NOT_FOUND, "受注行不存在"));
-        if (cmd.workOrderId() != null) {
-            ProductionRepository.WorkOrderRef wo = repo.findWorkOrder(company, cmd.workOrderId())
-                    .orElseThrow(OverproductionApprovalService::woMismatch);
-            checkWorkOrderBelongs(wo, line.id(), line.materialId());
-            // 工单級：下达済（≥30）かつ allowed_qty スナップショット済みでなければ申請不可（Lead 2026-10-21 決定）
-            ProductionRepository.WorkOrderLimitState st = repo.findWorkOrderLimitState(company, wo.id())
-                    .orElseThrow(OverproductionApprovalService::woMismatch);
-            if (st.orderStatus() < WO_RELEASED || st.allowedQty() == null) {
-                throw invalidApproval("工单が未下达、または allowed_qty が未確定のため工单級の超産申請はできません。");
-            }
-        }
+        checkTargetWorkOrder(company, line, cmd.workOrderId());
         if (line.allowedQty() == null) {
             throw new BizException(ProductionErrorCode.CONFIG_MISSING, "受注行 allowed_qty 尚未快照");
         }
@@ -96,6 +86,79 @@ public class OverproductionApprovalService {
             throw e;
         }
         return new OverproductionRequested(id, no, STATUS_DRAFT, cmd.requestQty(), line.allowedQty());
+    }
+
+    /** 工单級の対象工单チェック（登録・草稿編集で共通）。NULL＝受注行級は何もしない。 */
+    private void checkTargetWorkOrder(long company, SalesOrderLine line, Long workOrderId) {
+        if (workOrderId == null) {
+            return;
+        }
+        ProductionRepository.WorkOrderRef wo = repo.findWorkOrder(company, workOrderId)
+                .orElseThrow(OverproductionApprovalService::woMismatch);
+        checkWorkOrderBelongs(wo, line.id(), line.materialId());
+        // 工单級：下达済（≥30）かつ allowed_qty スナップショット済みでなければ申請不可（Lead 2026-10-21 決定）
+        ProductionRepository.WorkOrderLimitState st = repo.findWorkOrderLimitState(company, wo.id())
+                .orElseThrow(OverproductionApprovalService::woMismatch);
+        if (st.orderStatus() < WO_RELEASED || st.allowedQty() == null) {
+            throw invalidApproval("工单が未下达、または allowed_qty が未確定のため工单級の超産申請はできません。");
+        }
+    }
+
+    /**
+     * 草稿修正（状態 10 のみ）。申請行を FOR UPDATE → 状態（10 以外は 60101、他操作と同じ）→ version（不一致 4003）→
+     * 数量・工单を登録と同じ規則で検証し、request_qty・work_order_id・remark のみ更新する（#39h、AC-PRD-18）。
+     * current_allowed_qty／受注行・工单の allowed_qty は変更しない。
+     */
+    @Transactional
+    public OverproductionApprovalView update(long approvalId, OverproductionUpdateCommand cmd) {
+        LoginContext.LoginUser login = LoginContext.require();
+        long company = login.companyId();
+        ProductionRepository.ApprovalRow a = repo.findApproval(company, approvalId, true)
+                .orElseThrow(OverproductionApprovalService::notFound);
+        checkStatus(a, STATUS_DRAFT);
+        checkVersion(a, cmd == null ? null : cmd.version());
+        if (cmd.requestQty() == null || cmd.requestQty().signum() <= 0) {
+            throw invalidQty();
+        }
+        SalesOrderLine line = salesOrderLines.find(company, a.salesOrderLineId())
+                .orElseThrow(() -> new BizException(ProductionErrorCode.CONFIG_MISSING, "超产申请的受注行不存在，数据不整合"));
+        checkTargetWorkOrder(company, line, cmd.workOrderId());
+        checkLimit(company, line.id(), cmd.requestQty());
+        int n;
+        try {
+            n = repo.updateDraftApproval(company, a.id(), a.version(), login.userId(), cmd.workOrderId(),
+                    cmd.requestQty(), cmd.remark());
+        } catch (DataIntegrityViolationException e) {
+            if (isRequestQtyViolation(e)) {
+                throw invalidQty();
+            }
+            throw e;
+        }
+        if (n != 1) {
+            throw versionConflict();
+        }
+        return get(approvalId);
+    }
+
+    /** 超产申请用 受注行ピッカー（当前会社、受注番号・品目コード／品名の部分一致、ページング）。 */
+    @Transactional(readOnly = true)
+    public PageResult<SalesOrderLineOption> searchSalesOrderLines(String salesOrderNo, String material,
+                                                                   int pageNum, int pageSize) {
+        long company = LoginContext.require().companyId();
+        if (pageNum < 1 || pageSize < 1 || pageSize > 200) {
+            throw new BizException(1001, "MSG-COM-040", "pageNum / pageSize 不正");
+        }
+        String no = blankToNull(salesOrderNo);
+        String mat = blankToNull(material);
+        long total = repo.countSalesOrderLineOptions(company, no, mat);
+        List<SalesOrderLineOption> rows = repo.listSalesOrderLineOptions(company, no, mat, pageSize,
+                (long) (pageNum - 1) * pageSize);
+        return PageResult.of(rows, total, pageNum, pageSize);
+    }
+
+    /** 前後空白を除き、空なら NULL（絞込なし）。LIKE のワイルドカードはエスケープしない。 */
+    private static String blankToNull(String v) {
+        return v == null || v.isBlank() ? null : v.strip();
     }
 
     /** 承認 → 30。受注行 → 工单 → 申請行の順にロックし、受注行（と工单級なら工单）の allowed_qty を +delta。 */

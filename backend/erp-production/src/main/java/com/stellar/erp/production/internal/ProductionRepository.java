@@ -462,56 +462,127 @@ public class ProductionRepository {
                 .update();
     }
 
-    /** 超产申请の詳細／一覧行。 */
-    public record ApprovalView(long id, String approvalNo, long salesOrderId, long salesOrderLineId, Long workOrderId,
-                               long materialId, BigDecimal requestQty, BigDecimal currentAllowedQty,
+    /** 超产申请の詳細／一覧行（表示名は三列 JOIN）。 */
+    public record ApprovalView(long id, String approvalNo, long salesOrderId, String salesOrderNo, long salesOrderLineId,
+                               Long workOrderId, String workOrderNo, long materialId, String materialCode,
+                               String materialName, BigDecimal requestQty, BigDecimal currentAllowedQty,
                                BigDecimal approvedAllowedQty, short approvalStatus, long requestedBy,
-                               OffsetDateTime requestedAt, Long approvedBy, OffsetDateTime approvedAt,
-                               String rejectReason, String remark, int version) {
+                               String requestedByName, OffsetDateTime requestedAt, Long approvedBy,
+                               OffsetDateTime approvedAt, String rejectReason, String remark, int version) {
     }
 
+    /**
+     * 受注・工单・品目は (tenant_id, company_id, id) の三列で同一会社に限定して JOIN（#90/#101 の三列 FK と同じ粒度）。
+     * sys_user は租户単位のマスタ（ユーザは複数会社に所属し得る）のため (tenant_id, id) で JOIN する。
+     */
     private static final String APPROVAL_VIEW = """
-            SELECT id, approval_no, sales_order_id, sales_order_line_id, work_order_id, material_id, request_qty,
-                   current_allowed_qty, approved_allowed_qty, approval_status, requested_by, requested_at,
-                   approved_by, approved_at, reject_reason, remark, version
-              FROM prd_overproduction_approval
+            SELECT a.id, a.approval_no, a.sales_order_id, so.sales_order_no, a.sales_order_line_id, a.work_order_id,
+                   wo.work_order_no, a.material_id, m.material_code, m.material_name, a.request_qty,
+                   a.current_allowed_qty, a.approved_allowed_qty, a.approval_status, a.requested_by,
+                   u.real_name AS requested_by_name, a.requested_at, a.approved_by, a.approved_at, a.reject_reason,
+                   a.remark, a.version
+              FROM prd_overproduction_approval a
+              LEFT JOIN sal_sales_order so
+                ON so.tenant_id = a.tenant_id AND so.company_id = a.company_id AND so.id = a.sales_order_id
+              LEFT JOIN prd_work_order wo
+                ON wo.tenant_id = a.tenant_id AND wo.company_id = a.company_id AND wo.id = a.work_order_id
+              LEFT JOIN mdm_material m
+                ON m.tenant_id = a.tenant_id AND m.company_id = a.company_id AND m.id = a.material_id
+              LEFT JOIN sys_user u
+                ON u.tenant_id = a.tenant_id AND u.id = a.requested_by
             """;
 
     private static ApprovalView mapView(java.sql.ResultSet rs) throws java.sql.SQLException {
         return new ApprovalView(rs.getLong("id"), rs.getString("approval_no"), rs.getLong("sales_order_id"),
-                rs.getLong("sales_order_line_id"), rs.getObject("work_order_id", Long.class), rs.getLong("material_id"),
+                rs.getString("sales_order_no"), rs.getLong("sales_order_line_id"),
+                rs.getObject("work_order_id", Long.class), rs.getString("work_order_no"), rs.getLong("material_id"),
+                rs.getString("material_code"), rs.getString("material_name"),
                 rs.getBigDecimal("request_qty"), rs.getBigDecimal("current_allowed_qty"),
                 rs.getBigDecimal("approved_allowed_qty"), rs.getShort("approval_status"), rs.getLong("requested_by"),
-                rs.getObject("requested_at", OffsetDateTime.class), rs.getObject("approved_by", Long.class),
-                rs.getObject("approved_at", OffsetDateTime.class), rs.getString("reject_reason"), rs.getString("remark"),
-                rs.getInt("version"));
+                rs.getString("requested_by_name"), rs.getObject("requested_at", OffsetDateTime.class),
+                rs.getObject("approved_by", Long.class), rs.getObject("approved_at", OffsetDateTime.class),
+                rs.getString("reject_reason"), rs.getString("remark"), rs.getInt("version"));
     }
 
     public Optional<ApprovalView> findApprovalView(long companyId, long approvalId) {
-        return jdbc.sql(APPROVAL_VIEW + " WHERE id = :id AND company_id = :company")
+        return jdbc.sql(APPROVAL_VIEW + " WHERE a.id = :id AND a.company_id = :company")
                 .param("id", approvalId).param("company", companyId)
                 .query((rs, i) -> mapView(rs)).optional();
     }
 
     private static final String LIST_FILTER = """
-             WHERE company_id = :company
-               AND (CAST(:line AS BIGINT) IS NULL OR sales_order_line_id = :line)
-               AND (CAST(:wo AS BIGINT) IS NULL OR work_order_id = :wo)
-               AND (CAST(:st AS SMALLINT) IS NULL OR approval_status = :st)
+             WHERE a.company_id = :company
+               AND (CAST(:line AS BIGINT) IS NULL OR a.sales_order_line_id = :line)
+               AND (CAST(:wo AS BIGINT) IS NULL OR a.work_order_id = :wo)
+               AND (CAST(:st AS SMALLINT) IS NULL OR a.approval_status = :st)
             """;
 
     public long countApprovals(long companyId, Long lineId, Long workOrderId, Short status) {
-        return jdbc.sql("SELECT count(*) FROM prd_overproduction_approval" + LIST_FILTER)
+        return jdbc.sql("SELECT count(*) FROM prd_overproduction_approval a" + LIST_FILTER)
                 .param("company", companyId).param("line", lineId).param("wo", workOrderId).param("st", status)
                 .query(Long.class).single();
     }
 
     public List<ApprovalView> listApprovals(long companyId, Long lineId, Long workOrderId, Short status, int limit,
                                             long offset) {
-        return jdbc.sql(APPROVAL_VIEW + LIST_FILTER + " ORDER BY requested_at DESC, id DESC LIMIT :lim OFFSET :off")
+        return jdbc.sql(APPROVAL_VIEW + LIST_FILTER + " ORDER BY a.requested_at DESC, a.id DESC LIMIT :lim OFFSET :off")
                 .param("company", companyId).param("line", lineId).param("wo", workOrderId).param("st", status)
                 .param("lim", limit).param("off", offset)
                 .query((rs, i) -> mapView(rs)).list();
+    }
+
+    /**
+     * 草稿修正（#39h、状態 10 のみ・楽観排他）。request_qty・work_order_id・remark だけを更新し、
+     * current_allowed_qty／受注行・工单の allowed_qty には触れない。返回更新行数。
+     */
+    public int updateDraftApproval(long companyId, long approvalId, int version, long userId, Long workOrderId,
+                                   BigDecimal requestQty, String remark) {
+        return jdbc.sql("""
+                        UPDATE prd_overproduction_approval
+                           SET request_qty = :qty, work_order_id = :wo, remark = :remark,
+                               version = version + 1, updated_by = :user, updated_at = now()
+                         WHERE id = :id AND company_id = :company AND approval_status = 10 AND version = :version
+                        """)
+                .param("qty", requestQty).param("wo", workOrderId).param("remark", remark).param("user", userId)
+                .param("id", approvalId).param("company", companyId).param("version", version)
+                .update();
+    }
+
+    /**
+     * 超产申请の受注行ピッカー条件：当前会社、受注が承認済以降（25/30/35）、明細が未完了（10/30/35）、
+     * allowed_qty スナップショット済み。salesOrderNo は部分一致、material は品目コード／品名の部分一致（ILIKE）。
+     */
+    private static final String LINE_OPTION_FILTER = """
+              FROM sal_sales_order_line l
+              JOIN sal_sales_order so
+                ON so.tenant_id = l.tenant_id AND so.company_id = l.company_id AND so.id = l.sales_order_id
+             WHERE l.company_id = :company
+               AND so.order_status IN (25, 30, 35)
+               AND l.line_status IN (10, 30, 35)
+               AND l.allowed_qty IS NOT NULL
+               AND (CAST(:no AS TEXT) IS NULL OR so.sales_order_no ILIKE '%' || CAST(:no AS TEXT) || '%')
+               AND (CAST(:mat AS TEXT) IS NULL OR l.material_code ILIKE '%' || CAST(:mat AS TEXT) || '%'
+                    OR l.material_name ILIKE '%' || CAST(:mat AS TEXT) || '%')
+            """;
+
+    public long countSalesOrderLineOptions(long companyId, String salesOrderNo, String material) {
+        return jdbc.sql("SELECT count(*)" + LINE_OPTION_FILTER)
+                .param("company", companyId).param("no", salesOrderNo).param("mat", material)
+                .query(Long.class).single();
+    }
+
+    public List<com.stellar.erp.production.SalesOrderLineOption> listSalesOrderLineOptions(long companyId,
+            String salesOrderNo, String material, int limit, long offset) {
+        return jdbc.sql("""
+                        SELECT l.id, l.sales_order_id, so.sales_order_no, l.line_no, l.material_id, l.material_code,
+                               l.material_name, l.base_uom_code, l.base_qty, l.allowed_qty, l.completed_qty
+                        """ + LINE_OPTION_FILTER + " ORDER BY so.sales_order_no DESC, l.line_no, l.id LIMIT :lim OFFSET :off")
+                .param("company", companyId).param("no", salesOrderNo).param("mat", material)
+                .param("lim", limit).param("off", offset)
+                .query((rs, i) -> new com.stellar.erp.production.SalesOrderLineOption(rs.getLong(1), rs.getLong(2),
+                        rs.getString(3), rs.getInt(4), rs.getLong(5), rs.getString(6), rs.getString(7), rs.getString(8),
+                        rs.getBigDecimal(9), rs.getBigDecimal(10), rs.getBigDecimal(11)))
+                .list();
     }
 
     /** 工单 FOR UPDATE（受注行の後に取る：00-common 04 §11.1）。 */
