@@ -241,7 +241,9 @@ COMMENT ON TABLE sys_tenant IS '租户（マルチテナント契約単位）';
 
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
-| uk_sys_tenant_code | UNIQUE | (tenant_id, tenant_code) | WHERE deleted=FALSE | 租户コード一意 |
+| uk_sys_tenant_code | UNIQUE | (tenant_code) | WHERE deleted=FALSE | 租户コード（ログイン画面の「企业代码」）を**全体で一意**。ログイン時に `tenant_code` から租户を一意に特定するため `tenant_id` を含めない（[00-common/04](../00-common/04-common-db-spec.md) §6.1 第 4 条 (c) の具名例外）。旧定義 `(tenant_id, tenant_code)` では `id=tenant_id` のため租户間の重複を防げなかった（蓝色大肥鱼 2026-10-21 #71 決定） |
+
+**ログイン用参照関数**：`sys_auth_find_login_user(p_tenant_code, p_username)`（SECURITY DEFINER、`SET search_path` 固定、`EXECUTE` は `erp_app` のみ・`PUBLIC` から REVOKE）。`sys_tenant`（`tenant_code` 一致・`deleted=FALSE`・`status=1`・`expire_date IS NULL OR expire_date >= current_date`）と同租户の `sys_user`（`username` 一致・`deleted=FALSE`）を結合し、照合に必要な最小項目のみ返す（[01-auth-login](01-auth-login.md) PRC-SYS-001-02 手順 2）。DBA が `sys_user` 正式迁移で定義する（蓝色大肥鱼 2026-10-21 #71 決定）。
 
 **更新仕様**：画面での編集も第一版対象（TODO：編集仕様未設計）。初期データで `id=0`「系统默认租户」を投入する。
 
@@ -367,7 +369,7 @@ COMMENT ON TABLE sys_user IS '用户（ログインアカウント＋社員属�
 | 索引 | 種別 | 対象列 | 条件 | 目的 |
 |---|---|---|---|---|
 | uk_sys_user_code | UNIQUE | (tenant_id, company_id, user_code) | WHERE deleted=FALSE | 工号一意 |
-| uk_sys_user_username | UNIQUE | (tenant_id, username) | WHERE deleted=FALSE | ログイン ID 一意。テナント級一意（[00-common/04](../00-common/04-common-db-spec.md) §6.1 第 4 条 (b)、目標名）。main 上は現在 `uk_sys_user_tenant_username`（`V1__baseline.sql:18`）。改名・`tenant_id` 既定値の修正・pgTAP 例外登録は `sys_user` の正式迁移で行う |
+| uk_sys_user_username | UNIQUE | (tenant_id, username) | WHERE deleted=FALSE | 租户内で `username` 一意。ログインは企業代码（`sys_tenant.tenant_code`）＋`username` で行う（2026-10-21 #71 決定。今朝 #41 の「ログイン ID＝`username` のみ」を変更）。テナント級一意（[00-common/04](../00-common/04-common-db-spec.md) §6.1 第 4 条 (b)、目標名）。main 上は現在 `uk_sys_user_tenant_username`（`V1__baseline.sql:18`）。改名・`tenant_id` 既定値の修正・pgTAP 例外登録は `sys_user` の正式迁移で行う |
 | idx_sys_user_dept_status | B-Tree | (tenant_id, company_id, department_id, status) | — | 部門別ユーザ一覧 |
 | idx_sys_user_name_trgm | GIN | (real_name gin_trgm_ops) | — | 氏名曖昧検索 |
 | idx_sys_user_mobile | B-Tree | (tenant_id, company_id, mobile) | — | 電話番号検索 |
@@ -1628,3 +1630,4 @@ COMMENT ON TABLE sys_data_maintenance_log IS '数据维护历史（初期化・�
 | v1.14 | 2026-10-21 | #58 決定反映：§3.12 `uk_sys_menu_permission` を普通索引 `idx_sys_menu_permission` に（`permission_code` 重複可）、§3.1/§3.3/§3.12 に `sys_init_tenant`（メニュー＋各社呼出し、provisioner のみ）／`sys_init_company(p_tenant_id, p_company_id)`（`sys_param`＋`SYSTEM_ADMIN` 未作成時のみ作成・全付与、`erp_app` にも EXECUTE、テナント・会社検査）を明記（蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
 | v1.15 | 2026-10-21 | §3.4 `sys_department.parent_id`・§3.12 `sys_menu.parent_id` は 0＝ルートのため自己参照 FK を付けず、アプリで検査（04 §6.2 項 2a 命名例外。蓝色大肥鱼 2026-10-21 決定、案 A） | 业务分析 |
 | v1.16 | 2026-10-21 | §1 に種データの主キーは `sys_seed_id` のハッシュで生成され、理論上アプリ層の雪花 ID と衝突しうること、発番器変更時に考慮することを追記（測試与評審 #64 指摘、蓝色大肥鱼 2026-10-21 決定） | 业务分析 |
+| v1.17 | 2026-10-21 | §3.3 `uk_sys_tenant_code` を `(tenant_id, tenant_code)` → `(tenant_code) WHERE deleted=FALSE` の全体一意に変更（04 §6.1 第 4 条 (c) 具名例外）、ログイン参照関数 `sys_auth_find_login_user` を追記。§3.x `uk_sys_user_username` の目的をログイン＝企業代码＋`username` に修正。DB 迁移は DBA の `sys_user` 正式迁移で実施（蓝色大肥鱼 2026-10-21 #71 決定） | 业务分析 |
