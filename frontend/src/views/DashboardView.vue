@@ -11,7 +11,9 @@
 
     <el-card class="dashboard__api" shadow="never">
       <template #header>后端连通性</template>
-      <el-button type="primary" :loading="loading" @click="checkBackend">调用 /api/v1/system/ping</el-button>
+      <el-button type="primary" :loading="loading" @click="checkBackend"
+        >调用 /api/v1/system/ping</el-button
+      >
       <pre v-if="pingResult" class="dashboard__result">{{ pingResult }}</pre>
     </el-card>
   </div>
